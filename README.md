@@ -58,6 +58,10 @@ A cutting-edge **cross-platform desktop application** for web and mobile securit
 
 ## 🚀 Installation
 
+### Quick Start
+
+See [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup guide!
+
 ### Prerequisites
 
 - Python 3.12 or higher
