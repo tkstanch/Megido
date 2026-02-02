@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}HTTP Proxy - Megido Security{% endblock %}
+
+{% block extra_style %}
+.request-list {
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.request-item {
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.request-item:hover {
+    background: #f8f9fa;
+}
+.request-method {
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 3px;
+    color: white;
+}
+.method-GET { background: #28a745; }
+.method-POST { background: #007bff; }
+.method-PUT { background: #ffc107; color: #333; }
+.method-DELETE { background: #dc3545; }
+.status-code {
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+.status-2xx { background: #d4edda; color: #155724; }
+.status-3xx { background: #fff3cd; color: #856404; }
+.status-4xx { background: #f8d7da; color: #721c24; }
+.status-5xx { background: #d6d8db; color: #1b1e21; }
+{% endblock %}
+
+{% block content %}
+<h2>HTTP Proxy</h2>
+<p>Monitor and analyze HTTP/HTTPS traffic passing through the proxy.</p>
+
+<div class="info" style="margin: 20px 0;">
+    <p><strong>Proxy Status:</strong> <span id="proxy-status">Loading...</span></p>
+    <p><strong>Total Requests:</strong> <span id="total-requests">0</span></p>
+</div>
+
+<div class="request-list" id="request-list">
+    <div style="padding: 20px; text-align: center; color: #666;">
+        Loading requests...
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+async function loadRequests() {
+    try {
+        const response = await fetch('/proxy/api/requests/');
+        const requests = await response.json();
+        
+        document.getElementById('total-requests').textContent = requests.length;
+        document.getElementById('proxy-status').textContent = 'Active';
+        
+        const listDiv = document.getElementById('request-list');
+        if (requests.length === 0) {
+            listDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No requests captured yet</div>';
+            return;
+        }
+        
+        listDiv.innerHTML = requests.map(req => {
+            const statusClass = req.status_code ? 
+                `status-${Math.floor(req.status_code / 100)}xx` : '';
+            return `
+                <div class="request-item">
+                    <div>
+                        <span class="request-method method-${req.method}">${req.method}</span>
+                        <span style="margin-left: 10px;">${req.url}</span>
+                    </div>
+                    <div>
+                        ${req.status_code ? `<span class="status-code ${statusClass}">${req.status_code}</span>` : ''}
+                        <span style="margin-left: 10px; color: #666; font-size: 0.9em;">${new Date(req.timestamp).toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading requests:', error);
+        document.getElementById('proxy-status').textContent = 'Error';
+    }
+}
+
+loadRequests();
+setInterval(loadRequests, 5000); // Refresh every 5 seconds
+</script>
+{% endblock %}

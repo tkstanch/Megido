@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Vulnerability Scanner - Megido Security{% endblock %}
+
+{% block extra_style %}
+.scan-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+.scan-results {
+    margin-top: 30px;
+}
+.vulnerability {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+}
+.severity-critical { border-left: 5px solid #dc3545; }
+.severity-high { border-left: 5px solid #fd7e14; }
+.severity-medium { border-left: 5px solid #ffc107; }
+.severity-low { border-left: 5px solid #28a745; }
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+}
+button:hover {
+    opacity: 0.9;
+}
+{% endblock %}
+
+{% block content %}
+<h2>Vulnerability Scanner</h2>
+<p>Automatically scan web applications for common security vulnerabilities.</p>
+
+<div class="scan-form">
+    <h3>Start New Scan</h3>
+    <div style="margin-top: 15px;">
+        <label>Target URL:</label>
+        <input type="text" id="target-url" placeholder="https://example.com">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Scan Name (optional):</label>
+        <input type="text" id="scan-name" placeholder="My Security Scan">
+    </div>
+    <button onclick="startScan()" style="margin-top: 10px;">Start Scan</button>
+</div>
+
+<div id="scan-status" style="margin: 20px 0;"></div>
+
+<div class="scan-results" id="scan-results">
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let currentScanId = null;
+
+async function startScan() {
+    const url = document.getElementById('target-url').value;
+    const name = document.getElementById('scan-name').value;
+    
+    if (!url) {
+        alert('Please enter a target URL');
+        return;
+    }
+    
+    try {
+        // Create target
+        const targetResponse = await fetch('/scanner/api/targets/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url, name})
+        });
+        const target = await targetResponse.json();
+        
+        document.getElementById('scan-status').innerHTML = '<p style="color: #007bff;">Starting scan...</p>';
+        
+        // Start scan
+        const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
+            method: 'POST'
+        });
+        const scan = await scanResponse.json();
+        currentScanId = scan.id;
+        
+        // Wait a moment then load results
+        setTimeout(() => loadResults(scan.id), 2000);
+        
+    } catch (error) {
+        document.getElementById('scan-status').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+    }
+}
+
+async function loadResults(scanId) {
+    try {
+        const response = await fetch(`/scanner/api/scans/${scanId}/results/`);
+        const data = await response.json();
+        
+        document.getElementById('scan-status').innerHTML = `
+            <div class="info">
+                <strong>Scan Status:</strong> ${data.status} | 
+                <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities.length}
+            </div>
+        `;
+        
+        const resultsDiv = document.getElementById('scan-results');
+        if (data.vulnerabilities.length === 0) {
+            resultsDiv.innerHTML = '<div class="info"><p>No vulnerabilities found.</p></div>';
+            return;
+        }
+        
+        resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
+            <div class="vulnerability severity-${vuln.severity}">
+                <div><strong>${vuln.type}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${vuln.severity.toUpperCase()}</span></div>
+                <div style="margin-top: 10px;"><strong>URL:</strong> ${vuln.url}</div>
+                <div style="margin-top: 5px;"><strong>Description:</strong> ${vuln.description}</div>
+                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${vuln.evidence}</div>` : ''}
+                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${vuln.remediation}</div>` : ''}
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading results:', error);
+    }
+}
+
+function getSeverityColor(severity) {
+    const colors = {
+        'critical': '#dc3545',
+        'high': '#fd7e14',
+        'medium': '#ffc107',
+        'low': '#28a745'
+    };
+    return colors[severity] || '#666';
+}
+</script>
+{% endblock %}

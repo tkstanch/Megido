@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Megido Security{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .nav {
+            background: #333;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 20px 30px;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .nav a:hover {
+            background: #555;
+        }
+        .content {
+            padding: 30px;
+        }
+        {% block extra_style %}{% endblock %}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Megido Security</h1>
+            <p>Advanced Web Security Testing Platform</p>
+        </div>
+        <nav class="nav">
+            <a href="/">Home</a>
+            <a href="/proxy/">Proxy</a>
+            <a href="/interceptor/">Interceptor</a>
+            <a href="/repeater/">Repeater</a>
+            <a href="/scanner/">Scanner</a>
+        </nav>
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    {% block extra_script %}{% endblock %}
+</body>
+</html>

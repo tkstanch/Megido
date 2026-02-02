@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Megido Security - Home{% endblock %}
+
+{% block extra_style %}
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+.feature-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+.feature-card h2 {
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+.feature-card p {
+    line-height: 1.6;
+}
+.info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+{% endblock %}
+
+{% block content %}
+<div class="info">
+    <h2>Welcome to Megido Security Testing Platform</h2>
+    <p>A powerful cross-platform desktop application for web security testing, built with Django.</p>
+    <p>This platform provides professional-grade security testing tools similar to Burp Suite Professional.</p>
+</div>
+
+<div class="feature-grid">
+    <div class="feature-card" onclick="window.location='/proxy/'">
+        <h2>🔄 HTTP Proxy</h2>
+        <p>Intercept and analyze all HTTP/HTTPS traffic between your browser and target applications.</p>
+    </div>
+    
+    <div class="feature-card" onclick="window.location='/interceptor/'">
+        <h2>✋ Request Interceptor</h2>
+        <p>Capture and modify HTTP requests in real-time before they reach the server.</p>
+    </div>
+    
+    <div class="feature-card" onclick="window.location='/repeater/'">
+        <h2>🔁 HTTP Repeater</h2>
+        <p>Manually test and replay HTTP requests with custom modifications.</p>
+    </div>
+    
+    <div class="feature-card" onclick="window.location='/scanner/'">
+        <h2>🔍 Vulnerability Scanner</h2>
+        <p>Automatically scan web applications for common security vulnerabilities.</p>
+    </div>
+</div>
+
+<div class="info" style="margin-top: 30px;">
+    <h3>Key Features:</h3>
+    <ul style="margin-left: 20px; margin-top: 10px; line-height: 2;">
+        <li>✅ Cross-platform desktop application (Windows, macOS, Linux)</li>
+        <li>✅ HTTP/HTTPS proxy with SSL/TLS support</li>
+        <li>✅ Request/Response interceptor and modifier</li>
+        <li>✅ Manual request repeater for security testing</li>
+        <li>✅ Automated vulnerability scanner</li>
+        <li>✅ Database-backed request history</li>
+        <li>✅ REST API for automation</li>
+    </ul>
+</div>
+{% endblock %}
