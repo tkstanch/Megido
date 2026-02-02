@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'interceptor',
     'repeater',
     'scanner',
+    'spider',
 ]
 
 MIDDLEWARE = [

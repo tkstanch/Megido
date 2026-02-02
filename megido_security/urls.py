@@ -31,4 +31,5 @@ urlpatterns = [
     path('interceptor/', include('interceptor.urls')),
     path('repeater/', include('repeater.urls')),
     path('scanner/', include('scanner.urls')),
+    path('spider/', include('spider.urls')),
 ]
