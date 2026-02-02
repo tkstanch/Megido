@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+
+{% block title %}Collaborator - Megido Security{% endblock %}
+
+{% block extra_style %}
+.server-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+.server-list {
+    margin-top: 30px;
+}
+.server-item {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.server-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-color: #667eea;
+}
+.server-item.active {
+    border-color: #28a745;
+    border-left: 5px solid #28a745;
+}
+.server-item.inactive {
+    opacity: 0.6;
+    border-left: 5px solid #dc3545;
+}
+.interactions-panel {
+    margin-top: 30px;
+    display: none;
+}
+.interactions-panel.show {
+    display: block;
+}
+.interaction {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+    background: #f8f9fa;
+}
+.interaction-http { border-left: 5px solid #007bff; }
+.interaction-dns { border-left: 5px solid #28a745; }
+.interaction-smtp { border-left: 5px solid #ffc107; }
+.interaction-other { border-left: 5px solid #6c757d; }
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-family: monospace;
+    min-height: 100px;
+}
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-right: 10px;
+}
+button:hover {
+    opacity: 0.9;
+}
+button.secondary {
+    background: #6c757d;
+}
+button.danger {
+    background: #dc3545;
+}
+.info {
+    background: #e7f3ff;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 10px 0;
+    border-left: 5px solid #007bff;
+}
+.badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-left: 10px;
+}
+.badge-success { background: #28a745; color: white; }
+.badge-danger { background: #dc3545; color: white; }
+{% endblock %}
+
+{% block content %}
+<h2>Collaborator</h2>
+<p>Monitor and track interactions with configured domains or IP addresses. Similar to Burp Suite Collaborator.</p>
+
+<div class="info">
+    <strong>ℹ️ How it works:</strong> 
+    Configure a domain or IP address that you control. When external systems interact with it (HTTP requests, DNS queries, etc.), 
+    those interactions are logged here in real-time. This is useful for detecting blind vulnerabilities like SSRF, XXE, and out-of-band injections.
+</div>
+
+<div class="server-form">
+    <h3>Configure Collaborator Server</h3>
+    <div style="margin-top: 15px;">
+        <label>Domain:</label>
+        <input type="text" id="server-domain" placeholder="collaborate.example.com">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>IP Address (optional):</label>
+        <input type="text" id="server-ip" placeholder="192.168.1.100">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Description (optional):</label>
+        <textarea id="server-description" placeholder="Testing environment for XYZ application"></textarea>
+    </div>
+    <button onclick="createServer()">Create Server</button>
+</div>
+
+<div class="server-list" id="server-list">
+    <h3>Configured Servers</h3>
+    <div id="servers-container">
+        <p style="color: #666;">Loading servers...</p>
+    </div>
+</div>
+
+<div class="interactions-panel" id="interactions-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="interactions-title">Interactions</h3>
+        <div>
+            <button onclick="pollInteractions()" class="secondary">Refresh</button>
+            <button onclick="clearInteractions()" class="danger">Clear All</button>
+        </div>
+    </div>
+    <div id="interactions-container">
+        <p style="color: #666;">No interactions recorded yet.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let currentServerId = null;
+let pollingInterval = null;
+let lastPollTime = null;
+
+// Load servers on page load
+window.addEventListener('DOMContentLoaded', loadServers);
+
+async function loadServers() {
+    try {
+        const response = await fetch('/collaborator/api/servers/');
+        const servers = await response.json();
+        
+        const container = document.getElementById('servers-container');
+        if (servers.length === 0) {
+            container.innerHTML = '<p style="color: #666;">No servers configured yet.</p>';
+            return;
+        }
+        
+        container.innerHTML = servers.map(server => `
+            <div class="server-item ${server.is_active ? 'active' : 'inactive'}" onclick="selectServer(${server.id}, this)">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${server.domain}</strong>
+                        ${server.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Inactive</span>'}
+                        <div style="margin-top: 5px; color: #666; font-size: 0.9em;">
+                            ${server.ip_address ? 'IP: ' + server.ip_address : 'No IP configured'}
+                        </div>
+                        ${server.description ? '<div style="margin-top: 5px; color: #666; font-size: 0.9em;">' + server.description + '</div>' : ''}
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.2em; font-weight: bold;">${server.interaction_count}</div>
+                        <div style="color: #666; font-size: 0.85em;">interactions</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading servers:', error);
+        document.getElementById('servers-container').innerHTML = '<p style="color: #dc3545;">Error loading servers.</p>';
+    }
+}
+
+async function createServer() {
+    const domain = document.getElementById('server-domain').value;
+    const ip = document.getElementById('server-ip').value;
+    const description = document.getElementById('server-description').value;
+    
+    if (!domain) {
+        alert('Please enter a domain');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/collaborator/api/servers/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({domain, ip_address: ip, description})
+        });
+        
+        if (response.ok) {
+            document.getElementById('server-domain').value = '';
+            document.getElementById('server-ip').value = '';
+            document.getElementById('server-description').value = '';
+            await loadServers();
+        } else {
+            const error = await response.json();
+            alert('Error creating server: ' + JSON.stringify(error));
+        }
+    } catch (error) {
+        alert('Error creating server: ' + error.message);
+    }
+}
+
+async function selectServer(serverId, element) {
+    currentServerId = serverId;
+    
+    // Highlight selected server
+    document.querySelectorAll('.server-item').forEach(item => {
+        item.style.background = 'white';
+    });
+    element.style.background = '#e7f3ff';
+    
+    // Show interactions panel
+    document.getElementById('interactions-panel').classList.add('show');
+    
+    // Stop any existing polling
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+    
+    // Load interactions
+    await loadInteractions();
+    
+    // Start polling for new interactions
+    lastPollTime = new Date().toISOString();
+    pollingInterval = setInterval(pollInteractions, 5000);
+}
+
+async function loadInteractions() {
+    if (!currentServerId) return;
+    
+    try {
+        const response = await fetch(`/collaborator/api/servers/${currentServerId}/interactions/`);
+        const interactions = await response.json();
+        
+        document.getElementById('interactions-title').textContent = `Interactions (${interactions.length})`;
+        
+        const container = document.getElementById('interactions-container');
+        if (interactions.length === 0) {
+            container.innerHTML = '<p style="color: #666;">No interactions recorded yet.</p>';
+            return;
+        }
+        
+        container.innerHTML = interactions.map(interaction => `
+            <div class="interaction interaction-${interaction.interaction_type_code}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div>
+                        <strong>${interaction.interaction_type}</strong>
+                        <span style="color: #666; margin-left: 10px;">${new Date(interaction.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div style="color: #666;">
+                        from ${interaction.source_ip}
+                    </div>
+                </div>
+                ${interaction.http_method ? `
+                    <div style="margin-top: 8px;">
+                        <strong>HTTP:</strong> ${interaction.http_method} ${interaction.http_path || '/'}
+                    </div>
+                ` : ''}
+                ${interaction.dns_query_type ? `
+                    <div style="margin-top: 8px;">
+                        <strong>DNS:</strong> ${interaction.dns_query_type} query for ${interaction.dns_query_name}
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading interactions:', error);
+    }
+}
+
+async function pollInteractions() {
+    if (!currentServerId || !lastPollTime) return;
+    
+    try {
+        const response = await fetch(`/collaborator/api/servers/${currentServerId}/interactions/poll/?since=${lastPollTime}`);
+        const newInteractions = await response.json();
+        
+        if (newInteractions.length > 0) {
+            // Update last poll time
+            lastPollTime = new Date().toISOString();
+            // Reload all interactions
+            await loadInteractions();
+            // Also reload servers to update counts
+            await loadServers();
+        }
+    } catch (error) {
+        console.error('Error polling interactions:', error);
+    }
+}
+
+async function clearInteractions() {
+    if (!currentServerId) return;
+    
+    if (!confirm('Are you sure you want to clear all interactions for this server?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/collaborator/api/servers/${currentServerId}/interactions/clear/`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            await loadInteractions();
+            await loadServers();
+        }
+    } catch (error) {
+        console.error('Error clearing interactions:', error);
+    }
+}
+
+// Clean up polling on page unload
+window.addEventListener('beforeunload', () => {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+});
+</script>
+{% endblock %}

@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'spider',
     'mapper',
     'bypasser',
+    'collaborator',
 ]
 
 MIDDLEWARE = [
