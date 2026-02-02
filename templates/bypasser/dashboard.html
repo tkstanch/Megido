@@ -170,14 +170,16 @@ button:disabled {
 <script>
 let currentSessionId = null;
 
-function switchTab(tabName) {
+function switchTab(tabName, event) {
     // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
     
     // Show selected tab
     document.getElementById(`tab-${tabName}`).classList.add('active');
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 }
 
 async function startProbing() {

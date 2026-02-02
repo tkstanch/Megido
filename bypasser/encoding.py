@@ -97,7 +97,7 @@ class EncodingTechniques:
         """UTF-7 encoding (legacy)"""
         try:
             return text.encode('utf-7').decode('ascii')
-        except:
+        except (UnicodeEncodeError, UnicodeDecodeError, AttributeError):
             return text
     
     @staticmethod

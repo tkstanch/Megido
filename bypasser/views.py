@@ -10,6 +10,9 @@ from .encoding import EncodingTechniques, SpecialCharacters, detect_blocking
 import requests
 import os
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def bypasser_dashboard(request):
@@ -163,7 +166,7 @@ def perform_character_probing(session, target):
             time.sleep(0.1)
             
         except Exception as e:
-            print(f"Error testing character {char}: {e}")
+            logger.error(f"Error testing character {char}: {e}")
             # Create error record
             CharacterProbe.objects.create(
                 session=session,
@@ -346,7 +349,7 @@ def test_encoding_bypass(request, session_id):
                     time.sleep(0.1)
                     
                 except Exception as e:
-                    print(f"Error testing encoding {encoding_type} for {char}: {e}")
+                    logger.error(f"Error testing encoding {encoding_type} for {char}: {e}")
         
         return Response({
             'message': 'Encoding bypass testing completed',
