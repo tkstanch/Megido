@@ -1,0 +1,485 @@
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.conf import settings
+from django.apps import apps
+from .models import (
+    SpiderTarget, SpiderSession, DiscoveredURL,
+    HiddenContent, BruteForceAttempt, InferredContent,
+    ToolScanResult, ParameterDiscoveryAttempt,
+    DiscoveredParameter, ParameterBruteForce
+)
+from . import views
+import json
+
+
+class SpiderAppConfigTest(TestCase):
+    """Test that the spider app is properly configured"""
+    
+    def test_app_exists(self):
+        """Verify that spider app exists"""
+        app_config = apps.get_app_config('spider')
+        self.assertEqual(app_config.name, 'spider')
+    
+    def test_app_in_installed_apps(self):
+        """Verify that spider app is in INSTALLED_APPS"""
+        self.assertIn('spider', settings.INSTALLED_APPS)
+
+
+class SpiderModelsTest(TestCase):
+    """Test spider models"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test Target',
+            max_depth=3
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='pending'
+        )
+    
+    def test_spider_target_creation(self):
+        """Test creating a spider target"""
+        self.assertEqual(self.target.url, 'https://example.com')
+        self.assertEqual(self.target.name, 'Test Target')
+        self.assertEqual(self.target.max_depth, 3)
+        self.assertTrue(self.target.use_dirbuster)
+        self.assertTrue(self.target.use_nikto)
+        self.assertTrue(self.target.enable_parameter_discovery)
+    
+    def test_spider_session_creation(self):
+        """Test creating a spider session"""
+        self.assertEqual(self.session.target, self.target)
+        self.assertEqual(self.session.status, 'pending')
+        self.assertEqual(self.session.urls_discovered, 0)
+        self.assertIsNotNone(self.session.started_at)
+    
+    def test_discovered_url_creation(self):
+        """Test creating a discovered URL"""
+        url = DiscoveredURL.objects.create(
+            session=self.session,
+            url='https://example.com/test',
+            discovery_method='crawl',
+            status_code=200
+        )
+        self.assertEqual(url.session, self.session)
+        self.assertEqual(url.discovery_method, 'crawl')
+        self.assertEqual(url.status_code, 200)
+    
+    def test_hidden_content_creation(self):
+        """Test creating hidden content"""
+        content = HiddenContent.objects.create(
+            session=self.session,
+            url='https://example.com/admin',
+            content_type='admin_panel',
+            discovery_method='dirbuster',
+            status_code=200,
+            risk_level='high'
+        )
+        self.assertEqual(content.content_type, 'admin_panel')
+        self.assertEqual(content.risk_level, 'high')
+    
+    def test_brute_force_attempt_creation(self):
+        """Test creating brute force attempt"""
+        attempt = BruteForceAttempt.objects.create(
+            session=self.session,
+            base_url='https://example.com',
+            path_tested='/admin',
+            full_url='https://example.com/admin',
+            status_code=200,
+            success=True
+        )
+        self.assertTrue(attempt.success)
+        self.assertEqual(attempt.status_code, 200)
+    
+    def test_inferred_content_creation(self):
+        """Test creating inferred content"""
+        inferred = InferredContent.objects.create(
+            session=self.session,
+            source_url='https://example.com/v1',
+            inferred_url='https://example.com/v2',
+            inference_type='version',
+            confidence=0.8,
+            reasoning='Version pattern detected'
+        )
+        self.assertEqual(inferred.inference_type, 'version')
+        self.assertEqual(inferred.confidence, 0.8)
+        self.assertFalse(inferred.verified)
+    
+    def test_tool_scan_result_creation(self):
+        """Test creating tool scan result"""
+        result = ToolScanResult.objects.create(
+            session=self.session,
+            tool_name='dirbuster',
+            status='running'
+        )
+        self.assertEqual(result.tool_name, 'dirbuster')
+        self.assertEqual(result.findings_count, 0)
+    
+    def test_spider_session_statistics(self):
+        """Test session statistics update"""
+        # Create some discovered URLs
+        for i in range(5):
+            DiscoveredURL.objects.create(
+                session=self.session,
+                url=f'https://example.com/page{i}',
+                discovery_method='crawl'
+            )
+        
+        # Update statistics
+        self.session.urls_discovered = self.session.discovered_urls.count()
+        self.session.save()
+        
+        self.assertEqual(self.session.urls_discovered, 5)
+
+
+class SpiderViewTest(TestCase):
+    """Test spider views"""
+    
+    def setUp(self):
+        """Set up test client and data"""
+        self.client = Client()
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test Target'
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='completed'
+        )
+    
+    def test_index_view(self):
+        """Test spider index/dashboard view"""
+        response = self.client.get(reverse('spider:index'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'spider/dashboard.html')
+    
+    def test_spider_targets_list(self):
+        """Test listing spider targets via API"""
+        response = self.client.get(reverse('spider:spider_targets'))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['url'], 'https://example.com')
+    
+    def test_spider_targets_create(self):
+        """Test creating a spider target via API"""
+        response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'url': 'https://test.com',
+                'name': 'New Target',
+                'max_depth': 2
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 201)
+        data = json.loads(response.content)
+        self.assertIn('id', data)
+        
+        # Verify target was created
+        target = SpiderTarget.objects.get(id=data['id'])
+        self.assertEqual(target.url, 'https://test.com')
+        self.assertEqual(target.name, 'New Target')
+    
+    def test_spider_results(self):
+        """Test getting spider session results"""
+        # Add some test data
+        DiscoveredURL.objects.create(
+            session=self.session,
+            url='https://example.com/test',
+            discovery_method='crawl',
+            status_code=200
+        )
+        
+        HiddenContent.objects.create(
+            session=self.session,
+            url='https://example.com/admin',
+            content_type='admin_panel',
+            discovery_method='dirbuster',
+            status_code=200,
+            risk_level='high'
+        )
+        
+        response = self.client.get(
+            reverse('spider:spider_results', kwargs={'session_id': self.session.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.content)
+        self.assertEqual(data['session_id'], self.session.id)
+        self.assertEqual(data['status'], 'completed')
+        self.assertIn('discovered_urls', data)
+        self.assertIn('hidden_content', data)
+        self.assertGreater(len(data['discovered_urls']), 0)
+        self.assertGreater(len(data['hidden_content']), 0)
+    
+    def test_spider_results_not_found(self):
+        """Test getting results for non-existent session"""
+        response = self.client.get(
+            reverse('spider:spider_results', kwargs={'session_id': 99999})
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class SpiderUrlsTest(TestCase):
+    """Test spider URL configuration"""
+    
+    def test_urls_file_exists(self):
+        """Verify that urls.py exists and is configured"""
+        from spider import urls
+        self.assertTrue(hasattr(urls, 'urlpatterns'))
+        self.assertTrue(hasattr(urls, 'app_name'))
+        self.assertEqual(urls.app_name, 'spider')
+    
+    def test_url_patterns(self):
+        """Test that all required URL patterns are defined"""
+        url_names = ['index', 'spider_targets', 'start_spider', 'spider_results']
+        for name in url_names:
+            try:
+                url = reverse(f'spider:{name}', kwargs={'target_id': 1} if 'target' in name else {'session_id': 1} if 'session' in name else {})
+                self.assertIsNotNone(url)
+            except Exception as e:
+                if 'target_id' not in str(e) and 'session_id' not in str(e):
+                    self.fail(f"URL pattern 'spider:{name}' not found")
+
+
+class SpiderAdminTest(TestCase):
+    """Test spider admin interface"""
+    
+    def test_models_registered_in_admin(self):
+        """Test that all models are registered in admin"""
+        from django.contrib import admin
+        from spider import models
+        
+        registered_models = [
+            models.SpiderTarget,
+            models.SpiderSession,
+            models.DiscoveredURL,
+            models.HiddenContent,
+            models.BruteForceAttempt,
+            models.InferredContent,
+            models.ToolScanResult,
+            models.ParameterDiscoveryAttempt,
+            models.DiscoveredParameter,
+            models.ParameterBruteForce,
+        ]
+        
+        for model in registered_models:
+            self.assertTrue(
+                admin.site.is_registered(model),
+                f"{model.__name__} is not registered in admin"
+            )
+
+
+class StealthModeTest(TestCase):
+    """Test stealth mode functionality"""
+    
+    def test_stealth_target_creation(self):
+        """Test creating a target with stealth options"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Stealth Target',
+            enable_stealth_mode=True,
+            use_random_user_agents=True,
+            stealth_delay_min=0.5,
+            stealth_delay_max=2.0
+        )
+        self.assertTrue(target.enable_stealth_mode)
+        self.assertTrue(target.use_random_user_agents)
+        self.assertEqual(target.stealth_delay_min, 0.5)
+        self.assertEqual(target.stealth_delay_max, 2.0)
+    
+    def test_stealth_session_creation(self):
+        """Test creating stealth session"""
+        from spider.stealth import create_stealth_session
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            enable_stealth_mode=True,
+            stealth_delay_min=1.0,
+            stealth_delay_max=3.0
+        )
+        session = create_stealth_session(target, verify_ssl=False)
+        self.assertTrue(session.enable_stealth)
+        self.assertTrue(session.use_random_user_agents)
+        self.assertEqual(session.delay_min, 1.0)
+        self.assertEqual(session.delay_max, 3.0)
+        session.close()
+    
+    def test_random_user_agent_generation(self):
+        """Test user agent randomization"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True, use_random_user_agents=True)
+        ua1 = session.get_random_user_agent()
+        ua2 = session.get_random_user_agent()
+        self.assertIsNotNone(ua1)
+        self.assertIsNotNone(ua2)
+        self.assertIsInstance(ua1, str)
+        self.assertGreater(len(ua1), 0)
+        session.close()
+    
+    def test_stealth_headers_generation(self):
+        """Test realistic browser headers generation"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True)
+        headers = session.get_stealth_headers()
+        
+        # Check required headers
+        self.assertIn('User-Agent', headers)
+        self.assertIn('Accept', headers)
+        self.assertIn('Accept-Language', headers)
+        self.assertIn('Accept-Encoding', headers)
+        self.assertIn('DNT', headers)
+        self.assertIn('Connection', headers)
+        self.assertIn('Upgrade-Insecure-Requests', headers)
+        
+        # Check header values
+        self.assertEqual(headers['DNT'], '1')
+        self.assertEqual(headers['Connection'], 'keep-alive')
+        self.assertEqual(headers['Upgrade-Insecure-Requests'], '1')
+        session.close()
+    
+    def test_stealth_headers_with_referer(self):
+        """Test headers with referer"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True)
+        headers = session.get_stealth_headers(referer='https://example.com')
+        
+        self.assertIn('Referer', headers)
+        self.assertEqual(headers['Referer'], 'https://example.com')
+        self.assertEqual(headers['Sec-Fetch-Site'], 'same-origin')
+        session.close()
+    
+    def test_stealth_disabled(self):
+        """Test that stealth features can be disabled"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=False)
+        headers = session.get_stealth_headers()
+        
+        # When stealth is disabled, headers should be empty
+        self.assertEqual(len(headers), 0)
+        session.close()
+    
+    def test_target_api_includes_stealth_options(self):
+        """Test that API returns stealth options"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test',
+            enable_stealth_mode=True,
+            use_random_user_agents=True,
+            stealth_delay_min=1.5,
+            stealth_delay_max=4.0
+        )
+        
+        response = self.client.get(reverse('spider:spider_targets'))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        self.assertGreater(len(data), 0)
+        target_data = data[0]
+        self.assertEqual(target_data['enable_stealth_mode'], True)
+        self.assertEqual(target_data['use_random_user_agents'], True)
+        self.assertEqual(target_data['stealth_delay_min'], 1.5)
+        self.assertEqual(target_data['stealth_delay_max'], 4.0)
+
+
+class ParameterDiscoveryTest(TestCase):
+    """Test parameter discovery functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test Target',
+            enable_parameter_discovery=True
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+    
+    def test_parameter_discovery_attempt_creation(self):
+        """Test creating a parameter discovery attempt"""
+        attempt = ParameterDiscoveryAttempt.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            http_method='GET',
+            parameter_location='query',
+            status_code=200,
+            response_diff=True,
+            behavior_changed=True
+        )
+        self.assertEqual(attempt.parameter_name, 'debug')
+        self.assertEqual(attempt.parameter_value, 'true')
+        self.assertTrue(attempt.response_diff)
+        self.assertTrue(attempt.behavior_changed)
+    
+    def test_discovered_parameter_creation(self):
+        """Test creating a discovered parameter"""
+        param = DiscoveredParameter.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            parameter_type='debug',
+            http_method='GET',
+            discovery_evidence='Status code changed from 404 to 200',
+            risk_level='high',
+            reveals_debug_info=True
+        )
+        self.assertEqual(param.parameter_name, 'debug')
+        self.assertEqual(param.parameter_type, 'debug')
+        self.assertEqual(param.risk_level, 'high')
+        self.assertTrue(param.reveals_debug_info)
+    
+    def test_parameter_brute_force_creation(self):
+        """Test creating a parameter brute force attempt"""
+        param = DiscoveredParameter.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            parameter_type='debug',
+            http_method='GET',
+            discovery_evidence='Test evidence',
+            risk_level='medium'
+        )
+        
+        brute = ParameterBruteForce.objects.create(
+            session=self.session,
+            discovered_parameter=param,
+            test_value='false',
+            test_description='Testing alternate value',
+            status_code=200,
+            success=True,
+            finding_description='Valid response with alternate value'
+        )
+        self.assertEqual(brute.test_value, 'false')
+        self.assertTrue(brute.success)
+        self.assertEqual(brute.discovered_parameter, param)
+    
+    def test_spider_session_parameters_counter(self):
+        """Test parameters_discovered counter"""
+        # Create some discovered parameters
+        for i in range(3):
+            DiscoveredParameter.objects.create(
+                session=self.session,
+                target_url=f'https://example.com/page{i}',
+                parameter_name=f'param{i}',
+                parameter_value='test',
+                parameter_type='debug',
+                http_method='GET',
+                discovery_evidence='Test',
+                risk_level='low'
+            )
+        
+        # Update counter
+        self.session.parameters_discovered = self.session.discovered_parameters.count()
+        self.session.save()
+        
+        self.assertEqual(self.session.parameters_discovered, 3)
