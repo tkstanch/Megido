@@ -18,6 +18,12 @@ class SpiderTarget(models.Model):
     enable_inference = models.BooleanField(default=True)
     enable_parameter_discovery = models.BooleanField(default=True, help_text="Discover hidden parameters")
     
+    # Stealth mode options
+    enable_stealth_mode = models.BooleanField(default=True, help_text="Enable stealth features to avoid detection")
+    use_random_user_agents = models.BooleanField(default=True, help_text="Rotate user agents between requests")
+    stealth_delay_min = models.FloatField(default=1.0, help_text="Minimum delay between requests in seconds")
+    stealth_delay_max = models.FloatField(default=3.0, help_text="Maximum delay between requests in seconds")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

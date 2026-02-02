@@ -9,9 +9,24 @@ from .models import (
 
 @admin.register(SpiderTarget)
 class SpiderTargetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'url', 'max_depth', 'use_dirbuster', 'use_nikto', 'enable_parameter_discovery', 'created_at']
-    list_filter = ['use_dirbuster', 'use_nikto', 'use_wikto', 'enable_brute_force', 'enable_parameter_discovery']
+    list_display = ['name', 'url', 'max_depth', 'use_dirbuster', 'use_nikto', 'enable_parameter_discovery', 'enable_stealth_mode', 'created_at']
+    list_filter = ['use_dirbuster', 'use_nikto', 'use_wikto', 'enable_brute_force', 'enable_parameter_discovery', 'enable_stealth_mode', 'use_random_user_agents']
     search_fields = ['name', 'url', 'description']
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'url', 'description')
+        }),
+        ('Crawling Options', {
+            'fields': ('max_depth', 'follow_external_links')
+        }),
+        ('Discovery Methods', {
+            'fields': ('use_dirbuster', 'use_nikto', 'use_wikto', 'enable_brute_force', 'enable_inference', 'enable_parameter_discovery')
+        }),
+        ('Stealth Options', {
+            'fields': ('enable_stealth_mode', 'use_random_user_agents', 'stealth_delay_min', 'stealth_delay_max'),
+            'description': 'Configure stealth features to avoid detection by target applications'
+        }),
+    )
 
 
 @admin.register(SpiderSession)

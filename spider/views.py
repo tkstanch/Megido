@@ -9,6 +9,7 @@ from .models import (
     ToolScanResult, ParameterDiscoveryAttempt,
     DiscoveredParameter, ParameterBruteForce
 )
+from .stealth import create_stealth_session
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -40,6 +41,10 @@ def spider_targets(request):
             'enable_brute_force': target.enable_brute_force,
             'enable_inference': target.enable_inference,
             'enable_parameter_discovery': target.enable_parameter_discovery,
+            'enable_stealth_mode': target.enable_stealth_mode,
+            'use_random_user_agents': target.use_random_user_agents,
+            'stealth_delay_min': target.stealth_delay_min,
+            'stealth_delay_max': target.stealth_delay_max,
             'created_at': target.created_at.isoformat(),
         } for target in targets]
         return Response(data)
@@ -57,6 +62,10 @@ def spider_targets(request):
             enable_brute_force=request.data.get('enable_brute_force', True),
             enable_inference=request.data.get('enable_inference', True),
             enable_parameter_discovery=request.data.get('enable_parameter_discovery', True),
+            enable_stealth_mode=request.data.get('enable_stealth_mode', True),
+            use_random_user_agents=request.data.get('use_random_user_agents', True),
+            stealth_delay_min=request.data.get('stealth_delay_min', 1.0),
+            stealth_delay_max=request.data.get('stealth_delay_max', 3.0),
         )
         return Response({'id': target.id, 'message': 'Target created'}, status=201)
 
@@ -96,42 +105,49 @@ def run_spider_session(session, target):
     """Main spider logic - orchestrates all discovery methods"""
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
     
-    # Phase 1: Web Crawling
-    crawl_website(session, target, verify_ssl)
+    # Create stealth session
+    stealth_session = create_stealth_session(target, verify_ssl)
     
-    # Phase 2: DirBuster-style directory discovery
-    if target.use_dirbuster:
-        run_dirbuster_discovery(session, target, verify_ssl)
-    
-    # Phase 3: Nikto scanning
-    if target.use_nikto:
-        run_nikto_scan(session, target, verify_ssl)
-    
-    # Phase 4: Wikto scanning
-    if target.use_wikto:
-        run_wikto_scan(session, target, verify_ssl)
-    
-    # Phase 5: Brute force hidden content
-    if target.enable_brute_force:
-        brute_force_paths(session, target, verify_ssl)
-    
-    # Phase 6: Content inference
-    if target.enable_inference:
-        infer_content(session, target, verify_ssl)
-    
-    # Phase 7: Hidden parameter discovery
-    if target.enable_parameter_discovery:
-        discover_hidden_parameters(session, target, verify_ssl)
-    
-    # Update session statistics
-    session.urls_discovered = session.discovered_urls.count()
-    session.hidden_content_found = session.hidden_content.count()
-    session.inference_results = session.inferred_content.count()
-    session.parameters_discovered = session.discovered_parameters.count()
-    session.save()
+    try:
+        # Phase 1: Web Crawling
+        crawl_website(session, target, stealth_session)
+        
+        # Phase 2: DirBuster-style directory discovery
+        if target.use_dirbuster:
+            run_dirbuster_discovery(session, target, stealth_session)
+        
+        # Phase 3: Nikto scanning
+        if target.use_nikto:
+            run_nikto_scan(session, target, stealth_session)
+        
+        # Phase 4: Wikto scanning
+        if target.use_wikto:
+            run_wikto_scan(session, target, stealth_session)
+        
+        # Phase 5: Brute force hidden content
+        if target.enable_brute_force:
+            brute_force_paths(session, target, stealth_session)
+        
+        # Phase 6: Content inference
+        if target.enable_inference:
+            infer_content(session, target, stealth_session)
+        
+        # Phase 7: Hidden parameter discovery
+        if target.enable_parameter_discovery:
+            discover_hidden_parameters(session, target, stealth_session)
+        
+        # Update session statistics
+        session.urls_discovered = session.discovered_urls.count()
+        session.hidden_content_found = session.hidden_content.count()
+        session.inference_results = session.inferred_content.count()
+        session.parameters_discovered = session.discovered_parameters.count()
+        session.save()
+    finally:
+        # Close stealth session
+        stealth_session.close()
 
 
-def crawl_website(session, target, verify_ssl):
+def crawl_website(session, target, stealth_session):
     """Crawl website starting from target URL"""
     visited = set()
     to_visit = deque([(target.url, 0)])  # (url, depth)
@@ -146,7 +162,7 @@ def crawl_website(session, target, verify_ssl):
         visited.add(current_url)
         
         try:
-            response = requests.get(current_url, timeout=10, verify=verify_ssl, allow_redirects=True)
+            response = stealth_session.get(current_url, timeout=10, allow_redirects=True)
             
             # Record discovered URL
             discovered, created = DiscoveredURL.objects.get_or_create(
@@ -203,7 +219,7 @@ def crawl_website(session, target, verify_ssl):
     session.save()
 
 
-def run_dirbuster_discovery(session, target, verify_ssl):
+def run_dirbuster_discovery(session, target, stealth_session):
     """Simulate DirBuster-style directory/file discovery"""
     tool_result = ToolScanResult.objects.create(
         session=session,
@@ -243,7 +259,7 @@ def run_dirbuster_discovery(session, target, verify_ssl):
         test_url = f"{base_url}/{path}"
         
         try:
-            response = requests.get(test_url, timeout=5, verify=verify_ssl, allow_redirects=False)
+            response = stealth_session.get(test_url, timeout=5, allow_redirects=False)
             
             # Record if found (200-399 status codes)
             if 200 <= response.status_code < 400:
@@ -304,7 +320,7 @@ def run_dirbuster_discovery(session, target, verify_ssl):
     tool_result.save()
 
 
-def run_nikto_scan(session, target, verify_ssl):
+def run_nikto_scan(session, target, stealth_session):
     """Simulate Nikto-style vulnerability scanning"""
     tool_result = ToolScanResult.objects.create(
         session=session,
@@ -339,11 +355,11 @@ def run_nikto_scan(session, target, verify_ssl):
             method = check.get('method', 'GET')
             
             if method == 'GET':
-                response = requests.get(test_url, timeout=5, verify=verify_ssl)
+                response = stealth_session.get(test_url, timeout=5)
             elif method == 'OPTIONS':
-                response = requests.options(test_url, timeout=5, verify=verify_ssl)
+                response = stealth_session.options(test_url, timeout=5)
             elif method == 'TRACE':
-                response = requests.request('TRACE', test_url, timeout=5, verify=verify_ssl)
+                response = stealth_session.request('TRACE', test_url, timeout=5)
             else:
                 continue
             
@@ -388,7 +404,7 @@ def run_nikto_scan(session, target, verify_ssl):
     tool_result.save()
 
 
-def run_wikto_scan(session, target, verify_ssl):
+def run_wikto_scan(session, target, stealth_session):
     """Simulate Wikto-style scanning (Windows-focused Nikto alternative)"""
     tool_result = ToolScanResult.objects.create(
         session=session,
@@ -427,7 +443,7 @@ def run_wikto_scan(session, target, verify_ssl):
         test_url = base_url + path
         
         try:
-            response = requests.get(test_url, timeout=5, verify=verify_ssl, allow_redirects=False)
+            response = stealth_session.get(test_url, timeout=5, allow_redirects=False)
             
             if 200 <= response.status_code < 400:
                 findings.append({
@@ -457,7 +473,7 @@ def run_wikto_scan(session, target, verify_ssl):
     tool_result.save()
 
 
-def brute_force_paths(session, target, verify_ssl):
+def brute_force_paths(session, target, stealth_session):
     """Brute force common paths and patterns"""
     parsed_url = urlparse(target.url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
@@ -483,7 +499,7 @@ def brute_force_paths(session, target, verify_ssl):
         test_url = base_url + path
         
         try:
-            response = requests.get(test_url, timeout=3, verify=verify_ssl, allow_redirects=False)
+            response = stealth_session.get(test_url, timeout=3, allow_redirects=False)
             
             success = 200 <= response.status_code < 400
             
@@ -606,7 +622,7 @@ def infer_content(session, target, verify_ssl):
     
     for inferred in high_confidence:
         try:
-            response = requests.get(inferred.inferred_url, timeout=5, verify=verify_ssl, allow_redirects=False)
+            response = stealth_session.get(inferred.inferred_url, timeout=5, allow_redirects=False)
             
             inferred.verified = True
             inferred.verified_at = timezone.now()
@@ -704,7 +720,7 @@ def spider_results(request, session_id):
         return Response({'error': 'Session not found'}, status=404)
 
 
-def discover_hidden_parameters(session, target, verify_ssl):
+def discover_hidden_parameters(session, target, stealth_session):
     """Discover hidden parameters using common debug parameter names and values"""
     
     # Common debug parameter names
@@ -768,8 +784,6 @@ def discover_hidden_parameters(session, target, verify_ssl):
                     baseline_response, verify_ssl
                 )
                 
-                # Small delay to avoid overwhelming the server
-                time.sleep(0.1)
     
     # Brute force discovered parameters
     brute_force_discovered_parameters(session, verify_ssl)
@@ -778,7 +792,7 @@ def discover_hidden_parameters(session, target, verify_ssl):
 def get_baseline_response(url, verify_ssl):
     """Get baseline response without any parameters"""
     try:
-        response = requests.get(url, timeout=5, verify=verify_ssl)
+        response = stealth_session.get(url, timeout=5)
         return {
             'status_code': response.status_code,
             'content_length': len(response.content),
@@ -805,7 +819,7 @@ def test_parameter_get(session, url, param_name, param_value, baseline, verify_s
     ))
     
     try:
-        response = requests.get(test_url, timeout=5, verify=verify_ssl)
+        response = stealth_session.get(test_url, timeout=5)
         
         # Analyze response
         response_diff = (
@@ -864,7 +878,7 @@ def test_parameter_post(session, url, param_name, param_value, baseline, verify_
     post_data = {param_name: param_value}
     
     try:
-        response = requests.post(
+        response = stealth_session.post(
             test_url,
             data=post_data,
             timeout=5,
@@ -1053,9 +1067,9 @@ def brute_force_discovered_parameters(session, verify_ssl):
                 
                 # Make request
                 if param.http_method == 'GET':
-                    response = requests.get(test_url, timeout=3, verify=verify_ssl)
+                    response = stealth_session.get(test_url, timeout=3)
                 else:
-                    response = requests.post(
+                    response = stealth_session.post(
                         test_url,
                         data={param.parameter_name: test_value},
                         timeout=3,
