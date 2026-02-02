@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        .section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #ecf0f1;
+            border-radius: 3px;
+        }
+        .feature-list li:before {
+            content: "▸ ";
+            color: #3498db;
+            font-weight: bold;
+        }
+        .stub-notice {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .stub-notice h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+
+    <div class="stub-notice">
+        <h3>⚠️ Development Notice</h3>
+        <p>This app is currently in development. The functionality is scaffolded with stub implementations and detailed documentation. All features are marked with TODOs for future implementation.</p>
+    </div>
+
+    <div class="section">
+        <h2>Key Features</h2>
+        <ul class="feature-list">
+            <li>Upload and capture browser extension packages (Java applets, Flash SWF, Silverlight XAP)</li>
+            <li>Decompile bytecode to source code using appropriate tools</li>
+            <li>Detect and defeat obfuscation techniques</li>
+            <li>Analyze decompiled code for security vulnerabilities and API usage</li>
+            <li>Intercept and analyze browser extension traffic</li>
+            <li>Recompile and execute modified code</li>
+            <li>Inject JavaScript hooks for extension manipulation</li>
+            <li>Programmatically interact with target web applications</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Supported Extension Types</h2>
+        <ul class="feature-list">
+            <li><strong>Java Applets:</strong> .jar and .class files (Decompilers: JAD, CFR, Procyon, Krakatau)</li>
+            <li><strong>Flash/ActionScript:</strong> .swf files (Decompiler: JPEXS Free Flash Decompiler)</li>
+            <li><strong>Silverlight:</strong> .xap packages (Decompilers: ILSpy, dotPeek)</li>
+            <li><strong>JavaScript:</strong> Browser extensions and scripts</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Workflow Steps</h2>
+        <ul class="feature-list">
+            <li><strong>Step 1:</strong> Download or capture the browser extension bytecode/package</li>
+            <li><strong>Step 2:</strong> Detect extension type and select appropriate decompiler</li>
+            <li><strong>Step 3:</strong> Decompile bytecode to source code</li>
+            <li><strong>Step 4:</strong> Detect obfuscation techniques and attempt deobfuscation</li>
+            <li><strong>Step 5:</strong> Analyze source code for APIs, vulnerabilities, and data flows</li>
+            <li><strong>Step 6:</strong> Identify JavaScript injection points</li>
+            <li><strong>Step 7:</strong> Optionally modify and recompile source code</li>
+            <li><strong>Step 8:</strong> Execute in browser or standalone environment</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Traffic Interception</h2>
+        <p><strong>Obstacles and Solutions:</strong></p>
+        <ul class="feature-list">
+            <li><strong>HTTPS Encryption:</strong> Use proxy tools like mitmproxy with SSL interception</li>
+            <li><strong>Certificate Pinning:</strong> Bypass using Frida or modify extension code</li>
+            <li><strong>WebSocket Traffic:</strong> Protocol-aware interception required</li>
+            <li><strong>Custom/Binary Protocols:</strong> Implement parsers for AMF, Java serialization, etc.</li>
+            <li><strong>Anti-debugging:</strong> Defeat using code analysis and modification</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>API Endpoints</h2>
+        <p>The following endpoints are available (all return 501 Not Implemented in the current stub version):</p>
+        <ul class="feature-list">
+            <li><code>POST /decompiler/packages/upload/</code> - Upload extension package</li>
+            <li><code>GET /decompiler/packages/</code> - List extension packages</li>
+            <li><code>POST /decompiler/jobs/start/</code> - Start decompilation job</li>
+            <li><code>GET /decompiler/jobs/&lt;job_id&gt;/status/</code> - Get job status</li>
+            <li><code>POST /decompiler/analyze/</code> - Analyze decompiled code</li>
+            <li><code>POST /decompiler/obfuscation/detect/</code> - Detect obfuscation</li>
+            <li><code>POST /decompiler/hooks/inject/</code> - Inject JavaScript hook</li>
+            <li><code>GET /decompiler/traffic/</code> - List intercepted traffic</li>
+            <li><code>POST /decompiler/interact/</code> - Interact with web app</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Next Steps for Developers</h2>
+        <ul class="feature-list">
+            <li>Implement decompiler tool integration in <code>engine.py</code></li>
+            <li>Add actual file upload handling in <code>views.py</code></li>
+            <li>Implement obfuscation detection algorithms</li>
+            <li>Create static analysis engine for code analysis</li>
+            <li>Integrate traffic interception with proxy tools</li>
+            <li>Implement recompilation pipelines for each extension type</li>
+            <li>Add frontend UI for visualizing analysis results</li>
+            <li>Write comprehensive tests for all functionality</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'mapper',
     'bypasser',
     'collaborator',
+    'decompiler',
 ]
 
 MIDDLEWARE = [
