@@ -5,7 +5,8 @@ from django.apps import apps
 from .models import (
     SpiderTarget, SpiderSession, DiscoveredURL,
     HiddenContent, BruteForceAttempt, InferredContent,
-    ToolScanResult
+    ToolScanResult, ParameterDiscoveryAttempt,
+    DiscoveredParameter, ParameterBruteForce
 )
 from . import views
 import json
@@ -46,6 +47,7 @@ class SpiderModelsTest(TestCase):
         self.assertEqual(self.target.max_depth, 3)
         self.assertTrue(self.target.use_dirbuster)
         self.assertTrue(self.target.use_nikto)
+        self.assertTrue(self.target.enable_parameter_discovery)
     
     def test_spider_session_creation(self):
         """Test creating a spider session"""
@@ -261,6 +263,9 @@ class SpiderAdminTest(TestCase):
             models.BruteForceAttempt,
             models.InferredContent,
             models.ToolScanResult,
+            models.ParameterDiscoveryAttempt,
+            models.DiscoveredParameter,
+            models.ParameterBruteForce,
         ]
         
         for model in registered_models:
@@ -268,3 +273,102 @@ class SpiderAdminTest(TestCase):
                 admin.site.is_registered(model),
                 f"{model.__name__} is not registered in admin"
             )
+
+
+class ParameterDiscoveryTest(TestCase):
+    """Test parameter discovery functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test Target',
+            enable_parameter_discovery=True
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+    
+    def test_parameter_discovery_attempt_creation(self):
+        """Test creating a parameter discovery attempt"""
+        attempt = ParameterDiscoveryAttempt.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            http_method='GET',
+            parameter_location='query',
+            status_code=200,
+            response_diff=True,
+            behavior_changed=True
+        )
+        self.assertEqual(attempt.parameter_name, 'debug')
+        self.assertEqual(attempt.parameter_value, 'true')
+        self.assertTrue(attempt.response_diff)
+        self.assertTrue(attempt.behavior_changed)
+    
+    def test_discovered_parameter_creation(self):
+        """Test creating a discovered parameter"""
+        param = DiscoveredParameter.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            parameter_type='debug',
+            http_method='GET',
+            discovery_evidence='Status code changed from 404 to 200',
+            risk_level='high',
+            reveals_debug_info=True
+        )
+        self.assertEqual(param.parameter_name, 'debug')
+        self.assertEqual(param.parameter_type, 'debug')
+        self.assertEqual(param.risk_level, 'high')
+        self.assertTrue(param.reveals_debug_info)
+    
+    def test_parameter_brute_force_creation(self):
+        """Test creating a parameter brute force attempt"""
+        param = DiscoveredParameter.objects.create(
+            session=self.session,
+            target_url='https://example.com/page',
+            parameter_name='debug',
+            parameter_value='true',
+            parameter_type='debug',
+            http_method='GET',
+            discovery_evidence='Test evidence',
+            risk_level='medium'
+        )
+        
+        brute = ParameterBruteForce.objects.create(
+            session=self.session,
+            discovered_parameter=param,
+            test_value='false',
+            test_description='Testing alternate value',
+            status_code=200,
+            success=True,
+            finding_description='Valid response with alternate value'
+        )
+        self.assertEqual(brute.test_value, 'false')
+        self.assertTrue(brute.success)
+        self.assertEqual(brute.discovered_parameter, param)
+    
+    def test_spider_session_parameters_counter(self):
+        """Test parameters_discovered counter"""
+        # Create some discovered parameters
+        for i in range(3):
+            DiscoveredParameter.objects.create(
+                session=self.session,
+                target_url=f'https://example.com/page{i}',
+                parameter_name=f'param{i}',
+                parameter_value='test',
+                parameter_type='debug',
+                http_method='GET',
+                discovery_evidence='Test',
+                risk_level='low'
+            )
+        
+        # Update counter
+        self.session.parameters_discovered = self.session.discovered_parameters.count()
+        self.session.save()
+        
+        self.assertEqual(self.session.parameters_discovered, 3)
