@@ -139,9 +139,12 @@ def secure_file_upload(request):
         return JsonResponse({'error': 'Invalid file type'}, status=400)
     
     try:
+        # Sanitize the original filename to prevent stored XSS
+        sanitized_filename = escape(uploaded_file.name)
+        
         # Create secure file upload record
         secure_file = SecureFileUpload(
-            original_filename=uploaded_file.name,
+            original_filename=sanitized_filename,
             file=uploaded_file,
             content_type=uploaded_file.content_type,
             file_size=uploaded_file.size,
@@ -210,10 +213,13 @@ def secure_redirect(request):
     Secure redirect handler preventing open redirect vulnerabilities.
     Security: Validates redirect URLs, prevents header injection.
     """
+    from django.conf import settings
+    
     redirect_url = request.GET.get('url', '')
     
-    # Define allowed redirect hosts
-    allowed_hosts = ['localhost', '127.0.0.1'] + list(request.get_host().split(','))
+    # Use Django's ALLOWED_HOSTS as the whitelist
+    # Add localhost for development
+    allowed_hosts = list(settings.ALLOWED_HOSTS) + ['localhost', '127.0.0.1']
     
     # Log redirect attempt
     redirect_log = RedirectLog.objects.create(
