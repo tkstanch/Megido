@@ -35,4 +35,5 @@ urlpatterns = [
     path('mapper/', include('mapper.urls')),
     path('bypasser/', include('bypasser.urls')),
     path('collaborator/', include('collaborator.urls')),
+    path('decompiler/', include('decompiler.urls')),
 ]
