@@ -94,66 +94,39 @@ A cutting-edge **cross-platform desktop application** for web and mobile securit
 
 ## 📖 Usage Guide
 
+For detailed usage instructions, see [USAGE_GUIDE.md](USAGE_GUIDE.md)
+
 ### Starting the Application
 
-#### Desktop Mode (Recommended)
+#### Smart Launcher (Recommended)
 ```bash
+python launch.py
+```
+Automatically detects your environment and chooses the best mode (desktop or web).
+
+#### Desktop Mode
+```bash
+python launch.py desktop
+# or
 python desktop_app.py
 ```
-This launches the full desktop application with an integrated web view.
 
 #### Web Mode
 ```bash
+python launch.py web
+# or
 python manage.py runserver
 ```
-Access the application at `http://localhost:8000` in your web browser.
+Then open your browser to `http://localhost:8000`
 
-### Using the HTTP Proxy
+### Quick Feature Overview
 
-1. Navigate to the **Proxy** section
-2. Configure your browser to use the proxy (typically `localhost:8080`)
-3. Browse to target websites
-4. View intercepted requests in real-time
-5. Click on any request to view full details
+- **Proxy**: Navigate to `/proxy/` to monitor HTTP/HTTPS traffic
+- **Interceptor**: Navigate to `/interceptor/` to intercept and modify requests
+- **Repeater**: Navigate to `/repeater/` to craft custom HTTP requests
+- **Scanner**: Navigate to `/scanner/` to perform vulnerability scans
 
-### Using the Interceptor
-
-1. Navigate to the **Interceptor** section
-2. Enable interception mode
-3. Pending requests will appear for manual inspection
-4. Options:
-   - **Forward**: Send the request as-is
-   - **Drop**: Block the request
-   - **Edit**: Modify the request before forwarding
-
-### Using the Repeater
-
-1. Navigate to the **Repeater** section
-2. Configure your HTTP request:
-   - Select HTTP method (GET, POST, PUT, DELETE, etc.)
-   - Enter target URL
-   - Add custom headers (JSON format)
-   - Add request body if needed
-3. Click "Send Request"
-4. View the response including:
-   - Status code
-   - Response headers
-   - Response body
-   - Response time
-
-### Using the Vulnerability Scanner
-
-1. Navigate to the **Scanner** section
-2. Enter target URL
-3. Optionally provide a scan name
-4. Click "Start Scan"
-5. Wait for scan completion
-6. Review discovered vulnerabilities:
-   - Vulnerability type
-   - Severity level
-   - Affected URL
-   - Evidence
-   - Remediation recommendations
+See the [USAGE_GUIDE.md](USAGE_GUIDE.md) for detailed instructions on each feature.
 
 ## 🏗️ Architecture
 
