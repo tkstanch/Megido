@@ -33,4 +33,5 @@ urlpatterns = [
     path('scanner/', include('scanner.urls')),
     path('spider/', include('spider.urls')),
     path('mapper/', include('mapper.urls')),
+    path('bypasser/', include('bypasser.urls')),
 ]
