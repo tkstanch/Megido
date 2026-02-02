@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'scanner',
     'spider',
     'mapper',
+    'bypasser',
 ]
 
 MIDDLEWARE = [
