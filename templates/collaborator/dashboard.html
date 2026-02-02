@@ -173,7 +173,7 @@ async function loadServers() {
         }
         
         container.innerHTML = servers.map(server => `
-            <div class="server-item ${server.is_active ? 'active' : 'inactive'}" onclick="selectServer(${server.id})">
+            <div class="server-item ${server.is_active ? 'active' : 'inactive'}" onclick="selectServer(${server.id}, this)">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <strong>${server.domain}</strong>
@@ -228,14 +228,14 @@ async function createServer() {
     }
 }
 
-async function selectServer(serverId) {
+async function selectServer(serverId, element) {
     currentServerId = serverId;
     
     // Highlight selected server
     document.querySelectorAll('.server-item').forEach(item => {
         item.style.background = 'white';
     });
-    event.currentTarget.style.background = '#e7f3ff';
+    element.style.background = '#e7f3ff';
     
     // Show interactions panel
     document.getElementById('interactions-panel').classList.add('show');
