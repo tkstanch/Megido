@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Interceptor - Megido Security{% endblock %}
+
+{% block content %}
+<h2>Request Interceptor</h2>
+<p>Intercept and modify HTTP requests before they reach the server.</p>
+
+<div class="info" style="margin: 20px 0;">
+    <p><strong>Interceptor Status:</strong> <span style="color: #28a745;">Active</span></p>
+    <p>Pending requests will appear below for inspection and modification.</p>
+</div>
+
+<div id="intercepted-list">
+    <div style="padding: 20px; text-align: center; color: #666;">
+        No intercepted requests
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+async function loadIntercepted() {
+    try {
+        const response = await fetch('/interceptor/api/intercepted/');
+        const requests = await response.json();
+        
+        const listDiv = document.getElementById('intercepted-list');
+        if (requests.length === 0) {
+            listDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No intercepted requests</div>';
+            return;
+        }
+        
+        listDiv.innerHTML = requests.map(req => `
+            <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px;">
+                <div><strong>${req.original_method}</strong> ${req.original_url}</div>
+                <div style="margin-top: 10px; color: #666; font-size: 0.9em;">${new Date(req.timestamp).toLocaleString()}</div>
+                <div style="margin-top: 10px;">
+                    <button onclick="forwardRequest(${req.id})">Forward</button>
+                    <button onclick="dropRequest(${req.id})">Drop</button>
+                    <button onclick="editRequest(${req.id})">Edit</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading intercepted requests:', error);
+    }
+}
+
+async function forwardRequest(id) {
+    try {
+        await fetch(`/interceptor/api/intercepted/${id}/`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: 'forwarded'})
+        });
+        loadIntercepted();
+    } catch (error) {
+        console.error('Error forwarding request:', error);
+    }
+}
+
+async function dropRequest(id) {
+    try {
+        await fetch(`/interceptor/api/intercepted/${id}/`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: 'dropped'})
+        });
+        loadIntercepted();
+    } catch (error) {
+        console.error('Error dropping request:', error);
+    }
+}
+
+function editRequest(id) {
+    alert('Edit functionality - coming soon!');
+}
+
+loadIntercepted();
+setInterval(loadIntercepted, 3000);
+</script>
+{% endblock %}

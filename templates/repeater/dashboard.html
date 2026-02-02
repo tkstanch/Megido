@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}HTTP Repeater - Megido Security{% endblock %}
+
+{% block extra_style %}
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-family: monospace;
+}
+input[type="text"], select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+}
+button:hover {
+    opacity: 0.9;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+.response-box {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 20px;
+}
+{% endblock %}
+
+{% block content %}
+<h2>HTTP Repeater</h2>
+<p>Manually craft and send HTTP requests for security testing.</p>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+    <div>
+        <h3>Request</h3>
+        <div class="form-group">
+            <label>Method:</label>
+            <select id="method">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>DELETE</option>
+                <option>PATCH</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>URL:</label>
+            <input type="text" id="url" placeholder="https://example.com/api/endpoint">
+        </div>
+        <div class="form-group">
+            <label>Headers (JSON):</label>
+            <textarea id="headers" rows="4" placeholder='{"Content-Type": "application/json"}'></textarea>
+        </div>
+        <div class="form-group">
+            <label>Body:</label>
+            <textarea id="body" rows="6" placeholder="Request body..."></textarea>
+        </div>
+        <button onclick="sendRequest()">Send Request</button>
+    </div>
+    
+    <div>
+        <h3>Response</h3>
+        <div id="response" class="response-box">
+            <p style="color: #666;">Response will appear here...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+async function sendRequest() {
+    const method = document.getElementById('method').value;
+    const url = document.getElementById('url').value;
+    const headers = document.getElementById('headers').value;
+    const body = document.getElementById('body').value;
+    
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    
+    try {
+        // First, create the request
+        const createResponse = await fetch('/repeater/api/requests/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({method, url, headers, body})
+        });
+        const created = await createResponse.json();
+        
+        // Then send it
+        const sendResponse = await fetch(`/repeater/api/requests/${created.id}/send/`, {
+            method: 'POST'
+        });
+        const result = await sendResponse.json();
+        
+        const responseDiv = document.getElementById('response');
+        responseDiv.innerHTML = `
+            <div><strong>Status:</strong> ${result.status_code || result.error}</div>
+            <div style="margin-top: 10px;"><strong>Response Time:</strong> ${result.response_time ? result.response_time.toFixed(2) + ' ms' : 'N/A'}</div>
+            <div style="margin-top: 10px;"><strong>Headers:</strong></div>
+            <pre style="background: white; padding: 10px; border-radius: 3px; overflow-x: auto;">${result.headers || 'N/A'}</pre>
+            <div style="margin-top: 10px;"><strong>Body:</strong></div>
+            <pre style="background: white; padding: 10px; border-radius: 3px; max-height: 400px; overflow: auto;">${result.body || result.error || 'N/A'}</pre>
+        `;
+    } catch (error) {
+        document.getElementById('response').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+    }
+}
+</script>
+{% endblock %}
