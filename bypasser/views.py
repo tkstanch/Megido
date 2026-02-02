@@ -11,8 +11,54 @@ import requests
 import os
 import time
 import logging
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def validate_target_url(url):
+    """
+    Validate target URL to prevent testing internal/private networks.
+    
+    Security Note: This is a security testing tool. Users are responsible
+    for ensuring they have authorization to test the target URL.
+    This validation helps prevent accidental testing of internal infrastructure.
+    """
+    try:
+        parsed = urlparse(url)
+        
+        # Ensure scheme is http or https
+        if parsed.scheme not in ['http', 'https']:
+            return False, "Only HTTP and HTTPS protocols are allowed"
+        
+        # Block common internal/private network ranges
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL: missing hostname"
+        
+        # Check for localhost and common internal domains
+        internal_patterns = [
+            'localhost', '127.0.0.1', '0.0.0.0',
+            '10.', '172.16.', '172.17.', '172.18.', '172.19.',
+            '172.20.', '172.21.', '172.22.', '172.23.', '172.24.',
+            '172.25.', '172.26.', '172.27.', '172.28.', '172.29.',
+            '172.30.', '172.31.', '192.168.', '169.254.',
+            'metadata.google.internal', 'instance-data'
+        ]
+        
+        hostname_lower = hostname.lower()
+        for pattern in internal_patterns:
+            if hostname_lower.startswith(pattern) or hostname_lower == pattern.rstrip('.'):
+                # Allow if explicitly enabled for testing
+                if os.environ.get('MEGIDO_ALLOW_INTERNAL_TESTING', 'False') == 'True':
+                    logger.warning(f"Testing internal URL {url} - MEGIDO_ALLOW_INTERNAL_TESTING is enabled")
+                    return True, "Internal testing allowed"
+                return False, f"Testing internal/private networks is not allowed: {hostname}"
+        
+        return True, "URL validation passed"
+        
+    except Exception as e:
+        return False, f"URL validation error: {str(e)}"
 
 
 def bypasser_dashboard(request):
@@ -36,8 +82,18 @@ def bypasser_targets(request):
         return Response(data)
     
     elif request.method == 'POST':
+        url = request.data.get('url')
+        
+        # Validate URL
+        is_valid, message = validate_target_url(url)
+        if not is_valid:
+            return Response({
+                'error': f'Invalid target URL: {message}',
+                'note': 'For security testing of internal networks, set MEGIDO_ALLOW_INTERNAL_TESTING=True'
+            }, status=400)
+        
         target = BypasserTarget.objects.create(
-            url=request.data.get('url'),
+            url=url,
             name=request.data.get('name', ''),
             description=request.data.get('description', ''),
             http_method=request.data.get('http_method', 'GET'),
@@ -87,7 +143,17 @@ def start_character_probe(request, target_id):
 
 
 def perform_character_probing(session, target):
-    """Perform character probing on the target"""
+    """
+    Perform character probing on the target.
+    
+    Security Note: This function makes HTTP requests to user-provided URLs.
+    URL validation is performed in start_character_probe() before calling this function.
+    """
+    # Validate URL before making requests
+    is_valid, message = validate_target_url(target.url)
+    if not is_valid:
+        raise ValueError(f"URL validation failed: {message}")
+    
     # Get SSL verification setting
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
     
@@ -237,7 +303,12 @@ def session_results(request, session_id):
 
 @api_view(['POST'])
 def test_encoding_bypass(request, session_id):
-    """Test encoding bypass techniques on blocked characters"""
+    """
+    Test encoding bypass techniques on blocked characters.
+    
+    Security Note: This function makes HTTP requests to user-provided URLs.
+    URL validation was performed when the session was created.
+    """
     try:
         session = BypasserSession.objects.get(id=session_id)
         target = session.target

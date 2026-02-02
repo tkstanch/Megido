@@ -7,6 +7,7 @@ from .models import (
     EncodingAttempt, BypassResult
 )
 from .encoding import EncodingTechniques, SpecialCharacters, detect_blocking
+from .views import validate_target_url
 import json
 
 
@@ -338,6 +339,39 @@ class BypasserAPITest(TestCase):
         self.assertEqual(target.url, 'https://example.com/test')
         self.assertEqual(target.name, 'Test Target')
     
+    def test_bypasser_targets_post_invalid_internal_url(self):
+        """Test creating a bypasser target with internal URL is blocked"""
+        response = self.client.post(
+            '/bypasser/api/targets/',
+            data=json.dumps({
+                'url': 'http://127.0.0.1/test',
+                'name': 'Internal Target',
+            }),
+            content_type='application/json'
+        )
+        
+        # Should be rejected
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertIn('internal', data['error'].lower())
+    
+    def test_bypasser_targets_post_invalid_scheme(self):
+        """Test creating a bypasser target with invalid scheme"""
+        response = self.client.post(
+            '/bypasser/api/targets/',
+            data=json.dumps({
+                'url': 'file:///etc/passwd',
+                'name': 'File Target',
+            }),
+            content_type='application/json'
+        )
+        
+        # Should be rejected
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn('error', data)
+    
     def test_session_results_not_found(self):
         """Test getting results for non-existent session"""
         response = self.client.get('/bypasser/api/sessions/9999/results/')
@@ -405,3 +439,70 @@ class BypasserAdminTest(TestCase):
         self.assertTrue(admin.site.is_registered(CharacterProbe))
         self.assertTrue(admin.site.is_registered(EncodingAttempt))
         self.assertTrue(admin.site.is_registered(BypassResult))
+
+
+class URLValidationTest(TestCase):
+    """Test URL validation for SSRF prevention"""
+    
+    def test_valid_https_url(self):
+        """Test that valid HTTPS URLs are accepted"""
+        is_valid, message = validate_target_url('https://example.com')
+        self.assertTrue(is_valid)
+    
+    def test_valid_http_url(self):
+        """Test that valid HTTP URLs are accepted"""
+        is_valid, message = validate_target_url('http://example.com')
+        self.assertTrue(is_valid)
+    
+    def test_invalid_scheme_file(self):
+        """Test that file:// scheme is rejected"""
+        is_valid, message = validate_target_url('file:///etc/passwd')
+        self.assertFalse(is_valid)
+        self.assertIn('HTTP', message)
+    
+    def test_invalid_scheme_ftp(self):
+        """Test that ftp:// scheme is rejected"""
+        is_valid, message = validate_target_url('ftp://example.com')
+        self.assertFalse(is_valid)
+    
+    def test_localhost_blocked(self):
+        """Test that localhost is blocked"""
+        is_valid, message = validate_target_url('http://localhost/test')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_127001_blocked(self):
+        """Test that 127.0.0.1 is blocked"""
+        is_valid, message = validate_target_url('http://127.0.0.1/test')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_private_network_10_blocked(self):
+        """Test that 10.x.x.x network is blocked"""
+        is_valid, message = validate_target_url('http://10.0.0.1/test')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_private_network_192168_blocked(self):
+        """Test that 192.168.x.x network is blocked"""
+        is_valid, message = validate_target_url('http://192.168.1.1/test')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_private_network_172_blocked(self):
+        """Test that 172.16-31.x.x network is blocked"""
+        is_valid, message = validate_target_url('http://172.16.0.1/test')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_link_local_blocked(self):
+        """Test that 169.254.x.x (link-local) is blocked"""
+        is_valid, message = validate_target_url('http://169.254.169.254/metadata')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
+    
+    def test_metadata_endpoint_blocked(self):
+        """Test that cloud metadata endpoints are blocked"""
+        is_valid, message = validate_target_url('http://metadata.google.internal/computeMetadata/')
+        self.assertFalse(is_valid)
+        self.assertIn('internal', message.lower())
