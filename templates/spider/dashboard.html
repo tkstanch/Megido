@@ -1,0 +1,443 @@
+{% extends 'base.html' %}
+
+{% block title %}Web Spider - Megido Security{% endblock %}
+
+{% block extra_style %}
+.spider-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+.spider-config {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 15px 0;
+}
+.config-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.spider-results {
+    margin-top: 30px;
+}
+.result-section {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 15px 0;
+}
+.result-section h4 {
+    margin-bottom: 15px;
+    color: #667eea;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 5px;
+}
+.url-item, .content-item {
+    border-left: 3px solid #007bff;
+    padding: 10px;
+    margin: 8px 0;
+    background: #f8f9fa;
+    border-radius: 3px;
+}
+.url-item.hidden {
+    border-left-color: #ffc107;
+}
+.url-item.interesting {
+    border-left-color: #dc3545;
+}
+.risk-critical { border-left: 4px solid #dc3545; }
+.risk-high { border-left: 4px solid #fd7e14; }
+.risk-medium { border-left: 4px solid #ffc107; }
+.risk-low { border-left: 4px solid #28a745; }
+.risk-info { border-left: 4px solid #17a2b8; }
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-right: 5px;
+}
+.badge-crawl { background: #007bff; color: white; }
+.badge-dirbuster { background: #28a745; color: white; }
+.badge-nikto { background: #dc3545; color: white; }
+.badge-wikto { background: #fd7e14; color: white; }
+.badge-brute_force { background: #6c757d; color: white; }
+.badge-inference { background: #6f42c1; color: white; }
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+.stat-card .number {
+    font-size: 2em;
+    font-weight: bold;
+}
+.stat-card .label {
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+label {
+    font-weight: 500;
+}
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+}
+button:hover {
+    opacity: 0.9;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 10px;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.info {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 15px 0;
+    color: #0c5460;
+}
+.tabs {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 20px;
+}
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    margin-right: 5px;
+    border-radius: 5px 5px 0 0;
+}
+.tab.active {
+    background: white;
+    border-bottom: 2px solid white;
+    margin-bottom: -2px;
+    color: #667eea;
+    font-weight: bold;
+}
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+{% endblock %}
+
+{% block content %}
+<h2>🕷️ Web Spider & Content Discovery</h2>
+<p>Automated web spidering with DirBuster, Nikto, Wikto integration, brute force, and content inference.</p>
+
+<div class="spider-form">
+    <h3>Configure Spider Target</h3>
+    <div style="margin-top: 15px;">
+        <label>Target URL:</label>
+        <input type="text" id="target-url" placeholder="https://example.com" value="https://example.com">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Target Name (optional):</label>
+        <input type="text" id="target-name" placeholder="My Target">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Maximum Crawl Depth:</label>
+        <input type="number" id="max-depth" value="3" min="1" max="10">
+    </div>
+    
+    <div class="spider-config">
+        <div class="config-option">
+            <input type="checkbox" id="use-dirbuster" checked>
+            <label for="use-dirbuster">Use DirBuster Discovery</label>
+        </div>
+        <div class="config-option">
+            <input type="checkbox" id="use-nikto" checked>
+            <label for="use-nikto">Use Nikto Scanning</label>
+        </div>
+        <div class="config-option">
+            <input type="checkbox" id="use-wikto" checked>
+            <label for="use-wikto">Use Wikto Scanning</label>
+        </div>
+        <div class="config-option">
+            <input type="checkbox" id="enable-brute" checked>
+            <label for="enable-brute">Enable Brute Force</label>
+        </div>
+        <div class="config-option">
+            <input type="checkbox" id="enable-inference" checked>
+            <label for="enable-inference">Enable Content Inference</label>
+        </div>
+        <div class="config-option">
+            <input type="checkbox" id="follow-external">
+            <label for="follow-external">Follow External Links</label>
+        </div>
+    </div>
+    
+    <button onclick="startSpider()" id="start-btn" style="margin-top: 15px;">
+        🕷️ Start Spider
+    </button>
+</div>
+
+<div id="spider-status" style="margin: 20px 0;"></div>
+
+<div class="spider-results" id="spider-results">
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let currentSessionId = null;
+
+async function startSpider() {
+    const url = document.getElementById('target-url').value;
+    const name = document.getElementById('target-name').value;
+    const maxDepth = parseInt(document.getElementById('max-depth').value);
+    const useDirbuster = document.getElementById('use-dirbuster').checked;
+    const useNikto = document.getElementById('use-nikto').checked;
+    const useWikto = document.getElementById('use-wikto').checked;
+    const enableBrute = document.getElementById('enable-brute').checked;
+    const enableInference = document.getElementById('enable-inference').checked;
+    const followExternal = document.getElementById('follow-external').checked;
+    
+    if (!url) {
+        alert('Please enter a target URL');
+        return;
+    }
+    
+    const startBtn = document.getElementById('start-btn');
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<span class="spinner"></span> Spidering in progress...';
+    
+    try {
+        // Create target
+        const targetResponse = await fetch('/spider/api/targets/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                url, name, max_depth: maxDepth,
+                use_dirbuster: useDirbuster,
+                use_nikto: useNikto,
+                use_wikto: useWikto,
+                enable_brute_force: enableBrute,
+                enable_inference: enableInference,
+                follow_external_links: followExternal
+            })
+        });
+        const target = await targetResponse.json();
+        
+        document.getElementById('spider-status').innerHTML = `
+            <div class="info">
+                <strong>⏳ Spider running...</strong><br>
+                This may take several minutes depending on the target size and enabled features.
+            </div>
+        `;
+        
+        // Start spider
+        const spiderResponse = await fetch(`/spider/api/targets/${target.id}/spider/`, {
+            method: 'POST'
+        });
+        const session = await spiderResponse.json();
+        
+        if (session.error) {
+            throw new Error(session.error);
+        }
+        
+        currentSessionId = session.id;
+        
+        // Load results
+        setTimeout(() => loadResults(session.id), 2000);
+        
+    } catch (error) {
+        document.getElementById('spider-status').innerHTML = `
+            <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
+                <strong>❌ Error:</strong> ${error.message}
+            </div>
+        `;
+        startBtn.disabled = false;
+        startBtn.innerHTML = '🕷️ Start Spider';
+    }
+}
+
+async function loadResults(sessionId) {
+    try {
+        const response = await fetch(`/spider/api/sessions/${sessionId}/results/`);
+        const data = await response.json();
+        
+        const startBtn = document.getElementById('start-btn');
+        startBtn.disabled = false;
+        startBtn.innerHTML = '🕷️ Start Spider';
+        
+        // Display statistics
+        document.getElementById('spider-status').innerHTML = `
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="number">${data.statistics.urls_discovered}</div>
+                    <div class="label">URLs Discovered</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${data.statistics.urls_crawled}</div>
+                    <div class="label">URLs Crawled</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${data.statistics.hidden_content_found}</div>
+                    <div class="label">Hidden Content</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${data.statistics.inference_results}</div>
+                    <div class="label">Inferred URLs</div>
+                </div>
+            </div>
+        `;
+        
+        // Display results in tabs
+        const resultsDiv = document.getElementById('spider-results');
+        resultsDiv.innerHTML = `
+            <h3>Spider Results</h3>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="showTab('discovered')">Discovered URLs</div>
+                <div class="tab" onclick="showTab('hidden')">Hidden Content</div>
+                <div class="tab" onclick="showTab('tools')">Tool Results</div>
+                <div class="tab" onclick="showTab('inferred')">Inferred Content</div>
+            </div>
+            
+            <div id="tab-discovered" class="tab-content active">
+                <div class="result-section">
+                    <h4>📋 Discovered URLs (${data.discovered_urls.length})</h4>
+                    ${data.discovered_urls.length === 0 ? '<p>No URLs discovered.</p>' : 
+                        data.discovered_urls.map(url => `
+                            <div class="url-item ${url.is_hidden ? 'hidden' : ''} ${url.is_interesting ? 'interesting' : ''}">
+                                <span class="badge badge-${url.method}">${url.method}</span>
+                                <strong>${url.status_code || 'N/A'}</strong> - ${url.url}
+                                ${url.is_hidden ? ' <span style="color: #ffc107;">🔒 Hidden</span>' : ''}
+                                ${url.is_interesting ? ' <span style="color: #dc3545;">⭐ Interesting</span>' : ''}
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+            
+            <div id="tab-hidden" class="tab-content">
+                <div class="result-section">
+                    <h4>🔍 Hidden Content (${data.hidden_content.length})</h4>
+                    ${data.hidden_content.length === 0 ? '<p>No hidden content found.</p>' :
+                        data.hidden_content.map(content => `
+                            <div class="content-item risk-${content.risk_level}">
+                                <span class="badge badge-${content.method}">${content.method}</span>
+                                <strong>${content.risk_level.toUpperCase()}</strong> - ${content.type}
+                                <div style="margin-top: 5px; font-size: 0.9em;">
+                                    <strong>URL:</strong> ${content.url}
+                                </div>
+                                <div style="margin-top: 3px;">
+                                    <strong>Status:</strong> ${content.status_code}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+            
+            <div id="tab-tools" class="tab-content">
+                <div class="result-section">
+                    <h4>🛠️ Security Tool Results</h4>
+                    ${data.tool_results.length === 0 ? '<p>No tool scans performed.</p>' :
+                        data.tool_results.map(tool => `
+                            <div class="url-item">
+                                <span class="badge badge-${tool.tool}">${tool.tool.toUpperCase()}</span>
+                                <strong>Status:</strong> ${tool.status} | 
+                                <strong>Findings:</strong> ${tool.findings_count}
+                                ${tool.completed_at ? ` | <strong>Completed:</strong> ${new Date(tool.completed_at).toLocaleString()}` : ''}
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+            
+            <div id="tab-inferred" class="tab-content">
+                <div class="result-section">
+                    <h4>🧠 Inferred & Verified Content</h4>
+                    ${data.inferred_content.length === 0 ? '<p>No verified inferences.</p>' :
+                        data.inferred_content.map(inf => `
+                            <div class="url-item ${inf.exists ? 'interesting' : ''}">
+                                <span class="badge badge-inference">${inf.type}</span>
+                                <strong>Confidence:</strong> ${(inf.confidence * 100).toFixed(0)}%
+                                ${inf.exists ? ' ✅ <strong>Exists!</strong>' : ' ❌ Not found'}
+                                <div style="margin-top: 5px;">
+                                    <strong>URL:</strong> ${inf.url}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading results:', error);
+        document.getElementById('spider-status').innerHTML = `
+            <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
+                <strong>Error loading results:</strong> ${error.message}
+            </div>
+        `;
+    }
+}
+
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById('tab-' + tabName).classList.add('active');
+    event.target.classList.add('active');
+}
+</script>
+{% endblock %}
