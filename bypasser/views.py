@@ -459,3 +459,352 @@ def bypass_results(request, session_id):
         
     except BypasserSession.DoesNotExist:
         return Response({'error': 'Session not found'}, status=404)
+
+
+# ==================== Custom Bypass Techniques API ====================
+
+from .models import CustomBypassTechnique, CustomTechniqueExecution
+from .technique_parser import TechniqueParser, test_technique
+
+
+@api_view(['GET', 'POST'])
+def custom_techniques(request):
+    """List all custom techniques or create a new one"""
+    if request.method == 'GET':
+        # Filter parameters
+        category = request.GET.get('category', None)
+        is_active = request.GET.get('is_active', None)
+        
+        techniques = CustomBypassTechnique.objects.all()
+        
+        if category:
+            techniques = techniques.filter(category=category)
+        if is_active is not None:
+            techniques = techniques.filter(is_active=is_active.lower() == 'true')
+        
+        techniques = techniques[:100]  # Limit results
+        
+        data = [{
+            'id': tech.id,
+            'name': tech.name,
+            'description': tech.description,
+            'category': tech.category,
+            'technique_template': tech.technique_template,
+            'example_input': tech.example_input,
+            'example_output': tech.example_output,
+            'tags': tech.tags,
+            'author': tech.author,
+            'times_used': tech.times_used,
+            'times_successful': tech.times_successful,
+            'success_rate': tech.success_rate,
+            'is_active': tech.is_active,
+            'is_public': tech.is_public,
+            'created_at': tech.created_at.isoformat(),
+        } for tech in techniques]
+        
+        return Response(data)
+    
+    elif request.method == 'POST':
+        # Create new custom technique
+        name = request.data.get('name')
+        technique_template = request.data.get('technique_template')
+        
+        if not name or not technique_template:
+            return Response({
+                'error': 'Name and technique_template are required'
+            }, status=400)
+        
+        # Validate the template
+        is_valid, validation_msg = TechniqueParser.validate_template(technique_template)
+        if not is_valid:
+            return Response({
+                'error': f'Invalid technique template: {validation_msg}'
+            }, status=400)
+        
+        # Create the technique
+        technique = CustomBypassTechnique.objects.create(
+            name=name,
+            description=request.data.get('description', ''),
+            category=request.data.get('category', 'mixed'),
+            technique_template=technique_template,
+            example_input=request.data.get('example_input', ''),
+            example_output=request.data.get('example_output', ''),
+            tags=request.data.get('tags', ''),
+            author=request.data.get('author', ''),
+            is_active=request.data.get('is_active', True),
+            is_public=request.data.get('is_public', False)
+        )
+        
+        return Response({
+            'id': technique.id,
+            'message': 'Custom technique created successfully',
+            'name': technique.name
+        }, status=201)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def custom_technique_detail(request, technique_id):
+    """Get, update, or delete a specific custom technique"""
+    try:
+        technique = CustomBypassTechnique.objects.get(id=technique_id)
+    except CustomBypassTechnique.DoesNotExist:
+        return Response({'error': 'Technique not found'}, status=404)
+    
+    if request.method == 'GET':
+        data = {
+            'id': technique.id,
+            'name': technique.name,
+            'description': technique.description,
+            'category': technique.category,
+            'technique_template': technique.technique_template,
+            'example_input': technique.example_input,
+            'example_output': technique.example_output,
+            'tags': technique.tags,
+            'author': technique.author,
+            'times_used': technique.times_used,
+            'times_successful': technique.times_successful,
+            'success_rate': technique.success_rate,
+            'is_active': technique.is_active,
+            'is_public': technique.is_public,
+            'created_at': technique.created_at.isoformat(),
+            'updated_at': technique.updated_at.isoformat(),
+        }
+        return Response(data)
+    
+    elif request.method == 'PUT':
+        # Update technique
+        if 'technique_template' in request.data:
+            # Validate if template is being updated
+            is_valid, validation_msg = TechniqueParser.validate_template(
+                request.data['technique_template']
+            )
+            if not is_valid:
+                return Response({
+                    'error': f'Invalid technique template: {validation_msg}'
+                }, status=400)
+            technique.technique_template = request.data['technique_template']
+        
+        # Update other fields
+        for field in ['name', 'description', 'category', 'example_input', 
+                      'example_output', 'tags', 'author', 'is_active', 'is_public']:
+            if field in request.data:
+                setattr(technique, field, request.data[field])
+        
+        technique.save()
+        
+        return Response({
+            'id': technique.id,
+            'message': 'Technique updated successfully'
+        })
+    
+    elif request.method == 'DELETE':
+        technique.delete()
+        return Response({
+            'message': 'Technique deleted successfully'
+        }, status=204)
+
+
+@api_view(['POST'])
+def test_custom_technique(request, technique_id):
+    """Test a custom technique with sample payload"""
+    try:
+        technique = CustomBypassTechnique.objects.get(id=technique_id)
+    except CustomBypassTechnique.DoesNotExist:
+        return Response({'error': 'Technique not found'}, status=404)
+    
+    test_payload = request.data.get('payload', '<script>alert(1)</script>')
+    
+    # Test the technique
+    result = test_technique(technique.technique_template, test_payload)
+    
+    return Response({
+        'technique_name': technique.name,
+        'technique_template': technique.technique_template,
+        'test_payload': test_payload,
+        'success': result['success'],
+        'result': result['result'],
+        'error': result['error']
+    })
+
+
+@api_view(['POST'])
+def use_custom_techniques(request, session_id):
+    """Use custom techniques to test bypass on a session"""
+    try:
+        session = BypasserSession.objects.get(id=session_id)
+        target = session.target
+    except BypasserSession.DoesNotExist:
+        return Response({'error': 'Session not found'}, status=404)
+    
+    # Get technique IDs to use (or all active if not specified)
+    technique_ids = request.data.get('technique_ids', [])
+    
+    if technique_ids:
+        techniques = CustomBypassTechnique.objects.filter(
+            id__in=technique_ids,
+            is_active=True
+        )
+    else:
+        techniques = CustomBypassTechnique.objects.filter(is_active=True)[:20]
+    
+    if not techniques.exists():
+        return Response({
+            'message': 'No active custom techniques found'
+        })
+    
+    # Get blocked characters from session to test
+    blocked_probes = session.character_probes.filter(status='blocked')[:5]
+    
+    if not blocked_probes.exists():
+        return Response({
+            'message': 'No blocked characters to test bypasses for'
+        })
+    
+    # Get SSL verification setting
+    verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
+    
+    # Get baseline response
+    try:
+        if target.http_method == 'GET':
+            params = {target.test_parameter: 'baseline'}
+            baseline_req = requests.get(target.url, params=params, timeout=10, verify=verify_ssl)
+        else:
+            data = {target.test_parameter: 'baseline'}
+            baseline_req = requests.post(target.url, data=data, timeout=10, verify=verify_ssl)
+        
+        baseline_response = baseline_req.text
+        baseline_status = baseline_req.status_code
+    except Exception as e:
+        return Response({'error': f'Failed to get baseline: {str(e)}'}, status=500)
+    
+    # Test each technique with blocked characters
+    results = []
+    successful_count = 0
+    
+    for technique in techniques:
+        for probe in blocked_probes:
+            char = probe.character
+            
+            # Parse and execute the technique
+            success, transformed_payload, error = TechniqueParser.parse_and_execute(
+                technique.technique_template,
+                {'payload': char, 'char': char}
+            )
+            
+            if not success:
+                logger.error(f"Failed to execute technique {technique.name}: {error}")
+                continue
+            
+            try:
+                # Test the transformed payload
+                test_value = f"test{transformed_payload}value"
+                
+                if target.http_method == 'GET':
+                    params = {target.test_parameter: test_value}
+                    test_req = requests.get(target.url, params=params, timeout=10, verify=verify_ssl)
+                else:
+                    data = {target.test_parameter: test_value}
+                    test_req = requests.post(target.url, data=data, timeout=10, verify=verify_ssl)
+                
+                test_response = test_req.text
+                test_status = test_req.status_code
+                
+                # Check if bypass was successful
+                is_blocked, reason = detect_blocking(
+                    baseline_response, test_response,
+                    baseline_status, test_status
+                )
+                
+                bypass_success = not is_blocked
+                reflection_found = char in test_response or transformed_payload in test_response
+                
+                # Create execution record
+                execution = CustomTechniqueExecution.objects.create(
+                    session=session,
+                    technique=technique,
+                    input_payload=char,
+                    output_payload=transformed_payload,
+                    success=bypass_success,
+                    http_status_code=test_status,
+                    response_time=test_req.elapsed.total_seconds(),
+                    response_length=len(test_response),
+                    bypass_confirmed=bypass_success and reflection_found,
+                    reflection_found=reflection_found,
+                    waf_triggered=is_blocked
+                )
+                
+                # Update technique statistics
+                technique.times_used += 1
+                if bypass_success:
+                    technique.times_successful += 1
+                    successful_count += 1
+                technique.update_success_rate()
+                
+                if bypass_success:
+                    results.append({
+                        'technique_id': technique.id,
+                        'technique_name': technique.name,
+                        'character': char,
+                        'transformed_payload': transformed_payload,
+                        'success': True,
+                        'reflection_found': reflection_found
+                    })
+                
+                # Small delay
+                time.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"Error testing custom technique {technique.name} for {char}: {e}")
+                CustomTechniqueExecution.objects.create(
+                    session=session,
+                    technique=technique,
+                    input_payload=char,
+                    output_payload=transformed_payload,
+                    success=False,
+                    error_message=str(e)
+                )
+    
+    return Response({
+        'message': 'Custom technique testing completed',
+        'techniques_tested': techniques.count(),
+        'successful_bypasses': successful_count,
+        'results': results
+    })
+
+
+@api_view(['GET'])
+def get_available_transformations(request):
+    """Get list of available transformation functions for technique templates"""
+    transformations = TechniqueParser.get_available_transformations()
+    variables = TechniqueParser.get_available_variables()
+    
+    return Response({
+        'transformations': transformations,
+        'variables': variables,
+        'template_syntax': {
+            'basic': '{{variable}}',
+            'with_transformation': '{{variable|transformation}}',
+            'chained': '{{variable|transform1|transform2|transform3}}',
+            'example': '{{payload|url_encode_double|html_hex}}'
+        },
+        'examples': [
+            {
+                'name': 'Double URL Encoding',
+                'template': '{{payload|url_encode_double}}',
+                'input': '<script>',
+                'output': '%253Cscript%253E'
+            },
+            {
+                'name': 'HTML Entity + URL Encode',
+                'template': '{{payload|html_decimal|url_encode}}',
+                'input': '<',
+                'output': '%26%2360%3B'
+            },
+            {
+                'name': 'Mixed Case with Comments',
+                'template': '{{payload|upper|html_comment}}',
+                'input': 'script',
+                'output': 'S<!---->C<!---->R<!---->I<!---->P<!---->T'
+            }
+        ]
+    })

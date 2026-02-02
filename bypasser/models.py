@@ -176,3 +176,109 @@ class BypassResult(models.Model):
     
     def __str__(self):
         return f"Bypass: {self.character_probe.character} via {self.encoding_attempt.encoding_type}"
+
+
+class CustomBypassTechnique(models.Model):
+    """Model to store user-crafted custom bypass techniques"""
+    CATEGORY_CHOICES = [
+        ('waf', 'WAF Bypass'),
+        ('firewall', 'Firewall Bypass'),
+        ('ips', 'IPS Bypass'),
+        ('ids', 'IDS Bypass'),
+        ('filter', 'Input Filter Bypass'),
+        ('mixed', 'Mixed/Multi-Layer Bypass'),
+    ]
+    
+    name = models.CharField(max_length=255, help_text="Name of the bypass technique")
+    description = models.TextField(help_text="Detailed description of what this technique does")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, help_text="Type of security control to bypass")
+    
+    # Technique template with placeholders
+    # Supports: {{payload}}, {{char}}, {{url_encode}}, {{html_encode}}, etc.
+    technique_template = models.TextField(
+        help_text="Template with placeholders like {{payload}}, {{char}}, transformation functions"
+    )
+    
+    # Example usage
+    example_input = models.CharField(max_length=500, blank=True, null=True, help_text="Example input")
+    example_output = models.CharField(max_length=1000, blank=True, null=True, help_text="Example output")
+    
+    # Metadata
+    tags = models.CharField(max_length=500, blank=True, null=True, help_text="Comma-separated tags")
+    author = models.CharField(max_length=255, blank=True, null=True, help_text="Author/creator")
+    
+    # Usage tracking
+    times_used = models.IntegerField(default=0, help_text="Number of times this technique has been used")
+    times_successful = models.IntegerField(default=0, help_text="Number of successful bypasses")
+    success_rate = models.FloatField(default=0.0, help_text="Success rate percentage")
+    
+    # Status
+    is_active = models.BooleanField(default=True, help_text="Whether this technique is active")
+    is_public = models.BooleanField(default=False, help_text="Share with other users")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-times_successful', '-created_at']
+        indexes = [
+            models.Index(fields=['category', 'is_active']),
+            models.Index(fields=['is_active', '-times_successful']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.category})"
+    
+    def update_success_rate(self):
+        """Update the success rate based on usage statistics"""
+        if self.times_used > 0:
+            self.success_rate = (self.times_successful / self.times_used) * 100
+        else:
+            self.success_rate = 0.0
+        self.save()
+
+
+class CustomTechniqueExecution(models.Model):
+    """Model to track execution of custom bypass techniques"""
+    session = models.ForeignKey(
+        BypasserSession, 
+        on_delete=models.CASCADE, 
+        related_name='custom_technique_executions'
+    )
+    technique = models.ForeignKey(
+        CustomBypassTechnique, 
+        on_delete=models.CASCADE, 
+        related_name='executions'
+    )
+    
+    # Input/Output
+    input_payload = models.CharField(max_length=1000, help_text="Original input payload")
+    output_payload = models.TextField(help_text="Transformed output payload")
+    
+    # Execution results
+    success = models.BooleanField(default=False, help_text="Whether the bypass was successful")
+    http_status_code = models.IntegerField(blank=True, null=True)
+    response_time = models.FloatField(blank=True, null=True, help_text="Response time in seconds")
+    response_length = models.IntegerField(blank=True, null=True)
+    
+    # Detection
+    bypass_confirmed = models.BooleanField(default=False, help_text="Bypass definitively confirmed")
+    reflection_found = models.BooleanField(default=False, help_text="Payload reflected in response")
+    waf_triggered = models.BooleanField(default=False, help_text="WAF/filter was triggered")
+    
+    # Additional details
+    error_message = models.TextField(blank=True, null=True, help_text="Error message if execution failed")
+    notes = models.TextField(blank=True, null=True, help_text="Additional notes")
+    
+    executed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-executed_at']
+        indexes = [
+            models.Index(fields=['session', 'success']),
+            models.Index(fields=['technique', 'success']),
+        ]
+    
+    def __str__(self):
+        status = "✓ Success" if self.success else "✗ Failed"
+        return f"{status} - {self.technique.name}: {self.output_payload[:50]}"

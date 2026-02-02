@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     BypasserTarget, BypasserSession, CharacterProbe, 
-    EncodingAttempt, BypassResult
+    EncodingAttempt, BypassResult, CustomBypassTechnique,
+    CustomTechniqueExecution
 )
 
 
@@ -46,3 +47,35 @@ class BypassResultAdmin(admin.ModelAdmin):
     list_filter = ('risk_level', 'discovered_at')
     search_fields = ('technique_description', 'payload_example', 'impact_description')
     readonly_fields = ('discovered_at',)
+
+
+@admin.register(CustomBypassTechnique)
+class CustomBypassTechniqueAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'times_used', 'times_successful', 'success_rate', 
+                    'is_active', 'created_at')
+    list_filter = ('category', 'is_active', 'is_public', 'created_at')
+    search_fields = ('name', 'description', 'tags', 'author')
+    readonly_fields = ('created_at', 'updated_at', 'success_rate')
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'category', 'author')
+        }),
+        ('Technique Definition', {
+            'fields': ('technique_template', 'example_input', 'example_output')
+        }),
+        ('Metadata', {
+            'fields': ('tags', 'is_active', 'is_public')
+        }),
+        ('Statistics', {
+            'fields': ('times_used', 'times_successful', 'success_rate', 'created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(CustomTechniqueExecution)
+class CustomTechniqueExecutionAdmin(admin.ModelAdmin):
+    list_display = ('technique', 'session', 'success', 'bypass_confirmed', 
+                    'reflection_found', 'executed_at')
+    list_filter = ('success', 'bypass_confirmed', 'waf_triggered', 'executed_at')
+    search_fields = ('technique__name', 'input_payload', 'output_payload', 'notes')
+    readonly_fields = ('executed_at',)
