@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+
+{% block title %}Bypasser - Character Probing & Filter Bypass - Megido Security{% endblock %}
+
+{% block extra_style %}
+.bypass-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+.results-section {
+    margin-top: 30px;
+}
+.character-item {
+    display: inline-block;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px;
+    min-width: 80px;
+    text-align: center;
+}
+.char-blocked { 
+    border-left: 5px solid #dc3545; 
+    background: #fff5f5;
+}
+.char-allowed { 
+    border-left: 5px solid #28a745;
+    background: #f5fff5;
+}
+.char-error { 
+    border-left: 5px solid #ffc107;
+    background: #fffbf0;
+}
+.encoding-result {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+}
+.bypass-success {
+    border-left: 5px solid #28a745;
+    background: #f5fff5;
+}
+.bypass-failed {
+    border-left: 5px solid #6c757d;
+    background: #f8f9fa;
+}
+input[type="text"], select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+}
+button:hover {
+    opacity: 0.9;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.stats-box {
+    background: #e7f3ff;
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 5px;
+}
+.character-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 15px 0;
+}
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    border-bottom: 2px solid #ddd;
+}
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    border-radius: 5px 5px 0 0;
+}
+.tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+{% endblock %}
+
+{% block content %}
+<h2>🛡️ Bypasser - Character Probing & Filter Bypass Testing</h2>
+<p>Test web applications for input filtering weaknesses and discover bypass techniques using various encoding methods.</p>
+
+<div class="bypass-form">
+    <h3>Start Character Probing</h3>
+    <div style="margin-top: 15px;">
+        <label>Target URL:</label>
+        <input type="text" id="target-url" placeholder="https://example.com/search">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>HTTP Method:</label>
+        <select id="http-method">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+        </select>
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Test Parameter:</label>
+        <input type="text" id="test-parameter" placeholder="q" value="q">
+    </div>
+    <div style="margin-top: 10px;">
+        <label>Target Name (optional):</label>
+        <input type="text" id="target-name" placeholder="My Test Target">
+    </div>
+    <button onclick="startProbing()" id="start-btn" style="margin-top: 10px;">Start Probing</button>
+</div>
+
+<div id="status-message" style="margin: 20px 0;"></div>
+
+<div id="results-container" class="results-section" style="display: none;">
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">Overview</button>
+        <button class="tab" onclick="switchTab('blocked')">Blocked Characters</button>
+        <button class="tab" onclick="switchTab('allowed')">Allowed Characters</button>
+        <button class="tab" onclick="switchTab('bypasses')">Bypass Techniques</button>
+    </div>
+    
+    <div id="tab-overview" class="tab-content active">
+        <div id="statistics"></div>
+        <div id="character-summary"></div>
+    </div>
+    
+    <div id="tab-blocked" class="tab-content">
+        <div id="blocked-characters"></div>
+        <button onclick="testEncodingBypasses()" id="test-bypass-btn" style="margin-top: 20px;">Test Encoding Bypasses</button>
+    </div>
+    
+    <div id="tab-allowed" class="tab-content">
+        <div id="allowed-characters"></div>
+    </div>
+    
+    <div id="tab-bypasses" class="tab-content">
+        <div id="bypass-results"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let currentSessionId = null;
+
+function switchTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    
+    // Show selected tab
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    event.target.classList.add('active');
+}
+
+async function startProbing() {
+    const url = document.getElementById('target-url').value;
+    const method = document.getElementById('http-method').value;
+    const parameter = document.getElementById('test-parameter').value;
+    const name = document.getElementById('target-name').value;
+    
+    if (!url) {
+        alert('Please enter a target URL');
+        return;
+    }
+    
+    const startBtn = document.getElementById('start-btn');
+    startBtn.disabled = true;
+    startBtn.textContent = 'Probing...';
+    
+    try {
+        // Create target
+        const targetResponse = await fetch('/bypasser/api/targets/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                url: url,
+                name: name,
+                http_method: method,
+                test_parameter: parameter
+            })
+        });
+        const target = await targetResponse.json();
+        
+        document.getElementById('status-message').innerHTML = 
+            '<p style="color: #007bff;">🔍 Probing for special characters...</p>';
+        
+        // Start character probing
+        const probeResponse = await fetch(`/bypasser/api/targets/${target.id}/probe/`, {
+            method: 'POST'
+        });
+        const session = await probeResponse.json();
+        currentSessionId = session.id;
+        
+        document.getElementById('status-message').innerHTML = 
+            '<p style="color: #28a745;">✓ Probing completed!</p>';
+        
+        // Load results
+        await loadResults(session.id);
+        
+    } catch (error) {
+        document.getElementById('status-message').innerHTML = 
+            `<p style="color: #dc3545;">✗ Error: ${error.message}</p>`;
+    } finally {
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Probing';
+    }
+}
+
+async function loadResults(sessionId) {
+    try {
+        const response = await fetch(`/bypasser/api/sessions/${sessionId}/results/`);
+        const data = await response.json();
+        
+        // Show results container
+        document.getElementById('results-container').style.display = 'block';
+        
+        // Update statistics
+        document.getElementById('statistics').innerHTML = `
+            <div class="stats-box">
+                <h3>📊 Statistics</h3>
+                <p><strong>Target:</strong> ${data.target.url}</p>
+                <p><strong>Status:</strong> ${data.status}</p>
+                <p><strong>Characters Tested:</strong> ${data.statistics.characters_tested}</p>
+                <p><strong>Characters Blocked:</strong> <span style="color: #dc3545;">${data.statistics.characters_blocked}</span></p>
+                <p><strong>Characters Allowed:</strong> <span style="color: #28a745;">${data.statistics.characters_allowed}</span></p>
+            </div>
+        `;
+        
+        // Display all character probes
+        const allChars = data.character_probes.map(probe => `
+            <div class="character-item char-${probe.status}">
+                <div style="font-size: 1.5em; font-weight: bold;">${escapeHtml(probe.character)}</div>
+                <div style="font-size: 0.8em; margin-top: 5px;">${probe.character_name}</div>
+                <div style="font-size: 0.8em; color: #666;">${probe.status}</div>
+            </div>
+        `).join('');
+        
+        document.getElementById('character-summary').innerHTML = `
+            <h3>All Characters Tested</h3>
+            <div class="character-grid">${allChars}</div>
+        `;
+        
+        // Display blocked characters
+        if (data.blocked_characters.length > 0) {
+            document.getElementById('blocked-characters').innerHTML = `
+                <h3>🚫 Blocked Characters (${data.blocked_characters.length})</h3>
+                <p>These characters appear to be blocked by the application's input filter or WAF:</p>
+                <div class="character-grid">
+                    ${data.blocked_characters.map(char => `
+                        <div class="character-item char-blocked">
+                            <div style="font-size: 1.5em; font-weight: bold;">${escapeHtml(char.character)}</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">${char.name}</div>
+                            ${char.reason ? `<div style="font-size: 0.7em; color: #666; margin-top: 3px;">${char.reason}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            document.getElementById('blocked-characters').innerHTML = `
+                <p style="color: #28a745;">✓ No blocked characters detected.</p>
+            `;
+        }
+        
+        // Display allowed characters
+        if (data.allowed_characters.length > 0) {
+            document.getElementById('allowed-characters').innerHTML = `
+                <h3>✓ Allowed Characters (${data.allowed_characters.length})</h3>
+                <p>These characters passed through the filter without being blocked:</p>
+                <div class="character-grid">
+                    ${data.allowed_characters.map(char => `
+                        <div class="character-item char-allowed">
+                            <div style="font-size: 1.5em; font-weight: bold;">${escapeHtml(char.character)}</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">${char.name}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Error loading results:', error);
+    }
+}
+
+async function testEncodingBypasses() {
+    if (!currentSessionId) return;
+    
+    const testBtn = document.getElementById('test-bypass-btn');
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing Bypasses...';
+    
+    try {
+        document.getElementById('bypass-results').innerHTML = 
+            '<p style="color: #007bff;">🔄 Testing encoding bypass techniques...</p>';
+        
+        const response = await fetch(`/bypasser/api/sessions/${currentSessionId}/test-bypass/`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        // Load bypass results
+        await loadBypassResults(currentSessionId);
+        
+        // Switch to bypasses tab
+        switchTab('bypasses');
+        document.querySelectorAll('.tab')[3].classList.add('active');
+        
+    } catch (error) {
+        document.getElementById('bypass-results').innerHTML = 
+            `<p style="color: #dc3545;">✗ Error: ${error.message}</p>`;
+    } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Encoding Bypasses';
+    }
+}
+
+async function loadBypassResults(sessionId) {
+    try {
+        const response = await fetch(`/bypasser/api/sessions/${sessionId}/bypasses/`);
+        const bypasses = await response.json();
+        
+        if (bypasses.length === 0) {
+            document.getElementById('bypass-results').innerHTML = `
+                <p style="color: #666;">No successful bypass techniques found.</p>
+            `;
+            return;
+        }
+        
+        document.getElementById('bypass-results').innerHTML = `
+            <h3>🎯 Successful Bypass Techniques (${bypasses.length})</h3>
+            <p style="color: #dc3545;">⚠️ The following encoding techniques successfully bypassed the input filter:</p>
+            ${bypasses.map(bypass => `
+                <div class="encoding-result bypass-success">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="font-size: 1.2em;">Character: ${escapeHtml(bypass.character)}</strong>
+                            <span style="margin-left: 10px; color: #666;">(${bypass.character_name})</span>
+                        </div>
+                        <span style="background: #dc3545; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.9em;">
+                            ${bypass.risk_level.toUpperCase()}
+                        </span>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <strong>Encoding Type:</strong> ${bypass.encoding_type.replace(/_/g, ' ').toUpperCase()}
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>Encoded Payload:</strong> 
+                        <code style="background: #f8f9fa; padding: 5px; border-radius: 3px;">${escapeHtml(bypass.encoded_payload)}</code>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>Example:</strong> 
+                        <code style="background: #f8f9fa; padding: 5px; border-radius: 3px;">${escapeHtml(bypass.payload_example)}</code>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>Technique:</strong> ${bypass.technique_description}
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>Impact:</strong> ${bypass.impact_description}
+                    </div>
+                    <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;">
+                        <strong>Recommendation:</strong> ${bypass.recommendation}
+                    </div>
+                </div>
+            `).join('')}
+        `;
+        
+    } catch (error) {
+        console.error('Error loading bypass results:', error);
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+        '\n': '\\n',
+        '\r': '\\r',
+        '\t': '\\t'
+    };
+    return String(text).replace(/[&<>"'\n\r\t]/g, m => map[m]);
+}
+</script>
+{% endblock %}
