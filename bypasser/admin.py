@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     BypasserTarget, BypasserSession, CharacterProbe, 
     EncodingAttempt, BypassResult, CustomBypassTechnique,
-    CustomTechniqueExecution
+    CustomTechniqueExecution, ReadyMadePayload, PayloadExecution
 )
 
 
@@ -79,3 +79,50 @@ class CustomTechniqueExecutionAdmin(admin.ModelAdmin):
     list_filter = ('success', 'bypass_confirmed', 'waf_triggered', 'executed_at')
     search_fields = ('technique__name', 'input_payload', 'output_payload', 'notes')
     readonly_fields = ('executed_at',)
+
+
+@admin.register(ReadyMadePayload)
+class ReadyMadePayloadAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'bypass_target', 'risk_level', 'times_used', 
+                    'times_successful', 'success_rate', 'is_active')
+    list_filter = ('category', 'bypass_target', 'risk_level', 'is_active', 'is_built_in')
+    search_fields = ('name', 'description', 'payload', 'tags')
+    readonly_fields = ('created_at', 'updated_at', 'success_rate')
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'category', 'bypass_target', 'risk_level')
+        }),
+        ('Payload', {
+            'fields': ('payload',)
+        }),
+        ('Metadata', {
+            'fields': ('tags', 'is_active', 'is_built_in')
+        }),
+        ('Statistics', {
+            'fields': ('times_used', 'times_successful', 'success_rate', 'created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(PayloadExecution)
+class PayloadExecutionAdmin(admin.ModelAdmin):
+    list_display = ('payload', 'session', 'success', 'bypass_confirmed', 
+                    'reflection_found', 'executed_at')
+    list_filter = ('success', 'bypass_confirmed', 'waf_triggered', 'executed_at')
+    search_fields = ('payload__name', 'original_payload', 'transformed_payload', 'notes')
+    readonly_fields = ('executed_at',)
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('session', 'payload')
+        }),
+        ('Transformations', {
+            'fields': ('transformations_applied', 'original_payload', 'transformed_payload')
+        }),
+        ('Results', {
+            'fields': ('success', 'bypass_confirmed', 'reflection_found', 'waf_triggered',
+                      'http_status_code', 'response_time', 'response_length')
+        }),
+        ('Additional Details', {
+            'fields': ('error_message', 'notes', 'executed_at')
+        }),
+    )
