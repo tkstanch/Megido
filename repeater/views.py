@@ -5,6 +5,7 @@ from .models import RepeaterRequest, RepeaterResponse
 import requests
 import json
 import time
+import os
 
 
 @api_view(['GET', 'POST'])
@@ -42,8 +43,11 @@ def send_request(request, request_id):
         # Parse headers
         try:
             headers = json.loads(repeater_req.headers)
-        except:
+        except (json.JSONDecodeError, TypeError):
             headers = {}
+        
+        # Get SSL verification setting from environment (default to False for security testing)
+        verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
         
         # Send the request
         start_time = time.time()
@@ -54,7 +58,7 @@ def send_request(request, request_id):
                 headers=headers,
                 data=repeater_req.body if repeater_req.body else None,
                 timeout=30,
-                verify=False  # For testing purposes
+                verify=verify_ssl  # Configurable SSL verification for testing
             )
             response_time = (time.time() - start_time) * 1000  # Convert to ms
             

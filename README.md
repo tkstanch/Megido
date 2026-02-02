@@ -175,6 +175,16 @@ Megido/
 
 ## 🔧 Configuration
 
+### Environment Variables
+
+The application can be configured using environment variables. See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
+
+Key settings:
+- `DJANGO_SECRET_KEY` - Secret key for Django (required for production)
+- `DJANGO_DEBUG` - Enable/disable debug mode (default: True)
+- `DJANGO_ALLOWED_HOSTS` - Comma-separated list of allowed hosts
+- `MEGIDO_VERIFY_SSL` - Enable/disable SSL verification for testing (default: False)
+
 ### Django Settings
 
 Edit `megido_security/settings.py` to configure:
@@ -223,8 +233,13 @@ Edit `desktop_app.py` to configure:
 - Always obtain proper authorization before testing any system
 - Use only on systems you own or have explicit permission to test
 - Be aware of legal and ethical implications
-- This tool includes SSL verification bypass for testing purposes - use responsibly
 - Keep the application updated with the latest security patches
+- **SSL Verification**: By default, SSL certificate verification is disabled for testing purposes. Set `MEGIDO_VERIFY_SSL=True` to enable it.
+- **Secret Key**: Change the `DJANGO_SECRET_KEY` in production (see [CONFIGURATION.md](CONFIGURATION.md))
+- **Debug Mode**: Disable `DJANGO_DEBUG` in production environments
+- **Allowed Hosts**: Configure `DJANGO_ALLOWED_HOSTS` properly for production
+
+For production deployment, see [CONFIGURATION.md](CONFIGURATION.md) for security best practices.
 
 ## 🤝 Contributing
 

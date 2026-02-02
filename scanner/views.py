@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import re
+import os
 
 
 @api_view(['GET', 'POST'])
@@ -55,6 +56,9 @@ def start_scan(request, target_id):
 
 def perform_basic_scan(scan, url):
     """Perform basic vulnerability scanning"""
+    # Get SSL verification setting from environment (default to False for security testing)
+    verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
+    
     try:
         # Test for common XSS payloads
         xss_payloads = [
@@ -63,7 +67,7 @@ def perform_basic_scan(scan, url):
             "'><script>alert(1)</script>",
         ]
         
-        response = requests.get(url, timeout=10, verify=False)
+        response = requests.get(url, timeout=10, verify=verify_ssl)
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # Check for forms (potential XSS/SQLI targets)
