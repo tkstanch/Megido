@@ -68,6 +68,8 @@
 .badge-wikto { background: #fd7e14; color: white; }
 .badge-brute_force { background: #6c757d; color: white; }
 .badge-inference { background: #6f42c1; color: white; }
+.badge-GET { background: #17a2b8; color: white; }
+.badge-POST { background: #e83e8c; color: white; }
 .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -212,6 +214,10 @@ button:disabled {
             <label for="enable-inference">Enable Content Inference</label>
         </div>
         <div class="config-option">
+            <input type="checkbox" id="enable-param-discovery" checked>
+            <label for="enable-param-discovery">Enable Parameter Discovery</label>
+        </div>
+        <div class="config-option">
             <input type="checkbox" id="follow-external">
             <label for="follow-external">Follow External Links</label>
         </div>
@@ -241,6 +247,7 @@ async function startSpider() {
     const useWikto = document.getElementById('use-wikto').checked;
     const enableBrute = document.getElementById('enable-brute').checked;
     const enableInference = document.getElementById('enable-inference').checked;
+    const enableParamDiscovery = document.getElementById('enable-param-discovery').checked;
     const followExternal = document.getElementById('follow-external').checked;
     
     if (!url) {
@@ -264,6 +271,7 @@ async function startSpider() {
                 use_wikto: useWikto,
                 enable_brute_force: enableBrute,
                 enable_inference: enableInference,
+                enable_parameter_discovery: enableParamDiscovery,
                 follow_external_links: followExternal
             })
         });
@@ -330,6 +338,10 @@ async function loadResults(sessionId) {
                     <div class="number">${data.statistics.inference_results}</div>
                     <div class="label">Inferred URLs</div>
                 </div>
+                <div class="stat-card">
+                    <div class="number">${data.statistics.parameters_discovered}</div>
+                    <div class="label">Parameters Found</div>
+                </div>
             </div>
         `;
         
@@ -343,6 +355,7 @@ async function loadResults(sessionId) {
                 <div class="tab" onclick="showTab('hidden')">Hidden Content</div>
                 <div class="tab" onclick="showTab('tools')">Tool Results</div>
                 <div class="tab" onclick="showTab('inferred')">Inferred Content</div>
+                <div class="tab" onclick="showTab('parameters')">Hidden Parameters</div>
             </div>
             
             <div id="tab-discovered" class="tab-content active">
@@ -409,6 +422,29 @@ async function loadResults(sessionId) {
                                 <div style="margin-top: 5px;">
                                     <strong>URL:</strong> ${inf.url}
                                 </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+            
+            <div id="tab-parameters" class="tab-content">
+                <div class="result-section">
+                    <h4>🔑 Discovered Hidden Parameters (${data.discovered_parameters ? data.discovered_parameters.length : 0})</h4>
+                    ${!data.discovered_parameters || data.discovered_parameters.length === 0 ? '<p>No hidden parameters discovered.</p>' :
+                        data.discovered_parameters.map(param => `
+                            <div class="content-item risk-${param.risk_level}">
+                                <span class="badge badge-${param.http_method === 'GET' ? 'crawl' : 'brute_force'}">${param.http_method}</span>
+                                <strong>${param.risk_level.toUpperCase()}</strong> - ${param.parameter_type}
+                                <div style="margin-top: 8px;">
+                                    <strong>Parameter:</strong> ${param.parameter_name}=${param.parameter_value}
+                                </div>
+                                <div style="margin-top: 5px;">
+                                    <strong>URL:</strong> ${param.target_url}
+                                </div>
+                                ${param.reveals_debug_info ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Debug Information</div>' : ''}
+                                ${param.reveals_source_code ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Source Code</div>' : ''}
+                                ${param.reveals_hidden_content ? '<div style="margin-top: 5px; color: #ffc107;">📂 Reveals Hidden Content</div>' : ''}
                             </div>
                         `).join('')
                     }

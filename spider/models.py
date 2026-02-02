@@ -16,6 +16,7 @@ class SpiderTarget(models.Model):
     use_wikto = models.BooleanField(default=True)
     enable_brute_force = models.BooleanField(default=True)
     enable_inference = models.BooleanField(default=True)
+    enable_parameter_discovery = models.BooleanField(default=True, help_text="Discover hidden parameters")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -45,6 +46,7 @@ class SpiderSession(models.Model):
     urls_crawled = models.IntegerField(default=0)
     hidden_content_found = models.IntegerField(default=0)
     inference_results = models.IntegerField(default=0)
+    parameters_discovered = models.IntegerField(default=0)
     
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
@@ -216,3 +218,122 @@ class ToolScanResult(models.Model):
     
     def __str__(self):
         return f"{self.tool_name} scan for session {self.session_id}"
+
+
+class ParameterDiscoveryAttempt(models.Model):
+    """Model to track hidden parameter discovery attempts"""
+    session = models.ForeignKey(SpiderSession, on_delete=models.CASCADE, related_name='parameter_attempts')
+    target_url = models.URLField(max_length=2048)
+    parameter_name = models.CharField(max_length=255)
+    parameter_value = models.CharField(max_length=255)
+    
+    # Request details
+    http_method = models.CharField(max_length=10, choices=[
+        ('GET', 'GET'),
+        ('POST', 'POST'),
+    ])
+    parameter_location = models.CharField(max_length=20, choices=[
+        ('query', 'Query String'),
+        ('body', 'Request Body'),
+        ('both', 'Both Query & Body'),
+    ])
+    
+    # Response details
+    status_code = models.IntegerField(blank=True, null=True)
+    response_time = models.FloatField(blank=True, null=True, help_text="Response time in seconds")
+    content_length = models.IntegerField(blank=True, null=True)
+    response_diff = models.BooleanField(default=False, help_text="Response differs from baseline")
+    
+    # Behavioral indicators
+    behavior_changed = models.BooleanField(default=False, help_text="Application behavior changed")
+    error_revealed = models.BooleanField(default=False, help_text="Error or debug info revealed")
+    content_revealed = models.BooleanField(default=False, help_text="New content revealed")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['session', 'response_diff']),
+            models.Index(fields=['session', 'behavior_changed']),
+        ]
+    
+    def __str__(self):
+        return f"{self.parameter_name}={self.parameter_value} on {self.target_url}"
+
+
+class DiscoveredParameter(models.Model):
+    """Model to store successfully discovered hidden parameters"""
+    PARAMETER_TYPE_CHOICES = [
+        ('debug', 'Debug Parameter'),
+        ('test', 'Test Parameter'),
+        ('admin', 'Admin Parameter'),
+        ('developer', 'Developer Parameter'),
+        ('feature_flag', 'Feature Flag'),
+        ('other', 'Other'),
+    ]
+    
+    session = models.ForeignKey(SpiderSession, on_delete=models.CASCADE, related_name='discovered_parameters')
+    target_url = models.URLField(max_length=2048)
+    parameter_name = models.CharField(max_length=255)
+    parameter_value = models.CharField(max_length=255)
+    parameter_type = models.CharField(max_length=50, choices=PARAMETER_TYPE_CHOICES)
+    
+    # Discovery details
+    http_method = models.CharField(max_length=10)
+    discovery_evidence = models.TextField(help_text="Evidence of parameter effect")
+    
+    # Impact assessment
+    risk_level = models.CharField(max_length=20, choices=[
+        ('info', 'Informational'),
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ], default='medium')
+    
+    # Behavioral changes observed
+    reveals_debug_info = models.BooleanField(default=False)
+    reveals_source_code = models.BooleanField(default=False)
+    reveals_hidden_content = models.BooleanField(default=False)
+    enables_functionality = models.BooleanField(default=False)
+    causes_error = models.BooleanField(default=False)
+    
+    discovered_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-discovered_at']
+        unique_together = ['session', 'target_url', 'parameter_name', 'parameter_value']
+    
+    def __str__(self):
+        return f"{self.parameter_name}={self.parameter_value} ({self.parameter_type})"
+
+
+class ParameterBruteForce(models.Model):
+    """Model to track brute force attacks on discovered parameters"""
+    session = models.ForeignKey(SpiderSession, on_delete=models.CASCADE, related_name='parameter_brute_force')
+    discovered_parameter = models.ForeignKey(DiscoveredParameter, on_delete=models.CASCADE, related_name='brute_force_attempts')
+    
+    # Test details
+    test_value = models.CharField(max_length=500)
+    test_description = models.CharField(max_length=255, help_text="Description of what was tested")
+    
+    # Response details
+    status_code = models.IntegerField(blank=True, null=True)
+    response_time = models.FloatField(blank=True, null=True)
+    content_length = models.IntegerField(blank=True, null=True)
+    
+    # Results
+    success = models.BooleanField(default=False, help_text="Test revealed something interesting")
+    finding_description = models.TextField(blank=True, null=True, help_text="What was found")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['discovered_parameter', 'success']),
+        ]
+    
+    def __str__(self):
+        return f"Brute force {self.discovered_parameter.parameter_name} with {self.test_value}"

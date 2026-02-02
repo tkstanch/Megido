@@ -6,7 +6,8 @@ from django.utils import timezone
 from .models import (
     SpiderTarget, SpiderSession, DiscoveredURL,
     HiddenContent, BruteForceAttempt, InferredContent,
-    ToolScanResult
+    ToolScanResult, ParameterDiscoveryAttempt,
+    DiscoveredParameter, ParameterBruteForce
 )
 import requests
 from bs4 import BeautifulSoup
@@ -38,6 +39,7 @@ def spider_targets(request):
             'use_wikto': target.use_wikto,
             'enable_brute_force': target.enable_brute_force,
             'enable_inference': target.enable_inference,
+            'enable_parameter_discovery': target.enable_parameter_discovery,
             'created_at': target.created_at.isoformat(),
         } for target in targets]
         return Response(data)
@@ -54,6 +56,7 @@ def spider_targets(request):
             use_wikto=request.data.get('use_wikto', True),
             enable_brute_force=request.data.get('enable_brute_force', True),
             enable_inference=request.data.get('enable_inference', True),
+            enable_parameter_discovery=request.data.get('enable_parameter_discovery', True),
         )
         return Response({'id': target.id, 'message': 'Target created'}, status=201)
 
@@ -116,10 +119,15 @@ def run_spider_session(session, target):
     if target.enable_inference:
         infer_content(session, target, verify_ssl)
     
+    # Phase 7: Hidden parameter discovery
+    if target.enable_parameter_discovery:
+        discover_hidden_parameters(session, target, verify_ssl)
+    
     # Update session statistics
     session.urls_discovered = session.discovered_urls.count()
     session.hidden_content_found = session.hidden_content.count()
     session.inference_results = session.inferred_content.count()
+    session.parameters_discovered = session.discovered_parameters.count()
     session.save()
 
 
@@ -642,6 +650,7 @@ def spider_results(request, session_id):
                 'urls_crawled': session.urls_crawled,
                 'hidden_content_found': session.hidden_content_found,
                 'inference_results': session.inference_results,
+                'parameters_discovered': session.parameters_discovered,
             },
             'started_at': session.started_at.isoformat(),
             'completed_at': session.completed_at.isoformat() if session.completed_at else None,
@@ -676,8 +685,412 @@ def spider_results(request, session_id):
                 'verified': inf.verified,
                 'exists': inf.exists,
             } for inf in session.inferred_content.filter(verified=True, exists=True)],
+            
+            'discovered_parameters': [{
+                'parameter_name': param.parameter_name,
+                'parameter_value': param.parameter_value,
+                'parameter_type': param.parameter_type,
+                'target_url': param.target_url,
+                'risk_level': param.risk_level,
+                'http_method': param.http_method,
+                'reveals_debug_info': param.reveals_debug_info,
+                'reveals_source_code': param.reveals_source_code,
+                'reveals_hidden_content': param.reveals_hidden_content,
+            } for param in session.discovered_parameters.all()],
         }
         
         return Response(data)
     except SpiderSession.DoesNotExist:
         return Response({'error': 'Session not found'}, status=404)
+
+
+def discover_hidden_parameters(session, target, verify_ssl):
+    """Discover hidden parameters using common debug parameter names and values"""
+    
+    # Common debug parameter names
+    parameter_names = [
+        'debug', 'test', 'hide', 'source', 'dev', 'developer',
+        'admin', 'trace', 'verbose', 'log', 'logging', 'show',
+        'display', 'output', 'print', 'dump', 'echo', 'preview',
+        'view', 'mode', 'env', 'environment', 'config', 'configuration',
+        'demo', 'example', 'sample', 'internal', 'backdoor',
+        'old', 'legacy', 'deprecate', 'obsolete', 'temp', 'tmp',
+    ]
+    
+    # Common parameter values
+    parameter_values = [
+        'true', 'false', 'yes', 'no', 'on', 'off',
+        '1', '0', 'enabled', 'disabled', 'enable', 'disable',
+        'all', 'full', 'complete', 'verbose', 'detailed',
+    ]
+    
+    # Get URLs to test - prioritize interesting ones
+    urls_to_test = []
+    
+    # Test target URL
+    urls_to_test.append(target.url)
+    
+    # Add discovered URLs that look interesting
+    interesting_urls = session.discovered_urls.filter(
+        is_interesting=True
+    )[:10]  # Limit to prevent too many requests
+    
+    for discovered in interesting_urls:
+        if discovered.url not in urls_to_test:
+            urls_to_test.append(discovered.url)
+    
+    # If no interesting URLs, test a few regular ones
+    if len(urls_to_test) == 1:
+        regular_urls = session.discovered_urls.all()[:5]
+        for discovered in regular_urls:
+            if discovered.url not in urls_to_test:
+                urls_to_test.append(discovered.url)
+    
+    # Test each URL with parameter combinations
+    for test_url in urls_to_test:
+        # Get baseline response first
+        baseline_response = get_baseline_response(test_url, verify_ssl)
+        if not baseline_response:
+            continue
+        
+        # Test all parameter combinations
+        for param_name in parameter_names:
+            for param_value in parameter_values:
+                # Test GET request with query parameter
+                test_parameter_get(
+                    session, test_url, param_name, param_value,
+                    baseline_response, verify_ssl
+                )
+                
+                # Test POST request (query + body)
+                test_parameter_post(
+                    session, test_url, param_name, param_value,
+                    baseline_response, verify_ssl
+                )
+                
+                # Small delay to avoid overwhelming the server
+                time.sleep(0.1)
+    
+    # Brute force discovered parameters
+    brute_force_discovered_parameters(session, verify_ssl)
+
+
+def get_baseline_response(url, verify_ssl):
+    """Get baseline response without any parameters"""
+    try:
+        response = requests.get(url, timeout=5, verify=verify_ssl)
+        return {
+            'status_code': response.status_code,
+            'content_length': len(response.content),
+            'content': response.text,
+            'headers': dict(response.headers),
+        }
+    except Exception as e:
+        return None
+
+
+def test_parameter_get(session, url, param_name, param_value, baseline, verify_ssl):
+    """Test parameter with GET request"""
+    from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+    
+    # Parse URL and add parameter
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    params[param_name] = [param_value]
+    
+    new_query = urlencode(params, doseq=True)
+    test_url = urlunparse((
+        parsed.scheme, parsed.netloc, parsed.path,
+        parsed.params, new_query, parsed.fragment
+    ))
+    
+    try:
+        response = requests.get(test_url, timeout=5, verify=verify_ssl)
+        
+        # Analyze response
+        response_diff = (
+            response.status_code != baseline['status_code'] or
+            abs(len(response.content) - baseline['content_length']) > 100
+        )
+        
+        behavior_changed = response_diff
+        error_revealed = check_for_errors(response.text)
+        content_revealed = check_for_new_content(response.text, baseline['content'])
+        
+        # Record attempt
+        attempt = ParameterDiscoveryAttempt.objects.create(
+            session=session,
+            target_url=url,
+            parameter_name=param_name,
+            parameter_value=param_value,
+            http_method='GET',
+            parameter_location='query',
+            status_code=response.status_code,
+            response_time=response.elapsed.total_seconds(),
+            content_length=len(response.content),
+            response_diff=response_diff,
+            behavior_changed=behavior_changed,
+            error_revealed=error_revealed,
+            content_revealed=content_revealed,
+        )
+        
+        # If parameter had an effect, mark it as discovered
+        if behavior_changed or error_revealed or content_revealed:
+            discover_parameter(
+                session, url, param_name, param_value, 'GET',
+                response, baseline, error_revealed, content_revealed
+            )
+    
+    except Exception as e:
+        pass
+
+
+def test_parameter_post(session, url, param_name, param_value, baseline, verify_ssl):
+    """Test parameter with POST request (both query string and body)"""
+    from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+    
+    # Parse URL and add parameter to query string
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    params[param_name] = [param_value]
+    
+    new_query = urlencode(params, doseq=True)
+    test_url = urlunparse((
+        parsed.scheme, parsed.netloc, parsed.path,
+        parsed.params, new_query, parsed.fragment
+    ))
+    
+    # Also add parameter to POST body
+    post_data = {param_name: param_value}
+    
+    try:
+        response = requests.post(
+            test_url,
+            data=post_data,
+            timeout=5,
+            verify=verify_ssl
+        )
+        
+        # Analyze response
+        response_diff = (
+            response.status_code != baseline['status_code'] or
+            abs(len(response.content) - baseline['content_length']) > 100
+        )
+        
+        behavior_changed = response_diff
+        error_revealed = check_for_errors(response.text)
+        content_revealed = check_for_new_content(response.text, baseline['content'])
+        
+        # Record attempt
+        attempt = ParameterDiscoveryAttempt.objects.create(
+            session=session,
+            target_url=url,
+            parameter_name=param_name,
+            parameter_value=param_value,
+            http_method='POST',
+            parameter_location='both',
+            status_code=response.status_code,
+            response_time=response.elapsed.total_seconds(),
+            content_length=len(response.content),
+            response_diff=response_diff,
+            behavior_changed=behavior_changed,
+            error_revealed=error_revealed,
+            content_revealed=content_revealed,
+        )
+        
+        # If parameter had an effect, mark it as discovered
+        if behavior_changed or error_revealed or content_revealed:
+            discover_parameter(
+                session, url, param_name, param_value, 'POST',
+                response, baseline, error_revealed, content_revealed
+            )
+    
+    except Exception as e:
+        pass
+
+
+def check_for_errors(content):
+    """Check if response contains error or debug information"""
+    error_patterns = [
+        'error', 'exception', 'traceback', 'stack trace',
+        'warning', 'debug', 'sql', 'query', 'database',
+        'path', 'file not found', 'undefined', 'null',
+    ]
+    
+    content_lower = content.lower()
+    for pattern in error_patterns:
+        if pattern in content_lower:
+            return True
+    return False
+
+
+def check_for_new_content(response_content, baseline_content):
+    """Check if response reveals new content compared to baseline"""
+    # Simple length comparison
+    if abs(len(response_content) - len(baseline_content)) > 500:
+        return True
+    
+    # Check for new sections or elements
+    new_keywords = [
+        'hidden', 'secret', 'internal', 'admin', 'developer',
+        'config', 'configuration', 'debug', 'trace', 'log',
+    ]
+    
+    response_lower = response_content.lower()
+    baseline_lower = baseline_content.lower()
+    
+    for keyword in new_keywords:
+        if keyword in response_lower and keyword not in baseline_lower:
+            return True
+    
+    return False
+
+
+def discover_parameter(session, url, param_name, param_value, method, response, baseline, error_revealed, content_revealed):
+    """Mark a parameter as discovered"""
+    
+    # Determine parameter type
+    param_type = 'other'
+    if 'debug' in param_name.lower() or 'trace' in param_name.lower():
+        param_type = 'debug'
+    elif 'test' in param_name.lower() or 'demo' in param_name.lower():
+        param_type = 'test'
+    elif 'admin' in param_name.lower():
+        param_type = 'admin'
+    elif 'dev' in param_name.lower() or 'developer' in param_name.lower():
+        param_type = 'developer'
+    elif any(x in param_name.lower() for x in ['show', 'hide', 'display', 'view']):
+        param_type = 'feature_flag'
+    
+    # Determine risk level
+    risk_level = 'low'
+    if error_revealed:
+        risk_level = 'high'
+    elif content_revealed:
+        risk_level = 'medium'
+    elif response.status_code != baseline['status_code']:
+        risk_level = 'medium'
+    
+    # Build evidence
+    evidence_parts = []
+    if response.status_code != baseline['status_code']:
+        evidence_parts.append(f"Status code changed from {baseline['status_code']} to {response.status_code}")
+    if abs(len(response.content) - baseline['content_length']) > 100:
+        evidence_parts.append(f"Content length changed from {baseline['content_length']} to {len(response.content)}")
+    if error_revealed:
+        evidence_parts.append("Response reveals error/debug information")
+    if content_revealed:
+        evidence_parts.append("Response reveals new content")
+    
+    evidence = "; ".join(evidence_parts)
+    
+    # Check for source code revelation
+    reveals_source = any(x in response.text.lower() for x in ['<?php', '<?=', '<%', 'def ', 'function ', 'class '])
+    
+    # Create discovered parameter
+    try:
+        param, created = DiscoveredParameter.objects.get_or_create(
+            session=session,
+            target_url=url,
+            parameter_name=param_name,
+            parameter_value=param_value,
+            defaults={
+                'parameter_type': param_type,
+                'http_method': method,
+                'discovery_evidence': evidence,
+                'risk_level': risk_level,
+                'reveals_debug_info': error_revealed,
+                'reveals_source_code': reveals_source,
+                'reveals_hidden_content': content_revealed,
+                'enables_functionality': response.status_code == 200 and baseline['status_code'] != 200,
+                'causes_error': response.status_code >= 500,
+            }
+        )
+    except Exception as e:
+        pass
+
+
+def brute_force_discovered_parameters(session, verify_ssl):
+    """Perform brute force on discovered parameters to find more values"""
+    
+    discovered_params = session.discovered_parameters.all()[:10]  # Limit for performance
+    
+    # Brute force values
+    brute_values = [
+        # Boolean variations
+        'True', 'False', 'TRUE', 'FALSE', 'Yes', 'No', 'YES', 'NO',
+        # Numbers
+        '2', '3', '10', '100', '1000', '-1',
+        # Special values
+        'null', 'none', 'undefined', '*', 'all', 'everything',
+        # Common strings
+        'admin', 'root', 'system', 'test', 'dev', 'prod',
+        # Path traversal
+        '../', '../../', '../../../',
+        # SQL injection attempts (detection only)
+        "' OR '1'='1", "1' OR '1'='1",
+    ]
+    
+    for param in discovered_params:
+        baseline_url = param.target_url
+        
+        for test_value in brute_values:
+            if test_value == param.parameter_value:
+                continue  # Skip the original value
+            
+            try:
+                # Build test URL
+                from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+                parsed = urlparse(baseline_url)
+                params_dict = parse_qs(parsed.query)
+                params_dict[param.parameter_name] = [test_value]
+                
+                new_query = urlencode(params_dict, doseq=True)
+                test_url = urlunparse((
+                    parsed.scheme, parsed.netloc, parsed.path,
+                    parsed.params, new_query, parsed.fragment
+                ))
+                
+                # Make request
+                if param.http_method == 'GET':
+                    response = requests.get(test_url, timeout=3, verify=verify_ssl)
+                else:
+                    response = requests.post(
+                        test_url,
+                        data={param.parameter_name: test_value},
+                        timeout=3,
+                        verify=verify_ssl
+                    )
+                
+                # Check for interesting response
+                success = False
+                finding = ""
+                
+                if response.status_code == 200:
+                    success = True
+                    finding = f"Valid response with value '{test_value}'"
+                elif response.status_code >= 500:
+                    success = True
+                    finding = f"Server error triggered with value '{test_value}'"
+                elif check_for_errors(response.text):
+                    success = True
+                    finding = f"Error information revealed with value '{test_value}'"
+                
+                # Record brute force attempt
+                ParameterBruteForce.objects.create(
+                    session=session,
+                    discovered_parameter=param,
+                    test_value=test_value,
+                    test_description=f"Testing alternate value for {param.parameter_name}",
+                    status_code=response.status_code,
+                    response_time=response.elapsed.total_seconds(),
+                    content_length=len(response.content),
+                    success=success,
+                    finding_description=finding if success else None,
+                )
+                
+                # Small delay
+                time.sleep(0.05)
+                
+            except Exception as e:
+                continue

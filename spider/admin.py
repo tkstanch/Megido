@@ -2,20 +2,21 @@ from django.contrib import admin
 from .models import (
     SpiderTarget, SpiderSession, DiscoveredURL, 
     HiddenContent, BruteForceAttempt, InferredContent, 
-    ToolScanResult
+    ToolScanResult, ParameterDiscoveryAttempt, 
+    DiscoveredParameter, ParameterBruteForce
 )
 
 
 @admin.register(SpiderTarget)
 class SpiderTargetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'url', 'max_depth', 'use_dirbuster', 'use_nikto', 'created_at']
-    list_filter = ['use_dirbuster', 'use_nikto', 'use_wikto', 'enable_brute_force']
+    list_display = ['name', 'url', 'max_depth', 'use_dirbuster', 'use_nikto', 'enable_parameter_discovery', 'created_at']
+    list_filter = ['use_dirbuster', 'use_nikto', 'use_wikto', 'enable_brute_force', 'enable_parameter_discovery']
     search_fields = ['name', 'url', 'description']
 
 
 @admin.register(SpiderSession)
 class SpiderSessionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'target', 'status', 'urls_discovered', 'hidden_content_found', 'started_at']
+    list_display = ['id', 'target', 'status', 'urls_discovered', 'hidden_content_found', 'parameters_discovered', 'started_at']
     list_filter = ['status', 'started_at']
     search_fields = ['target__name', 'target__url']
     readonly_fields = ['started_at', 'completed_at']
@@ -54,3 +55,24 @@ class ToolScanResultAdmin(admin.ModelAdmin):
     list_display = ['tool_name', 'session', 'status', 'findings_count', 'started_at', 'completed_at']
     list_filter = ['tool_name', 'status']
     readonly_fields = ['started_at', 'completed_at']
+
+
+@admin.register(ParameterDiscoveryAttempt)
+class ParameterDiscoveryAttemptAdmin(admin.ModelAdmin):
+    list_display = ['parameter_name', 'parameter_value', 'target_url', 'http_method', 'response_diff', 'behavior_changed', 'created_at']
+    list_filter = ['http_method', 'parameter_location', 'response_diff', 'behavior_changed', 'error_revealed']
+    search_fields = ['parameter_name', 'parameter_value', 'target_url']
+
+
+@admin.register(DiscoveredParameter)
+class DiscoveredParameterAdmin(admin.ModelAdmin):
+    list_display = ['parameter_name', 'parameter_value', 'parameter_type', 'risk_level', 'http_method', 'discovered_at']
+    list_filter = ['parameter_type', 'risk_level', 'http_method', 'reveals_debug_info', 'reveals_source_code']
+    search_fields = ['parameter_name', 'parameter_value', 'target_url', 'discovery_evidence']
+
+
+@admin.register(ParameterBruteForce)
+class ParameterBruteForceAdmin(admin.ModelAdmin):
+    list_display = ['discovered_parameter', 'test_value', 'success', 'status_code', 'created_at']
+    list_filter = ['success', 'status_code']
+    search_fields = ['test_value', 'test_description', 'finding_description']
