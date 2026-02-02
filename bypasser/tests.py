@@ -506,3 +506,352 @@ class URLValidationTest(TestCase):
         is_valid, message = validate_target_url('http://metadata.google.internal/computeMetadata/')
         self.assertFalse(is_valid)
         self.assertIn('internal', message.lower())
+
+
+class CustomBypassTechniqueTest(TestCase):
+    """Test custom bypass technique models"""
+    
+    def test_custom_technique_creation(self):
+        """Test creating a custom bypass technique"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='Double URL Encoding',
+            description='Applies URL encoding twice',
+            category='waf',
+            technique_template='{{payload|url_encode_double}}',
+            example_input='<script>',
+            example_output='%253Cscript%253E',
+            tags='url,encoding,waf',
+            author='TestUser'
+        )
+        
+        self.assertEqual(technique.name, 'Double URL Encoding')
+        self.assertEqual(technique.category, 'waf')
+        self.assertEqual(technique.times_used, 0)
+        self.assertEqual(technique.times_successful, 0)
+        self.assertEqual(technique.success_rate, 0.0)
+        self.assertTrue(technique.is_active)
+    
+    def test_custom_technique_update_success_rate(self):
+        """Test updating success rate of a technique"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='Test Technique',
+            category='waf',
+            technique_template='{{payload|url_encode}}',
+            times_used=10,
+            times_successful=7
+        )
+        
+        technique.update_success_rate()
+        self.assertEqual(technique.success_rate, 70.0)
+    
+    def test_custom_technique_execution_creation(self):
+        """Test creating a custom technique execution record"""
+        from .models import CustomBypassTechnique, CustomTechniqueExecution
+        
+        target = BypasserTarget.objects.create(
+            url='https://example.com',
+            name='Test Target'
+        )
+        session = BypasserSession.objects.create(
+            target=target,
+            status='running'
+        )
+        technique = CustomBypassTechnique.objects.create(
+            name='Test Technique',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        
+        execution = CustomTechniqueExecution.objects.create(
+            session=session,
+            technique=technique,
+            input_payload='<script>',
+            output_payload='%3Cscript%3E',
+            success=True,
+            bypass_confirmed=True,
+            reflection_found=True
+        )
+        
+        self.assertEqual(execution.input_payload, '<script>')
+        self.assertEqual(execution.output_payload, '%3Cscript%3E')
+        self.assertTrue(execution.success)
+        self.assertTrue(execution.bypass_confirmed)
+
+
+class TechniqueParserTest(TestCase):
+    """Test technique parser functionality"""
+    
+    def test_template_validation_valid(self):
+        """Test validation of valid templates"""
+        from .technique_parser import TechniqueParser
+        
+        is_valid, msg = TechniqueParser.validate_template('{{payload|url_encode}}')
+        self.assertTrue(is_valid)
+        
+        is_valid, msg = TechniqueParser.validate_template('{{char|html_hex|base64}}')
+        self.assertTrue(is_valid)
+        
+        is_valid, msg = TechniqueParser.validate_template('test{{payload|url_encode}}test')
+        self.assertTrue(is_valid)
+    
+    def test_template_validation_invalid(self):
+        """Test validation of invalid templates"""
+        from .technique_parser import TechniqueParser
+        
+        # Empty template
+        is_valid, msg = TechniqueParser.validate_template('')
+        self.assertFalse(is_valid)
+        
+        # No placeholders
+        is_valid, msg = TechniqueParser.validate_template('just text')
+        self.assertFalse(is_valid)
+        
+        # Dangerous pattern
+        is_valid, msg = TechniqueParser.validate_template('{{payload}}__import__("os")')
+        self.assertFalse(is_valid)
+        
+        # Invalid variable name
+        is_valid, msg = TechniqueParser.validate_template('{{invalid_var|url_encode}}')
+        self.assertFalse(is_valid)
+        
+        # Invalid transformation
+        is_valid, msg = TechniqueParser.validate_template('{{payload|nonexistent_transform}}')
+        self.assertFalse(is_valid)
+    
+    def test_parse_and_execute_simple(self):
+        """Test parsing and executing simple templates"""
+        from .technique_parser import TechniqueParser
+        
+        success, result, error = TechniqueParser.parse_and_execute(
+            '{{payload}}',
+            {'payload': 'test'}
+        )
+        
+        self.assertTrue(success)
+        self.assertEqual(result, 'test')
+        self.assertEqual(error, '')
+    
+    def test_parse_and_execute_with_transformation(self):
+        """Test parsing and executing templates with transformations"""
+        from .technique_parser import TechniqueParser
+        
+        success, result, error = TechniqueParser.parse_and_execute(
+            '{{payload|url_encode}}',
+            {'payload': '<script>'}
+        )
+        
+        self.assertTrue(success)
+        self.assertEqual(result, '%3Cscript%3E')
+    
+    def test_parse_and_execute_chained_transformations(self):
+        """Test parsing and executing templates with chained transformations"""
+        from .technique_parser import TechniqueParser
+        
+        success, result, error = TechniqueParser.parse_and_execute(
+            '{{payload|upper}}',
+            {'payload': 'script'}
+        )
+        
+        self.assertTrue(success)
+        self.assertEqual(result, 'SCRIPT')
+    
+    def test_parse_and_execute_multiple_placeholders(self):
+        """Test parsing templates with multiple placeholders"""
+        from .technique_parser import TechniqueParser
+        
+        success, result, error = TechniqueParser.parse_and_execute(
+            '{{payload|url_encode}}{{char|html_hex}}',
+            {'payload': '<', 'char': '>'}
+        )
+        
+        self.assertTrue(success)
+        self.assertIn('%3C', result)
+        self.assertIn('&#x3e;', result)
+    
+    def test_get_available_transformations(self):
+        """Test getting available transformations"""
+        from .technique_parser import TechniqueParser
+        
+        transformations = TechniqueParser.get_available_transformations()
+        
+        self.assertIn('url_encode', transformations)
+        self.assertIn('html_hex', transformations)
+        self.assertIn('base64', transformations)
+        self.assertIsInstance(transformations['url_encode'], str)
+    
+    def test_get_available_variables(self):
+        """Test getting available variables"""
+        from .technique_parser import TechniqueParser
+        
+        variables = TechniqueParser.get_available_variables()
+        
+        self.assertIn('payload', variables)
+        self.assertIn('char', variables)
+        self.assertIn('target', variables)
+        self.assertIn('param', variables)
+
+
+class CustomTechniqueAPITest(TestCase):
+    """Test custom technique API endpoints"""
+    
+    def setUp(self):
+        """Set up test client"""
+        self.client = Client()
+    
+    def test_create_custom_technique(self):
+        """Test creating a custom technique via API"""
+        response = self.client.post(
+            '/bypasser/api/custom-techniques/',
+            data=json.dumps({
+                'name': 'Test Technique',
+                'description': 'A test bypass technique',
+                'category': 'waf',
+                'technique_template': '{{payload|url_encode_double}}',
+                'tags': 'test,url,encoding'
+            }),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn('id', data)
+        self.assertEqual(data['name'], 'Test Technique')
+    
+    def test_create_custom_technique_invalid_template(self):
+        """Test creating technique with invalid template"""
+        response = self.client.post(
+            '/bypasser/api/custom-techniques/',
+            data=json.dumps({
+                'name': 'Invalid Technique',
+                'technique_template': '{{payload|nonexistent}}',
+                'category': 'waf'
+            }),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn('error', data)
+    
+    def test_list_custom_techniques(self):
+        """Test listing custom techniques"""
+        from .models import CustomBypassTechnique
+        
+        # Create test techniques
+        CustomBypassTechnique.objects.create(
+            name='Technique 1',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        CustomBypassTechnique.objects.create(
+            name='Technique 2',
+            category='firewall',
+            technique_template='{{payload|html_hex}}'
+        )
+        
+        response = self.client.get('/bypasser/api/custom-techniques/')
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        # Check that both techniques are present
+        names = [tech['name'] for tech in data]
+        self.assertIn('Technique 1', names)
+        self.assertIn('Technique 2', names)
+    
+    def test_get_custom_technique_detail(self):
+        """Test getting technique details"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='Test Technique',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        
+        response = self.client.get(f'/bypasser/api/custom-techniques/{technique.id}/')
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        self.assertEqual(data['name'], 'Test Technique')
+        self.assertEqual(data['category'], 'waf')
+    
+    def test_update_custom_technique(self):
+        """Test updating a custom technique"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='Original Name',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        
+        response = self.client.put(
+            f'/bypasser/api/custom-techniques/{technique.id}/',
+            data=json.dumps({
+                'name': 'Updated Name',
+                'description': 'Updated description'
+            }),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify update
+        technique.refresh_from_db()
+        self.assertEqual(technique.name, 'Updated Name')
+        self.assertEqual(technique.description, 'Updated description')
+    
+    def test_delete_custom_technique(self):
+        """Test deleting a custom technique"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='To Delete',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        
+        response = self.client.delete(f'/bypasser/api/custom-techniques/{technique.id}/')
+        self.assertEqual(response.status_code, 204)
+        
+        # Verify deletion
+        self.assertFalse(CustomBypassTechnique.objects.filter(id=technique.id).exists())
+    
+    def test_test_custom_technique(self):
+        """Test testing a custom technique"""
+        from .models import CustomBypassTechnique
+        
+        technique = CustomBypassTechnique.objects.create(
+            name='Test Technique',
+            category='waf',
+            technique_template='{{payload|url_encode}}'
+        )
+        
+        response = self.client.post(
+            f'/bypasser/api/custom-techniques/{technique.id}/test/',
+            data=json.dumps({
+                'payload': '<script>alert(1)</script>'
+            }),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('%3C', data['result'])
+    
+    def test_get_available_transformations(self):
+        """Test getting available transformations"""
+        response = self.client.get('/bypasser/api/transformations/')
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        self.assertIn('transformations', data)
+        self.assertIn('variables', data)
+        self.assertIn('template_syntax', data)
+        self.assertIn('examples', data)
