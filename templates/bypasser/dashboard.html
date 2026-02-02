@@ -140,10 +140,11 @@ button:disabled {
 
 <div id="results-container" class="results-section" style="display: none;">
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('overview')">Overview</button>
-        <button class="tab" onclick="switchTab('blocked')">Blocked Characters</button>
-        <button class="tab" onclick="switchTab('allowed')">Allowed Characters</button>
-        <button class="tab" onclick="switchTab('bypasses')">Bypass Techniques</button>
+        <button class="tab active" onclick="switchTab('overview', event)">Overview</button>
+        <button class="tab" onclick="switchTab('blocked', event)">Blocked Characters</button>
+        <button class="tab" onclick="switchTab('allowed', event)">Allowed Characters</button>
+        <button class="tab" onclick="switchTab('bypasses', event)">Bypass Techniques</button>
+        <button class="tab" onclick="switchTab('custom', event)">Custom Techniques</button>
     </div>
     
     <div id="tab-overview" class="tab-content active">
@@ -154,6 +155,7 @@ button:disabled {
     <div id="tab-blocked" class="tab-content">
         <div id="blocked-characters"></div>
         <button onclick="testEncodingBypasses()" id="test-bypass-btn" style="margin-top: 20px;">Test Encoding Bypasses</button>
+        <button onclick="testCustomTechniques()" id="test-custom-btn" style="margin-top: 20px; margin-left: 10px;">Test Custom Techniques</button>
     </div>
     
     <div id="tab-allowed" class="tab-content">
@@ -163,10 +165,110 @@ button:disabled {
     <div id="tab-bypasses" class="tab-content">
         <div id="bypass-results"></div>
     </div>
+    
+    <div id="tab-custom" class="tab-content">
+        <h3>🔧 Custom Bypass Techniques</h3>
+        <p>Craft and manage your own custom bypass techniques</p>
+        
+        <div style="margin: 20px 0;">
+            <button onclick="showCreateTechniqueForm()" style="background: #28a745;">➕ Create New Technique</button>
+            <button onclick="loadCustomTechniques()" style="background: #17a2b8; margin-left: 10px;">🔄 Reload Library</button>
+        </div>
+        
+        <div id="create-technique-form" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h4>Create Custom Technique</h4>
+            <div style="margin-top: 15px;">
+                <label>Name:</label>
+                <input type="text" id="tech-name" placeholder="e.g., Triple Encoding Bypass">
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Category:</label>
+                <select id="tech-category">
+                    <option value="waf">WAF Bypass</option>
+                    <option value="firewall">Firewall Bypass</option>
+                    <option value="ips">IPS Bypass</option>
+                    <option value="ids">IDS Bypass</option>
+                    <option value="filter">Input Filter Bypass</option>
+                    <option value="mixed">Mixed/Multi-Layer Bypass</option>
+                </select>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Technique Template:</label>
+                <textarea id="tech-template" rows="3" style="width: 100%; padding: 10px; font-family: monospace;"></textarea>
+                <small style="color: #666;">
+                    Use {% templatetag openvariable %}payload{% templatetag closevariable %}, {% templatetag openvariable %}char{% templatetag closevariable %}, {% templatetag openvariable %}target{% templatetag closevariable %}, {% templatetag openvariable %}param{% templatetag closevariable %} with transformations like |url_encode|html_hex
+                    <a href="#" onclick="showTechniqueHelp(); return false;" style="margin-left: 10px;">📖 View Syntax Help</a>
+                </small>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Description:</label>
+                <textarea id="tech-description" rows="2" style="width: 100%; padding: 10px;" placeholder="Describe what this technique does..."></textarea>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Example Input:</label>
+                <input type="text" id="tech-example-input" placeholder="<script>" value="<script>">
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Tags (comma-separated):</label>
+                <input type="text" id="tech-tags" placeholder="url,encoding,waf">
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Author:</label>
+                <input type="text" id="tech-author" placeholder="Your name">
+            </div>
+            <div style="margin-top: 15px;">
+                <button onclick="testTechniqueTemplate()" style="background: #ffc107;">🧪 Test Template</button>
+                <button onclick="saveTechnique()" style="background: #28a745; margin-left: 10px;">💾 Save Technique</button>
+                <button onclick="hideCreateTechniqueForm()" style="background: #6c757d; margin-left: 10px;">❌ Cancel</button>
+            </div>
+            <div id="template-test-result" style="margin-top: 15px;"></div>
+        </div>
+        
+        <div id="technique-help" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4>📖 Technique Template Syntax</h4>
+            <p><strong>Variables:</strong></p>
+            <ul>
+                <li><code>{% templatetag openvariable %}payload{% templatetag closevariable %}</code> - The main payload to transform</li>
+                <li><code>{% templatetag openvariable %}char{% templatetag closevariable %}</code> - A single character to test</li>
+                <li><code>{% templatetag openvariable %}target{% templatetag closevariable %}</code> - The target URL</li>
+                <li><code>{% templatetag openvariable %}param{% templatetag closevariable %}</code> - The parameter name</li>
+            </ul>
+            <p><strong>Transformations (pipe them together):</strong></p>
+            <ul style="column-count: 2;">
+                <li><code>url_encode</code> - Single URL encoding</li>
+                <li><code>url_encode_double</code> - Double URL encoding</li>
+                <li><code>url_encode_triple</code> - Triple URL encoding</li>
+                <li><code>html_decimal</code> - HTML decimal entities</li>
+                <li><code>html_hex</code> - HTML hex entities</li>
+                <li><code>html5_entity</code> - HTML5 named entities</li>
+                <li><code>unicode</code> - Unicode escape</li>
+                <li><code>base64</code> - Base64 encoding</li>
+                <li><code>hex</code> - Hexadecimal</li>
+                <li><code>null_byte</code> - Null byte injection</li>
+                <li><code>html_comment</code> - HTML comments between chars</li>
+                <li><code>sql_comment</code> - SQL comments between chars</li>
+                <li><code>upper</code> - Uppercase</li>
+                <li><code>lower</code> - Lowercase</li>
+            </ul>
+            <p><strong>Examples:</strong></p>
+            <ul>
+                <li><code>{% templatetag openvariable %}payload|url_encode_double{% templatetag closevariable %}</code> - Double URL encode</li>
+                <li><code>{% templatetag openvariable %}payload|html_hex|url_encode{% templatetag closevariable %}</code> - HTML hex then URL encode</li>
+                <li><code>test{% templatetag openvariable %}payload|upper{% templatetag closevariable %}value</code> - Uppercase with surrounding text</li>
+            </ul>
+            <button onclick="hideTechniqueHelp()" style="margin-top: 10px;">Close Help</button>
+        </div>
+        
+        <div id="custom-techniques-library">
+            <h4>📚 Your Technique Library</h4>
+            <div id="techniques-list"></div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_script %}
+{% verbatim %}
 <script>
 let currentSessionId = null;
 
@@ -412,5 +514,270 @@ function escapeHtml(text) {
     };
     return String(text).replace(/[&<>"'\n\r\t]/g, m => map[m]);
 }
+
+// ==================== Custom Techniques Functions ====================
+
+function showCreateTechniqueForm() {
+    document.getElementById('create-technique-form').style.display = 'block';
+}
+
+function hideCreateTechniqueForm() {
+    document.getElementById('create-technique-form').style.display = 'none';
+    // Clear form
+    document.getElementById('tech-name').value = '';
+    document.getElementById('tech-template').value = '';
+    document.getElementById('tech-description').value = '';
+    document.getElementById('tech-example-input').value = '<script>';
+    document.getElementById('tech-tags').value = '';
+    document.getElementById('tech-author').value = '';
+}
+
+function showTechniqueHelp() {
+    document.getElementById('technique-help').style.display = 'block';
+}
+
+function hideTechniqueHelp() {
+    document.getElementById('technique-help').style.display = 'none';
+}
+
+async function testTechniqueTemplate() {
+    const template = document.getElementById('tech-template').value;
+    const exampleInput = document.getElementById('tech-example-input').value;
+    
+    if (!template) {
+        alert('Please enter a technique template');
+        return;
+    }
+    
+    const resultDiv = document.getElementById('template-test-result');
+    resultDiv.innerHTML = '<p style="color: #007bff;">🧪 Testing template...</p>';
+    
+    try {
+        // Create a temporary technique to test
+        const testResponse = await fetch('/bypasser/api/custom-techniques/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: '__TEST_TEMP__',
+                category: 'mixed',
+                technique_template: template,
+                is_active: false
+            })
+        });
+        
+        if (!testResponse.ok) {
+            const error = await testResponse.json();
+            resultDiv.innerHTML = `<p style="color: #dc3545;">❌ Validation Error: ${error.error}</p>`;
+            return;
+        }
+        
+        const tempTech = await testResponse.json();
+        
+        // Test the technique
+        const testResult = await fetch(`/bypasser/api/custom-techniques/${tempTech.id}/test/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({payload: exampleInput})
+        });
+        
+        const result = await testResult.json();
+        
+        // Delete the temporary technique
+        await fetch(`/bypasser/api/custom-techniques/${tempTech.id}/`, {method: 'DELETE'});
+        
+        if (result.success) {
+            resultDiv.innerHTML = `
+                <div style="padding: 10px; background: #d4edda; border-left: 3px solid #28a745; border-radius: 3px;">
+                    <strong>✓ Template Valid!</strong><br>
+                    <strong>Input:</strong> <code>${escapeHtml(exampleInput)}</code><br>
+                    <strong>Output:</strong> <code>${escapeHtml(result.result)}</code>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `<p style="color: #dc3545;">❌ Execution Error: ${result.error}</p>`;
+        }
+        
+    } catch (error) {
+        resultDiv.innerHTML = `<p style="color: #dc3545;">❌ Error: ${error.message}</p>`;
+    }
+}
+
+async function saveTechnique() {
+    const name = document.getElementById('tech-name').value;
+    const category = document.getElementById('tech-category').value;
+    const template = document.getElementById('tech-template').value;
+    const description = document.getElementById('tech-description').value;
+    const exampleInput = document.getElementById('tech-example-input').value;
+    const tags = document.getElementById('tech-tags').value;
+    const author = document.getElementById('tech-author').value;
+    
+    if (!name || !template) {
+        alert('Name and Template are required');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/bypasser/api/custom-techniques/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: name,
+                category: category,
+                technique_template: template,
+                description: description,
+                example_input: exampleInput,
+                tags: tags,
+                author: author
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(`Error: ${error.error}`);
+            return;
+        }
+        
+        const result = await response.json();
+        alert(\"✓ Technique \"${name}" created successfully!`);
+        hideCreateTechniqueForm();
+        loadCustomTechniques();
+        
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function loadCustomTechniques() {
+    try {
+        const response = await fetch('/bypasser/api/custom-techniques/');
+        const techniques = await response.json();
+        
+        const listDiv = document.getElementById('techniques-list');
+        
+        if (techniques.length === 0) {
+            listDiv.innerHTML = '<p style="color: #666;">No custom techniques yet. Create your first one!</p>';
+            return;
+        }
+        
+        listDiv.innerHTML = techniques.map(tech => `
+            <div style="border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin: 10px 0; background: white;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h5 style="margin: 0;">${escapeHtml(tech.name)}</h5>
+                        <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; margin-right: 5px;">
+                            ${tech.category.toUpperCase()}
+                        </span>
+                        ${tech.tags ? `<span style="color: #666; font-size: 0.9em;">🏷️ ${escapeHtml(tech.tags)}</span>` : ''}
+                    </div>
+                    <div>
+                        <span style="background: ${tech.is_active ? '#28a745' : '#6c757d'}; color: white; padding: 5px 10px; border-radius: 3px; font-size: 0.9em;">
+                            ${tech.is_active ? '✓ Active' : '✗ Inactive'}
+                        </span>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <strong>Description:</strong> ${escapeHtml(tech.description || 'No description')}
+                </div>
+                <div style="margin-top: 10px; background: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; font-size: 0.9em;">
+                    ${escapeHtml(tech.technique_template)}
+                </div>
+                <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.9em; color: #666;">
+                        📊 Used: ${tech.times_used} | Success: ${tech.times_successful} | Rate: ${tech.success_rate.toFixed(1)}%
+                        ${tech.author ? `| 👤 ${escapeHtml(tech.author)}` : ''}
+                    </div>
+                    <div>
+                        <button onclick="testSingleTechnique(${tech.id})" style="padding: 5px 10px; font-size: 0.9em; background: #ffc107;">
+                            🧪 Test
+                        </button>
+                        <button onclick="deleteTechnique(${tech.id}, '${escapeHtml(tech.name)}')" style="padding: 5px 10px; font-size: 0.9em; background: #dc3545; margin-left: 5px;">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading techniques:', error);
+        document.getElementById('techniques-list').innerHTML = '<p style="color: #dc3545;">Error loading techniques</p>';
+    }
+}
+
+async function testSingleTechnique(techniqueId) {
+    const payload = prompt('Enter test payload:', '<script>alert(1)</script>');
+    if (!payload) return;
+    
+    try {
+        const response = await fetch(`/bypasser/api/custom-techniques/${techniqueId}/test/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({payload: payload})
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✓ Test Successful!\n\nInput: ${payload}\nOutput: ${result.result}`);
+        } else {
+            alert(`✗ Test Failed\n\nError: ${result.error}`);
+        }
+        
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function deleteTechnique(techniqueId, name) {
+    if (!confirm(\"Delete technique \"${name}"?\")) return;
+    
+    try {
+        const response = await fetch(`/bypasser/api/custom-techniques/${techniqueId}/`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok || response.status === 204) {
+            alert(\"✓ Technique \"${name}" deleted\");
+            loadCustomTechniques();
+        } else {
+            alert('Error deleting technique');
+        }
+        
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+async function testCustomTechniques() {
+    if (!currentSessionId) return;
+    
+    const testBtn = document.getElementById('test-custom-btn');
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing Custom Techniques...';
+    
+    try {
+        const response = await fetch(`/bypasser/api/sessions/${currentSessionId}/use-custom/`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        alert(`Custom Technique Testing Complete!\n\nTechniques tested: ${data.techniques_tested}\nSuccessful bypasses: ${data.successful_bypasses}`);
+        
+        // Reload results
+        await loadResults(currentSessionId);
+        
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Custom Techniques';
+    }
+}
+
+// Load custom techniques when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCustomTechniques();
+});
 </script>
+{% endverbatim %}
 {% endblock %}
