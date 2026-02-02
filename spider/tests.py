@@ -275,6 +275,117 @@ class SpiderAdminTest(TestCase):
             )
 
 
+class StealthModeTest(TestCase):
+    """Test stealth mode functionality"""
+    
+    def test_stealth_target_creation(self):
+        """Test creating a target with stealth options"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Stealth Target',
+            enable_stealth_mode=True,
+            use_random_user_agents=True,
+            stealth_delay_min=0.5,
+            stealth_delay_max=2.0
+        )
+        self.assertTrue(target.enable_stealth_mode)
+        self.assertTrue(target.use_random_user_agents)
+        self.assertEqual(target.stealth_delay_min, 0.5)
+        self.assertEqual(target.stealth_delay_max, 2.0)
+    
+    def test_stealth_session_creation(self):
+        """Test creating stealth session"""
+        from spider.stealth import create_stealth_session
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            enable_stealth_mode=True,
+            stealth_delay_min=1.0,
+            stealth_delay_max=3.0
+        )
+        session = create_stealth_session(target, verify_ssl=False)
+        self.assertTrue(session.enable_stealth)
+        self.assertTrue(session.use_random_user_agents)
+        self.assertEqual(session.delay_min, 1.0)
+        self.assertEqual(session.delay_max, 3.0)
+        session.close()
+    
+    def test_random_user_agent_generation(self):
+        """Test user agent randomization"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True, use_random_user_agents=True)
+        ua1 = session.get_random_user_agent()
+        ua2 = session.get_random_user_agent()
+        self.assertIsNotNone(ua1)
+        self.assertIsNotNone(ua2)
+        self.assertIsInstance(ua1, str)
+        self.assertGreater(len(ua1), 0)
+        session.close()
+    
+    def test_stealth_headers_generation(self):
+        """Test realistic browser headers generation"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True)
+        headers = session.get_stealth_headers()
+        
+        # Check required headers
+        self.assertIn('User-Agent', headers)
+        self.assertIn('Accept', headers)
+        self.assertIn('Accept-Language', headers)
+        self.assertIn('Accept-Encoding', headers)
+        self.assertIn('DNT', headers)
+        self.assertIn('Connection', headers)
+        self.assertIn('Upgrade-Insecure-Requests', headers)
+        
+        # Check header values
+        self.assertEqual(headers['DNT'], '1')
+        self.assertEqual(headers['Connection'], 'keep-alive')
+        self.assertEqual(headers['Upgrade-Insecure-Requests'], '1')
+        session.close()
+    
+    def test_stealth_headers_with_referer(self):
+        """Test headers with referer"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=True)
+        headers = session.get_stealth_headers(referer='https://example.com')
+        
+        self.assertIn('Referer', headers)
+        self.assertEqual(headers['Referer'], 'https://example.com')
+        self.assertEqual(headers['Sec-Fetch-Site'], 'same-origin')
+        session.close()
+    
+    def test_stealth_disabled(self):
+        """Test that stealth features can be disabled"""
+        from spider.stealth import StealthSession
+        session = StealthSession(enable_stealth=False)
+        headers = session.get_stealth_headers()
+        
+        # When stealth is disabled, headers should be empty
+        self.assertEqual(len(headers), 0)
+        session.close()
+    
+    def test_target_api_includes_stealth_options(self):
+        """Test that API returns stealth options"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test',
+            enable_stealth_mode=True,
+            use_random_user_agents=True,
+            stealth_delay_min=1.5,
+            stealth_delay_max=4.0
+        )
+        
+        response = self.client.get(reverse('spider:spider_targets'))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        self.assertGreater(len(data), 0)
+        target_data = data[0]
+        self.assertEqual(target_data['enable_stealth_mode'], True)
+        self.assertEqual(target_data['use_random_user_agents'], True)
+        self.assertEqual(target_data['stealth_delay_min'], 1.5)
+        self.assertEqual(target_data['stealth_delay_max'], 4.0)
+
+
 class ParameterDiscoveryTest(TestCase):
     """Test parameter discovery functionality"""
     
