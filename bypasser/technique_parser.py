@@ -4,7 +4,7 @@ Allows users to craft custom bypass techniques with template-based transformatio
 """
 
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from .encoding import EncodingTechniques
 
 
@@ -268,3 +268,199 @@ def test_technique(technique_template: str, test_payload: str) -> Dict[str, Any]
         'result': result,
         'original': test_payload
     }
+
+
+class PayloadManipulator:
+    """Helper class to manipulate and transform ready-made payloads"""
+    
+    @staticmethod
+    def apply_transformations(payload: str, transformations: List[str]) -> tuple[bool, str, str]:
+        """
+        Apply a list of transformations to a payload.
+        
+        Args:
+            payload: The original payload
+            transformations: List of transformation names to apply
+            
+        Returns:
+            Tuple of (success, transformed_payload, error_message)
+        """
+        result = payload
+        
+        for transform in transformations:
+            if transform not in TechniqueParser.TRANSFORMATIONS:
+                return False, payload, f"Unknown transformation: {transform}"
+            
+            try:
+                result = TechniqueParser.TRANSFORMATIONS[transform](result)
+            except Exception as e:
+                return False, payload, f"Error applying {transform}: {str(e)}"
+        
+        return True, result, ""
+    
+    @staticmethod
+    def apply_technique_to_payload(payload: str, technique_template: str) -> tuple[bool, str, str]:
+        """
+        Apply a custom technique template to a payload.
+        
+        Args:
+            payload: The payload to transform
+            technique_template: Template string like "{{payload|url_encode|html_hex}}"
+            
+        Returns:
+            Tuple of (success, result, error_message)
+        """
+        parser = TechniqueParser()
+        
+        # Validate template
+        is_valid, validation_msg = parser.validate_template(technique_template)
+        if not is_valid:
+            return False, payload, validation_msg
+        
+        # Execute template with payload
+        success, result, error = parser.parse_and_execute(
+            technique_template,
+            {'payload': payload, 'char': payload[0] if payload else ''}
+        )
+        
+        return success, result, error
+    
+    @staticmethod
+    def combine_payloads(payloads: List[str], separator: str = '', 
+                        transformations: Optional[List[str]] = None) -> tuple[bool, str, str]:
+        """
+        Combine multiple payloads with optional transformations.
+        
+        Args:
+            payloads: List of payload strings to combine
+            separator: String to use between payloads
+            transformations: Optional list of transformations to apply to combined payload
+            
+        Returns:
+            Tuple of (success, combined_payload, error_message)
+        """
+        if not payloads:
+            return False, "", "No payloads provided"
+        
+        # Combine payloads
+        combined = separator.join(payloads)
+        
+        # Apply transformations if provided
+        if transformations:
+            return PayloadManipulator.apply_transformations(combined, transformations)
+        
+        return True, combined, ""
+    
+    @staticmethod
+    def fuzz_payload(payload: str, fuzz_type: str = 'case') -> List[str]:
+        """
+        Generate fuzzed variants of a payload.
+        
+        Args:
+            payload: Original payload
+            fuzz_type: Type of fuzzing ('case', 'encoding', 'whitespace', 'all')
+            
+        Returns:
+            List of fuzzed payload variants
+        """
+        variants = []
+        
+        if fuzz_type in ['case', 'all']:
+            # Case variations
+            variants.append(payload.upper())
+            variants.append(payload.lower())
+            variants.append(''.join([c.upper() if i % 2 == 0 else c.lower() 
+                                    for i, c in enumerate(payload)]))
+        
+        if fuzz_type in ['encoding', 'all']:
+            # Encoding variations
+            try:
+                variants.append(TechniqueParser.TRANSFORMATIONS['url_encode'](payload))
+                variants.append(TechniqueParser.TRANSFORMATIONS['html_hex'](payload))
+                variants.append(TechniqueParser.TRANSFORMATIONS['unicode'](payload))
+            except:
+                pass
+        
+        if fuzz_type in ['whitespace', 'all']:
+            # Whitespace variations
+            variants.append(payload.replace(' ', '\t'))
+            variants.append(payload.replace(' ', '\n'))
+            variants.append(payload.replace(' ', ''))
+        
+        # Remove duplicates and return
+        return list(set(variants))
+    
+    @staticmethod
+    def mutate_payload(payload: str, mutation_type: str = 'character') -> List[str]:
+        """
+        Generate mutated variants of a payload for bypass testing.
+        
+        Args:
+            payload: Original payload
+            mutation_type: Type of mutation ('character', 'comment', 'concatenation')
+            
+        Returns:
+            List of mutated payload variants
+        """
+        mutations = []
+        
+        if mutation_type == 'character':
+            # Character substitution mutations
+            mutations.append(payload.replace('<', '%3C'))
+            mutations.append(payload.replace('>', '%3E'))
+            mutations.append(payload.replace('"', '%22'))
+            mutations.append(payload.replace("'", '%27'))
+        
+        elif mutation_type == 'comment':
+            # Comment insertion mutations
+            try:
+                mutations.append(TechniqueParser.TRANSFORMATIONS['html_comment'](payload))
+                mutations.append(TechniqueParser.TRANSFORMATIONS['sql_comment'](payload))
+            except:
+                pass
+        
+        elif mutation_type == 'concatenation':
+            # String concatenation for different contexts
+            if 'script' in payload.lower():
+                # JavaScript context
+                mutations.append(payload.replace('alert', 'a'+'lert'))
+                mutations.append(payload.replace('(', '['+']('))
+            if 'select' in payload.lower() or 'union' in payload.lower():
+                # SQL context
+                mutations.append(payload.replace('SELECT', 'SE'+'LECT'))
+                mutations.append(payload.replace('UNION', 'UN'+'ION'))
+        
+        return mutations
+    
+    @staticmethod
+    def get_payload_variants(payload: str, include_fuzz: bool = True, 
+                            include_mutations: bool = True) -> List[str]:
+        """
+        Generate all variants of a payload for comprehensive testing.
+        
+        Args:
+            payload: Original payload
+            include_fuzz: Include fuzzed variants
+            include_mutations: Include mutated variants
+            
+        Returns:
+            List of all payload variants
+        """
+        variants = [payload]  # Start with original
+        
+        if include_fuzz:
+            variants.extend(PayloadManipulator.fuzz_payload(payload, 'all'))
+        
+        if include_mutations:
+            for mut_type in ['character', 'comment', 'concatenation']:
+                variants.extend(PayloadManipulator.mutate_payload(payload, mut_type))
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_variants = []
+        for variant in variants:
+            if variant not in seen:
+                seen.add(variant)
+                unique_variants.append(variant)
+        
+        return unique_variants
