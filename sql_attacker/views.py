@@ -8,10 +8,14 @@ from rest_framework.response import Response
 from rest_framework import status
 import json
 import threading
+import logging
 
 from .models import SQLInjectionTask, SQLInjectionResult
 from .sqli_engine import SQLInjectionEngine
 from response_analyser.analyse import save_vulnerability
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 def dashboard(request):
@@ -105,7 +109,9 @@ def task_create(request):
         
         # Execute task in background if requested
         if request.POST.get('execute_now') == 'on':
-            threading.Thread(target=execute_task, args=(task.id,), daemon=True).start()
+            thread = threading.Thread(target=execute_task, args=(task.id,))
+            thread.daemon = False  # Non-daemon thread for safer execution
+            thread.start()
         
         return redirect('sql_attacker:task_detail', pk=task.id)
     
@@ -236,7 +242,7 @@ def execute_task(task_id):
             try:
                 forward_to_response_analyser(task, result)
             except Exception as e:
-                print(f"Error forwarding to response_analyser: {e}")
+                logger.error(f"Error forwarding to response_analyser: {e}", exc_info=True)
         
         # Update task status
         task.status = 'completed'
@@ -246,6 +252,7 @@ def execute_task(task_id):
         
     except Exception as e:
         # Handle errors
+        logger.error(f"Task {task_id} failed: {e}", exc_info=True)
         task.status = 'failed'
         task.error_message = str(e)
         task.completed_at = timezone.now()
@@ -351,7 +358,9 @@ def api_tasks(request):
             
             # Execute immediately if requested
             if request.data.get('execute_now', False):
-                threading.Thread(target=execute_task, args=(task.id,), daemon=True).start()
+                thread = threading.Thread(target=execute_task, args=(task.id,))
+                thread.daemon = False  # Non-daemon thread for safer execution
+                thread.start()
             
             return Response({
                 'id': task.id,
@@ -434,7 +443,9 @@ def api_task_execute(request, pk):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Execute in background
-        threading.Thread(target=execute_task, args=(task.id,), daemon=True).start()
+        thread = threading.Thread(target=execute_task, args=(task.id,))
+        thread.daemon = False  # Non-daemon thread for safer execution
+        thread.start()
         
         return Response({
             'id': task.id,

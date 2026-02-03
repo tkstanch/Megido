@@ -12,6 +12,10 @@ import re
 from urllib.parse import urlencode, parse_qs, urlparse, urlunparse
 from typing import Dict, List, Optional, Tuple, Any
 import json
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class SQLInjectionEngine:
@@ -232,7 +236,7 @@ class SQLInjectionEngine:
             
             return response
         except Exception as e:
-            print(f"Request error: {e}")
+            logger.error(f"Request error: {e}")
             return None
     
     def _check_sql_errors(self, response: requests.Response) -> Optional[str]:
