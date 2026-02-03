@@ -41,4 +41,5 @@ urlpatterns = [
     path('sql-attacker/', include('sql_attacker.urls')),
     path('data-tracer/', include('data_tracer.urls')),
     path('discover/', include('discover.urls')),
+    path('manipulator/', include('manipulator.urls')),
 ]

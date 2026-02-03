@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Encoding Tools</li>
+        </ol>
+    </nav>
+
+    <h1>Encoding Tools</h1>
+    <p class="lead">Quickly encode text using various encoding techniques.</p>
+
+    <div class="row">
+        <div class="col-md-12">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Input</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>Text to Encode</label>
+                            <textarea name="input_text" class="form-control" rows="4" 
+                                      placeholder="Enter text to encode">{{ input_text }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Encoding Type</label>
+                            <select name="encoding" class="form-control" required>
+                                <option value="">-- Select Encoding --</option>
+                                {% for key, value in encodings.items %}
+                                    <option value="{{ key }}" {% if selected_encoding == key %}selected{% endif %}>
+                                        {{ value }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Encode</button>
+                    </div>
+                </div>
+            </form>
+
+            {% if encoded_text %}
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Result</h5>
+                </div>
+                <div class="card-body">
+                    {% if success %}
+                        <div class="alert alert-success">Encoding successful!</div>
+                    {% else %}
+                        <div class="alert alert-danger">Error: {{ error }}</div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label><strong>Original:</strong></label>
+                        <pre class="p-2 bg-light border rounded"><code>{{ input_text }}</code></pre>
+                    </div>
+
+                    <div class="form-group">
+                        <label><strong>Encoded ({{ selected_encoding }}):</strong></label>
+                        <textarea class="form-control" rows="5" readonly>{{ encoded_text }}</textarea>
+                        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="copyToClipboard()">
+                            Copy to Clipboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Available Encodings</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for key, value in encodings.items %}
+                        <div class="col-md-4 mb-2">
+                            <strong>{{ value }}</strong><br>
+                            <small class="text-muted">{{ key }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard() {
+    const text = document.querySelector('textarea[readonly]');
+    text.select();
+    document.execCommand('copy');
+    alert('Copied to clipboard!');
+}
+</script>
+{% endblock %}

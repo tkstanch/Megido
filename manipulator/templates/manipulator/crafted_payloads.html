@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Crafted Payloads</li>
+        </ol>
+    </nav>
+
+    <h1>Crafted Payloads History</h1>
+    <p class="lead">View all previously crafted and encoded payloads.</p>
+
+    <div class="row">
+        <div class="col-md-12">
+            {% if crafted_payloads %}
+                <p>Found {{ crafted_payloads.count }} crafted payload(s)</p>
+                <div class="list-group">
+                    {% for crafted in crafted_payloads %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5>
+                                    Based on: {{ crafted.base_payload.name }}
+                                    {% if crafted.tested %}
+                                        {% if crafted.successful %}
+                                            <span class="badge badge-success">Successful</span>
+                                        {% else %}
+                                            <span class="badge badge-danger">Failed</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </h5>
+                                <p class="mb-0">
+                                    <small>
+                                        <strong>Vulnerability:</strong> 
+                                        {{ crafted.base_payload.vulnerability.name }} |
+                                        <strong>Created:</strong> {{ crafted.created_at|date:"Y-m-d H:i" }}
+                                    </small>
+                                </p>
+                                
+                                {% if crafted.encodings_applied %}
+                                <div class="mt-2">
+                                    <strong>Encodings Applied:</strong>
+                                    {% for enc in crafted.encodings_applied %}
+                                        <span class="badge badge-info">{{ enc }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <div class="mt-2">
+                                    <strong>Crafted Payload:</strong>
+                                    <pre class="p-2 bg-light border rounded"><code>{{ crafted.crafted_text }}</code></pre>
+                                </div>
+
+                                {% if crafted.test_notes %}
+                                <div class="mt-2">
+                                    <strong>Test Notes:</strong>
+                                    <p class="text-muted">{{ crafted.test_notes }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    No crafted payloads yet. <a href="{% url 'manipulator:craft_payload' %}">Craft your first payload!</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Payload Library</li>
+        </ol>
+    </nav>
+
+    <h1>Payload Library</h1>
+    <p class="lead">Browse all available payloads across different vulnerability types.</p>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <form method="get" class="form-inline">
+                <label class="mr-2">Filter by:</label>
+                <select name="vulnerability" class="form-control mr-2" onchange="this.form.submit()">
+                    <option value="">All Vulnerabilities</option>
+                    {% for vuln in vulnerabilities %}
+                        <option value="{{ vuln.name }}" {% if selected_vuln == vuln.name %}selected{% endif %}>
+                            {{ vuln.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                
+                <input type="text" name="platform" class="form-control mr-2" 
+                       placeholder="Platform" value="{{ selected_platform }}">
+                
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary ml-2">Clear</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <p>Found {{ payloads.count }} payload(s)</p>
+            
+            {% if payloads %}
+                <div class="list-group">
+                    {% for payload in payloads %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5>
+                                    {{ payload.name }}
+                                    {% if payload.is_custom %}
+                                        <span class="badge badge-success">Custom</span>
+                                    {% endif %}
+                                </h5>
+                                <p class="mb-1">{{ payload.description }}</p>
+                                <p class="mb-0">
+                                    <small>
+                                        <strong>Vulnerability:</strong> 
+                                        <a href="{% url 'manipulator:vulnerability_detail' payload.vulnerability.id %}">
+                                            {{ payload.vulnerability.name }}
+                                        </a> |
+                                        <strong>Platform:</strong> {{ payload.platform|default:"Any" }} |
+                                        <strong>Bypass:</strong> {{ payload.bypass_technique|default:"None" }}
+                                    </small>
+                                </p>
+                                <pre class="mt-2 p-2 bg-light border rounded"><code>{{ payload.payload_text }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">No payloads found matching your criteria.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <a href="{% url 'manipulator:add_payload' %}" class="btn btn-success">Add Custom Payload</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

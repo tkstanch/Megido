@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Manipulation Tricks</li>
+        </ol>
+    </nav>
+
+    <h1>Payload Manipulation Tricks</h1>
+    <p class="lead">Browse bypass techniques and manipulation tricks for different vulnerability types.</p>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <form method="get" class="form-inline">
+                <label class="mr-2">Filter by Vulnerability:</label>
+                <select name="vulnerability" class="form-control mr-2" onchange="this.form.submit()">
+                    <option value="">All Vulnerabilities</option>
+                    {% for vuln in vulnerabilities %}
+                        <option value="{{ vuln.name }}" {% if selected_vuln == vuln.name %}selected{% endif %}>
+                            {{ vuln.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <a href="{% url 'manipulator:manipulation_tricks' %}" class="btn btn-secondary ml-2">Clear</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <p>Found {{ tricks.count }} manipulation trick(s)</p>
+            
+            {% if tricks %}
+                <div class="list-group">
+                    {% for trick in tricks %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5>
+                                    {{ trick.name }}
+                                    <span class="badge 
+                                        {% if trick.effectiveness == 'high' %}badge-success
+                                        {% elif trick.effectiveness == 'medium' %}badge-warning
+                                        {% else %}badge-secondary{% endif %}">
+                                        {{ trick.get_effectiveness_display }}
+                                    </span>
+                                </h5>
+                                <p class="mb-1">{{ trick.description }}</p>
+                                <p class="mb-0">
+                                    <small>
+                                        <strong>Vulnerability:</strong> 
+                                        <a href="{% url 'manipulator:vulnerability_detail' trick.vulnerability.id %}">
+                                            {{ trick.vulnerability.name }}
+                                        </a> |
+                                        <strong>Bypasses:</strong> {{ trick.target_defense }}
+                                    </small>
+                                </p>
+                                {% if trick.example %}
+                                <div class="mt-2">
+                                    <strong>Example:</strong>
+                                    <pre class="p-2 bg-light border rounded"><code>{{ trick.example }}</code></pre>
+                                </div>
+                                {% endif %}
+                                <div class="mt-2">
+                                    <strong>Technique:</strong>
+                                    <pre class="p-2 bg-light border rounded"><code>{{ trick.technique }}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">No manipulation tricks found matching your criteria.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
