@@ -238,7 +238,7 @@
         
         {% if results.shodan.success %}
             <div class="shodan-data">
-                <pre>{{ results.shodan.data|safe }}</pre>
+                <pre>{{ results.shodan.data }}</pre>
             </div>
         {% else %}
             <div class="error-box">

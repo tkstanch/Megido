@@ -80,9 +80,14 @@ def collect_wayback_urls(target, limit=50):
         except ImportError:
             # Fallback to CDX API directly
             domain = extract_domain(target)
-            url = f"http://web.archive.org/cdx/search/cdx?url={domain}/*&output=json&limit={limit}"
+            url = "http://web.archive.org/cdx/search/cdx"
+            params = {
+                'url': f"{domain}/*",
+                'output': 'json',
+                'limit': limit
+            }
             
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
@@ -137,9 +142,15 @@ def collect_shodan_data(target):
     
     try:
         domain = extract_domain(target)
-        url = f"https://api.shodan.io/dns/resolve?hostnames={domain}&key={api_key}"
         
-        response = requests.get(url, timeout=10)
+        # Resolve domain to IP
+        resolve_url = "https://api.shodan.io/dns/resolve"
+        resolve_params = {
+            'hostnames': domain,
+            'key': api_key
+        }
+        
+        response = requests.get(resolve_url, params=resolve_params, timeout=10)
         response.raise_for_status()
         
         ip_data = response.json()
@@ -148,8 +159,9 @@ def collect_shodan_data(target):
             ip = ip_data[domain]
             
             # Get host information
-            host_url = f"https://api.shodan.io/shodan/host/{ip}?key={api_key}"
-            host_response = requests.get(host_url, timeout=10)
+            host_url = f"https://api.shodan.io/shodan/host/{ip}"
+            host_params = {'key': api_key}
+            host_response = requests.get(host_url, params=host_params, timeout=10)
             host_response.raise_for_status()
             
             results['data'] = host_response.json()
@@ -202,9 +214,13 @@ def collect_hunter_emails(target):
     
     try:
         domain = extract_domain(target)
-        url = f"https://api.hunter.io/v2/domain-search?domain={domain}&api_key={api_key}"
+        url = "https://api.hunter.io/v2/domain-search"
+        params = {
+            'domain': domain,
+            'api_key': api_key
+        }
         
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         
         data = response.json()

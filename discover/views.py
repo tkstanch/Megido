@@ -166,7 +166,7 @@ def scan_history(request):
     """
     Display list of all scans.
     """
-    scans = Scan.objects.all()[:50]  # Last 50 scans
+    scans = Scan.objects.all().order_by('-scan_date')[:50]  # Last 50 scans
     
     return render(request, 'discover/history.html', {
         'title': 'Scan History',
