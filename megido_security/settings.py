@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'decompiler',
     'malware_analyser',
     'response_analyser',
+    'sql_attacker',
 ]
 
 MIDDLEWARE = [

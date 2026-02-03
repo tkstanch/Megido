@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}SQL Injection Attacker - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">SQL Injection Attacker Dashboard</h1>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Tasks</h5>
+                    <h2>{{ total_tasks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Pending</h5>
+                    <h2>{{ pending_tasks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Running</h5>
+                    <h2>{{ running_tasks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Completed</h5>
+                    <h2>{{ completed_tasks }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Failed Tasks</h5>
+                    <h2>{{ failed_tasks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Vulnerabilities</h5>
+                    <h2>{{ total_vulns }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Exploitable</h5>
+                    <h2>{{ exploitable_vulns }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="mb-4">
+        <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-plus"></i> Create New Attack Task
+        </a>
+        <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary btn-lg">
+            <i class="fas fa-list"></i> View All Tasks
+        </a>
+    </div>
+    
+    <!-- Injection Type Statistics -->
+    {% if injection_stats %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Vulnerabilities by Injection Type</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Injection Type</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in injection_stats %}
+                    <tr>
+                        <td>{{ stat.injection_type|title }}</td>
+                        <td><span class="badge badge-danger">{{ stat.count }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Recent Tasks -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Recent Attack Tasks</h5>
+        </div>
+        <div class="card-body">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Target URL</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Vulnerabilities</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.id }}</td>
+                            <td>
+                                <a href="{% url 'sql_attacker:task_detail' task.id %}">
+                                    {{ task.target_url|truncatechars:50 }}
+                                </a>
+                            </td>
+                            <td><span class="badge badge-info">{{ task.http_method }}</span></td>
+                            <td>
+                                {% if task.status == 'completed' %}
+                                <span class="badge badge-success">{{ task.status }}</span>
+                                {% elif task.status == 'running' %}
+                                <span class="badge badge-info">{{ task.status }}</span>
+                                {% elif task.status == 'failed' %}
+                                <span class="badge badge-danger">{{ task.status }}</span>
+                                {% else %}
+                                <span class="badge badge-warning">{{ task.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if task.vulnerabilities_found > 0 %}
+                                <span class="badge badge-danger">{{ task.vulnerabilities_found }}</span>
+                                {% else %}
+                                <span class="badge badge-secondary">0</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'sql_attacker:task_detail' task.id %}" 
+                                   class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No attack tasks yet. Create one to get started!</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Results -->
+    {% if recent_results %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Recent Vulnerability Findings</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Task</th>
+                            <th>Injection Type</th>
+                            <th>Parameter</th>
+                            <th>Database</th>
+                            <th>Exploitable</th>
+                            <th>Detected</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in recent_results %}
+                        <tr>
+                            <td>{{ result.id }}</td>
+                            <td>
+                                <a href="{% url 'sql_attacker:task_detail' result.task.id %}">
+                                    Task {{ result.task.id }}
+                                </a>
+                            </td>
+                            <td><span class="badge badge-danger">{{ result.get_injection_type_display }}</span></td>
+                            <td>{{ result.vulnerable_parameter }}</td>
+                            <td>{{ result.database_type }}</td>
+                            <td>
+                                {% if result.is_exploitable %}
+                                <span class="badge badge-danger">Yes</span>
+                                {% else %}
+                                <span class="badge badge-secondary">No</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ result.detected_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'sql_attacker:result_detail' result.id %}" 
+                                   class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

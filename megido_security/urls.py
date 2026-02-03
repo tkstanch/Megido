@@ -38,4 +38,5 @@ urlpatterns = [
     path('decompiler/', include('decompiler.urls')),
     path('malware-analyser/', include('malware_analyser.urls')),
     path('response-analyser/', include('response_analyser.urls')),
+    path('sql-attacker/', include('sql_attacker.urls')),
 ]
