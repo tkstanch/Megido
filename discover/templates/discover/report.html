@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_style %}
+.report-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.report-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+.report-header h2 {
+    margin-bottom: 10px;
+}
+.report-header .meta {
+    opacity: 0.9;
+    font-size: 14px;
+}
+.section {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+.section-header {
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+.section-header h3 {
+    color: #667eea;
+    font-size: 24px;
+}
+.guidance-box {
+    background: #f0f4ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+    white-space: pre-line;
+    line-height: 1.8;
+}
+.result-list {
+    list-style: none;
+    padding: 0;
+}
+.result-item {
+    padding: 15px;
+    margin-bottom: 10px;
+    background: #f9f9f9;
+    border-radius: 5px;
+    border-left: 3px solid #667eea;
+}
+.result-item strong {
+    color: #333;
+}
+.dork-category {
+    margin-bottom: 30px;
+}
+.dork-category h4 {
+    color: #667eea;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+.dork-item {
+    background: #f9f9f9;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    position: relative;
+}
+.dork-query {
+    font-family: 'Courier New', monospace;
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    margin: 10px 0;
+    word-break: break-all;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.dork-query:hover {
+    background: #e8f4ff;
+}
+.copy-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 5px;
+}
+.copy-btn:hover {
+    background: #5568d3;
+}
+.copied {
+    color: #28a745;
+    font-size: 12px;
+    margin-left: 10px;
+    display: none;
+}
+.error-box {
+    background: #fee;
+    color: #c33;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 15px;
+}
+.no-data {
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+.shodan-data {
+    font-family: 'Courier New', monospace;
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 13px;
+}
+.email-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f9f9f9;
+    margin-bottom: 8px;
+    border-radius: 5px;
+}
+.email-address {
+    font-weight: bold;
+    color: #667eea;
+}
+.email-info {
+    font-size: 13px;
+    color: #666;
+}
+.confidence {
+    background: #28a745;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+.actions {
+    margin-top: 30px;
+    text-align: center;
+}
+.btn {
+    display: inline-block;
+    padding: 12px 30px;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background 0.3s;
+    margin: 0 10px;
+}
+.btn:hover {
+    background: #5568d3;
+}
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    {% if error %}
+    <div class="error-box">
+        <h3>❌ Error</h3>
+        <p>{{ error }}</p>
+    </div>
+    <div class="actions">
+        <a href="/discover/" class="btn">← Back to Discover</a>
+    </div>
+    {% else %}
+    
+    <div class="report-header">
+        <h2>📊 OSINT Scan Report</h2>
+        <div class="meta">
+            <strong>Target:</strong> {{ scan.target }}<br>
+            <strong>Scan Date:</strong> {{ scan.scan_date|date:"Y-m-d H:i" }}<br>
+            <strong>Results:</strong> {{ scan.total_urls }} URLs | {{ scan.total_emails }} Emails
+        </div>
+    </div>
+
+    <!-- Wayback Machine Results -->
+    <div class="section">
+        <div class="section-header">
+            <h3>{{ results.wayback_machine.title }}</h3>
+        </div>
+        
+        <div class="guidance-box">
+            {{ results.wayback_machine.guidance }}
+        </div>
+        
+        {% if results.wayback_machine.success %}
+            <p><strong>Found {{ results.wayback_machine.count }} historical URLs</strong></p>
+            <ul class="result-list">
+                {% for url in results.wayback_machine.data|slice:":20" %}
+                <li class="result-item">
+                    <strong>Original:</strong> {{ url.original }}<br>
+                    <strong>Archive:</strong> <a href="{{ url.url }}" target="_blank">{{ url.url }}</a><br>
+                    <small>Timestamp: {{ url.timestamp }}</small>
+                </li>
+                {% endfor %}
+            </ul>
+            {% if results.wayback_machine.count > 20 %}
+            <p class="no-data">Showing first 20 of {{ results.wayback_machine.count }} URLs</p>
+            {% endif %}
+        {% else %}
+            <div class="error-box">
+                {{ results.wayback_machine.error|default:"No URLs found" }}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Shodan Results -->
+    <div class="section">
+        <div class="section-header">
+            <h3>{{ results.shodan.title }}</h3>
+        </div>
+        
+        <div class="guidance-box">
+            {{ results.shodan.guidance }}
+        </div>
+        
+        {% if results.shodan.success %}
+            <div class="shodan-data">
+                <pre>{{ results.shodan.data|safe }}</pre>
+            </div>
+        {% else %}
+            <div class="error-box">
+                {{ results.shodan.error|default:"No data available" }}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Hunter.io Results -->
+    <div class="section">
+        <div class="section-header">
+            <h3>{{ results.hunter.title }}</h3>
+        </div>
+        
+        <div class="guidance-box">
+            {{ results.hunter.guidance }}
+        </div>
+        
+        {% if results.hunter.success %}
+            <p><strong>Found {{ results.hunter.count }} email addresses</strong></p>
+            {% for email in results.hunter.data %}
+            <div class="email-item">
+                <div>
+                    <div class="email-address">{{ email.email }}</div>
+                    <div class="email-info">
+                        {% if email.first_name %}{{ email.first_name }} {{ email.last_name }}{% endif %}
+                        {% if email.position %} - {{ email.position }}{% endif %}
+                    </div>
+                </div>
+                {% if email.confidence %}
+                <span class="confidence">{{ email.confidence }}% confidence</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="error-box">
+                {{ results.hunter.error|default:"No emails found" }}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Google Dorks Results -->
+    <div class="section">
+        <div class="section-header">
+            <h3>{{ results.google_dorks.title }}</h3>
+        </div>
+        
+        <div class="guidance-box">
+            {{ results.google_dorks.guidance }}
+        </div>
+        
+        {% for category_key, category in results.google_dorks.data.items %}
+        <div class="dork-category">
+            <h4>📁 {{ category.name }}</h4>
+            <p style="color: #666; margin-bottom: 15px;">{{ category.description }}</p>
+            
+            {% for dork in category.dorks %}
+            <div class="dork-item">
+                <div>{{ dork.description }}</div>
+                <div class="dork-query" onclick="copyToClipboard(this)">
+                    {{ dork.query }}
+                </div>
+                <button class="copy-btn" onclick="copyToClipboard(this.previousElementSibling)">📋 Copy Query</button>
+                <span class="copied">✓ Copied!</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="actions">
+        <a href="/discover/" class="btn">← New Scan</a>
+        <a href="/discover/history/" class="btn">📚 Scan History</a>
+    </div>
+    
+    {% endif %}
+</div>
+
+<script>
+function copyToClipboard(element) {
+    const text = element.textContent.trim();
+    navigator.clipboard.writeText(text).then(function() {
+        // Show copied message
+        const copiedMsg = element.parentElement.querySelector('.copied');
+        if (copiedMsg) {
+            copiedMsg.style.display = 'inline';
+            setTimeout(() => {
+                copiedMsg.style.display = 'none';
+            }, 2000);
+        }
+    }).catch(function(err) {
+        console.error('Failed to copy text: ', err);
+    });
+}
+</script>
+{% endblock %}
