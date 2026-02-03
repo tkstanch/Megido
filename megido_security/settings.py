@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'malware_analyser',
     'response_analyser',
     'sql_attacker',
+    'data_tracer',
 ]
 
 MIDDLEWARE = [
