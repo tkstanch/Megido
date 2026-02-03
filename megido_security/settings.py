@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'response_analyser',
     'sql_attacker',
     'data_tracer',
+    'discover',
 ]
 
 MIDDLEWARE = [
@@ -118,3 +119,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# OSINT API Keys for Discover app
+# Set these to enable Shodan and Hunter.io integrations
+SHODAN_API_KEY = None  # Get from https://account.shodan.io/
+HUNTER_IO_KEY = None   # Get from https://hunter.io/api
