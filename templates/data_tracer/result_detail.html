@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Details - Data Tracer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-open { background: #4caf50; color: white; }
+        .badge-closed { background: #f44336; color: white; }
+        .badge-filtered { background: #ff9800; color: white; }
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 3px solid #ccc;
+            background: white;
+            font-size: 14px;
+        }
+        .log-info { border-color: #2196f3; }
+        .log-warning { border-color: #ff9800; }
+        .log-error { border-color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'data_tracer:scan_detail' scan_result.scan_target.id %}" class="back-link">← Back to Scan</a>
+        
+        <h1>Scan Result Details</h1>
+        <p><strong>Target:</strong> {{ scan_result.scan_target.target }}</p>
+        <p><strong>Started:</strong> {{ scan_result.started_at|date:"Y-m-d H:i:s" }}</p>
+        {% if scan_result.completed_at %}
+        <p><strong>Completed:</strong> {{ scan_result.completed_at|date:"Y-m-d H:i:s" }}</p>
+        <p><strong>Duration:</strong> {{ scan_result.duration_seconds|floatformat:2 }} seconds</p>
+        {% endif %}
+        
+        {% if scan_result.summary %}
+        <div class="section">
+            <h3>Summary</h3>
+            <p>{{ scan_result.summary }}</p>
+        </div>
+        {% endif %}
+        
+        {% if port_scans %}
+        <div class="section">
+            <h2>Port Scan Results ({{ port_scans|length }} ports found)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Port</th>
+                        <th>Protocol</th>
+                        <th>State</th>
+                        <th>Scan Type</th>
+                        <th>Service</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for port in port_scans %}
+                    <tr>
+                        <td>{{ port.port }}</td>
+                        <td>{{ port.protocol|upper }}</td>
+                        <td><span class="badge badge-{{ port.state }}">{{ port.state }}</span></td>
+                        <td>{{ port.scan_type }}</td>
+                        <td>{{ port.service_name|default:"Unknown" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% if os_fingerprints %}
+        <div class="section">
+            <h2>OS Fingerprinting Results</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>OS Name</th>
+                        <th>OS Family</th>
+                        <th>Accuracy</th>
+                        <th>Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for os in os_fingerprints %}
+                    <tr>
+                        <td><strong>{{ os.os_name }}</strong></td>
+                        <td>{{ os.os_family }}</td>
+                        <td>{{ os.accuracy }}%</td>
+                        <td>{{ os.fingerprint_method }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% if logs %}
+        <div class="section">
+            <h2>Scan Logs</h2>
+            {% for log in logs %}
+            <div class="log-entry log-{{ log.level }}">
+                <strong>[{{ log.level|upper }}]</strong> {{ log.message }} 
+                <span style="color: #999; font-size: 12px;">{{ log.logged_at|date:"H:i:s" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
