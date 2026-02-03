@@ -28,6 +28,7 @@ db.sqlite3-journal
 media/
 staticfiles/
 secure_uploads/
+malware_analyser_uploads/
 
 # Virtual Environment
 venv/
