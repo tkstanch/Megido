@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'collaborator',
     'decompiler',
     'malware_analyser',
+    'response_analyser',
 ]
 
 MIDDLEWARE = [
