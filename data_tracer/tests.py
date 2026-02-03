@@ -232,7 +232,7 @@ class ServiceDetectorTestCase(TestCase):
         self.assertIn(22, detector.SERVICE_SIGNATURES)
 
 
-class OSFingerprintersTestCase(TestCase):
+class OSFingerprinterTestCase(TestCase):
     """Test OSFingerprinter engine."""
     
     def test_os_fingerprinter_initialization(self):
