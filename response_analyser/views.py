@@ -91,7 +91,7 @@ def render_evidence_html(request, pk):
     # Add security headers to prevent XSS in the iframe
     response['X-Content-Type-Options'] = 'nosniff'
     response['X-Frame-Options'] = 'SAMEORIGIN'
-    response['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data: https:;"
+    response['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:;"
     
     return response
 
@@ -103,6 +103,7 @@ def dashboard(request):
     total_vulns = Vulnerability.objects.count()
     confirmed_vulns = Vulnerability.objects.filter(is_confirmed=True).count()
     false_positives = Vulnerability.objects.filter(false_positive=True).count()
+    to_review = total_vulns - confirmed_vulns - false_positives
     
     # Group by attack type
     by_attack_type = Vulnerability.objects.values('attack_type').annotate(
@@ -123,6 +124,7 @@ def dashboard(request):
         'total_vulns': total_vulns,
         'confirmed_vulns': confirmed_vulns,
         'false_positives': false_positives,
+        'to_review': to_review,
         'by_attack_type': by_attack_type,
         'by_severity': by_severity,
         'recent_vulns': recent_vulns,
