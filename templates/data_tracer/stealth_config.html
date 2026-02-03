@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stealth Configuration - Data Tracer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .config-card {
+            padding: 20px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .config-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .config-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .form-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .timing-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'data_tracer:home' %}" class="back-link">← Back to Data Tracer</a>
+        
+        <h1>Stealth Configuration</h1>
+        
+        <div class="form-section">
+            <h2>Create New Configuration</h2>
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="name">Configuration Name:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timing_template">Timing Template:</label>
+                    <select id="timing_template" name="timing_template">
+                        <option value="0">0 - Paranoid (Extremely Slow)</option>
+                        <option value="1">1 - Sneaky (Very Slow)</option>
+                        <option value="2">2 - Polite (Slow)</option>
+                        <option value="3" selected>3 - Normal (Default)</option>
+                        <option value="4">4 - Aggressive (Fast)</option>
+                        <option value="5">5 - Insane (Very Fast)</option>
+                    </select>
+                </div>
+                
+                <div class="timing-info">
+                    <strong>Timing Template Guide:</strong>
+                    <ul style="margin: 10px 0;">
+                        <li><strong>Paranoid (0):</strong> 5+ min delay between probes - Maximum stealth</li>
+                        <li><strong>Sneaky (1):</strong> 15s delay between probes - Very stealthy</li>
+                        <li><strong>Polite (2):</strong> 0.4s delay - Slower but less intrusive</li>
+                        <li><strong>Normal (3):</strong> No delay - Balanced speed and stealth</li>
+                        <li><strong>Aggressive (4):</strong> Fast scanning - May trigger IDS</li>
+                        <li><strong>Insane (5):</strong> Very fast - Will likely trigger IDS</li>
+                    </ul>
+                </div>
+                
+                <button type="submit">Create Configuration</button>
+            </form>
+        </div>
+        
+        <h2>Existing Configurations</h2>
+        
+        {% if configs %}
+            {% for config in configs %}
+            <div class="config-card">
+                <h3>{{ config.name }} {% if config.is_default %}(Default){% endif %}</h3>
+                <p>{{ config.description }}</p>
+                <div class="config-details">
+                    <div><strong>Timing Template:</strong> {{ config.timing_template }}</div>
+                    <div><strong>Scan Delay:</strong> {{ config.scan_delay }}s</div>
+                    <div><strong>Max Retries:</strong> {{ config.max_retries }}</div>
+                    <div><strong>Fragment Packets:</strong> {{ config.fragment_packets|yesno:"Yes,No" }}</div>
+                    <div><strong>Randomize Hosts:</strong> {{ config.randomize_hosts|yesno:"Yes,No" }}</div>
+                    <div><strong>Decoy Scanning:</strong> {{ config.decoy_scanning|yesno:"Yes,No" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No stealth configurations yet. Create one above!</p>
+        {% endif %}
+    </div>
+</body>
+</html>

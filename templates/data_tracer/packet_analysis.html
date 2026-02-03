@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packet Analysis - Data Tracer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-high { background: #f44336; color: white; }
+        .badge-medium { background: #ff9800; color: white; }
+        .badge-low { background: #4caf50; color: white; }
+        .badge-none { background: #9e9e9e; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'data_tracer:result_detail' scan_result.id %}" class="back-link">← Back to Results</a>
+        
+        <h1>Packet Analysis</h1>
+        <p><strong>Target:</strong> {{ scan_result.scan_target.target }}</p>
+        
+        {% if aggregated %}
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ aggregated.total_packets }}</div>
+                <div class="stat-label">Total Packets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ aggregated.high_relevance_count }}</div>
+                <div class="stat-label">High Relevance</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ aggregated.unique_ports|length }}</div>
+                <div class="stat-label">Unique Ports</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ aggregated.unique_ips|length }}</div>
+                <div class="stat-label">Unique IPs</div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if packets %}
+        <h2>Captured Packets</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Size</th>
+                    <th>Relevance</th>
+                    <th>Captured</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for packet in packets %}
+                <tr>
+                    <td>{{ packet.packet_type|upper }}</td>
+                    <td>{{ packet.source_ip }}:{{ packet.source_port|default:"N/A" }}</td>
+                    <td>{{ packet.destination_ip }}:{{ packet.destination_port|default:"N/A" }}</td>
+                    <td>{{ packet.packet_size }} bytes</td>
+                    <td><span class="badge badge-{{ packet.relevance }}">{{ packet.get_relevance_display }}</span></td>
+                    <td>{{ packet.captured_at|date:"H:i:s" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No packets captured for this scan.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

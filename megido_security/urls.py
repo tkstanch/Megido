@@ -39,4 +39,5 @@ urlpatterns = [
     path('malware-analyser/', include('malware_analyser.urls')),
     path('response-analyser/', include('response_analyser.urls')),
     path('sql-attacker/', include('sql_attacker.urls')),
+    path('data-tracer/', include('data_tracer.urls')),
 ]
