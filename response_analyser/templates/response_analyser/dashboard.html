@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Analyser Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        .chart-section {
+            margin: 30px 0;
+        }
+        .chart-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bar-label {
+            width: 150px;
+            font-size: 14px;
+            color: #666;
+        }
+        .bar {
+            flex: 1;
+            height: 30px;
+            background: linear-gradient(to right, #007bff, #0056b3);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: white;
+            font-weight: bold;
+        }
+        .recent-vulns {
+            margin: 30px 0;
+        }
+        .vuln-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .vuln-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+        }
+        .vuln-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .vuln-table tr:hover {
+            background: #f8f9fa;
+        }
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .severity-critical { background: #dc3545; color: white; }
+        .severity-high { background: #fd7e14; color: white; }
+        .severity-medium { background: #ffc107; color: black; }
+        .severity-low { background: #28a745; color: white; }
+        .severity-info { background: #17a2b8; color: white; }
+        .nav-links {
+            margin: 20px 0;
+        }
+        .nav-links a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .nav-links a:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Response Analyser Dashboard</h1>
+        
+        <div class="nav-links">
+            <a href="{% url 'response_analyser:dashboard' %}">Dashboard</a>
+            <a href="{% url 'response_analyser:vulnerability_list' %}">All Vulnerabilities</a>
+            <a href="/admin/response_analyser/vulnerability/">Admin Panel</a>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Vulnerabilities</h3>
+                <div class="value">{{ total_vulns }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Confirmed</h3>
+                <div class="value">{{ confirmed_vulns }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>False Positives</h3>
+                <div class="value">{{ false_positives }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>To Review</h3>
+                <div class="value">{{ to_review }}</div>
+            </div>
+        </div>
+        
+        <div class="chart-section">
+            <h2>Vulnerabilities by Attack Type</h2>
+            <div class="bar-chart">
+                {% for item in by_attack_type %}
+                <div class="bar-item">
+                    <div class="bar-label">{{ item.attack_type|upper }}</div>
+                    <div class="bar" style="width: {{ item.count|add:0 }}%; min-width: 80px;">
+                        {{ item.count }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="chart-section">
+            <h2>Vulnerabilities by Severity</h2>
+            <div class="bar-chart">
+                {% for item in by_severity %}
+                <div class="bar-item">
+                    <div class="bar-label">{{ item.severity|upper }}</div>
+                    <div class="bar" style="width: {{ item.count|add:0 }}%; min-width: 80px;">
+                        {{ item.count }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="recent-vulns">
+            <h2>Recent Vulnerabilities</h2>
+            <table class="vuln-table">
+                <thead>
+                    <tr>
+                        <th>Attack Type</th>
+                        <th>Severity</th>
+                        <th>Target URL</th>
+                        <th>Detected</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vuln in recent_vulns %}
+                    <tr>
+                        <td>{{ vuln.get_attack_type_display }}</td>
+                        <td>
+                            <span class="severity-badge severity-{{ vuln.severity }}">
+                                {{ vuln.severity }}
+                            </span>
+                        </td>
+                        <td>{{ vuln.target_url|truncatechars:50 }}</td>
+                        <td>{{ vuln.detected_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'response_analyser:vulnerability_detail' vuln.pk %}">View</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">
+                            No vulnerabilities found yet
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
