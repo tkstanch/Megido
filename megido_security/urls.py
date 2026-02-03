@@ -36,4 +36,5 @@ urlpatterns = [
     path('bypasser/', include('bypasser.urls')),
     path('collaborator/', include('collaborator.urls')),
     path('decompiler/', include('decompiler.urls')),
+    path('malware_analyser/', include('malware_analyser.urls')),
 ]
