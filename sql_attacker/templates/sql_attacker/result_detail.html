@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Result #{{ result.id }} - SQL Injection Finding{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>SQL Injection Finding #{{ result.id }}</h1>
+        <div>
+            <a href="{% url 'sql_attacker:task_detail' result.task.id %}" class="btn btn-secondary">
+                Back to Task
+            </a>
+        </div>
+    </div>
+    
+    <!-- Vulnerability Summary -->
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5>Vulnerability Summary</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Injection Type:</strong> 
+                    <span class="badge badge-danger badge-lg">{{ result.get_injection_type_display }}</span>
+                </div>
+                <div class="col-md-6">
+                    <strong>Severity:</strong> 
+                    <span class="badge badge-danger badge-lg">{{ result.severity|upper }}</span>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <strong>Vulnerable Parameter:</strong> <code>{{ result.vulnerable_parameter }}</code>
+                </div>
+                <div class="col-md-6">
+                    <strong>Parameter Type:</strong> 
+                    <span class="badge badge-info">{{ result.parameter_type }}</span>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <strong>Database Type:</strong> {{ result.database_type|title }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Exploitable:</strong>
+                    {% if result.is_exploitable %}
+                    <span class="badge badge-danger">Yes</span>
+                    {% else %}
+                    <span class="badge badge-secondary">No</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <strong>Detected:</strong> {{ result.detected_at|date:"Y-m-d H:i:s" }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detection Details -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Detection Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-12">
+                    <strong>Test Payload:</strong>
+                    <pre><code>{{ result.test_payload }}</code></pre>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <strong>Detection Evidence:</strong>
+                    <div class="alert alert-warning">
+                        {{ result.detection_evidence }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Exploitation Results -->
+    {% if result.is_exploitable %}
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5>Exploitation Results</h5>
+        </div>
+        <div class="card-body">
+            {% if result.database_version %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <strong>Database Version:</strong> 
+                    <code>{{ result.database_version }}</code>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if result.current_database %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <strong>Current Database:</strong> 
+                    <code>{{ result.current_database }}</code>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if result.current_user %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <strong>Current User:</strong> 
+                    <code>{{ result.current_user }}</code>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if result.extracted_tables %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <strong>Extracted Tables:</strong>
+                    <ul>
+                        {% for table in result.extracted_tables %}
+                        <li><code>{{ table }}</code></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if result.extracted_data %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <strong>Extracted Data:</strong>
+                    <pre><code>{{ result.extracted_data|safe }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Request Details -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Request Details</h5>
+        </div>
+        <div class="card-body">
+            {% if result.request_data %}
+            <pre><code>{{ result.request_data|safe }}</code></pre>
+            {% else %}
+            <p class="text-muted">No request data available</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Response Details -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Response Details</h5>
+        </div>
+        <div class="card-body">
+            {% if result.response_data %}
+            <pre><code>{{ result.response_data|safe }}</code></pre>
+            {% else %}
+            <p class="text-muted">No response data available</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Related Task Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Related Task</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-12">
+                    <strong>Task ID:</strong> 
+                    <a href="{% url 'sql_attacker:task_detail' result.task.id %}">
+                        Task #{{ result.task.id }}
+                    </a>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-12">
+                    <strong>Target URL:</strong> 
+                    <code>{{ result.task.target_url }}</code>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-12">
+                    <strong>HTTP Method:</strong> 
+                    <span class="badge badge-info">{{ result.task.http_method }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
