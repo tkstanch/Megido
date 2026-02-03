@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Add Payload</li>
+        </ol>
+    </nav>
+
+    <h1>Add Custom Payload</h1>
+    <p class="lead">Submit your own payload to the library.</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label>Vulnerability Type *</label>
+                    <select name="vulnerability" class="form-control" required>
+                        <option value="">-- Select Vulnerability --</option>
+                        {% for vuln in vulnerabilities %}
+                            <option value="{{ vuln.id }}">{{ vuln.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Payload Name *</label>
+                    <input type="text" name="name" class="form-control" 
+                           placeholder="e.g., XSS via SVG" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Payload Text *</label>
+                    <textarea name="payload_text" class="form-control" rows="5" 
+                              placeholder="Enter the payload code here" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="form-control" rows="3" 
+                              placeholder="Explain what this payload does and how it works"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Bypass Technique</label>
+                    <input type="text" name="bypass_technique" class="form-control" 
+                           placeholder="e.g., WAF bypass, Filter evasion">
+                </div>
+
+                <div class="form-group">
+                    <label>Platform</label>
+                    <input type="text" name="platform" class="form-control" 
+                           placeholder="e.g., Web, Windows, Linux, PHP">
+                </div>
+
+                <button type="submit" class="btn btn-success">Add Payload</button>
+                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

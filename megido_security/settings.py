@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'sql_attacker',
     'data_tracer',
     'discover',
+    'manipulator',
 ]
 
 MIDDLEWARE = [

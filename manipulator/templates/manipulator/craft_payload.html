@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
+            <li class="breadcrumb-item active">Craft Payload</li>
+        </ol>
+    </nav>
+
+    <h1>Craft & Encode Payload</h1>
+    <p class="lead">Select a base payload or enter your own, then apply encodings to craft the final payload.</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-12">
+            <form method="post" id="craftForm">
+                {% csrf_token %}
+                
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Step 1: Select or Enter Payload</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>Select Vulnerability Type (Optional)</label>
+                            <select class="form-control" id="vulnSelect" name="vulnerability">
+                                <option value="">-- Select to load payloads --</option>
+                                {% for vuln in vulnerabilities %}
+                                    <option value="{{ vuln.id }}">{{ vuln.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Select Base Payload (Optional)</label>
+                            <select class="form-control" id="payloadSelect" name="payload_id">
+                                <option value="">-- Select a payload or enter your own below --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Base Payload Text</label>
+                            <textarea class="form-control" name="base_text" id="baseText" rows="4" 
+                                placeholder="Enter your payload here or select one above">{{ base_text }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Step 2: Select Encoding Techniques</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><small>Select one or more encoding techniques to apply. They will be applied in order.</small></p>
+                        <div class="row">
+                            {% for key, value in encodings.items %}
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="encodings" 
+                                           value="{{ key }}" id="enc_{{ key }}"
+                                           {% if key in selected_encodings %}checked{% endif %}>
+                                    <label class="form-check-label" for="enc_{{ key }}">
+                                        {{ value }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg">Craft Payload</button>
+            </form>
+        </div>
+    </div>
+
+    {% if crafted_text %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Crafted Payload Result</h5>
+                </div>
+                <div class="card-body">
+                    {% if success %}
+                        <div class="alert alert-success">Payload crafted successfully!</div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            Some errors occurred:
+                            <ul>
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label><strong>Original Payload:</strong></label>
+                        <pre class="p-2 bg-light border rounded"><code>{{ base_text }}</code></pre>
+                    </div>
+
+                    <div class="form-group">
+                        <label><strong>Encodings Applied:</strong></label>
+                        <p>
+                            {% for enc in selected_encodings %}
+                                <span class="badge badge-info">{{ enc }}</span>
+                            {% endfor %}
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label><strong>Crafted Payload:</strong></label>
+                        <textarea class="form-control" rows="5" readonly>{{ crafted_text }}</textarea>
+                        <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="copyToClipboard()">
+                            Copy to Clipboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyToClipboard() {
+    const text = document.querySelector('textarea[readonly]');
+    text.select();
+    document.execCommand('copy');
+    alert('Copied to clipboard!');
+}
+</script>
+{% endblock %}
