@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'bypasser',
     'collaborator',
     'decompiler',
+    'malware_analyser',
 ]
 
 MIDDLEWARE = [
