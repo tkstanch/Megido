@@ -116,6 +116,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 
@@ -125,3 +129,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Set these to enable Shodan and Hunter.io integrations
 SHODAN_API_KEY = None  # Get from https://account.shodan.io/
 HUNTER_IO_KEY = None   # Get from https://hunter.io/api
+
+# ClamAV Configuration (can be overridden via environment variables)
+CLAMAV_HOST = 'clamav'  # Use 'localhost' if running ClamAV locally
+CLAMAV_PORT = 3310
+CLAMAV_TIMEOUT = 60

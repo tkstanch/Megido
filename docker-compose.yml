@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # ClamAV antivirus daemon
+  clamav:
+    image: clamav/clamav:latest
+    container_name: megido-clamav
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s  # ClamAV takes time to update virus definitions
+    restart: unless-stopped
+    networks:
+      - megido-network
+
+  # Django application
+  web:
+    build: .
+    container_name: megido-web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - media-files:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - CLAMAV_TIMEOUT=60
+      - DJANGO_SETTINGS_MODULE=megido_security.settings
+    depends_on:
+      clamav:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - megido-network
+
+volumes:
+  clamav-data:
+    driver: local
+  media-files:
+    driver: local
+
+networks:
+  megido-network:
+    driver: bridge
