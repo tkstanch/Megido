@@ -76,6 +76,9 @@ WSGI_APPLICATION = 'megido_security.wsgi.application'
 # PostgreSQL Database Configuration
 # For production, use environment variables to override these defaults
 # See MIGRATING_TO_POSTGRESQL.md and CONFIGURATION.md for setup instructions
+#
+# Note: Default values below are for development/testing purposes.
+# Override with environment variables in production for security.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
