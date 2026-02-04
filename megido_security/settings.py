@@ -72,12 +72,27 @@ WSGI_APPLICATION = 'megido_security.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# PostgreSQL Database Configuration
+# For production, it's recommended to use environment variables for security
+# Example: os.environ.get('DB_NAME', 'radical')
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'radical',
+        'USER': 'tkstanch',
+        'PASSWORD': 'radicalglitch@1998####$',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
+
+# Legacy SQLite configuration (commented out after PostgreSQL migration)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation

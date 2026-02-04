@@ -41,6 +41,67 @@ Comma-separated list of allowed hostnames.
 export DJANGO_ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
 ```
 
+## Database Configuration
+
+### PostgreSQL Settings (Recommended for Production)
+
+The application has been configured to use PostgreSQL by default. For production deployments, use environment variables to configure the database connection securely.
+
+#### DB_NAME
+Database name.
+
+**Default**: `radical`
+
+**Example**:
+```bash
+export DB_NAME=radical
+```
+
+#### DB_USER
+Database user name.
+
+**Default**: `tkstanch`
+
+**Example**:
+```bash
+export DB_USER=tkstanch
+```
+
+#### DB_PASSWORD
+Database user password.
+
+**Default**: `radicalglitch@1998####$`
+
+**Production Example**:
+```bash
+export DB_PASSWORD="your-secure-password-here"
+```
+
+#### DB_HOST
+Database host address.
+
+**Default**: `localhost`
+
+**Example**:
+```bash
+export DB_HOST=localhost
+# For Docker: export DB_HOST=db
+```
+
+#### DB_PORT
+Database port number.
+
+**Default**: `5432`
+
+**Example**:
+```bash
+export DB_PORT=5432
+```
+
+**Migration Guide**: See [MIGRATING_TO_POSTGRESQL.md](MIGRATING_TO_POSTGRESQL.md) for detailed instructions on setting up PostgreSQL.
+
+**Security Note**: Never commit database credentials to version control. Always use environment variables or secrets management systems in production.
+
 ## Application Settings
 
 ### MEGIDO_VERIFY_SSL

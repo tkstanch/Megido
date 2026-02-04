@@ -30,6 +30,10 @@ staticfiles/
 secure_uploads/
 malware_analyser_uploads/
 
+# Environment variables
+.env
+.env.*
+
 # Virtual Environment
 venv/
 ENV/
