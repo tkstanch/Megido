@@ -1,6 +1,7 @@
 """
 Django settings for megido_security project.
 """
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -73,16 +74,16 @@ WSGI_APPLICATION = 'megido_security.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # PostgreSQL Database Configuration
-# For production, it's recommended to use environment variables for security
-# Example: os.environ.get('DB_NAME', 'radical')
+# For production, use environment variables to override these defaults
+# See MIGRATING_TO_POSTGRESQL.md and CONFIGURATION.md for setup instructions
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'radical',
-        'USER': 'tkstanch',
-        'PASSWORD': 'radicalglitch@1998####$',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'radical'),
+        'USER': os.environ.get('DB_USER', 'tkstanch'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'radicalglitch@1998####$'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
