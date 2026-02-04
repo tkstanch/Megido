@@ -46,6 +46,15 @@ A cutting-edge **cross-platform desktop application** for web and mobile securit
    - Detailed remediation recommendations
    - Evidence-based reporting
 
+5. **🦠 Malware Analyser with ClamAV Integration** ⚠️
+   - **REAL malware detection** using ClamAV antivirus engine
+   - File upload and scanning with virus signature detection
+   - EICAR test file support for safe testing
+   - Scan results with threat level classification
+   - **⚠️ EDUCATIONAL USE ONLY - FOR DEMONSTRATION PURPOSES**
+   - **Never use with real malware outside secure sandboxes**
+   - See detailed warnings in the Malware Analyser section below
+
 ### Technical Features
 
 - ✅ **Cross-Platform Desktop Application**: Runs natively on Windows, macOS, and Linux
@@ -55,6 +64,39 @@ A cutting-edge **cross-platform desktop application** for web and mobile securit
 - ✅ **Modern UI**: Clean, responsive web-based interface
 - ✅ **Real-time Updates**: Live monitoring and auto-refresh capabilities
 - ✅ **Extensible Architecture**: Easy to add new security testing modules
+- ✅ **Docker Support**: Easy deployment with Docker Compose (Django + ClamAV)
+
+## ⚠️ Malware Analyser - Critical Safety Warnings
+
+The Malware Analyser module integrates with **ClamAV for REAL malware detection**. This is a powerful feature that comes with serious responsibilities:
+
+### 🚨 LEGAL AND SAFETY WARNINGS
+
+**THIS IS FOR EDUCATIONAL AND DEMONSTRATION PURPOSES ONLY**
+
+- ❌ **NEVER** use for production malware analysis
+- ❌ **NEVER** analyze real malware outside secure, isolated sandboxes
+- ❌ **NEVER** use on systems containing sensitive data
+- ✅ **ALWAYS** use in controlled, authorized testing environments only
+- ✅ **ALWAYS** ensure compliance with all applicable laws and regulations
+- ✅ **ALWAYS** obtain proper authorization before use
+
+### Legal Considerations
+
+Creating, distributing, or analyzing malware without authorization is **ILLEGAL** in most jurisdictions under laws including:
+- Computer Fraud and Abuse Act (CFAA) - USA
+- Computer Misuse Act - UK
+- Council of Europe Convention on Cybercrime - International
+
+**Users are solely responsible for their use of this tool and compliance with all laws.**
+
+### Safe Testing
+
+For safe testing of the malware detection features:
+- Use the **EICAR test file** - a standard, safe test file that antivirus engines detect
+- EICAR is specifically designed for testing antivirus software
+- EICAR is NOT malware and is completely safe to use
+- More info: https://www.eicar.org/
 
 ## 🚀 Installation
 
@@ -96,6 +138,88 @@ See [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup guide!
    ```
    Then open your browser to `http://localhost:8000`
 
+## 🐳 Docker Setup (Recommended for Malware Analyser)
+
+For the **Malware Analyser with ClamAV**, we recommend using Docker for easy setup and isolation:
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- At least 2GB of free RAM (ClamAV requires memory for virus definitions)
+- Internet connection for initial ClamAV signature download
+
+### Quick Start with Docker
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/tkstanch/Megido.git
+   cd Megido
+   ```
+
+2. **Start with Docker Compose:**
+   ```bash
+   docker-compose up --build
+   ```
+
+3. **Wait for ClamAV initialization:**
+   - First startup takes 2-5 minutes as ClamAV downloads virus definitions
+   - Watch logs: `docker-compose logs -f clamav`
+   - Look for "clamd[X]: Self checking every 3600 seconds" message
+
+4. **Access the application:**
+   - Open browser to `http://localhost:8000`
+   - Default superuser: `admin` / `admin` (created automatically)
+   - Navigate to `/malware-analyser/` for file scanning
+
+### Docker Services
+
+The `docker-compose.yml` includes:
+- **web**: Django application (port 8000)
+- **clamav**: ClamAV antivirus daemon (port 3310)
+
+### Testing with EICAR
+
+To test malware detection safely, use the EICAR test file:
+
+1. Navigate to `/malware-analyser/`
+2. Upload a file containing: `X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*`
+3. Run a scan - ClamAV should detect it as "Eicar-Signature"
+
+### Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up --build
+
+# Check ClamAV status
+docker-compose exec clamav clamdscan --version
+```
+
+### Troubleshooting Docker Setup
+
+**ClamAV not detecting files:**
+- Ensure ClamAV container is fully started: `docker-compose logs clamav`
+- Check health status: `docker ps` (should show "healthy")
+- Wait for virus definition updates to complete
+
+**Connection refused errors:**
+- ClamAV takes time to start (especially first time)
+- Check if clamav container is running: `docker ps`
+- Verify network connectivity: `docker-compose exec web ping clamav`
+
+**Out of memory:**
+- ClamAV needs ~1GB RAM minimum
+- Increase Docker memory limit in Docker Desktop settings
+
 ## 📖 Usage Guide
 
 For detailed usage instructions, see [USAGE_GUIDE.md](USAGE_GUIDE.md)
@@ -129,6 +253,7 @@ Then open your browser to `http://localhost:8000`
 - **Interceptor**: Navigate to `/interceptor/` to intercept and modify requests
 - **Repeater**: Navigate to `/repeater/` to craft custom HTTP requests
 - **Scanner**: Navigate to `/scanner/` to perform vulnerability scans
+- **Malware Analyser**: Navigate to `/malware-analyser/` for file scanning with ClamAV ⚠️ (Educational use only)
 
 See the [USAGE_GUIDE.md](USAGE_GUIDE.md) for detailed instructions on each feature.
 
