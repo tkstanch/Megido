@@ -17,6 +17,8 @@ The default database configuration has been updated to use PostgreSQL instead of
    ```bash
    pip install -r requirements.txt
    ```
+   
+   **Note**: `psycopg2-binary` is a stand-alone package that includes its own PostgreSQL client library and is suitable for development and testing. For production deployments on Linux, consider using `psycopg2` (without `-binary`) which is compiled from source and may have better performance. On Windows and macOS, `psycopg2-binary` is generally recommended.
 
 ## Database Configuration
 
@@ -28,12 +30,14 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'radical',
         'USER': 'tkstanch',
-        'PASSWORD': 'radicalglitch@1998####$',
+        'PASSWORD': 'YOUR_PASSWORD_HERE',  # See actual password in settings.py
         'HOST': 'localhost',
         'PORT': '5432',
     }
 }
 ```
+
+**Note**: The actual password is configured in `megido_security/settings.py`. This documentation uses placeholders for security.
 
 ## Step-by-Step Migration
 
@@ -55,8 +59,8 @@ Then in the PostgreSQL prompt:
 -- Create the database
 CREATE DATABASE radical;
 
--- Create the user with password
-CREATE USER tkstanch WITH PASSWORD 'radicalglitch@1998####$';
+-- Create the user with password (use the password from settings.py)
+CREATE USER tkstanch WITH PASSWORD 'YOUR_PASSWORD_HERE';
 
 -- Grant privileges
 GRANT ALL PRIVILEGES ON DATABASE radical TO tkstanch;
@@ -139,7 +143,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME', 'radical'),
         'USER': os.environ.get('DB_USER', 'tkstanch'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'radicalglitch@1998####$'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'YOUR_DEFAULT_PASSWORD'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
@@ -152,7 +156,7 @@ DATABASES = {
 ```bash
 export DB_NAME=radical
 export DB_USER=tkstanch
-export DB_PASSWORD='radicalglitch@1998####$'
+export DB_PASSWORD='YOUR_PASSWORD_HERE'
 export DB_HOST=localhost
 export DB_PORT=5432
 ```
@@ -161,7 +165,7 @@ export DB_PORT=5432
 ```cmd
 set DB_NAME=radical
 set DB_USER=tkstanch
-set DB_PASSWORD=radicalglitch@1998####$
+set DB_PASSWORD=YOUR_PASSWORD_HERE
 set DB_HOST=localhost
 set DB_PORT=5432
 ```
@@ -170,7 +174,7 @@ set DB_PORT=5432
 ```powershell
 $env:DB_NAME="radical"
 $env:DB_USER="tkstanch"
-$env:DB_PASSWORD="radicalglitch@1998####$"
+$env:DB_PASSWORD="YOUR_PASSWORD_HERE"
 $env:DB_HOST="localhost"
 $env:DB_PORT="5432"
 ```
@@ -188,7 +192,7 @@ services:
     environment:
       POSTGRES_DB: radical
       POSTGRES_USER: tkstanch
-      POSTGRES_PASSWORD: radicalglitch@1998####$
+      POSTGRES_PASSWORD: YOUR_PASSWORD_HERE  # Use secure password
     ports:
       - "5432:5432"
     volumes:

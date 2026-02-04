@@ -70,7 +70,7 @@ export DB_USER=tkstanch
 #### DB_PASSWORD
 Database user password.
 
-**Default**: `radicalglitch@1998####$`
+**Default**: (Configured in settings.py for development)
 
 **Production Example**:
 ```bash
