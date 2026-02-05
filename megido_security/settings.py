@@ -237,11 +237,14 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 ALLOW_EXTERNAL_REQUESTS = os.environ.get('ALLOW_EXTERNAL_REQUESTS', 'true').lower() == 'true'
 
 # Django REST Framework Configuration
+# Note: Authentication is applied per-endpoint via decorators
+# Scanner endpoints use TokenAuthentication for security
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ],
 }

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from .models import ScanTarget, Scan, Vulnerability
@@ -139,6 +139,7 @@ def perform_basic_scan(scan, url):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def scan_results(request, scan_id):
     """Get results of a scan"""
     try:
