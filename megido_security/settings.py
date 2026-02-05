@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'app_manager',
     'browser',
     'proxy',
@@ -234,3 +235,16 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # Allow external network access for security testing apps
 ALLOW_EXTERNAL_REQUESTS = os.environ.get('ALLOW_EXTERNAL_REQUESTS', 'true').lower() == 'true'
+
+# Django REST Framework Configuration
+# Note: Authentication is applied per-endpoint via decorators
+# Scanner endpoints use TokenAuthentication for security
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
