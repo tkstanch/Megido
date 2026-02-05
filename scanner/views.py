@@ -1,6 +1,9 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.views.decorators.csrf import csrf_exempt
 from .models import ScanTarget, Scan, Vulnerability
 from django.utils import timezone
 import requests
@@ -10,7 +13,10 @@ import re
 import os
 
 
+@csrf_exempt
 @api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def scan_targets(request):
     """List or create scan targets"""
     if request.method == 'GET':
@@ -31,7 +37,10 @@ def scan_targets(request):
         return Response({'id': target.id, 'message': 'Target created'}, status=201)
 
 
+@csrf_exempt
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def start_scan(request, target_id):
     """Start a vulnerability scan on a target"""
     try:

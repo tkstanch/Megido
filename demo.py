@@ -8,8 +8,21 @@ import requests
 import json
 import time
 from datetime import datetime
+import os
 
 BASE_URL = "http://localhost:8000"
+
+# API Token for authentication - set this via environment variable or hardcode for testing
+# To get a token, run: python manage.py create_scanner_token --username <your-username>
+API_TOKEN = os.environ.get('MEGIDO_API_TOKEN', '')
+
+# Headers to include in all API requests
+HEADERS = {
+    'Authorization': f'Token {API_TOKEN}',
+    'Content-Type': 'application/json',
+} if API_TOKEN else {
+    'Content-Type': 'application/json',
+}
 
 def print_header(text):
     """Print a formatted header"""
@@ -67,6 +80,15 @@ def demo_scanner():
     """Demonstrate the Scanner functionality"""
     print_header("Vulnerability Scanner Demo")
     
+    if not API_TOKEN:
+        print("\n⚠️  WARNING: No API token configured!")
+        print("   The scanner API requires authentication.")
+        print("   Set MEGIDO_API_TOKEN environment variable or configure it in demo.py")
+        print("\n   To create a token, run:")
+        print("   python manage.py create_scanner_token --username <your-username>")
+        print("\n   Skipping scanner demo...")
+        return
+    
     # Create a scan target
     print("\n1. Creating scan target...")
     target_data = {
@@ -74,14 +96,14 @@ def demo_scanner():
         "name": "Example.com Security Scan"
     }
     
-    response = requests.post(f"{BASE_URL}/scanner/api/targets/", json=target_data)
+    response = requests.post(f"{BASE_URL}/scanner/api/targets/", json=target_data, headers=HEADERS)
     result = response.json()
     print_result("Created target", result)
     target_id = result.get('id')
     
     # Start a scan
     print("\n2. Starting vulnerability scan...")
-    response = requests.post(f"{BASE_URL}/scanner/api/targets/{target_id}/scan/")
+    response = requests.post(f"{BASE_URL}/scanner/api/targets/{target_id}/scan/", headers=HEADERS)
     result = response.json()
     print_result("Scan initiated", result)
     scan_id = result.get('id')
