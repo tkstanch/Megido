@@ -118,7 +118,13 @@ async function startScan() {
         
         const target = await targetResponse.json();
         
-        document.getElementById('scan-status').innerHTML = '<p style="color: #007bff;">Starting scan...</p>';
+        // Display starting message safely
+        const statusDiv = document.getElementById('scan-status');
+        statusDiv.textContent = '';
+        const statusParagraph = document.createElement('p');
+        statusParagraph.style.color = '#007bff';
+        statusParagraph.textContent = 'Starting scan...';
+        statusDiv.appendChild(statusParagraph);
         
         // Start scan
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
