@@ -73,7 +73,7 @@ let currentScanId = null;
 // Helper function to safely display error messages
 function displayError(message) {
     const statusDiv = document.getElementById('scan-status');
-    statusDiv.innerHTML = ''; // Clear existing content
+    statusDiv.textContent = ''; // Clear existing content safely
     const errorParagraph = document.createElement('p');
     errorParagraph.style.color = '#dc3545';
     errorParagraph.textContent = 'Error: ' + message;
@@ -162,8 +162,8 @@ async function loadResults(scanId) {
         }
         
         resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
-            <div class="vulnerability severity-${vuln.severity}">
-                <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${vuln.severity.toUpperCase()}</span></div>
+            <div class="vulnerability severity-${escapeHtml(vuln.severity)}">
+                <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${escapeHtml(vuln.severity.toUpperCase())}</span></div>
                 <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
                 <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
                 ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${escapeHtml(vuln.evidence)}</div>` : ''}
