@@ -70,6 +70,16 @@ button:hover {
 <script>
 let currentScanId = null;
 
+// Helper function to safely display error messages
+function displayError(message) {
+    const statusDiv = document.getElementById('scan-status');
+    statusDiv.innerHTML = ''; // Clear existing content
+    const errorParagraph = document.createElement('p');
+    errorParagraph.style.color = '#dc3545';
+    errorParagraph.textContent = 'Error: ' + message;
+    statusDiv.appendChild(errorParagraph);
+}
+
 async function startScan() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('scan-name').value;
@@ -115,7 +125,7 @@ async function startScan() {
         setTimeout(() => loadResults(scan.id), 2000);
         
     } catch (error) {
-        document.getElementById('scan-status').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        displayError(error.message);
     }
 }
 
@@ -155,7 +165,7 @@ async function loadResults(scanId) {
         `).join('');
         
     } catch (error) {
-        document.getElementById('scan-status').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        displayError(error.message);
         console.error('Error loading results:', error);
     }
 }
