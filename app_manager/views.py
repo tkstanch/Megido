@@ -7,6 +7,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import AppConfiguration, AppStateChange, AppSettings
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request):
@@ -21,9 +24,6 @@ def get_client_ip(request):
 
 def dashboard(request):
     """Main dashboard view for app management"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
     apps = AppConfiguration.objects.all()
     logger.info(f"Dashboard: Loading {apps.count()} apps for user {request.user}")
     
@@ -50,9 +50,6 @@ def list_apps(request):
 @api_view(['POST'])
 def toggle_app(request, app_id):
     """API endpoint to toggle app enabled/disabled state"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
     try:
         app = AppConfiguration.objects.get(id=app_id)
         previous_state = app.is_enabled

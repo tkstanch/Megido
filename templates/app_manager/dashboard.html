@@ -280,11 +280,14 @@ function getCookie(name) {
 
 // Initialize stats on page load
 console.log('[App Manager] Dashboard loaded, initializing...');
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('[App Manager] DOM Content Loaded');
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[App Manager] DOM Content Loaded');
+        updateStats();
+    });
+} else {
+    // DOM is already loaded
     updateStats();
-});
-// Also call immediately in case DOMContentLoaded already fired
-updateStats();
+}
 </script>
 {% endblock %}
