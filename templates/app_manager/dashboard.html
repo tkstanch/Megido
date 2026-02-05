@@ -157,6 +157,7 @@ input:checked + .slider:before {
     </div>
 </div>
 
+{% if apps %}
 <div class="app-grid">
     {% for app in apps %}
     <div class="app-card {% if app.is_enabled %}enabled{% else %}disabled{% endif %}" data-app-id="{{ app.id }}">
@@ -184,14 +185,25 @@ input:checked + .slider:before {
     </div>
     {% endfor %}
 </div>
+{% else %}
+<div class="info-panel" style="margin-top: 20px; text-align: center; padding: 40px;">
+    <h3>⚠️ No Apps Found</h3>
+    <p>No application configurations were found in the database.</p>
+    <p>Please run the following command to populate the apps:</p>
+    <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; display: inline-block; margin-top: 10px;">python manage.py populate_apps</pre>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_script %}
 <script>
 function updateStats() {
+    console.log('[App Manager] Updating statistics...');
     const totalApps = document.querySelectorAll('.app-card').length;
     const enabledApps = document.querySelectorAll('.app-card.enabled').length;
     const disabledApps = totalApps - enabledApps;
+    
+    console.log(`[App Manager] Stats - Total: ${totalApps}, Enabled: ${enabledApps}, Disabled: ${disabledApps}`);
     
     document.getElementById('total-apps').textContent = totalApps;
     document.getElementById('enabled-apps').textContent = enabledApps;
@@ -199,6 +211,8 @@ function updateStats() {
 }
 
 function toggleApp(appId, checkbox) {
+    console.log(`[App Manager] Toggling app ID: ${appId}, current state: ${checkbox.checked}`);
+    
     fetch(`/app-manager/api/apps/${appId}/toggle/`, {
         method: 'POST',
         headers: {
@@ -206,19 +220,28 @@ function toggleApp(appId, checkbox) {
             'X-CSRFToken': getCookie('csrftoken')
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`[App Manager] Received response with status: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('[App Manager] Toggle response:', data);
         if (data.success) {
             const card = document.querySelector(`[data-app-id="${appId}"]`);
             const badge = card.querySelector('.status-badge');
             
             if (data.is_enabled) {
+                console.log(`[App Manager] Enabling app: ${data.app_name}`);
                 card.classList.remove('disabled');
                 card.classList.add('enabled');
                 badge.classList.remove('inactive');
                 badge.classList.add('active');
                 badge.textContent = '● Active';
             } else {
+                console.log(`[App Manager] Disabling app: ${data.app_name}`);
                 card.classList.remove('enabled');
                 card.classList.add('disabled');
                 badge.classList.remove('active');
@@ -227,10 +250,15 @@ function toggleApp(appId, checkbox) {
             }
             
             updateStats();
+        } else {
+            console.error('[App Manager] Toggle failed:', data.error || 'Unknown error');
+            alert('Failed to toggle app: ' + (data.error || 'Unknown error'));
+            checkbox.checked = !checkbox.checked;
         }
     })
     .catch(error => {
-        console.error('Error toggling app:', error);
+        console.error('[App Manager] Error toggling app:', error);
+        alert('Error toggling app: ' + error.message);
         checkbox.checked = !checkbox.checked; // Revert toggle
     });
 }
@@ -251,6 +279,12 @@ function getCookie(name) {
 }
 
 // Initialize stats on page load
+console.log('[App Manager] Dashboard loaded, initializing...');
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[App Manager] DOM Content Loaded');
+    updateStats();
+});
+// Also call immediately in case DOMContentLoaded already fired
 updateStats();
 </script>
 {% endblock %}

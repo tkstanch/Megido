@@ -21,7 +21,12 @@ def get_client_ip(request):
 
 def dashboard(request):
     """Main dashboard view for app management"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     apps = AppConfiguration.objects.all()
+    logger.info(f"Dashboard: Loading {apps.count()} apps for user {request.user}")
+    
     return render(request, 'app_manager/dashboard.html', {'apps': apps})
 
 
@@ -45,11 +50,16 @@ def list_apps(request):
 @api_view(['POST'])
 def toggle_app(request, app_id):
     """API endpoint to toggle app enabled/disabled state"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         app = AppConfiguration.objects.get(id=app_id)
         previous_state = app.is_enabled
         app.is_enabled = not app.is_enabled
         app.save()
+        
+        logger.info(f"App '{app.app_name}' toggled from {previous_state} to {app.is_enabled} by {request.user}")
         
         # Log the state change
         user = request.user if request.user.is_authenticated else None
@@ -67,7 +77,11 @@ def toggle_app(request, app_id):
             'is_enabled': app.is_enabled
         })
     except AppConfiguration.DoesNotExist:
-        return Response({'error': 'App not found'}, status=404)
+        logger.error(f"Attempted to toggle non-existent app with ID: {app_id}")
+        return Response({'success': False, 'error': 'App not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error toggling app {app_id}: {str(e)}")
+        return Response({'success': False, 'error': str(e)}, status=500)
 
 
 @api_view(['GET'])
