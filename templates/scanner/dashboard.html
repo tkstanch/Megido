@@ -80,6 +80,13 @@ function displayError(message) {
     statusDiv.appendChild(errorParagraph);
 }
 
+// Helper function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 async function startScan() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('scan-name').value;
@@ -156,11 +163,11 @@ async function loadResults(scanId) {
         
         resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
             <div class="vulnerability severity-${vuln.severity}">
-                <div><strong>${vuln.type}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${vuln.severity.toUpperCase()}</span></div>
-                <div style="margin-top: 10px;"><strong>URL:</strong> ${vuln.url}</div>
-                <div style="margin-top: 5px;"><strong>Description:</strong> ${vuln.description}</div>
-                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${vuln.evidence}</div>` : ''}
-                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${vuln.remediation}</div>` : ''}
+                <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${vuln.severity.toUpperCase()}</span></div>
+                <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
+                <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
+                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${escapeHtml(vuln.evidence)}</div>` : ''}
+                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${escapeHtml(vuln.remediation)}</div>` : ''}
             </div>
         `).join('');
         
