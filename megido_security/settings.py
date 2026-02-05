@@ -4,6 +4,10 @@ Django settings for megido_security project.
 import os
 from pathlib import Path
 
+# Suppress SSL warnings during testing (configured for security testing tool)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -206,12 +210,10 @@ REQUESTS_ALLOW_REDIRECTS = True
 # Timeout settings for external requests (in seconds)
 REQUESTS_TIMEOUT = int(os.environ.get('REQUESTS_TIMEOUT', '30'))
 
-# Suppress SSL warnings during testing
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 # CORS settings for local testing (if using django-cors-headers)
-CORS_ALLOW_ALL_ORIGINS = True  # For local testing only
+# Only set if django-cors-headers is in INSTALLED_APPS
+if 'corsheaders' in [app.split('.')[-1] for app in INSTALLED_APPS]:
+    CORS_ALLOW_ALL_ORIGINS = True  # For local testing only
 
 # Session and CSRF settings for local testing
 CSRF_TRUSTED_ORIGINS = [

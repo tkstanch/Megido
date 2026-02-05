@@ -205,9 +205,19 @@ python manage.py shell
 
 ```python
 import requests
-response = requests.get('https://example.com', verify=False, timeout=30)
+from django.conf import settings
+
+# Use the configured timeout and SSL verification settings
+response = requests.get(
+    'https://example.com',
+    verify=settings.REQUESTS_VERIFY_SSL,
+    timeout=settings.REQUESTS_TIMEOUT,
+    allow_redirects=settings.REQUESTS_ALLOW_REDIRECTS
+)
 print(response.status_code)  # Should print 200
 ```
+
+**Note**: Django apps should use `settings.REQUESTS_VERIFY_SSL`, `settings.REQUESTS_TIMEOUT`, and `settings.REQUESTS_ALLOW_REDIRECTS` when making external requests to ensure consistent behavior across the application.
 
 ---
 
