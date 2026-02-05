@@ -23,6 +23,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'app_manager',
+    'browser',
     'proxy',
     'interceptor',
     'repeater',
@@ -48,6 +50,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app_manager.middleware.AppEnabledMiddleware',
 ]
 
 ROOT_URLCONF = 'megido_security.urls'
@@ -79,16 +82,28 @@ WSGI_APPLICATION = 'megido_security.wsgi.application'
 #
 # Note: Default values below are for development/testing purposes.
 # Override with environment variables in production for security.
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'radical'),
-        'USER': os.environ.get('DB_USER', 'tkstanch'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'radicalglitch@1998####$'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+
+# Use SQLite for testing when PostgreSQL is not available
+import os
+if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    # PostgreSQL configuration - requires environment variables
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'megido_db'),
+            'USER': os.environ.get('DB_USER', 'megido_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD'),  # No default - must be set via environment
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
 
 # Legacy SQLite configuration (commented out after PostgreSQL migration)
 # DATABASES = {
@@ -153,3 +168,25 @@ HUNTER_IO_KEY = None   # Get from https://hunter.io/api
 CLAMAV_HOST = 'clamav'  # Use 'localhost' if running ClamAV locally
 CLAMAV_PORT = 3310
 CLAMAV_TIMEOUT = 60
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'app_manager': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

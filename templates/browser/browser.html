@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+
+{% block title %}Integrated Browser - Megido Security{% endblock %}
+
+{% block extra_style %}
+.browser-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 250px);
+}
+.browser-toolbar {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.url-bar {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+.toolbar-button {
+    padding: 10px 15px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.toolbar-button:hover {
+    background: #5568d3;
+}
+.toolbar-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+.app-toolbar {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.app-button {
+    padding: 8px 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    font-size: 13px;
+}
+.app-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.app-button.disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+.browser-frame {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    overflow: hidden;
+}
+.browser-frame iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+.info-message {
+    background: #e3f2fd;
+    padding: 15px;
+    border-left: 4px solid #2196f3;
+    margin: 10px 0;
+    border-radius: 3px;
+}
+.session-info {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+{% endblock %}
+
+{% block content %}
+<div class="session-info">
+    <strong>Session ID:</strong> {{ session.id }} | 
+    <strong>Started:</strong> {{ session.started_at|date:"Y-m-d H:i:s" }}
+</div>
+
+<div class="info-message">
+    <strong>ℹ️ Integrated Browser</strong><br>
+    Enter a URL below to navigate. Use the app buttons to interact with enabled apps.
+    This is a demonstration interface - in production, this would embed a full browser component.
+</div>
+
+<div class="browser-container">
+    <div class="browser-toolbar">
+        <button class="toolbar-button" onclick="history.back()" title="Back">◄</button>
+        <button class="toolbar-button" onclick="history.forward()" title="Forward">►</button>
+        <button class="toolbar-button" onclick="reload()" title="Reload">⟳</button>
+        <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
+        <button class="toolbar-button" onclick="navigate()">Go</button>
+    </div>
+    
+    <div class="app-toolbar">
+        <strong>Available Apps:</strong>
+        {% for app in enabled_apps %}
+        <button class="app-button" onclick="triggerApp('{{ app.app_name }}', '{{ app.display_name }}')">
+            {{ app.icon }} {{ app.display_name }}
+        </button>
+        {% endfor %}
+        {% if not enabled_apps %}
+        <span style="color: #999;">No apps enabled. Visit <a href="/app-manager/">App Manager</a> to enable apps.</span>
+        {% endif %}
+    </div>
+    
+    <div class="browser-frame">
+        <iframe id="browser-iframe" sandbox="allow-scripts allow-popups allow-forms"></iframe>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+const sessionId = {{ session.id }};
+let currentUrl = '';
+
+function navigate() {
+    const urlBar = document.getElementById('url-bar');
+    let url = urlBar.value.trim();
+    
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    
+    // Add protocol if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+    
+    currentUrl = url;
+    
+    // Load in iframe
+    const iframe = document.getElementById('browser-iframe');
+    iframe.src = url;
+    
+    // Log to history
+    logHistory(url);
+}
+
+function handleUrlEnter(event) {
+    if (event.key === 'Enter') {
+        navigate();
+    }
+}
+
+function reload() {
+    const iframe = document.getElementById('browser-iframe');
+    iframe.contentWindow.location.reload();
+}
+
+function logHistory(url, title = '') {
+    fetch('/browser/api/history/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+            url: url,
+            title: title
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('History logged:', data);
+    })
+    .catch(error => {
+        console.error('Error logging history:', error);
+    });
+}
+
+function triggerApp(appName, displayName) {
+    if (!currentUrl) {
+        alert('Please navigate to a URL first');
+        return;
+    }
+    
+    // Log the app interaction
+    fetch('/browser/api/interaction/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+            app_name: appName,
+            action: 'triggered_from_browser',
+            target_url: currentUrl,
+            result: 'App integration triggered'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('App interaction logged:', data);
+        alert(`${displayName} triggered for ${currentUrl}\n\nIn production, this would invoke the ${appName} app functionality.`);
+    })
+    .catch(error => {
+        console.error('Error logging interaction:', error);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
