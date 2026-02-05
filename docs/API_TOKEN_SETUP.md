@@ -185,7 +185,6 @@ Make sure you've set the `MEGIDO_API_TOKEN` environment variable or configured t
 
 The scanner endpoints use:
 
-- **@csrf_exempt**: Exempts API endpoints from CSRF protection (standard for token-based APIs)
 - **@authentication_classes([TokenAuthentication])**: Requires token authentication
 - **@permission_classes([IsAuthenticated])**: Requires user to be authenticated
 

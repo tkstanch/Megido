@@ -3,7 +3,6 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
 from .models import ScanTarget, Scan, Vulnerability
 from django.utils import timezone
 import requests
@@ -13,7 +12,6 @@ import re
 import os
 
 
-@csrf_exempt
 @api_view(['GET', 'POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -37,7 +35,6 @@ def scan_targets(request):
         return Response({'id': target.id, 'message': 'Target created'}, status=201)
 
 
-@csrf_exempt
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])

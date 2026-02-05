@@ -29,13 +29,6 @@ python manage.py migrate
 echo "✓ Migrations completed"
 echo ""
 
-# Step 3: Create authtoken table
-echo "Step 3: Creating authentication token tables..."
-echo "--------------------------------------------------------------------"
-python manage.py migrate authtoken
-echo "✓ Token authentication tables created"
-echo ""
-
 echo "========================================================================"
 echo "  Setup Complete!"
 echo "========================================================================"
