@@ -87,12 +87,26 @@ button:hover {
 async function sendRequest() {
     const method = document.getElementById('method').value;
     const url = document.getElementById('url').value;
-    const headers = document.getElementById('headers').value;
+    const headersText = document.getElementById('headers').value;
     const body = document.getElementById('body').value;
     
     if (!url) {
         alert('Please enter a URL');
         return;
+    }
+    
+    // Validate headers JSON
+    let headers = headersText.trim();
+    if (headers === '') {
+        headers = '{}';  // Default to empty object
+    } else {
+        try {
+            // Validate it's valid JSON
+            JSON.parse(headers);
+        } catch (e) {
+            alert('Invalid JSON in Headers field. Please check your syntax.\n\nExample:\n{"Content-Type": "application/json"}');
+            return;
+        }
     }
     
     try {
