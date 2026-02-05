@@ -93,16 +93,16 @@ function sanitizeSeverity(severity) {
     return validSeverities.includes(severity) ? severity : 'low';
 }
 
-// Extract authentication token from browser cookies for API requests
-function extractAuthTokenFromCookies(tokenName) {
+// Extract CSRF token from browser cookies for API requests
+function getCsrfTokenFromCookies(tokenName) {
     const allCookies = document.cookie;
     if (!allCookies || allCookies.length === 0) {
         return null;
     }
     
     const cookiePairs = allCookies.split(';');
-    for (let idx = 0; idx < cookiePairs.length; idx++) {
-        const cookiePair = cookiePairs[idx].trim();
+    for (let i = 0; i < cookiePairs.length; i++) {
+        const cookiePair = cookiePairs[i].trim();
         const separatorIndex = cookiePair.indexOf('=');
         if (separatorIndex > 0) {
             const key = cookiePair.substring(0, separatorIndex);
@@ -125,7 +125,7 @@ async function startScan() {
     }
     
     // Extract CSRF token for authenticated requests
-    const authToken = extractAuthTokenFromCookies('csrftoken');
+    const csrfToken = getCsrfTokenFromCookies('csrftoken');
     
     try {
         // Create target with authentication
@@ -133,7 +133,7 @@ async function startScan() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': authToken
+                'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin',
             body: JSON.stringify({url, name})
@@ -159,7 +159,7 @@ async function startScan() {
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
             method: 'POST',
             headers: {
-                'X-CSRFToken': authToken
+                'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin'
         });
