@@ -70,6 +70,29 @@ button:hover {
 <script>
 let currentScanId = null;
 
+// Helper function to safely display error messages
+function displayError(message) {
+    const statusDiv = document.getElementById('scan-status');
+    statusDiv.textContent = ''; // Clear existing content safely
+    const errorParagraph = document.createElement('p');
+    errorParagraph.style.color = '#dc3545';
+    errorParagraph.textContent = 'Error: ' + message;
+    statusDiv.appendChild(errorParagraph);
+}
+
+// Helper function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Helper function to validate severity values (only allow known values)
+function sanitizeSeverity(severity) {
+    const validSeverities = ['low', 'medium', 'high', 'critical'];
+    return validSeverities.includes(severity) ? severity : 'low';
+}
+
 async function startScan() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('scan-name').value;
@@ -86,14 +109,34 @@ async function startScan() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({url, name})
         });
+        
+        // Check response status before parsing JSON
+        if (!targetResponse.ok) {
+            const errorText = await targetResponse.text();
+            throw new Error(`Failed to create target: ${targetResponse.status} - ${errorText}`);
+        }
+        
         const target = await targetResponse.json();
         
-        document.getElementById('scan-status').innerHTML = '<p style="color: #007bff;">Starting scan...</p>';
+        // Display starting message safely
+        const statusDiv = document.getElementById('scan-status');
+        statusDiv.textContent = '';
+        const statusParagraph = document.createElement('p');
+        statusParagraph.style.color = '#007bff';
+        statusParagraph.textContent = 'Starting scan...';
+        statusDiv.appendChild(statusParagraph);
         
         // Start scan
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
             method: 'POST'
         });
+        
+        // Check response status before parsing JSON
+        if (!scanResponse.ok) {
+            const errorText = await scanResponse.text();
+            throw new Error(`Failed to start scan: ${scanResponse.status} - ${errorText}`);
+        }
+        
         const scan = await scanResponse.json();
         currentScanId = scan.id;
         
@@ -101,13 +144,20 @@ async function startScan() {
         setTimeout(() => loadResults(scan.id), 2000);
         
     } catch (error) {
-        document.getElementById('scan-status').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        displayError(error.message);
     }
 }
 
 async function loadResults(scanId) {
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/results/`);
+        
+        // Check response status before parsing JSON
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to load results: ${response.status} - ${errorText}`);
+        }
+        
         const data = await response.json();
         
         document.getElementById('scan-status').innerHTML = `
@@ -124,16 +174,17 @@ async function loadResults(scanId) {
         }
         
         resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
-            <div class="vulnerability severity-${vuln.severity}">
-                <div><strong>${vuln.type}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${vuln.severity.toUpperCase()}</span></div>
-                <div style="margin-top: 10px;"><strong>URL:</strong> ${vuln.url}</div>
-                <div style="margin-top: 5px;"><strong>Description:</strong> ${vuln.description}</div>
-                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${vuln.evidence}</div>` : ''}
-                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${vuln.remediation}</div>` : ''}
+            <div class="vulnerability severity-${sanitizeSeverity(vuln.severity)}">
+                <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${escapeHtml(vuln.severity.toUpperCase())}</span></div>
+                <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
+                <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
+                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${escapeHtml(vuln.evidence)}</div>` : ''}
+                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${escapeHtml(vuln.remediation)}</div>` : ''}
             </div>
         `).join('');
         
     } catch (error) {
+        displayError(error.message);
         console.error('Error loading results:', error);
     }
 }
