@@ -93,6 +93,28 @@ function sanitizeSeverity(severity) {
     return validSeverities.includes(severity) ? severity : 'low';
 }
 
+// Extract authentication token from browser cookies for API requests
+function extractAuthTokenFromCookies(tokenName) {
+    const allCookies = document.cookie;
+    if (!allCookies || allCookies.length === 0) {
+        return null;
+    }
+    
+    const cookiePairs = allCookies.split(';');
+    for (let idx = 0; idx < cookiePairs.length; idx++) {
+        const cookiePair = cookiePairs[idx].trim();
+        const separatorIndex = cookiePair.indexOf('=');
+        if (separatorIndex > 0) {
+            const key = cookiePair.substring(0, separatorIndex);
+            if (key === tokenName) {
+                const encodedValue = cookiePair.substring(separatorIndex + 1);
+                return decodeURIComponent(encodedValue);
+            }
+        }
+    }
+    return null;
+}
+
 async function startScan() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('scan-name').value;
@@ -102,11 +124,18 @@ async function startScan() {
         return;
     }
     
+    // Extract CSRF token for authenticated requests
+    const authToken = extractAuthTokenFromCookies('csrftoken');
+    
     try {
-        // Create target
+        // Create target with authentication
         const targetResponse = await fetch('/scanner/api/targets/', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': authToken
+            },
+            credentials: 'same-origin',
             body: JSON.stringify({url, name})
         });
         
@@ -126,9 +155,13 @@ async function startScan() {
         statusParagraph.textContent = 'Starting scan...';
         statusDiv.appendChild(statusParagraph);
         
-        // Start scan
+        // Start scan with authentication
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': authToken
+            },
+            credentials: 'same-origin'
         });
         
         // Check response status before parsing JSON
