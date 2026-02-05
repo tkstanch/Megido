@@ -305,6 +305,13 @@ async function startSpider() {
                 stealth_delay_max: delayMax
             })
         });
+        
+        // Check response status before parsing JSON
+        if (!targetResponse.ok) {
+            const errorText = await targetResponse.text();
+            throw new Error(`Failed to create target: ${targetResponse.status} - ${errorText}`);
+        }
+        
         const target = await targetResponse.json();
         
         document.getElementById('spider-status').innerHTML = `
@@ -318,6 +325,13 @@ async function startSpider() {
         const spiderResponse = await fetch(`/spider/api/targets/${target.id}/spider/`, {
             method: 'POST'
         });
+        
+        // Check response status before parsing JSON
+        if (!spiderResponse.ok) {
+            const errorText = await spiderResponse.text();
+            throw new Error(`Failed to start spider: ${spiderResponse.status} - ${errorText}`);
+        }
+        
         const session = await spiderResponse.json();
         
         if (session.error) {
@@ -343,6 +357,13 @@ async function startSpider() {
 async function loadResults(sessionId) {
     try {
         const response = await fetch(`/spider/api/sessions/${sessionId}/results/`);
+        
+        // Check response status before parsing JSON
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to load results: ${response.status} - ${errorText}`);
+        }
+        
         const data = await response.json();
         
         const startBtn = document.getElementById('start-btn');
