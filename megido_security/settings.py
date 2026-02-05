@@ -85,7 +85,7 @@ WSGI_APPLICATION = 'megido_security.wsgi.application'
 
 # Use SQLite for testing when PostgreSQL is not available
 import os
-if os.environ.get('USE_SQLITE', 'false').lower() == 'true' or not os.environ.get('DB_NAME'):
+if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -93,12 +93,13 @@ if os.environ.get('USE_SQLITE', 'false').lower() == 'true' or not os.environ.get
         }
     }
 else:
+    # PostgreSQL configuration - requires environment variables
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'radical'),
-            'USER': os.environ.get('DB_USER', 'tkstanch'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'radicalglitch@1998####$'),
+            'NAME': os.environ.get('DB_NAME', 'megido_db'),
+            'USER': os.environ.get('DB_USER', 'megido_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD'),  # No default - must be set via environment
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
         }
