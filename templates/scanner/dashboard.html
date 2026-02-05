@@ -86,6 +86,13 @@ async function startScan() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({url, name})
         });
+        
+        // Check response status before parsing JSON
+        if (!targetResponse.ok) {
+            const errorText = await targetResponse.text();
+            throw new Error(`Failed to create target: ${targetResponse.status} - ${errorText}`);
+        }
+        
         const target = await targetResponse.json();
         
         document.getElementById('scan-status').innerHTML = '<p style="color: #007bff;">Starting scan...</p>';
@@ -94,6 +101,13 @@ async function startScan() {
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
             method: 'POST'
         });
+        
+        // Check response status before parsing JSON
+        if (!scanResponse.ok) {
+            const errorText = await scanResponse.text();
+            throw new Error(`Failed to start scan: ${scanResponse.status} - ${errorText}`);
+        }
+        
         const scan = await scanResponse.json();
         currentScanId = scan.id;
         
@@ -108,6 +122,13 @@ async function startScan() {
 async function loadResults(scanId) {
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/results/`);
+        
+        // Check response status before parsing JSON
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to load results: ${response.status} - ${errorText}`);
+        }
+        
         const data = await response.json();
         
         document.getElementById('scan-status').innerHTML = `
@@ -134,6 +155,7 @@ async function loadResults(scanId) {
         `).join('');
         
     } catch (error) {
+        document.getElementById('scan-status').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
         console.error('Error loading results:', error);
     }
 }
