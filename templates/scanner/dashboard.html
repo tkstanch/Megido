@@ -87,6 +87,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Helper function to validate severity values (only allow known values)
+function sanitizeSeverity(severity) {
+    const validSeverities = ['low', 'medium', 'high', 'critical'];
+    return validSeverities.includes(severity) ? severity : 'low';
+}
+
 async function startScan() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('scan-name').value;
@@ -162,7 +168,7 @@ async function loadResults(scanId) {
         }
         
         resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
-            <div class="vulnerability severity-${escapeHtml(vuln.severity)}">
+            <div class="vulnerability severity-${sanitizeSeverity(vuln.severity)}">
                 <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${escapeHtml(vuln.severity.toUpperCase())}</span></div>
                 <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
                 <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
