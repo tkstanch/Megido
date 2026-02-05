@@ -1,6 +1,7 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from .models import ScanTarget, Scan, Vulnerability
@@ -13,7 +14,7 @@ import os
 
 
 @api_view(['GET', 'POST'])
-@authentication_classes([TokenAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def scan_targets(request):
     """List or create scan targets"""
@@ -36,7 +37,7 @@ def scan_targets(request):
 
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def start_scan(request, target_id):
     """Start a vulnerability scan on a target"""
@@ -163,6 +164,7 @@ def scan_results(request, scan_id):
         return Response({'error': 'Scan not found'}, status=404)
 
 
+@login_required
 def scanner_dashboard(request):
     """Dashboard view for the scanner"""
     return render(request, 'scanner/dashboard.html')

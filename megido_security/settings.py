@@ -236,6 +236,10 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 # Allow external network access for security testing apps
 ALLOW_EXTERNAL_REQUESTS = os.environ.get('ALLOW_EXTERNAL_REQUESTS', 'true').lower() == 'true'
 
+# Authentication URLs
+LOGIN_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = '/'
+
 # Django REST Framework Configuration
 # Note: Authentication is applied per-endpoint via decorators
 # Scanner endpoints use TokenAuthentication for security
