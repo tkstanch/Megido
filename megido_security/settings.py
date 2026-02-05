@@ -23,6 +23,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'app_manager',
+    'browser',
     'proxy',
     'interceptor',
     'repeater',
@@ -48,6 +50,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app_manager.middleware.AppEnabledMiddleware',
 ]
 
 ROOT_URLCONF = 'megido_security.urls'
