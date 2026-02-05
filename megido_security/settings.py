@@ -4,6 +4,10 @@ Django settings for megido_security project.
 import os
 from pathlib import Path
 
+# Suppress SSL warnings during testing (configured for security testing tool)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -13,7 +17,7 @@ SECRET_KEY = 'django-insecure-development-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -190,3 +194,43 @@ LOGGING = {
         },
     },
 }
+
+# ============================================================================
+# Network and HTTP Settings for Local Testing
+# ============================================================================
+# WARNING: These settings are for LOCAL TESTING ONLY
+# Never deploy to production with these permissive settings
+
+# Disable SSL verification for testing (this is a security testing tool)
+REQUESTS_VERIFY_SSL = os.environ.get('VERIFY_SSL', 'false').lower() == 'true'
+
+# Allow connections to any external host for testing
+REQUESTS_ALLOW_REDIRECTS = True
+
+# Timeout settings for external requests (in seconds)
+REQUESTS_TIMEOUT = int(os.environ.get('REQUESTS_TIMEOUT', '30'))
+
+# CORS settings for local testing (if using django-cors-headers)
+# Only set if django-cors-headers is in INSTALLED_APPS
+if 'corsheaders' in [app.split('.')[-1] for app in INSTALLED_APPS]:
+    CORS_ALLOW_ALL_ORIGINS = True  # For local testing only
+
+# Session and CSRF settings for local testing
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://0.0.0.0:8000',
+]
+
+# Security middleware settings for local development
+# These should be enabled (True/secure values) in production
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SECURE_HSTS_SECONDS = 0
+SECURE_BROWSER_XSS_FILTER = False
+SECURE_CONTENT_TYPE_NOSNIFF = False
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# Allow external network access for security testing apps
+ALLOW_EXTERNAL_REQUESTS = os.environ.get('ALLOW_EXTERNAL_REQUESTS', 'true').lower() == 'true'

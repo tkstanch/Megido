@@ -170,6 +170,57 @@ python manage.py runserver
 
 ---
 
+## External Network Access Configuration
+
+For local testing with external targets:
+
+1. The application is pre-configured to allow external requests in development mode
+2. SSL verification is disabled by default for testing purposes
+3. All Django apps (browser, proxy, scanner, spider, etc.) can reach external sites
+
+### Environment Variables
+
+Control network behavior via environment variables:
+
+- `ALLOW_EXTERNAL_REQUESTS=true` - Enable external network access
+- `VERIFY_SSL=false` - Disable SSL certificate verification (testing only)
+- `REQUESTS_TIMEOUT=30` - Request timeout in seconds
+
+### Security Warning
+
+⚠️ **IMPORTANT**: These settings are for LOCAL TESTING ONLY!
+
+- Never deploy to production with `ALLOWED_HOSTS = ['*']`
+- Never disable SSL verification in production
+- Always obtain explicit permission before testing external targets
+- This is a security testing tool - use responsibly and ethically
+
+### Testing External Access
+
+Test that external requests work:
+
+```bash
+python manage.py shell
+```
+
+```python
+import requests
+from django.conf import settings
+
+# Use the configured timeout and SSL verification settings
+response = requests.get(
+    'https://example.com',
+    verify=settings.REQUESTS_VERIFY_SSL,
+    timeout=settings.REQUESTS_TIMEOUT,
+    allow_redirects=settings.REQUESTS_ALLOW_REDIRECTS
+)
+print(response.status_code)  # Should print 200
+```
+
+**Note**: Django apps should use `settings.REQUESTS_VERIFY_SSL`, `settings.REQUESTS_TIMEOUT`, and `settings.REQUESTS_ALLOW_REDIRECTS` when making external requests to ensure consistent behavior across the application.
+
+---
+
 ## First-time User Checklist
 
 - [ ] Clone or download the code.
