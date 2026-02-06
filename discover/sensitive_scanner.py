@@ -118,6 +118,66 @@ class SensitiveInfoScanner:
         self.timeout = timeout
         self.patterns = SensitivePatterns.get_all_patterns()
     
+    @staticmethod
+    def luhn_check(card_number: str) -> bool:
+        """
+        Validate credit card number using Luhn algorithm (mod 10 check).
+        
+        Args:
+            card_number: The card number to validate (digits only)
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        # Remove any non-digit characters
+        card_number = ''.join(filter(str.isdigit, card_number))
+        
+        if not card_number:
+            return False
+        
+        # Luhn algorithm
+        def digits_of(n):
+            return [int(d) for d in str(n)]
+        
+        digits = digits_of(card_number)
+        odd_digits = digits[-1::-2]
+        even_digits = digits[-2::-2]
+        
+        checksum = sum(odd_digits)
+        for d in even_digits:
+            checksum += sum(digits_of(d * 2))
+        
+        return checksum % 10 == 0
+    
+    @staticmethod
+    def verify_context_not_numeric_field(context: str, value: str) -> bool:
+        """
+        Check if the context suggests this is part of a JSON numeric field,
+        currency value, or other non-credit-card number.
+        
+        Args:
+            context: The surrounding text
+            value: The matched value
+            
+        Returns:
+            True if context looks safe (not a false positive), False otherwise
+        """
+        # Convert to lowercase for checking
+        context_lower = context.lower()
+        
+        # Check for common false positive indicators
+        false_positive_indicators = [
+            'usd', 'price', 'amount', 'total', 'cost', 
+            'volume', 'sales', '":', '":"', 'native',
+            'balance', 'revenue', '€', '$', '£'
+        ]
+        
+        for indicator in false_positive_indicators:
+            if indicator in context_lower:
+                return False
+        
+        return True
+    
     def fetch_url_content(self, url: str) -> str:
         """
         Fetch content from a URL with timeout and error handling.
@@ -174,6 +234,16 @@ class SensitiveInfoScanner:
                     start = max(0, match.start() - 50)
                     end = min(len(content), match.end() + 50)
                     context = content[start:end]
+                    
+                    # Special validation for credit cards
+                    if pattern_name == 'Credit Card Number':
+                        # Validate with Luhn algorithm
+                        if not self.luhn_check(value):
+                            continue  # Skip invalid credit card numbers
+                        
+                        # Check context to avoid false positives
+                        if not self.verify_context_not_numeric_field(context, value):
+                            continue  # Skip if it looks like a price/amount
                     
                     findings.append({
                         'type': pattern_name,
