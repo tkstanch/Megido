@@ -712,3 +712,215 @@ class RetryLogicTest(TestCase):
         self.assertEqual(mock_session.get.call_count, 1)
         # Should return None
         self.assertIsNone(result)
+
+
+class ErrorHandlingTest(TestCase):
+    """Test comprehensive error handling in spider views"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Error Test Target',
+            max_retries=2,
+            request_timeout=10
+        )
+    
+    def test_ssl_error_handling(self):
+        """Test that SSL errors are handled gracefully"""
+        from spider.views import make_request_with_retry
+        from unittest.mock import Mock
+        from requests.exceptions import SSLError
+        
+        # Create a mock session that raises SSL error
+        mock_session = Mock()
+        mock_session.get = Mock(side_effect=SSLError('SSL: UNEXPECTED_EOF_WHILE_READING'))
+        
+        # Call should return None without retries for SSL errors
+        result = make_request_with_retry(
+            mock_session,
+            'https://example.com',
+            max_retries=3,
+            timeout=30
+        )
+        
+        # Should only make 1 call (SSL errors are not retryable)
+        self.assertEqual(mock_session.get.call_count, 1)
+        self.assertIsNone(result)
+    
+    def test_start_spider_error_categorization(self):
+        """Test that start_spider categorizes errors properly"""
+        from spider.views import start_spider
+        from unittest.mock import patch, Mock
+        from rest_framework.test import APIRequestFactory
+        
+        factory = APIRequestFactory()
+        request = factory.post(f'/api/targets/{self.target.id}/spider/')
+        
+        # Mock run_spider_session to raise an SSL error
+        with patch('spider.views.run_spider_session') as mock_run:
+            mock_run.side_effect = Exception('SSL error occurred')
+            
+            response = start_spider(request, target_id=self.target.id)
+            
+            # Should return 500 with structured error
+            self.assertEqual(response.status_code, 500)
+            self.assertIn('error', response.data)
+            self.assertIn('error_category', response.data)
+            self.assertEqual(response.data['error_category'], 'ssl_error')
+    
+    def test_start_spider_connection_error_categorization(self):
+        """Test connection error categorization"""
+        from spider.views import start_spider
+        from unittest.mock import patch
+        from rest_framework.test import APIRequestFactory
+        
+        factory = APIRequestFactory()
+        request = factory.post(f'/api/targets/{self.target.id}/spider/')
+        
+        # Mock run_spider_session to raise a connection error
+        with patch('spider.views.run_spider_session') as mock_run:
+            mock_run.side_effect = Exception('Connection reset by peer')
+            
+            response = start_spider(request, target_id=self.target.id)
+            
+            # Should return 500 with structured error
+            self.assertEqual(response.status_code, 500)
+            self.assertIn('error_category', response.data)
+            self.assertEqual(response.data['error_category'], 'connection_error')
+    
+    def test_start_spider_timeout_error_categorization(self):
+        """Test timeout error categorization"""
+        from spider.views import start_spider
+        from unittest.mock import patch
+        from rest_framework.test import APIRequestFactory
+        
+        factory = APIRequestFactory()
+        request = factory.post(f'/api/targets/{self.target.id}/spider/')
+        
+        # Mock run_spider_session to raise a timeout error
+        with patch('spider.views.run_spider_session') as mock_run:
+            mock_run.side_effect = Exception('Request timeout exceeded')
+            
+            response = start_spider(request, target_id=self.target.id)
+            
+            # Should return 500 with structured error
+            self.assertEqual(response.status_code, 500)
+            self.assertIn('error_category', response.data)
+            self.assertEqual(response.data['error_category'], 'timeout_error')
+    
+    def test_session_cleanup_always_executes(self):
+        """Test that stealth session cleanup always executes even on error"""
+        from spider.views import run_spider_session
+        from unittest.mock import patch, Mock
+        
+        # Create a session
+        session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+        
+        # Mock create_stealth_session
+        mock_stealth_session = Mock()
+        mock_stealth_session.close = Mock()
+        
+        with patch('spider.views.create_stealth_session', return_value=mock_stealth_session):
+            # Mock crawl_website to raise an error
+            with patch('spider.views.crawl_website') as mock_crawl:
+                mock_crawl.side_effect = Exception('Crawl error')
+                
+                # This should raise the error but still call close()
+                with self.assertRaises(Exception):
+                    run_spider_session(session, self.target)
+                
+                # Verify close was called even though there was an error
+                mock_stealth_session.close.assert_called_once()
+    
+    def test_cleanup_error_does_not_propagate(self):
+        """Test that errors during cleanup don't propagate"""
+        from spider.views import run_spider_session
+        from unittest.mock import patch, Mock
+        
+        # Create a session
+        session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+        
+        # Mock create_stealth_session with a close that fails
+        mock_stealth_session = Mock()
+        mock_stealth_session.close = Mock(side_effect=Exception('Close error'))
+        
+        with patch('spider.views.create_stealth_session', return_value=mock_stealth_session):
+            # Mock all the discovery functions to do nothing
+            with patch('spider.views.crawl_website'):
+                with patch('spider.views.run_dirbuster_discovery'):
+                    with patch('spider.views.run_nikto_scan'):
+                        with patch('spider.views.run_wikto_scan'):
+                            with patch('spider.views.brute_force_paths'):
+                                with patch('spider.views.infer_content'):
+                                    with patch('spider.views.discover_hidden_parameters'):
+                                        # Should complete without raising cleanup error
+                                        run_spider_session(session, self.target)
+                                        
+                                        # Verify close was attempted
+                                        mock_stealth_session.close.assert_called_once()
+    
+    def test_error_message_saved_to_session(self):
+        """Test that error messages are saved to session"""
+        from spider.views import start_spider
+        from unittest.mock import patch
+        from rest_framework.test import APIRequestFactory
+        
+        factory = APIRequestFactory()
+        request = factory.post(f'/api/targets/{self.target.id}/spider/')
+        
+        # Mock run_spider_session to raise an error
+        error_msg = 'Test error message'
+        with patch('spider.views.run_spider_session') as mock_run:
+            mock_run.side_effect = Exception(error_msg)
+            
+            response = start_spider(request, target_id=self.target.id)
+            
+            # Check that session was created and error was recorded
+            session = SpiderSession.objects.filter(target=self.target).order_by('-started_at').first()
+            self.assertIsNotNone(session)
+            self.assertEqual(session.status, 'failed')
+            self.assertIn(error_msg, session.error_message)
+            self.assertIn('unknown_error', session.error_message)  # Should have error category prefix
+    
+    def test_individual_url_failure_does_not_crash_crawl(self):
+        """Test that individual URL failures don't crash entire crawl"""
+        from spider.views import crawl_website
+        from unittest.mock import Mock, patch
+        
+        session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+        
+        # Create a mock stealth session
+        mock_stealth_session = Mock()
+        
+        # Mock make_request_with_retry to fail for some URLs
+        call_count = [0]
+        def mock_request(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call succeeds with HTML
+                response = Mock()
+                response.status_code = 200
+                response.headers = {'Content-Type': 'text/html'}
+                response.content = b'<html><body><a href="/page2">Link</a></body></html>'
+                response.elapsed.total_seconds.return_value = 0.5
+                return response
+            else:
+                # Subsequent calls fail
+                return None
+        
+        with patch('spider.views.make_request_with_retry', side_effect=mock_request):
+            # Should complete without raising an error
+            crawl_website(session, self.target, mock_stealth_session)
+            
+            # Session should have recorded at least one URL
+            self.assertGreater(session.urls_crawled, 0)
