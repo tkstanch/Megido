@@ -131,6 +131,23 @@
             >
         </div>
         
+        <div class="form-group">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input 
+                    type="checkbox" 
+                    id="enable_sensitive_scan" 
+                    name="enable_sensitive_scan" 
+                    checked
+                    style="width: auto; margin-right: 10px;"
+                >
+                <span>Enable Sensitive Information Scanning</span>
+            </label>
+            <small style="color: #666; margin-top: 5px; display: block;">
+                Scans discovered URLs for API keys, credentials, and other sensitive data. 
+                This runs in the background and won't delay the initial scan results.
+            </small>
+        </div>
+        
         <button type="submit" class="btn-primary" id="submitBtn">
             🚀 Start OSINT Scan
         </button>
@@ -168,6 +185,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
     
     // Get CSRF token
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const enableSensitiveScan = document.getElementById('enable_sensitive_scan').checked;
     
     // Submit form
     fetch('/discover/scan/', {
@@ -176,7 +194,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'target=' + encodeURIComponent(target)
+        body: 'target=' + encodeURIComponent(target) + '&enable_sensitive_scan=' + enableSensitiveScan
     })
     .then(response => response.json())
     .then(data => {

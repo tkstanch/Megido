@@ -1,7 +1,10 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.utils import timezone
 import json
+import threading
+import logging
 from .utils import (
     collect_wayback_urls, 
     collect_shodan_data, 
@@ -10,7 +13,93 @@ from .utils import (
     extract_domain
 )
 from .dorks import generate_dorks_for_target
-from .models import Scan
+from .models import Scan, SensitiveFinding
+from .sensitive_scanner import scan_discovered_urls
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+def run_sensitive_scan_async(scan_id: int, urls: list):
+    """
+    Run sensitive information scan in background thread.
+    
+    Args:
+        scan_id: The ID of the scan to update
+        urls: List of URLs to scan
+    """
+    try:
+        logger.info(f"Starting background sensitive scan for scan {scan_id}")
+        
+        # Get scan results
+        results = scan_discovered_urls(urls, max_urls=50)
+        
+        # Map finding types to severity levels
+        severity_map = {
+            'AWS Access Key': 'critical',
+            'GitHub Personal Access Token': 'critical',
+            'GitHub OAuth Token': 'critical',
+            'Slack Token': 'high',
+            'Slack Webhook': 'high',
+            'Stripe API Key': 'critical',
+            'Google API Key': 'high',
+            'Generic Secret': 'high',
+            'Generic API Key': 'high',
+            'Bearer Token': 'medium',
+            'Private Key': 'critical',
+            'SSH Private Key': 'critical',
+            'PGP Private Key': 'critical',
+            'MySQL Connection String': 'critical',
+            'PostgreSQL Connection String': 'critical',
+            'MongoDB Connection String': 'critical',
+            'Password Field': 'high',
+            'Username/Password Combo': 'critical',
+            'Email Address': 'low',
+            'Private IP Address': 'medium',
+            'JWT Token': 'high',
+            'Credit Card Number': 'critical',
+            'Social Security Number': 'critical',
+        }
+        
+        # Get the scan object
+        scan = Scan.objects.get(id=scan_id)
+        
+        # Save findings to database
+        high_risk_count = 0
+        for finding in results.get('all_findings', []):
+            severity = severity_map.get(finding['type'], 'medium')
+            
+            if severity in ['critical', 'high']:
+                high_risk_count += 1
+            
+            SensitiveFinding.objects.create(
+                scan=scan,
+                url=finding['url'],
+                finding_type=finding['type'],
+                value=finding['value'],
+                context=finding.get('context', ''),
+                severity=severity,
+                position=finding.get('position'),
+            )
+        
+        # Update scan record
+        scan.sensitive_scan_completed = True
+        scan.sensitive_scan_date = timezone.now()
+        scan.total_findings = results['total_findings']
+        scan.high_risk_findings = high_risk_count
+        scan.save()
+        
+        logger.info(f"Completed sensitive scan for scan {scan_id}: {results['total_findings']} findings")
+        
+    except Exception as e:
+        logger.error(f"Error in background sensitive scan for scan {scan_id}: {e}", exc_info=True)
+        try:
+            scan = Scan.objects.get(id=scan_id)
+            scan.sensitive_scan_completed = True
+            scan.sensitive_scan_date = timezone.now()
+            scan.save()
+        except Exception:
+            pass
 
 
 def discover_home(request):
@@ -28,6 +117,7 @@ def start_scan(request):
     Start an OSINT scan for the target.
     """
     target = request.POST.get('target', '').strip()
+    enable_sensitive_scan = request.POST.get('enable_sensitive_scan', 'true').lower() == 'true'
     
     if not target:
         return JsonResponse({'error': 'Target is required'}, status=400)
@@ -61,10 +151,29 @@ def start_scan(request):
     )
     scan.save()
     
+    # Start background sensitive scan if enabled
+    sensitive_scan_started = False
+    if enable_sensitive_scan:
+        urls = wayback_results.get('urls', [])
+        if urls:
+            # Extract just the original URLs for scanning
+            url_list = [url.get('original') if isinstance(url, dict) else url for url in urls]
+            
+            # Start background thread
+            thread = threading.Thread(
+                target=run_sensitive_scan_async,
+                args=(scan.id, url_list),
+                daemon=True
+            )
+            thread.start()
+            sensitive_scan_started = True
+            logger.info(f"Started background sensitive scan for scan {scan.id}")
+    
     return JsonResponse({
         'success': True,
         'scan_id': scan.id,
-        'redirect_url': f'/discover/report/{scan.id}/'
+        'redirect_url': f'/discover/report/{scan.id}/',
+        'sensitive_scan_started': sensitive_scan_started
     })
 
 
@@ -153,10 +262,32 @@ def view_report(request, scan_id):
         dork_queries
     )
     
+    # Get sensitive findings
+    sensitive_findings = scan.sensitive_findings.all()[:100]  # Limit to 100 for performance
+    
+    # Calculate findings by severity
+    findings_by_severity = {
+        'critical': scan.sensitive_findings.filter(severity='critical').count(),
+        'high': scan.sensitive_findings.filter(severity='high').count(),
+        'medium': scan.sensitive_findings.filter(severity='medium').count(),
+        'low': scan.sensitive_findings.filter(severity='low').count(),
+    }
+    
+    # Sensitive scan status
+    sensitive_scan_status = {
+        'completed': scan.sensitive_scan_completed,
+        'date': scan.sensitive_scan_date,
+        'total_findings': scan.total_findings,
+        'high_risk_findings': scan.high_risk_findings,
+    }
+    
     context = {
         'title': f'Scan Report - {scan.target}',
         'scan': scan,
-        'results': grouped_results
+        'results': grouped_results,
+        'sensitive_findings': sensitive_findings,
+        'findings_by_severity': findings_by_severity,
+        'sensitive_scan_status': sensitive_scan_status,
     }
     
     return render(request, 'discover/report.html', context)
@@ -172,3 +303,25 @@ def scan_history(request):
         'title': 'Scan History',
         'scans': scans
     })
+
+
+def scan_status(request, scan_id):
+    """
+    API endpoint to check scan progress.
+    Returns JSON with scan status and statistics.
+    """
+    try:
+        scan = Scan.objects.get(id=scan_id)
+        
+        return JsonResponse({
+            'success': True,
+            'scan_completed': scan.sensitive_scan_completed,
+            'total_findings': scan.total_findings,
+            'high_risk_findings': scan.high_risk_findings,
+            'scan_date': scan.sensitive_scan_date.isoformat() if scan.sensitive_scan_date else None,
+        })
+    except Scan.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Scan not found'
+        }, status=404)
