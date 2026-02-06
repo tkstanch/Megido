@@ -21,7 +21,7 @@ from collections import deque
 import time
 
 
-def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, **kwargs):
+def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, method='GET', **kwargs):
     """
     Make HTTP request with retry logic and exponential backoff
     
@@ -30,6 +30,7 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, **k
         url: URL to request
         max_retries: Maximum retry attempts
         timeout: Request timeout in seconds
+        method: HTTP method (GET, POST, OPTIONS, TRACE, etc.)
         **kwargs: Additional arguments for requests
     
     Returns:
@@ -37,7 +38,15 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, **k
     """
     for attempt in range(max_retries + 1):
         try:
-            response = stealth_session.get(url, timeout=timeout, **kwargs)
+            if method.upper() == 'GET':
+                response = stealth_session.get(url, timeout=timeout, **kwargs)
+            elif method.upper() == 'POST':
+                response = stealth_session.post(url, timeout=timeout, **kwargs)
+            elif method.upper() == 'OPTIONS':
+                response = stealth_session.options(url, timeout=timeout, **kwargs)
+            else:
+                # For other methods (TRACE, PUT, DELETE, etc.)
+                response = stealth_session.request(method, url, timeout=timeout, **kwargs)
             return response
         except (Timeout, ConnectionError) as e:
             if attempt < max_retries:
@@ -432,21 +441,13 @@ def run_nikto_scan(session, target, stealth_session):
             test_url = base_url + check.get('path', '/')
             method = check.get('method', 'GET')
             
-            if method == 'GET':
-                response = make_request_with_retry(
-                    stealth_session, 
-                    test_url, 
-                    max_retries=target.max_retries,
-                    timeout=target.request_timeout
-                )
-            elif method == 'OPTIONS':
-                # For OPTIONS, we'll use the session directly as it's already wrapped
-                response = stealth_session.options(test_url, timeout=target.request_timeout)
-            elif method == 'TRACE':
-                # For TRACE, we'll use the session directly
-                response = stealth_session.request('TRACE', test_url, timeout=target.request_timeout)
-            else:
-                continue
+            response = make_request_with_retry(
+                stealth_session, 
+                test_url, 
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                method=method
+            )
             
             if response is None:
                 # Request failed after all retries
