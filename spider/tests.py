@@ -233,6 +233,21 @@ class SpiderViewTest(TestCase):
         self.assertEqual(target.name, 'First Target')
         self.assertEqual(target.max_depth, 3)
     
+    def test_spider_targets_create_missing_url(self):
+        """Test creating a spider target without URL returns error"""
+        response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'name': 'Test Target',
+                'max_depth': 2
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'URL is required')
+    
     def test_spider_results(self):
         """Test getting spider session results"""
         # Add some test data

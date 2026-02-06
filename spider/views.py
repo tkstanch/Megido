@@ -50,8 +50,12 @@ def spider_targets(request):
         return Response(data)
     
     elif request.method == 'POST':
+        url = request.data.get('url')
+        if not url:
+            return Response({'error': 'URL is required'}, status=400)
+        
         target, created = SpiderTarget.objects.get_or_create(
-            url=request.data.get('url'),
+            url=url,
             defaults={
                 'name': request.data.get('name', ''),
                 'description': request.data.get('description', ''),
