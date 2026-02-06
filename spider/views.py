@@ -282,7 +282,7 @@ def run_spider_session(session, target):
         # Phase 7: Hidden parameter discovery
         if target.enable_parameter_discovery:
             logger.info(f"Phase 7: Starting parameter discovery for session {session.id}")
-            discover_hidden_parameters(session, target, stealth_session)
+            discover_hidden_parameters(session, target, stealth_session, verify_ssl)
         
         # Update session statistics
         session.urls_discovered = session.discovered_urls.count()
@@ -1014,7 +1014,7 @@ def spider_results(request, session_id):
         return Response({'error': 'Session not found'}, status=404)
 
 
-def discover_hidden_parameters(session, target, stealth_session):
+def discover_hidden_parameters(session, target, stealth_session, verify_ssl):
     """Discover hidden parameters using common debug parameter names and values"""
     
     # Common debug parameter names
@@ -1059,7 +1059,7 @@ def discover_hidden_parameters(session, target, stealth_session):
     # Test each URL with parameter combinations
     for test_url in urls_to_test:
         # Get baseline response first
-        baseline_response = get_baseline_response(test_url, verify_ssl)
+        baseline_response = get_baseline_response(test_url, stealth_session, verify_ssl)
         if not baseline_response:
             continue
         
@@ -1069,24 +1069,24 @@ def discover_hidden_parameters(session, target, stealth_session):
                 # Test GET request with query parameter
                 test_parameter_get(
                     session, test_url, param_name, param_value,
-                    baseline_response, verify_ssl
+                    baseline_response, stealth_session, verify_ssl
                 )
                 
                 # Test POST request (query + body)
                 test_parameter_post(
                     session, test_url, param_name, param_value,
-                    baseline_response, verify_ssl
+                    baseline_response, stealth_session, verify_ssl
                 )
                 
     
     # Brute force discovered parameters
-    brute_force_discovered_parameters(session, verify_ssl)
+    brute_force_discovered_parameters(session, stealth_session, verify_ssl)
 
 
-def get_baseline_response(url, verify_ssl):
+def get_baseline_response(url, stealth_session, verify_ssl):
     """Get baseline response without any parameters"""
     try:
-        response = stealth_session.get(url, timeout=5)
+        response = stealth_session.get(url, timeout=5, verify=verify_ssl)
         return {
             'status_code': response.status_code,
             'content_length': len(response.content),
@@ -1097,7 +1097,7 @@ def get_baseline_response(url, verify_ssl):
         return None
 
 
-def test_parameter_get(session, url, param_name, param_value, baseline, verify_ssl):
+def test_parameter_get(session, url, param_name, param_value, baseline, stealth_session, verify_ssl):
     """Test parameter with GET request"""
     from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
     
@@ -1113,7 +1113,7 @@ def test_parameter_get(session, url, param_name, param_value, baseline, verify_s
     ))
     
     try:
-        response = stealth_session.get(test_url, timeout=5)
+        response = stealth_session.get(test_url, timeout=5, verify=verify_ssl)
         
         # Analyze response
         response_diff = (
@@ -1153,7 +1153,7 @@ def test_parameter_get(session, url, param_name, param_value, baseline, verify_s
         pass
 
 
-def test_parameter_post(session, url, param_name, param_value, baseline, verify_ssl):
+def test_parameter_post(session, url, param_name, param_value, baseline, stealth_session, verify_ssl):
     """Test parameter with POST request (both query string and body)"""
     from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
     
@@ -1318,7 +1318,7 @@ def discover_parameter(session, url, param_name, param_value, method, response, 
         pass
 
 
-def brute_force_discovered_parameters(session, verify_ssl):
+def brute_force_discovered_parameters(session, stealth_session, verify_ssl):
     """Perform brute force on discovered parameters to find more values"""
     
     discovered_params = session.discovered_parameters.all()[:10]  # Limit for performance
@@ -1361,7 +1361,7 @@ def brute_force_discovered_parameters(session, verify_ssl):
                 
                 # Make request
                 if param.http_method == 'GET':
-                    response = stealth_session.get(test_url, timeout=3)
+                    response = stealth_session.get(test_url, timeout=3, verify=verify_ssl)
                 else:
                     response = stealth_session.post(
                         test_url,
