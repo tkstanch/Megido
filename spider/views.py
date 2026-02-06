@@ -891,6 +891,7 @@ def infer_content(session, target, stealth_session):
     logger.info(f"Created {inferences_created} inferences for session {session.id}")
     
     # Verify top inferred content (high confidence only)
+    # Note: Inferences remain as verified=False if verification fails, allowing retry later
     high_confidence = session.inferred_content.filter(confidence__gte=0.7, verified=False)[:20]
     
     for inferred in high_confidence:
@@ -904,7 +905,7 @@ def infer_content(session, target, stealth_session):
             )
             
             if response is None:
-                # Request failed completely - cannot verify
+                # Request failed completely - leave unverified for potential retry
                 logger.debug(f"Could not verify inference (request failed): {inferred.inferred_url}")
                 continue
             
@@ -927,9 +928,13 @@ def infer_content(session, target, stealth_session):
                 )
                 logger.debug(f"Verified inference: {inferred.inferred_url} (status: {response.status_code})")
         
+        except (Timeout, ConnectionError, SSLError, RequestException) as e:
+            # Expected network errors - leave unverified for potential retry
+            logger.debug(f"Network error verifying inference {inferred.inferred_url}: {e}")
+            continue
         except Exception as e:
-            logger.debug(f"Error verifying inference {inferred.inferred_url}: {e}")
-            # Don't mark as verified if we encountered an unexpected error
+            # Unexpected error - log at warning level for investigation
+            logger.warning(f"Unexpected error verifying inference {inferred.inferred_url}: {e}", exc_info=True)
             continue
     
     logger.info(f"Inference complete for session {session.id}: "
