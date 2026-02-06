@@ -521,6 +521,7 @@ def run_dirbuster_discovery(session, target, stealth_session):
 
 def run_nikto_scan(session, target, stealth_session):
     """Simulate Nikto-style vulnerability scanning"""
+    logger.info(f"Starting Nikto scan for session {session.id}")
     tool_result = ToolScanResult.objects.create(
         session=session,
         tool_name='nikto',
@@ -528,6 +529,7 @@ def run_nikto_scan(session, target, stealth_session):
     )
     
     findings = []
+    failed_checks = 0
     
     # Nikto-style checks
     nikto_checks = [
@@ -563,6 +565,7 @@ def run_nikto_scan(session, target, stealth_session):
             
             if response is None:
                 # Request failed after all retries
+                failed_checks += 1
                 continue
             
             # Check headers if specified
@@ -575,6 +578,7 @@ def run_nikto_scan(session, target, stealth_session):
                         'evidence': f"{check['header']}: {header_value}",
                         'severity': 'info'
                     })
+                    logger.debug(f"Nikto found header: {check['header']} = {header_value}")
             
             # Check for successful responses
             if 200 <= response.status_code < 300:
@@ -594,8 +598,11 @@ def run_nikto_scan(session, target, stealth_session):
                     risk_level='medium',
                     notes=check['description']
                 )
+                logger.debug(f"Nikto finding: {test_url} - {check['description']}")
         
         except Exception as e:
+            failed_checks += 1
+            logger.debug(f"Nikto check failed for {check.get('description', 'unknown')}: {e}")
             continue
     
     tool_result.status = 'completed'
@@ -604,10 +611,14 @@ def run_nikto_scan(session, target, stealth_session):
     tool_result.parsed_results = findings
     tool_result.raw_output = json.dumps(findings, indent=2)
     tool_result.save()
+    
+    logger.info(f"Nikto scan complete for session {session.id}: "
+               f"{len(findings)} findings, {failed_checks} failed checks")
 
 
 def run_wikto_scan(session, target, stealth_session):
     """Simulate Wikto-style scanning (Windows-focused Nikto alternative)"""
+    logger.info(f"Starting Wikto scan for session {session.id}")
     tool_result = ToolScanResult.objects.create(
         session=session,
         tool_name='wikto',
@@ -615,6 +626,7 @@ def run_wikto_scan(session, target, stealth_session):
     )
     
     findings = []
+    failed_checks = 0
     
     # Wikto-style checks (Windows/IIS focused)
     wikto_checks = [
@@ -655,6 +667,7 @@ def run_wikto_scan(session, target, stealth_session):
             
             if response is None:
                 # Request failed after all retries
+                failed_checks += 1
                 continue
             
             if 200 <= response.status_code < 400:
@@ -674,8 +687,11 @@ def run_wikto_scan(session, target, stealth_session):
                     risk_level='medium',
                     notes=f'Windows/IIS resource found: {path}'
                 )
+                logger.debug(f"Wikto found: {test_url} (status: {response.status_code})")
         
         except Exception as e:
+            failed_checks += 1
+            logger.debug(f"Wikto check failed for {path}: {e}")
             continue
     
     tool_result.status = 'completed'
@@ -683,12 +699,19 @@ def run_wikto_scan(session, target, stealth_session):
     tool_result.findings_count = len(findings)
     tool_result.parsed_results = findings
     tool_result.save()
+    
+    logger.info(f"Wikto scan complete for session {session.id}: "
+               f"{len(findings)} findings, {failed_checks} failed checks")
 
 
 def brute_force_paths(session, target, stealth_session):
     """Brute force common paths and patterns"""
+    logger.info(f"Starting brute force for session {session.id}")
     parsed_url = urlparse(target.url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    
+    successful_attempts = 0
+    failed_attempts = 0
     
     # Common path patterns to brute force
     patterns = [
@@ -721,6 +744,7 @@ def brute_force_paths(session, target, stealth_session):
             
             if response is None:
                 # Request failed after all retries, still record the attempt
+                failed_attempts += 1
                 BruteForceAttempt.objects.create(
                     session=session,
                     base_url=base_url,
@@ -745,6 +769,7 @@ def brute_force_paths(session, target, stealth_session):
             )
             
             if success:
+                successful_attempts += 1
                 DiscoveredURL.objects.get_or_create(
                     session=session,
                     url=test_url,
@@ -754,14 +779,24 @@ def brute_force_paths(session, target, stealth_session):
                         'is_hidden': True,
                     }
                 )
+                logger.debug(f"Brute force success: {test_url} (status: {response.status_code})")
         
         except Exception as e:
+            failed_attempts += 1
+            logger.debug(f"Brute force error testing {path}: {e}")
             continue
+    
+    logger.info(f"Brute force complete for session {session.id}: "
+               f"{successful_attempts} successful, {failed_attempts} failed")
 
 
-def infer_content(session, target, verify_ssl):
+def infer_content(session, target, stealth_session):
     """Infer potential URLs based on discovered content"""
+    logger.info(f"Starting content inference for session {session.id}")
     discovered_urls = session.discovered_urls.all()[:50]  # Limit for performance
+    
+    inferences_created = 0
+    verifications_successful = 0
     
     for discovered in discovered_urls:
         parsed = urlparse(discovered.url)
@@ -777,7 +812,7 @@ def infer_content(session, target, verify_ssl):
                     new_path = path.replace(f'/v{current_version}/', f'/v{new_version}/')
                     inferred_url = urlunparse((parsed.scheme, parsed.netloc, new_path, '', '', ''))
                     
-                    InferredContent.objects.get_or_create(
+                    _, created = InferredContent.objects.get_or_create(
                         session=session,
                         inferred_url=inferred_url,
                         defaults={
@@ -787,6 +822,8 @@ def infer_content(session, target, verify_ssl):
                             'reasoning': f'Version pattern detected, inferred v{new_version} from v{current_version}'
                         }
                     )
+                    if created:
+                        inferences_created += 1
         
         # Pattern 2: File extension variation
         # If we see file.html, try file.php, file.asp, etc.
@@ -799,7 +836,7 @@ def infer_content(session, target, verify_ssl):
                     new_path = path.rsplit('/', 1)[0] + '/' + new_filename
                     inferred_url = urlunparse((parsed.scheme, parsed.netloc, new_path, '', '', ''))
                     
-                    InferredContent.objects.get_or_create(
+                    _, created = InferredContent.objects.get_or_create(
                         session=session,
                         inferred_url=inferred_url,
                         defaults={
@@ -809,6 +846,8 @@ def infer_content(session, target, verify_ssl):
                             'reasoning': f'File extension variation: .{ext} -> .{new_ext}'
                         }
                     )
+                    if created:
+                        inferences_created += 1
         
         # Pattern 3: Backup file inference
         # If we see config.php, try config.php.bak, config.php~, etc.
@@ -816,7 +855,7 @@ def infer_content(session, target, verify_ssl):
             for suffix in ['.bak', '.backup', '.old', '~', '.save']:
                 inferred_url = discovered.url + suffix
                 
-                InferredContent.objects.get_or_create(
+                _, created = InferredContent.objects.get_or_create(
                     session=session,
                     inferred_url=inferred_url,
                     defaults={
@@ -826,6 +865,8 @@ def infer_content(session, target, verify_ssl):
                         'reasoning': f'Backup file pattern: added {suffix} suffix'
                     }
                 )
+                if created:
+                    inferences_created += 1
         
         # Pattern 4: Technology stack inference
         # If we see WordPress files, infer other WP paths
@@ -836,7 +877,7 @@ def infer_content(session, target, verify_ssl):
             for wp_path in wp_paths:
                 inferred_url = base_url + wp_path
                 
-                InferredContent.objects.get_or_create(
+                _, created = InferredContent.objects.get_or_create(
                     session=session,
                     inferred_url=inferred_url,
                     defaults={
@@ -846,13 +887,29 @@ def infer_content(session, target, verify_ssl):
                         'reasoning': 'WordPress detected, inferring standard WP paths'
                     }
                 )
+                if created:
+                    inferences_created += 1
+    
+    logger.info(f"Created {inferences_created} inferences for session {session.id}")
     
     # Verify top inferred content (high confidence only)
     high_confidence = session.inferred_content.filter(confidence__gte=0.7, verified=False)[:20]
     
     for inferred in high_confidence:
         try:
-            response = stealth_session.get(inferred.inferred_url, timeout=5, allow_redirects=False)
+            response = make_request_with_retry(
+                stealth_session,
+                inferred.inferred_url,
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                method='GET'
+            )
+            
+            if response is None:
+                inferred.verified = True
+                inferred.exists = False
+                inferred.save()
+                continue
             
             inferred.verified = True
             inferred.verified_at = timezone.now()
@@ -861,6 +918,7 @@ def infer_content(session, target, verify_ssl):
             inferred.save()
             
             if inferred.exists:
+                verifications_successful += 1
                 DiscoveredURL.objects.get_or_create(
                     session=session,
                     url=inferred.inferred_url,
@@ -870,11 +928,16 @@ def infer_content(session, target, verify_ssl):
                         'is_hidden': True,
                     }
                 )
+                logger.debug(f"Verified inference: {inferred.inferred_url} (status: {response.status_code})")
         
         except Exception as e:
+            logger.debug(f"Error verifying inference {inferred.inferred_url}: {e}")
             inferred.verified = True
             inferred.exists = False
             inferred.save()
+    
+    logger.info(f"Inference complete for session {session.id}: "
+               f"{inferences_created} created, {verifications_successful} verified")
 
 
 @api_view(['GET'])
