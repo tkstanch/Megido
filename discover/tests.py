@@ -227,7 +227,6 @@ class WaybackMachineConfigurationTests(TestCase):
     def test_collect_wayback_urls_handles_connection_error(self, mock_get):
         """Test that collect_wayback_urls handles connection errors gracefully."""
         from discover.utils import collect_wayback_urls
-        import sys
         
         # Mock waybackpy to raise ImportError, so it falls back to CDX API
         with patch.dict('sys.modules', {'waybackpy': None}):

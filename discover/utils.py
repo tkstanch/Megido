@@ -79,23 +79,18 @@ def collect_wayback_urls(target, limit=50):
                 max_tries=max_retries
             )
             
-            # Iterate snapshots with error handling
-            # The actual HTTP requests happen during iteration
+            # Iterate snapshots - HTTP requests happen during iteration
             urls = []
             count = 0
-            try:
-                for snapshot in cdx_api.snapshots():
-                    if count >= limit:
-                        break
-                    urls.append({
-                        'url': snapshot.archive_url,
-                        'timestamp': snapshot.timestamp,
-                        'original': snapshot.original
-                    })
-                    count += 1
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-                # Re-raise to be caught by outer exception handler
-                raise
+            for snapshot in cdx_api.snapshots():
+                if count >= limit:
+                    break
+                urls.append({
+                    'url': snapshot.archive_url,
+                    'timestamp': snapshot.timestamp,
+                    'original': snapshot.original
+                })
+                count += 1
             
             results['urls'] = urls
             results['success'] = True
