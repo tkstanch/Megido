@@ -121,6 +121,106 @@ export MEGIDO_VERIFY_SSL=True
 
 **Security Note**: When testing production systems, consider enabling this to model secure practices.
 
+## OSINT & Discover Module Settings
+
+### SHODAN_API_KEY
+API key for Shodan infrastructure search service.
+
+**Optional** - Required for Shodan integration in Discover module.
+
+**How to Obtain**:
+1. Sign up at https://account.shodan.io/register
+2. Navigate to https://account.shodan.io/
+3. Copy your API key
+
+**Configuration**:
+```bash
+export SHODAN_API_KEY="your-shodan-api-key"
+```
+
+Or add to Django settings.py:
+```python
+SHODAN_API_KEY = os.environ.get('SHODAN_API_KEY', '')
+```
+
+### HUNTER_IO_KEY
+API key for Hunter.io email discovery service.
+
+**Optional** - Required for email discovery in Discover module.
+
+**How to Obtain**:
+1. Sign up at https://hunter.io/users/sign_up
+2. Navigate to https://hunter.io/api_keys
+3. Copy your API key
+
+**Configuration**:
+```bash
+export HUNTER_IO_KEY="your-hunter-io-key"
+```
+
+Or add to Django settings.py:
+```python
+HUNTER_IO_KEY = os.environ.get('HUNTER_IO_KEY', '')
+```
+
+### GOOGLE_SEARCH_API_KEY
+API key for Google Custom Search JSON API.
+
+**Optional** - Required for automated Google Dorks search in Discover module.
+
+**How to Obtain**:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the "Custom Search API"
+4. Go to "Credentials" and create an API key
+5. Copy your API key
+
+**Configuration**:
+```bash
+export GOOGLE_SEARCH_API_KEY="your-google-api-key"
+```
+
+Or add to Django settings.py:
+```python
+GOOGLE_SEARCH_API_KEY = os.environ.get('GOOGLE_SEARCH_API_KEY', '')
+```
+
+### GOOGLE_SEARCH_ENGINE_ID
+Custom Search Engine ID for Google Custom Search.
+
+**Optional** - Required for automated Google Dorks search in Discover module.
+
+**How to Obtain**:
+1. Go to [Programmable Search Engine](https://programmablesearchengine.google.com/)
+2. Click "Add" to create a new search engine
+3. Configure to search the entire web:
+   - In "Sites to search", enter `www.google.com`
+   - Enable "Search the entire web"
+4. Copy the "Search engine ID" (cx parameter)
+
+**Configuration**:
+```bash
+export GOOGLE_SEARCH_ENGINE_ID="your-search-engine-id"
+```
+
+Or add to Django settings.py:
+```python
+GOOGLE_SEARCH_ENGINE_ID = os.environ.get('GOOGLE_SEARCH_ENGINE_ID', '')
+```
+
+**API Quota Limits**:
+- Free tier: 100 queries per day
+- Paid tier: Up to 10,000 queries per day (requires billing)
+- The Discover module limits searches to 20 dorks per scan with a 1-second delay between requests
+
+**Fallback Behavior**:
+If the API is not configured, the Discover module will:
+- Still display Google Dorks queries
+- Show a message indicating manual search is needed
+- Allow users to copy queries and search manually on Google
+
+**Security Note**: Keep your API keys secure and never commit them to version control.
+
 ## Usage
 
 ### Linux/macOS
@@ -163,6 +263,8 @@ Before deploying to production:
 - [ ] Review and update security settings
 - [ ] Use environment variables or secure configuration management
 - [ ] Never commit secrets to version control
+- [ ] Configure optional API keys for OSINT features (Shodan, Hunter.io, Google Search)
+- [ ] Review API quota limits for external services
 
 ## Development vs Production
 
