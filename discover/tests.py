@@ -406,4 +406,3 @@ class SensitiveInfoScannerTests(TestCase):
         credit_card_findings = [f for f in findings if f['type'] == 'Credit Card Number']
         self.assertEqual(len(credit_card_findings), 1)
         self.assertEqual(credit_card_findings[0]['value'], '4532015112830366')
-            self.assertEqual(result['urls'][0]['original'], 'http://example.com/page1')
