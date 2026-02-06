@@ -8,4 +8,5 @@ urlpatterns = [
     path('scan/', views.start_scan, name='start_scan'),
     path('report/<int:scan_id>/', views.view_report, name='view_report'),
     path('history/', views.scan_history, name='history'),
+    path('scan-status/<int:scan_id>/', views.scan_status, name='scan_status'),
 ]

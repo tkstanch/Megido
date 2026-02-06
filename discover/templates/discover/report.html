@@ -172,6 +172,122 @@
 .btn:hover {
     background: #5568d3;
 }
+.severity-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.severity-critical {
+    background: #dc3545;
+    color: white;
+}
+.severity-high {
+    background: #fd7e14;
+    color: white;
+}
+.severity-medium {
+    background: #ffc107;
+    color: #333;
+}
+.severity-low {
+    background: #28a745;
+    color: white;
+}
+.severity-info {
+    background: #17a2b8;
+    color: white;
+}
+.findings-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.findings-summary-item {
+    text-align: center;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+.findings-summary-item h4 {
+    font-size: 32px;
+    margin: 10px 0;
+    color: #667eea;
+}
+.findings-summary-item p {
+    font-size: 14px;
+    color: #666;
+}
+.finding-item {
+    background: #f9f9f9;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #667eea;
+}
+.finding-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.finding-type {
+    font-weight: bold;
+    color: #333;
+    font-size: 16px;
+}
+.finding-url {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 8px;
+    word-break: break-all;
+}
+.finding-value {
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 8px;
+    word-break: break-all;
+}
+.finding-context {
+    background: #fffbea;
+    padding: 8px;
+    border-left: 3px solid #ffc107;
+    font-size: 13px;
+    color: #666;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+}
+.status-in-progress {
+    background: #fff3cd;
+    color: #856404;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #ffc107;
+}
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+}
+.warning-box {
+    background: #fff3cd;
+    color: #856404;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #ffc107;
+}
 {% endblock %}
 
 {% block content %}
@@ -281,6 +397,90 @@
     </div>
 
     <!-- Google Dorks Results -->
+    <div class="section" id="sensitive-findings-section">
+        <div class="section-header">
+            <h3>🔐 Sensitive Information Scan</h3>
+        </div>
+        
+        {% if sensitive_scan_status.completed %}
+            <div class="status-completed">
+                ✓ Scan completed on {{ sensitive_scan_status.date|date:"Y-m-d H:i" }}
+            </div>
+            
+            {% if sensitive_scan_status.total_findings > 0 %}
+                <div class="warning-box">
+                    ⚠️ <strong>Warning:</strong> This scan has discovered potentially sensitive information. 
+                    Handle this data responsibly and ensure proper security measures are in place.
+                </div>
+                
+                <div class="findings-summary">
+                    <div class="findings-summary-item">
+                        <h4>{{ sensitive_scan_status.total_findings }}</h4>
+                        <p>Total Findings</p>
+                    </div>
+                    <div class="findings-summary-item">
+                        <h4>{{ sensitive_scan_status.high_risk_findings }}</h4>
+                        <p>High Risk</p>
+                    </div>
+                    <div class="findings-summary-item">
+                        <h4>{{ findings_by_severity.critical }}</h4>
+                        <p>Critical</p>
+                    </div>
+                    <div class="findings-summary-item">
+                        <h4>{{ findings_by_severity.high }}</h4>
+                        <p>High</p>
+                    </div>
+                    <div class="findings-summary-item">
+                        <h4>{{ findings_by_severity.medium }}</h4>
+                        <p>Medium</p>
+                    </div>
+                    <div class="findings-summary-item">
+                        <h4>{{ findings_by_severity.low }}</h4>
+                        <p>Low</p>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top: 30px; margin-bottom: 15px;">Findings Details:</h4>
+                {% for finding in sensitive_findings %}
+                <div class="finding-item">
+                    <div class="finding-header">
+                        <span class="finding-type">{{ finding.finding_type }}</span>
+                        <span class="severity-badge severity-{{ finding.severity }}">{{ finding.severity }}</span>
+                    </div>
+                    <div class="finding-url">
+                        <strong>URL:</strong> {{ finding.url|truncatechars:100 }}
+                    </div>
+                    <div class="finding-value">
+                        <strong>Value:</strong> {{ finding.value|truncatechars:150 }}
+                    </div>
+                    {% if finding.context %}
+                    <div class="finding-context">
+                        <strong>Context:</strong> {{ finding.context|truncatechars:200 }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                {% if sensitive_scan_status.total_findings > 100 %}
+                <p class="no-data">Showing first 100 of {{ sensitive_scan_status.total_findings }} findings</p>
+                {% endif %}
+            {% else %}
+                <div class="status-completed">
+                    ✓ No sensitive information found during the scan.
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="status-in-progress" id="scan-in-progress">
+                ⏳ Sensitive information scan is in progress... 
+                <span id="scan-status-text">Checking status...</span>
+            </div>
+            <div id="partial-results" style="display: none;">
+                <p>Results will appear here as the scan progresses.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Google Dorks Results -->
     <div class="section">
         <div class="section-header">
             <h3>{{ results.google_dorks.title }}</h3>
@@ -333,5 +533,45 @@ function copyToClipboard(element) {
         console.error('Failed to copy text: ', err);
     });
 }
+
+// Auto-refresh for sensitive scan status
+{% if not sensitive_scan_status.completed %}
+let pollAttempts = 0;
+const maxPollAttempts = 60; // Poll for up to 5 minutes (every 5 seconds)
+
+function checkScanStatus() {
+    if (pollAttempts >= maxPollAttempts) {
+        document.getElementById('scan-status-text').textContent = 'Scan is taking longer than expected. Please refresh the page.';
+        return;
+    }
+    
+    pollAttempts++;
+    
+    fetch('/discover/scan-status/{{ scan.id }}/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.scan_completed) {
+                // Scan completed, reload the page to show results
+                window.location.reload();
+            } else {
+                // Update status text
+                if (data.total_findings > 0) {
+                    document.getElementById('scan-status-text').textContent = 
+                        `Found ${data.total_findings} items so far (${data.high_risk_findings} high risk)...`;
+                }
+                // Check again in 5 seconds
+                setTimeout(checkScanStatus, 5000);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking scan status:', error);
+            // Try again in 10 seconds
+            setTimeout(checkScanStatus, 10000);
+        });
+}
+
+// Start polling after 5 seconds (give the background thread time to start)
+setTimeout(checkScanStatus, 5000);
+{% endif %}
 </script>
 {% endblock %}
