@@ -64,7 +64,6 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, met
             return None
             
         except Timeout as e:
-            error_type = "timeout_error"
             if attempt < max_retries:
                 # Exponential backoff: 1s, 2s, 4s
                 backoff_delay = 2 ** attempt
@@ -75,7 +74,6 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, met
                 return None
                 
         except ConnectionError as e:
-            error_type = "connection_error"
             if attempt < max_retries:
                 # Exponential backoff: 1s, 2s, 4s
                 backoff_delay = 2 ** attempt
@@ -906,9 +904,8 @@ def infer_content(session, target, stealth_session):
             )
             
             if response is None:
-                inferred.verified = True
-                inferred.exists = False
-                inferred.save()
+                # Request failed completely - cannot verify
+                logger.debug(f"Could not verify inference (request failed): {inferred.inferred_url}")
                 continue
             
             inferred.verified = True
@@ -932,9 +929,8 @@ def infer_content(session, target, stealth_session):
         
         except Exception as e:
             logger.debug(f"Error verifying inference {inferred.inferred_url}: {e}")
-            inferred.verified = True
-            inferred.exists = False
-            inferred.save()
+            # Don't mark as verified if we encountered an unexpected error
+            continue
     
     logger.info(f"Inference complete for session {session.id}: "
                f"{inferences_created} created, {verifications_successful} verified")
