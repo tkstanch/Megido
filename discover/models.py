@@ -12,6 +12,7 @@ class Scan(models.Model):
     shodan_data = models.TextField(blank=True, help_text="JSON data from Shodan API")
     hunter_data = models.TextField(blank=True, help_text="JSON data from Hunter.io API")
     dork_queries = models.TextField(blank=True, help_text="JSON array of Google Dorks")
+    dork_results = models.TextField(blank=True, help_text="JSON data with Google Dorks search results")
     
     # Summary fields
     total_urls = models.IntegerField(default=0)

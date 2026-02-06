@@ -4,6 +4,9 @@ Utility functions for OSINT data collection from various sources.
 import requests
 from urllib.parse import urlparse
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def extract_domain(target):
@@ -311,3 +314,49 @@ def group_results(wayback_results, shodan_results, hunter_results, dork_queries)
     }
     
     return grouped
+
+
+def search_google_dorks(target, dork_queries):
+    """
+    Search Google Dorks using Google Custom Search API.
+    
+    Args:
+        target (str): Target domain (not used in search, but for logging)
+        dork_queries (dict): Dictionary of categorized dork queries
+    
+    Returns:
+        dict: Structured data with search results organized by category
+    """
+    try:
+        from .google_search import search_dorks, is_api_configured
+        
+        # Check if API is configured
+        if not is_api_configured():
+            logger.info(f"Google Custom Search API not configured for target {target}")
+            return {
+                'search_enabled': False,
+                'api_configured': False,
+                'categories': {}
+            }
+        
+        # Execute searches with rate limiting
+        # Limit to 20 dorks, 5 results per dork, 1 second delay between requests
+        logger.info(f"Starting automated Google Dorks search for target {target}")
+        results = search_dorks(
+            dork_queries, 
+            max_dorks=20, 
+            results_per_dork=5, 
+            delay=1.0
+        )
+        
+        logger.info(f"Completed Google Dorks search for target {target}")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error in search_google_dorks: {str(e)}")
+        return {
+            'search_enabled': False,
+            'api_configured': False,
+            'categories': {},
+            'error': str(e)
+        }

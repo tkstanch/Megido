@@ -288,6 +288,92 @@
     margin-bottom: 20px;
     border-left: 4px solid #ffc107;
 }
+.search-results-container {
+    margin-top: 15px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 15px;
+}
+.search-results-toggle {
+    background: #e8f4ff;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+}
+.search-results-toggle:hover {
+    background: #d4ebff;
+}
+.toggle-icon {
+    font-weight: bold;
+    color: #667eea;
+}
+.search-results-content {
+    display: none;
+    padding: 10px 0;
+}
+.search-results-content.expanded {
+    display: block;
+}
+.search-result-item {
+    background: #fff;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+    transition: box-shadow 0.2s;
+}
+.search-result-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.search-result-title {
+    font-weight: bold;
+    color: #1a0dab;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+.search-result-title a {
+    color: #1a0dab;
+    text-decoration: none;
+}
+.search-result-title a:hover {
+    text-decoration: underline;
+}
+.search-result-url {
+    color: #006621;
+    font-size: 13px;
+    margin-bottom: 5px;
+    word-break: break-all;
+}
+.search-result-snippet {
+    color: #545454;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.no-results {
+    color: #999;
+    font-style: italic;
+    padding: 10px 0;
+}
+.api-not-configured {
+    background: #f0f4ff;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+    border-left: 4px solid #667eea;
+}
+.results-count {
+    font-size: 13px;
+    color: #666;
+    font-weight: normal;
+}
+.error-text {
+    color: #c33;
+}
 {% endblock %}
 
 {% block content %}
@@ -490,6 +576,20 @@
             {{ results.google_dorks.guidance }}
         </div>
         
+        {% if dork_results.api_configured %}
+            <div class="status-completed">
+                ✓ Automated search enabled. Search results are displayed below each dork query.
+            </div>
+        {% elif dork_results.search_enabled %}
+            <div class="warning-box">
+                ⚠️ Automated search was requested but API credentials are not configured. Please configure GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID in Django settings.
+            </div>
+        {% else %}
+            <div class="api-not-configured">
+                💡 <strong>Tip:</strong> Enable automated dork search when starting a scan and configure Google Custom Search API to see results automatically. Otherwise, copy and manually search each query on Google.
+            </div>
+        {% endif %}
+        
         {% for category_key, category in results.google_dorks.data.items %}
         <div class="dork-category">
             <h4>📁 {{ category.name }}</h4>
@@ -503,6 +603,54 @@
                 </div>
                 <button class="copy-btn" onclick="copyToClipboard(this.previousElementSibling)">📋 Copy Query</button>
                 <span class="copied">✓ Copied!</span>
+                
+                {% if dork_results.api_configured and dork_results.categories %}
+                    {% with dork_with_results=None %}
+                    {% for cat_key, cat_data in dork_results.categories.items %}
+                        {% if cat_key == category_key %}
+                            {% for dork_result in cat_data.dorks %}
+                                {% if dork_result.query == dork.query %}
+                                    <!-- Search Results -->
+                                    <div class="search-results-container">
+                                        <div class="search-results-toggle" onclick="toggleSearchResults(this)">
+                                            <span>
+                                                <strong>🔍 Search Results</strong>
+                                                {% if dork_result.error %}
+                                                    <span class="results-count error-text">(Error: {{ dork_result.error }})</span>
+                                                {% else %}
+                                                    <span class="results-count">({{ dork_result.result_count }} found)</span>
+                                                {% endif %}
+                                            </span>
+                                            <span class="toggle-icon">▼</span>
+                                        </div>
+                                        <div class="search-results-content">
+                                            {% if dork_result.error %}
+                                                <div class="error-box">
+                                                    Error: {{ dork_result.error }}
+                                                </div>
+                                            {% elif dork_result.results %}
+                                                {% for result in dork_result.results %}
+                                                <div class="search-result-item">
+                                                    <div class="search-result-title">
+                                                        <a href="{{ result.url }}" target="_blank" rel="noopener noreferrer">
+                                                            {{ result.title }}
+                                                        </a>
+                                                    </div>
+                                                    <div class="search-result-url">{{ result.url }}</div>
+                                                    <div class="search-result-snippet">{{ result.snippet }}</div>
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="no-results">No results found for this query</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                    {% endwith %}
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -532,6 +680,19 @@ function copyToClipboard(element) {
     }).catch(function(err) {
         console.error('Failed to copy text: ', err);
     });
+}
+
+function toggleSearchResults(toggleElement) {
+    const content = toggleElement.nextElementSibling;
+    const icon = toggleElement.querySelector('.toggle-icon');
+    
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        icon.textContent = '▼';
+    } else {
+        content.classList.add('expanded');
+        icon.textContent = '▲';
+    }
 }
 
 // Auto-refresh for sensitive scan status

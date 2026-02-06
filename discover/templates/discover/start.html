@@ -148,6 +148,22 @@
             </small>
         </div>
         
+        <div class="form-group">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input 
+                    type="checkbox" 
+                    id="enable_dork_search" 
+                    name="enable_dork_search"
+                    style="width: auto; margin-right: 10px;"
+                >
+                <span>Enable Automated Google Dorks Search</span>
+            </label>
+            <small style="color: #666; margin-top: 5px; display: block;">
+                Automatically executes Google Dorks queries and displays results. 
+                Requires Google Custom Search API configuration (see documentation).
+            </small>
+        </div>
+        
         <button type="submit" class="btn-primary" id="submitBtn">
             🚀 Start OSINT Scan
         </button>
@@ -186,6 +202,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
     // Get CSRF token
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     const enableSensitiveScan = document.getElementById('enable_sensitive_scan').checked;
+    const enableDorkSearch = document.getElementById('enable_dork_search').checked;
     
     // Submit form
     fetch('/discover/scan/', {
@@ -194,7 +211,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'target=' + encodeURIComponent(target) + '&enable_sensitive_scan=' + enableSensitiveScan
+        body: 'target=' + encodeURIComponent(target) + '&enable_sensitive_scan=' + enableSensitiveScan + '&enable_dork_search=' + enableDorkSearch
     })
     .then(response => response.json())
     .then(data => {
