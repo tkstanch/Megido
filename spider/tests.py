@@ -546,3 +546,169 @@ class ParameterDiscoveryTest(TestCase):
         self.session.save()
         
         self.assertEqual(self.session.parameters_discovered, 3)
+
+
+class RetryLogicTest(TestCase):
+    """Test retry logic and timeout configuration"""
+    
+    def test_target_timeout_and_retries_defaults(self):
+        """Test that targets have default timeout and retry values"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Test Target'
+        )
+        self.assertEqual(target.request_timeout, 30)
+        self.assertEqual(target.max_retries, 3)
+    
+    def test_target_custom_timeout_and_retries(self):
+        """Test creating a target with custom timeout and retries"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Custom Target',
+            request_timeout=60,
+            max_retries=5
+        )
+        self.assertEqual(target.request_timeout, 60)
+        self.assertEqual(target.max_retries, 5)
+    
+    def test_stealth_session_with_timeout(self):
+        """Test that stealth session receives timeout parameter"""
+        from spider.stealth import create_stealth_session
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Timeout Test',
+            request_timeout=45
+        )
+        session = create_stealth_session(target, verify_ssl=False)
+        self.assertEqual(session.timeout, 45)
+        session.close()
+    
+    def test_stealth_session_default_timeout(self):
+        """Test stealth session with default timeout"""
+        from spider.stealth import StealthSession
+        session = StealthSession(timeout=30)
+        self.assertEqual(session.timeout, 30)
+        session.close()
+    
+    def test_target_api_includes_timeout_and_retries(self):
+        """Test that API returns timeout and retry options"""
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='API Test',
+            request_timeout=40,
+            max_retries=2
+        )
+        
+        response = self.client.get(reverse('spider:spider_targets'))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        self.assertGreater(len(data), 0)
+        target_data = data[0]
+        self.assertEqual(target_data['request_timeout'], 40)
+        self.assertEqual(target_data['max_retries'], 2)
+    
+    def test_create_target_with_timeout_and_retries(self):
+        """Test creating target via API with timeout and retries"""
+        response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'url': 'https://resilient-test.com',
+                'name': 'Resilient Target',
+                'request_timeout': 50,
+                'max_retries': 4
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 201)
+        
+        # Verify target was created with correct values
+        target = SpiderTarget.objects.get(url='https://resilient-test.com')
+        self.assertEqual(target.request_timeout, 50)
+        self.assertEqual(target.max_retries, 4)
+    
+    def test_make_request_with_retry_function_exists(self):
+        """Test that make_request_with_retry function exists"""
+        from spider import views
+        self.assertTrue(hasattr(views, 'make_request_with_retry'))
+        self.assertTrue(callable(views.make_request_with_retry))
+    
+    def test_retry_logic_with_mock_session(self):
+        """Test retry logic with a mock session"""
+        from spider.views import make_request_with_retry
+        from unittest.mock import Mock, MagicMock
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+        
+        # Create a mock session that fails twice then succeeds
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'Content-Type': 'text/html'}
+        mock_response.content = b'Success'
+        mock_response.elapsed.total_seconds.return_value = 0.5
+        
+        # First two calls raise ConnectionError, third succeeds
+        mock_session.get = Mock(side_effect=[
+            RequestsConnectionError('Connection refused'),
+            RequestsConnectionError('Connection refused'),
+            mock_response
+        ])
+        
+        # Call with 3 retries
+        result = make_request_with_retry(
+            mock_session,
+            'https://example.com',
+            max_retries=3,
+            timeout=30
+        )
+        
+        # Should have made 3 calls (1 initial + 2 retries)
+        self.assertEqual(mock_session.get.call_count, 3)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.status_code, 200)
+    
+    def test_retry_logic_exhausts_retries(self):
+        """Test that retry logic stops after max retries"""
+        from spider.views import make_request_with_retry
+        from unittest.mock import Mock
+        from requests.exceptions import Timeout
+        
+        # Create a mock session that always fails
+        mock_session = Mock()
+        mock_session.get = Mock(side_effect=Timeout('Request timeout'))
+        
+        # Call with 2 retries
+        result = make_request_with_retry(
+            mock_session,
+            'https://example.com',
+            max_retries=2,
+            timeout=30
+        )
+        
+        # Should have made 3 calls (1 initial + 2 retries)
+        self.assertEqual(mock_session.get.call_count, 3)
+        # Should return None after exhausting retries
+        self.assertIsNone(result)
+    
+    def test_retry_logic_skips_non_recoverable_errors(self):
+        """Test that non-recoverable errors don't trigger retries"""
+        from spider.views import make_request_with_retry
+        from unittest.mock import Mock
+        from requests.exceptions import RequestException
+        
+        # Create a mock session that raises a non-recoverable error
+        mock_session = Mock()
+        mock_session.get = Mock(side_effect=RequestException('Invalid URL'))
+        
+        # Call with retries
+        result = make_request_with_retry(
+            mock_session,
+            'https://example.com',
+            max_retries=3,
+            timeout=30
+        )
+        
+        # Should only make 1 call (no retries for non-recoverable errors)
+        self.assertEqual(mock_session.get.call_count, 1)
+        # Should return None
+        self.assertIsNone(result)

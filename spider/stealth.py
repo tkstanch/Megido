@@ -54,7 +54,7 @@ class StealthSession:
     """
     
     def __init__(self, enable_stealth=True, use_random_user_agents=True, 
-                 delay_min=1.0, delay_max=3.0, verify_ssl=False):
+                 delay_min=1.0, delay_max=3.0, verify_ssl=False, timeout=30):
         """
         Initialize stealth session
         
@@ -64,6 +64,7 @@ class StealthSession:
             delay_min: Minimum delay between requests in seconds
             delay_max: Maximum delay between requests in seconds
             verify_ssl: Verify SSL certificates
+            timeout: Default request timeout in seconds
         """
         import requests
         self.session = requests.Session()
@@ -72,6 +73,7 @@ class StealthSession:
         self.delay_min = delay_min
         self.delay_max = delay_max
         self.verify_ssl = verify_ssl
+        self.timeout = timeout
         self.last_request_time = 0
         self.request_count = 0
         self.referer = None
@@ -235,5 +237,6 @@ def create_stealth_session(target, verify_ssl=False):
         use_random_user_agents=target.use_random_user_agents,
         delay_min=target.stealth_delay_min,
         delay_max=target.stealth_delay_max,
-        verify_ssl=verify_ssl
+        verify_ssl=verify_ssl,
+        timeout=target.request_timeout
     )
