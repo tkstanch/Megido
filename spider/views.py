@@ -11,7 +11,7 @@ from .models import (
 )
 from .stealth import create_stealth_session
 import requests
-from requests.exceptions import Timeout, ConnectionError, RequestException
+from requests.exceptions import Timeout, ConnectionError, RequestException, SSLError
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlunparse
 import re
@@ -19,6 +19,10 @@ import os
 import json
 from collections import deque
 import time
+import logging
+
+# Configure logger for spider module
+logger = logging.getLogger(__name__)
 
 
 def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, method='GET', **kwargs):
@@ -36,6 +40,8 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, met
     Returns:
         Response object or None if all retries failed
     """
+    logger.debug(f"Making {method} request to {url} (max_retries={max_retries}, timeout={timeout})")
+    
     for attempt in range(max_retries + 1):
         try:
             if method.upper() == 'GET':
@@ -47,19 +53,42 @@ def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, met
             else:
                 # For other methods (TRACE, PUT, DELETE, etc.)
                 response = stealth_session.request(method, url, timeout=timeout, **kwargs)
+            
+            logger.debug(f"Request successful: {url} - Status: {response.status_code}")
             return response
-        except (Timeout, ConnectionError) as e:
+            
+        except SSLError as e:
+            # SSL/TLS errors - typically not recoverable
+            error_msg = f"SSL error for {url}: {str(e)}"
+            logger.error(error_msg)
+            return None
+            
+        except Timeout as e:
+            error_type = "timeout_error"
             if attempt < max_retries:
                 # Exponential backoff: 1s, 2s, 4s
                 backoff_delay = 2 ** attempt
-                print(f"Request failed (attempt {attempt + 1}/{max_retries + 1}), retrying in {backoff_delay}s: {e}")
+                logger.warning(f"Request timeout (attempt {attempt + 1}/{max_retries + 1}), retrying in {backoff_delay}s: {url} - {e}")
                 time.sleep(backoff_delay)
             else:
-                print(f"Request failed after {max_retries + 1} attempts: {e}")
+                logger.error(f"Request timed out after {max_retries + 1} attempts: {url} - {e}")
                 return None
+                
+        except ConnectionError as e:
+            error_type = "connection_error"
+            if attempt < max_retries:
+                # Exponential backoff: 1s, 2s, 4s
+                backoff_delay = 2 ** attempt
+                logger.warning(f"Connection error (attempt {attempt + 1}/{max_retries + 1}), retrying in {backoff_delay}s: {url} - {e}")
+                time.sleep(backoff_delay)
+            else:
+                logger.error(f"Connection failed after {max_retries + 1} attempts: {url} - {e}")
+                return None
+                
         except RequestException as e:
             # Non-recoverable error, don't retry
-            print(f"Non-recoverable error: {e}")
+            error_msg = f"Non-recoverable request error for {url}: {str(e)}"
+            logger.error(error_msg)
             return None
     
     return None
@@ -140,9 +169,12 @@ def spider_targets(request):
 @api_view(['POST'])
 def start_spider(request, target_id):
     """Start a spider session on a target"""
+    logger.info(f"Starting spider session for target_id={target_id}")
+    
     try:
         target = SpiderTarget.objects.get(id=target_id)
         session = SpiderSession.objects.create(target=target, status='running')
+        logger.info(f"Created spider session {session.id} for target {target.url}")
         
         try:
             # Run comprehensive spidering
@@ -152,55 +184,106 @@ def start_spider(request, target_id):
             session.completed_at = timezone.now()
             session.save()
             
+            logger.info(f"Spider session {session.id} completed successfully. "
+                       f"URLs discovered: {session.urls_discovered}, "
+                       f"Hidden content: {session.hidden_content_found}")
+            
             return Response({
                 'id': session.id,
                 'message': 'Spider session completed',
                 'urls_discovered': session.urls_discovered,
                 'hidden_content_found': session.hidden_content_found,
             })
+            
         except Exception as e:
+            # Categorize error type
+            error_category = "unknown_error"
+            error_message = str(e)
+            
+            if "SSL" in error_message or "ssl" in error_message.lower():
+                error_category = "ssl_error"
+            elif "Connection" in error_message or "connection" in error_message.lower():
+                error_category = "connection_error"
+            elif "timeout" in error_message.lower():
+                error_category = "timeout_error"
+            elif "database" in error_message.lower() or "integrity" in error_message.lower():
+                error_category = "database_error"
+            
+            logger.error(f"Spider session {session.id} failed with {error_category}: {error_message}", 
+                        exc_info=True)
+            
+            # Update session with detailed error information
             session.status = 'failed'
-            session.error_message = str(e)
-            session.save()
-            return Response({'error': str(e)}, status=500)
+            session.error_message = f"[{error_category}] {error_message}"
+            session.completed_at = timezone.now()
+            
+            try:
+                session.save()
+            except Exception as save_error:
+                logger.error(f"Failed to save error status for session {session.id}: {save_error}")
+            
+            # Return structured error response
+            return Response({
+                'error': error_message,
+                'error_category': error_category,
+                'session_id': session.id,
+                'message': 'Spider session failed. Check error_message for details.'
+            }, status=500)
             
     except SpiderTarget.DoesNotExist:
+        logger.warning(f"Target with id={target_id} not found")
         return Response({'error': 'Target not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Unexpected error starting spider for target_id={target_id}: {e}", exc_info=True)
+        return Response({
+            'error': str(e),
+            'error_category': 'unexpected_error',
+            'message': 'An unexpected error occurred'
+        }, status=500)
 
 
 def run_spider_session(session, target):
     """Main spider logic - orchestrates all discovery methods"""
+    logger.info(f"Running spider session {session.id} for target {target.url}")
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
     
     # Create stealth session
     stealth_session = create_stealth_session(target, verify_ssl)
+    logger.debug(f"Created stealth session for {target.url} (SSL verification: {verify_ssl})")
     
     try:
         # Phase 1: Web Crawling
+        logger.info(f"Phase 1: Starting web crawling for session {session.id}")
         crawl_website(session, target, stealth_session)
         
         # Phase 2: DirBuster-style directory discovery
         if target.use_dirbuster:
+            logger.info(f"Phase 2: Starting DirBuster discovery for session {session.id}")
             run_dirbuster_discovery(session, target, stealth_session)
         
         # Phase 3: Nikto scanning
         if target.use_nikto:
+            logger.info(f"Phase 3: Starting Nikto scan for session {session.id}")
             run_nikto_scan(session, target, stealth_session)
         
         # Phase 4: Wikto scanning
         if target.use_wikto:
+            logger.info(f"Phase 4: Starting Wikto scan for session {session.id}")
             run_wikto_scan(session, target, stealth_session)
         
         # Phase 5: Brute force hidden content
         if target.enable_brute_force:
+            logger.info(f"Phase 5: Starting brute force for session {session.id}")
             brute_force_paths(session, target, stealth_session)
         
         # Phase 6: Content inference
         if target.enable_inference:
+            logger.info(f"Phase 6: Starting content inference for session {session.id}")
             infer_content(session, target, stealth_session)
         
         # Phase 7: Hidden parameter discovery
         if target.enable_parameter_discovery:
+            logger.info(f"Phase 7: Starting parameter discovery for session {session.id}")
             discover_hidden_parameters(session, target, stealth_session)
         
         # Update session statistics
@@ -209,16 +292,29 @@ def run_spider_session(session, target):
         session.inference_results = session.inferred_content.count()
         session.parameters_discovered = session.discovered_parameters.count()
         session.save()
+        
+        logger.info(f"Spider session {session.id} phases completed successfully")
+        
     finally:
-        # Close stealth session
-        stealth_session.close()
+        # Always close stealth session, even if exceptions occur
+        try:
+            logger.debug(f"Closing stealth session for session {session.id}")
+            stealth_session.close()
+            logger.debug(f"Stealth session closed successfully for session {session.id}")
+        except Exception as close_error:
+            # Log but don't raise - cleanup errors shouldn't fail the request
+            logger.warning(f"Error closing stealth session for session {session.id}: {close_error}")
 
 
 def crawl_website(session, target, stealth_session):
     """Crawl website starting from target URL"""
+    logger.info(f"Starting crawl for session {session.id}, target: {target.url}, max_depth: {target.max_depth}")
     visited = set()
     to_visit = deque([(target.url, 0)])  # (url, depth)
     base_domain = urlparse(target.url).netloc
+    
+    urls_processed = 0
+    urls_failed = 0
     
     while to_visit and len(visited) < 500:  # Limit to 500 URLs
         current_url, depth = to_visit.popleft()
@@ -227,6 +323,7 @@ def crawl_website(session, target, stealth_session):
             continue
         
         visited.add(current_url)
+        urls_processed += 1
         
         try:
             response = make_request_with_retry(
@@ -239,6 +336,8 @@ def crawl_website(session, target, stealth_session):
             
             if response is None:
                 # Request failed after all retries
+                urls_failed += 1
+                logger.debug(f"Failed to crawl {current_url} after retries")
                 continue
             
             # Record discovered URL
@@ -289,15 +388,20 @@ def crawl_website(session, target, stealth_session):
                                 to_visit.append((absolute_url, depth + 1))
         
         except Exception as e:
-            print(f"Error crawling {current_url}: {e}")
+            urls_failed += 1
+            logger.warning(f"Error crawling {current_url}: {e}")
             continue
     
     session.urls_crawled = len(visited)
     session.save()
+    
+    logger.info(f"Crawl complete for session {session.id}: "
+               f"{urls_processed} URLs processed, {urls_failed} failed, {len(visited)} visited")
 
 
 def run_dirbuster_discovery(session, target, stealth_session):
     """Simulate DirBuster-style directory/file discovery"""
+    logger.info(f"Starting DirBuster discovery for session {session.id}")
     tool_result = ToolScanResult.objects.create(
         session=session,
         tool_name='dirbuster',
@@ -329,6 +433,7 @@ def run_dirbuster_discovery(session, target, stealth_session):
     ]
     
     findings = []
+    failed_requests = 0
     parsed_url = urlparse(target.url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
     
@@ -346,6 +451,7 @@ def run_dirbuster_discovery(session, target, stealth_session):
             
             if response is None:
                 # Request failed after all retries
+                failed_requests += 1
                 continue
             
             # Record if found (200-399 status codes)
@@ -396,8 +502,11 @@ def run_dirbuster_discovery(session, target, stealth_session):
                 )
                 
                 findings.append({'url': test_url, 'status': response.status_code})
+                logger.debug(f"DirBuster found: {test_url} (status: {response.status_code})")
         
         except Exception as e:
+            failed_requests += 1
+            logger.debug(f"DirBuster error testing {test_url}: {e}")
             continue
     
     tool_result.status = 'completed'
@@ -405,6 +514,9 @@ def run_dirbuster_discovery(session, target, stealth_session):
     tool_result.findings_count = len(findings)
     tool_result.parsed_results = findings
     tool_result.save()
+    
+    logger.info(f"DirBuster discovery complete for session {session.id}: "
+               f"{len(findings)} findings, {failed_requests} failed requests")
 
 
 def run_nikto_scan(session, target, stealth_session):
