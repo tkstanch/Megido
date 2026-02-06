@@ -10,7 +10,8 @@ from .utils import (
     collect_shodan_data, 
     collect_hunter_emails,
     group_results,
-    extract_domain
+    extract_domain,
+    search_google_dorks
 )
 from .dorks import generate_dorks_for_target
 from .models import Scan, SensitiveFinding
@@ -118,6 +119,7 @@ def start_scan(request):
     """
     target = request.POST.get('target', '').strip()
     enable_sensitive_scan = request.POST.get('enable_sensitive_scan', 'true').lower() == 'true'
+    enable_dork_search = request.POST.get('enable_dork_search', 'false').lower() == 'true'
     
     if not target:
         return JsonResponse({'error': 'Target is required'}, status=400)
@@ -130,6 +132,19 @@ def start_scan(request):
     shodan_results = collect_shodan_data(target)
     hunter_results = collect_hunter_emails(target)
     dork_queries = generate_dorks_for_target(target)
+    
+    # Search Google Dorks if enabled
+    dork_results = {}
+    if enable_dork_search:
+        logger.info(f"Automated dork search enabled for {target}")
+        dork_results = search_google_dorks(target, dork_queries)
+    else:
+        logger.info(f"Automated dork search disabled for {target}")
+        dork_results = {
+            'search_enabled': False,
+            'api_configured': False,
+            'categories': {}
+        }
     
     # Group results
     grouped_results = group_results(
@@ -146,6 +161,7 @@ def start_scan(request):
         shodan_data=json.dumps(shodan_results.get('data', {})),
         hunter_data=json.dumps(hunter_results.get('emails', [])),
         dork_queries=json.dumps(dork_queries),
+        dork_results=json.dumps(dork_results),
         total_urls=len(wayback_results.get('urls', [])),
         total_emails=len(hunter_results.get('emails', []))
     )
@@ -212,6 +228,11 @@ def view_report(request, scan_id):
         dork_queries = json.loads(scan.dork_queries) if scan.dork_queries else {}
     except json.JSONDecodeError:
         dork_queries = {}
+    
+    try:
+        dork_results = json.loads(scan.dork_results) if scan.dork_results else {}
+    except json.JSONDecodeError:
+        dork_results = {}
     
     # Reconstruct grouped results
     wayback_results = {
@@ -296,6 +317,7 @@ def view_report(request, scan_id):
         'title': f'Scan Report - {scan.target}',
         'scan': scan,
         'results': grouped_results,
+        'dork_results': dork_results,
         'sensitive_findings': sensitive_findings,
         'findings_by_severity': findings_by_severity,
         'sensitive_scan_status': sensitive_scan_status,
