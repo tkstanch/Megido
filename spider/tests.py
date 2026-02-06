@@ -179,11 +179,74 @@ class SpiderViewTest(TestCase):
         self.assertEqual(response.status_code, 201)
         data = json.loads(response.content)
         self.assertIn('id', data)
+        self.assertIn('message', data)
+        self.assertIn('created', data)
+        self.assertTrue(data['created'])
+        self.assertEqual(data['message'], 'Target created')
         
         # Verify target was created
         target = SpiderTarget.objects.get(id=data['id'])
         self.assertEqual(target.url, 'https://test.com')
         self.assertEqual(target.name, 'New Target')
+    
+    def test_spider_targets_create_duplicate_url(self):
+        """Test creating a spider target with duplicate URL returns existing target"""
+        # First create a target
+        first_response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'url': 'https://duplicate-test.com',
+                'name': 'First Target',
+                'max_depth': 3
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(first_response.status_code, 201)
+        first_data = json.loads(first_response.content)
+        self.assertTrue(first_data['created'])
+        first_id = first_data['id']
+        
+        # Try to create another target with the same URL
+        second_response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'url': 'https://duplicate-test.com',
+                'name': 'Second Target',  # Different name but same URL
+                'max_depth': 2
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(second_response.status_code, 200)
+        second_data = json.loads(second_response.content)
+        
+        # Verify response indicates existing target
+        self.assertFalse(second_data['created'])
+        self.assertEqual(second_data['message'], 'Target with this URL already exists')
+        self.assertEqual(second_data['id'], first_id)
+        
+        # Verify only one target exists with this URL
+        targets = SpiderTarget.objects.filter(url='https://duplicate-test.com')
+        self.assertEqual(targets.count(), 1)
+        
+        # Verify the original target data was preserved (not overwritten)
+        target = targets.first()
+        self.assertEqual(target.name, 'First Target')
+        self.assertEqual(target.max_depth, 3)
+    
+    def test_spider_targets_create_missing_url(self):
+        """Test creating a spider target without URL returns error"""
+        response = self.client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'name': 'Test Target',
+                'max_depth': 2
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'URL is required')
     
     def test_spider_results(self):
         """Test getting spider session results"""

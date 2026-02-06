@@ -50,24 +50,42 @@ def spider_targets(request):
         return Response(data)
     
     elif request.method == 'POST':
-        target = SpiderTarget.objects.create(
-            url=request.data.get('url'),
-            name=request.data.get('name', ''),
-            description=request.data.get('description', ''),
-            max_depth=request.data.get('max_depth', 3),
-            follow_external_links=request.data.get('follow_external_links', False),
-            use_dirbuster=request.data.get('use_dirbuster', True),
-            use_nikto=request.data.get('use_nikto', True),
-            use_wikto=request.data.get('use_wikto', True),
-            enable_brute_force=request.data.get('enable_brute_force', True),
-            enable_inference=request.data.get('enable_inference', True),
-            enable_parameter_discovery=request.data.get('enable_parameter_discovery', True),
-            enable_stealth_mode=request.data.get('enable_stealth_mode', True),
-            use_random_user_agents=request.data.get('use_random_user_agents', True),
-            stealth_delay_min=request.data.get('stealth_delay_min', 1.0),
-            stealth_delay_max=request.data.get('stealth_delay_max', 3.0),
+        url = request.data.get('url')
+        if not url:
+            return Response({'error': 'URL is required'}, status=400)
+        
+        target, created = SpiderTarget.objects.get_or_create(
+            url=url,
+            defaults={
+                'name': request.data.get('name', ''),
+                'description': request.data.get('description', ''),
+                'max_depth': request.data.get('max_depth', 3),
+                'follow_external_links': request.data.get('follow_external_links', False),
+                'use_dirbuster': request.data.get('use_dirbuster', True),
+                'use_nikto': request.data.get('use_nikto', True),
+                'use_wikto': request.data.get('use_wikto', True),
+                'enable_brute_force': request.data.get('enable_brute_force', True),
+                'enable_inference': request.data.get('enable_inference', True),
+                'enable_parameter_discovery': request.data.get('enable_parameter_discovery', True),
+                'enable_stealth_mode': request.data.get('enable_stealth_mode', True),
+                'use_random_user_agents': request.data.get('use_random_user_agents', True),
+                'stealth_delay_min': request.data.get('stealth_delay_min', 1.0),
+                'stealth_delay_max': request.data.get('stealth_delay_max', 3.0),
+            }
         )
-        return Response({'id': target.id, 'message': 'Target created'}, status=201)
+        
+        if created:
+            return Response({
+                'id': target.id,
+                'message': 'Target created',
+                'created': True
+            }, status=201)
+        else:
+            return Response({
+                'id': target.id,
+                'message': 'Target with this URL already exists',
+                'created': False
+            }, status=200)
 
 
 @api_view(['POST'])
