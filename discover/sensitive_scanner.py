@@ -3,6 +3,9 @@ Sensitive Information Scanner Module
 
 This module scans URLs for sensitive information including API keys, tokens, 
 credentials, and other potentially exposed data.
+
+SECURITY NOTE: SSL verification is disabled (verify=False) to facilitate 
+security testing. This should only be used in controlled testing environments.
 """
 
 import re
@@ -11,9 +14,13 @@ from urllib.parse import urlparse
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
+import urllib3
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Disable SSL warnings since we're intentionally bypassing SSL verification for testing
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class SensitivePatterns:
