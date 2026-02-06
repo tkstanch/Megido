@@ -600,3 +600,8 @@
 .collapse-icon.rotated {
     transform: rotate(180deg);
 }
+
+/* Hidden utility class */
+.hidden {
+    display: none !important;
+}

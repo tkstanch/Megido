@@ -38,37 +38,60 @@ const Toast = {
 
 // Copy to clipboard functionality
 function copyToClipboard(text, button) {
-    // Create temporary textarea
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    
-    // Select and copy
-    textarea.select();
-    textarea.setSelectionRange(0, 99999); // For mobile devices
-    
-    try {
-        document.execCommand('copy');
+    // Try modern Clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // Visual feedback
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                button.classList.add('copied');
+                
+                Toast.show('Payload copied to clipboard!', 'success');
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('copied');
+                }, 2000);
+            })
+            .catch(err => {
+                Toast.show('Failed to copy payload', 'error');
+                console.error('Failed to copy:', err);
+            });
+    } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
         
-        // Visual feedback
-        const originalHTML = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        button.classList.add('copied');
+        // Select and copy
+        textarea.select();
+        textarea.setSelectionRange(0, 99999); // For mobile devices
         
-        Toast.show('Payload copied to clipboard!', 'success');
-        
-        // Reset button after 2 seconds
-        setTimeout(() => {
-            button.innerHTML = originalHTML;
-            button.classList.remove('copied');
-        }, 2000);
-    } catch (err) {
-        Toast.show('Failed to copy payload', 'error');
-        console.error('Failed to copy:', err);
-    } finally {
-        document.body.removeChild(textarea);
+        try {
+            document.execCommand('copy');
+            
+            // Visual feedback
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            button.classList.add('copied');
+            
+            Toast.show('Payload copied to clipboard!', 'success');
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            Toast.show('Failed to copy payload', 'error');
+            console.error('Failed to copy:', err);
+        } finally {
+            document.body.removeChild(textarea);
+        }
     }
 }
 
@@ -87,20 +110,20 @@ function initPayloadSearch() {
             const tags = Array.from(item.querySelectorAll('.payload-tag')).map(tag => tag.textContent.toLowerCase()).join(' ');
             
             if (payloadText.includes(searchTerm) || tags.includes(searchTerm)) {
-                item.style.display = 'flex';
+                item.classList.remove('hidden');
                 visibleCount++;
             } else {
-                item.style.display = 'none';
+                item.classList.add('hidden');
             }
         });
         
         // Show/hide categories based on visible items
         document.querySelectorAll('.payload-category').forEach(category => {
-            const visibleItems = category.querySelectorAll('.payload-item[style="display: flex;"], .payload-item:not([style*="display: none"])').length;
+            const visibleItems = category.querySelectorAll('.payload-item:not(.hidden)').length;
             if (searchTerm && visibleItems === 0) {
-                category.style.display = 'none';
+                category.classList.add('hidden');
             } else {
-                category.style.display = 'block';
+                category.classList.remove('hidden');
             }
         });
         
@@ -133,11 +156,9 @@ function initCategoryToggle() {
             
             if (content.classList.contains('show')) {
                 content.classList.remove('show');
-                content.style.display = 'none';
                 icon.classList.remove('rotated');
             } else {
                 content.classList.add('show');
-                content.style.display = 'block';
                 icon.classList.add('rotated');
             }
         });
@@ -158,7 +179,7 @@ function initTabs() {
             });
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
-                content.style.display = 'none';
+                content.classList.add('hidden');
             });
             
             // Add active class to clicked tab and show corresponding content
@@ -167,7 +188,7 @@ function initTabs() {
             const targetContent = document.getElementById(targetId);
             if (targetContent) {
                 targetContent.classList.add('active');
-                targetContent.style.display = 'block';
+                targetContent.classList.remove('hidden');
             }
         });
     });
@@ -181,12 +202,12 @@ function initExpandableRows() {
             const targetRow = document.getElementById(targetId);
             
             if (targetRow) {
-                if (targetRow.style.display === 'none' || !targetRow.style.display) {
-                    targetRow.style.display = 'table-row';
+                if (targetRow.classList.contains('hidden')) {
+                    targetRow.classList.remove('hidden');
                     this.querySelector('i').classList.remove('fa-chevron-down');
                     this.querySelector('i').classList.add('fa-chevron-up');
                 } else {
-                    targetRow.style.display = 'none';
+                    targetRow.classList.add('hidden');
                     this.querySelector('i').classList.remove('fa-chevron-up');
                     this.querySelector('i').classList.add('fa-chevron-down');
                 }
@@ -230,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-expand all categories by default
     document.querySelectorAll('.payload-category-content').forEach(content => {
         content.classList.add('show');
-        content.style.display = 'block';
     });
     
     document.querySelectorAll('.collapse-icon').forEach(icon => {
