@@ -68,37 +68,34 @@ def collect_wayback_urls(target, limit=50):
         # Try using waybackpy if available
         try:
             from waybackpy import WaybackMachineCDXServerAPI
-            from urllib3.util.retry import Retry
-            from requests.adapters import HTTPAdapter
             
             domain = extract_domain(target)
             user_agent = "Mozilla/5.0 (compatible; DiscoverOSINT/1.0)"
             
-            # Configure session with reduced retries
-            session = requests.Session()
-            retry_strategy = Retry(
-                total=max_retries,
-                backoff_factor=0.5,
-                status_forcelist=[429, 500, 502, 503, 504],
+            # Pass max_retries to waybackpy's max_tries parameter
+            cdx_api = WaybackMachineCDXServerAPI(
+                domain, 
+                user_agent,
+                max_tries=max_retries
             )
-            adapter = HTTPAdapter(max_retries=retry_strategy)
-            session.mount("http://", adapter)
-            session.mount("https://", adapter)
             
-            cdx_api = WaybackMachineCDXServerAPI(domain, user_agent)
-            snapshots = cdx_api.snapshots()
-            
+            # Iterate snapshots with error handling
+            # The actual HTTP requests happen during iteration
             urls = []
             count = 0
-            for snapshot in snapshots:
-                if count >= limit:
-                    break
-                urls.append({
-                    'url': snapshot.archive_url,
-                    'timestamp': snapshot.timestamp,
-                    'original': snapshot.original
-                })
-                count += 1
+            try:
+                for snapshot in cdx_api.snapshots():
+                    if count >= limit:
+                        break
+                    urls.append({
+                        'url': snapshot.archive_url,
+                        'timestamp': snapshot.timestamp,
+                        'original': snapshot.original
+                    })
+                    count += 1
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                # Re-raise to be caught by outer exception handler
+                raise
             
             results['urls'] = urls
             results['success'] = True
