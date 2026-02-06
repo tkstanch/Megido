@@ -160,6 +160,9 @@ def start_scan(request):
             url_list = [url.get('original') if isinstance(url, dict) else url for url in urls]
             
             # Start background thread
+            # Note: Using daemon thread here is acceptable for this security testing tool
+            # as it allows the main process to exit without waiting for scans to complete.
+            # For production systems, consider using a task queue (Celery, Django Q, etc.)
             thread = threading.Thread(
                 target=run_sensitive_scan_async,
                 args=(scan.id, url_list),
@@ -262,15 +265,23 @@ def view_report(request, scan_id):
         dork_queries
     )
     
-    # Get sensitive findings
-    sensitive_findings = scan.sensitive_findings.all()[:100]  # Limit to 100 for performance
+    # Get sensitive findings (ordered and limited for performance)
+    sensitive_findings = scan.sensitive_findings.order_by('-discovered_at')[:100]
     
-    # Calculate findings by severity
+    # Calculate findings by severity using aggregation (single query)
+    from django.db.models import Count, Q
+    severity_counts = scan.sensitive_findings.aggregate(
+        critical=Count('id', filter=Q(severity='critical')),
+        high=Count('id', filter=Q(severity='high')),
+        medium=Count('id', filter=Q(severity='medium')),
+        low=Count('id', filter=Q(severity='low')),
+    )
+    
     findings_by_severity = {
-        'critical': scan.sensitive_findings.filter(severity='critical').count(),
-        'high': scan.sensitive_findings.filter(severity='high').count(),
-        'medium': scan.sensitive_findings.filter(severity='medium').count(),
-        'low': scan.sensitive_findings.filter(severity='low').count(),
+        'critical': severity_counts['critical'],
+        'high': severity_counts['high'],
+        'medium': severity_counts['medium'],
+        'low': severity_counts['low'],
     }
     
     # Sensitive scan status
