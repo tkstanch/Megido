@@ -206,3 +206,80 @@ class ScanModelTests(TestCase):
         scan = Scan(target='example.com')
         scan.save()
         self.assertEqual(scan.dork_results, '')
+
+
+class WaybackMachineConfigurationTests(TestCase):
+    """Tests for Wayback Machine configuration."""
+    
+    @override_settings(ENABLE_WAYBACK_MACHINE=False)
+    def test_collect_wayback_urls_returns_error_when_disabled(self):
+        """Test that collect_wayback_urls returns error when disabled."""
+        from discover.utils import collect_wayback_urls
+        
+        result = collect_wayback_urls('example.com')
+        
+        self.assertFalse(result['success'])
+        self.assertIn('disabled', result['error'].lower())
+        self.assertEqual(len(result['urls']), 0)
+    
+    @override_settings(ENABLE_WAYBACK_MACHINE=True, WAYBACK_MACHINE_TIMEOUT=10, WAYBACK_MACHINE_MAX_RETRIES=2)
+    @patch('discover.utils.requests.get')
+    def test_collect_wayback_urls_handles_connection_error(self, mock_get):
+        """Test that collect_wayback_urls handles connection errors gracefully."""
+        from discover.utils import collect_wayback_urls
+        import sys
+        
+        # Mock waybackpy to raise ImportError, so it falls back to CDX API
+        with patch.dict('sys.modules', {'waybackpy': None}):
+            # Mock connection error
+            mock_get.side_effect = __import__('requests').exceptions.ConnectionError("Connection failed")
+            
+            result = collect_wayback_urls('example.com')
+            
+            self.assertFalse(result['success'])
+            self.assertIn('Unable to connect', result['error'])
+            self.assertEqual(len(result['urls']), 0)
+    
+    @override_settings(ENABLE_WAYBACK_MACHINE=True, WAYBACK_MACHINE_TIMEOUT=5, WAYBACK_MACHINE_MAX_RETRIES=2)
+    @patch('discover.utils.requests.get')
+    def test_collect_wayback_urls_handles_timeout_error(self, mock_get):
+        """Test that collect_wayback_urls handles timeout errors gracefully."""
+        from discover.utils import collect_wayback_urls
+        
+        # Mock waybackpy to raise ImportError, so it falls back to CDX API
+        with patch.dict('sys.modules', {'waybackpy': None}):
+            # Mock timeout error
+            mock_get.side_effect = __import__('requests').exceptions.Timeout("Request timed out")
+            
+            result = collect_wayback_urls('example.com')
+            
+            self.assertFalse(result['success'])
+            self.assertIn('timed out', result['error'])
+            self.assertIn('5 seconds', result['error'])
+            self.assertEqual(len(result['urls']), 0)
+    
+    @override_settings(ENABLE_WAYBACK_MACHINE=True, WAYBACK_MACHINE_TIMEOUT=10, WAYBACK_MACHINE_MAX_RETRIES=2)
+    @patch('discover.utils.requests.get')
+    def test_collect_wayback_urls_successful_with_cdx_api(self, mock_get):
+        """Test successful Wayback Machine request using CDX API fallback."""
+        from discover.utils import collect_wayback_urls
+        
+        # Mock waybackpy to raise ImportError, so it falls back to CDX API
+        with patch.dict('sys.modules', {'waybackpy': None}):
+            # Mock successful CDX API response
+            # CDX API format: [urlkey, timestamp, original, mimetype, statuscode, digest, length]
+            mock_response = MagicMock()
+            mock_response.json.return_value = [
+                ['urlkey', 'timestamp', 'original', 'mimetype', 'statuscode', 'digest', 'length'],
+                ['com,example)/', '20200101000000', 'http://example.com/page1', 'text/html', '200', 'ABC123', '1000'],
+                ['com,example)/', '20200201000000', 'http://example.com/page2', 'text/html', '200', 'DEF456', '2000'],
+            ]
+            mock_get.return_value = mock_response
+            
+            result = collect_wayback_urls('example.com', limit=10)
+            
+            self.assertTrue(result['success'])
+            self.assertEqual(len(result['urls']), 2)
+            self.assertIn('http://web.archive.org/web/', result['urls'][0]['url'])
+            self.assertEqual(result['urls'][0]['timestamp'], '20200101000000')
+            self.assertEqual(result['urls'][0]['original'], 'http://example.com/page1')

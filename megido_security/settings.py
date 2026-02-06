@@ -169,6 +169,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SHODAN_API_KEY = None  # Get from https://account.shodan.io/
 HUNTER_IO_KEY = None   # Get from https://hunter.io/api
 
+# Wayback Machine Configuration
+ENABLE_WAYBACK_MACHINE = os.environ.get('ENABLE_WAYBACK_MACHINE', 'true').lower() == 'true'
+WAYBACK_MACHINE_TIMEOUT = int(os.environ.get('WAYBACK_MACHINE_TIMEOUT', '10'))
+WAYBACK_MACHINE_MAX_RETRIES = int(os.environ.get('WAYBACK_MACHINE_MAX_RETRIES', '2'))
+
 # ClamAV Configuration (can be overridden via environment variables)
 CLAMAV_HOST = 'clamav'  # Use 'localhost' if running ClamAV locally
 CLAMAV_PORT = 3310

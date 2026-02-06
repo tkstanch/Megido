@@ -54,13 +54,36 @@ def collect_wayback_urls(target, limit=50):
         )
     }
     
+    # Check if Wayback Machine is enabled
+    if not getattr(settings, 'ENABLE_WAYBACK_MACHINE', True):
+        results['error'] = 'Wayback Machine is disabled in settings (ENABLE_WAYBACK_MACHINE=false)'
+        logger.info(f"Wayback Machine disabled for {target}")
+        return results
+    
+    # Get timeout and retry settings
+    timeout = getattr(settings, 'WAYBACK_MACHINE_TIMEOUT', 10)
+    max_retries = getattr(settings, 'WAYBACK_MACHINE_MAX_RETRIES', 2)
+    
     try:
         # Try using waybackpy if available
         try:
             from waybackpy import WaybackMachineCDXServerAPI
+            from urllib3.util.retry import Retry
+            from requests.adapters import HTTPAdapter
             
             domain = extract_domain(target)
             user_agent = "Mozilla/5.0 (compatible; DiscoverOSINT/1.0)"
+            
+            # Configure session with reduced retries
+            session = requests.Session()
+            retry_strategy = Retry(
+                total=max_retries,
+                backoff_factor=0.5,
+                status_forcelist=[429, 500, 502, 503, 504],
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
             
             cdx_api = WaybackMachineCDXServerAPI(domain, user_agent)
             snapshots = cdx_api.snapshots()
@@ -81,7 +104,7 @@ def collect_wayback_urls(target, limit=50):
             results['success'] = True
             
         except ImportError:
-            # Fallback to CDX API directly
+            # Fallback to CDX API directly with timeout
             domain = extract_domain(target)
             url = "http://web.archive.org/cdx/search/cdx"
             params = {
@@ -90,7 +113,7 @@ def collect_wayback_urls(target, limit=50):
                 'limit': limit
             }
             
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, params=params, timeout=timeout)
             response.raise_for_status()
             
             data = response.json()
@@ -105,9 +128,21 @@ def collect_wayback_urls(target, limit=50):
                         })
                 results['urls'] = urls
                 results['success'] = True
-            
+    
+    except requests.exceptions.ConnectionError as e:
+        error_msg = "Unable to connect to web.archive.org. Check your internet connection or disable Wayback Machine in settings."
+        results['error'] = error_msg
+        logger.warning(f"Connection error for {target}: {str(e)}")
+        
+    except requests.exceptions.Timeout as e:
+        error_msg = f"Request to web.archive.org timed out after {timeout} seconds. Check your network or increase WAYBACK_MACHINE_TIMEOUT."
+        results['error'] = error_msg
+        logger.warning(f"Timeout error for {target}: {str(e)}")
+    
     except Exception as e:
-        results['error'] = str(e)
+        error_msg = f"Error accessing Wayback Machine: {str(e)}"
+        results['error'] = error_msg
+        logger.error(f"Unexpected error for {target}: {str(e)}")
     
     return results
 
