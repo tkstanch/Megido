@@ -24,6 +24,10 @@ class SpiderTarget(models.Model):
     stealth_delay_min = models.FloatField(default=1.0, help_text="Minimum delay between requests in seconds")
     stealth_delay_max = models.FloatField(default=3.0, help_text="Maximum delay between requests in seconds")
     
+    # Request resilience options
+    request_timeout = models.IntegerField(default=30, help_text="Request timeout in seconds")
+    max_retries = models.IntegerField(default=3, help_text="Maximum number of retry attempts for failed requests")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

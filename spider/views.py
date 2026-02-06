@@ -11,6 +11,7 @@ from .models import (
 )
 from .stealth import create_stealth_session
 import requests
+from requests.exceptions import Timeout, ConnectionError, RequestException
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlunparse
 import re
@@ -18,6 +19,41 @@ import os
 import json
 from collections import deque
 import time
+
+
+def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, **kwargs):
+    """
+    Make HTTP request with retry logic and exponential backoff
+    
+    Args:
+        stealth_session: StealthSession instance
+        url: URL to request
+        max_retries: Maximum retry attempts
+        timeout: Request timeout in seconds
+        **kwargs: Additional arguments for requests
+    
+    Returns:
+        Response object or None if all retries failed
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            response = stealth_session.get(url, timeout=timeout, **kwargs)
+            return response
+        except (Timeout, ConnectionError) as e:
+            if attempt < max_retries:
+                # Exponential backoff: 1s, 2s, 4s
+                backoff_delay = 2 ** attempt
+                print(f"Request failed (attempt {attempt + 1}/{max_retries + 1}), retrying in {backoff_delay}s: {e}")
+                time.sleep(backoff_delay)
+            else:
+                print(f"Request failed after {max_retries + 1} attempts: {e}")
+                return None
+        except RequestException as e:
+            # Non-recoverable error, don't retry
+            print(f"Non-recoverable error: {e}")
+            return None
+    
+    return None
 
 
 def index(request):
@@ -45,6 +81,8 @@ def spider_targets(request):
             'use_random_user_agents': target.use_random_user_agents,
             'stealth_delay_min': target.stealth_delay_min,
             'stealth_delay_max': target.stealth_delay_max,
+            'request_timeout': target.request_timeout,
+            'max_retries': target.max_retries,
             'created_at': target.created_at.isoformat(),
         } for target in targets]
         return Response(data)
@@ -71,6 +109,8 @@ def spider_targets(request):
                 'use_random_user_agents': request.data.get('use_random_user_agents', True),
                 'stealth_delay_min': request.data.get('stealth_delay_min', 1.0),
                 'stealth_delay_max': request.data.get('stealth_delay_max', 3.0),
+                'request_timeout': request.data.get('request_timeout', 30),
+                'max_retries': request.data.get('max_retries', 3),
             }
         )
         
@@ -180,7 +220,17 @@ def crawl_website(session, target, stealth_session):
         visited.add(current_url)
         
         try:
-            response = stealth_session.get(current_url, timeout=10, allow_redirects=True)
+            response = make_request_with_retry(
+                stealth_session, 
+                current_url, 
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                allow_redirects=True
+            )
+            
+            if response is None:
+                # Request failed after all retries
+                continue
             
             # Record discovered URL
             discovered, created = DiscoveredURL.objects.get_or_create(
@@ -277,7 +327,17 @@ def run_dirbuster_discovery(session, target, stealth_session):
         test_url = f"{base_url}/{path}"
         
         try:
-            response = stealth_session.get(test_url, timeout=5, allow_redirects=False)
+            response = make_request_with_retry(
+                stealth_session, 
+                test_url, 
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                allow_redirects=False
+            )
+            
+            if response is None:
+                # Request failed after all retries
+                continue
             
             # Record if found (200-399 status codes)
             if 200 <= response.status_code < 400:
@@ -373,12 +433,23 @@ def run_nikto_scan(session, target, stealth_session):
             method = check.get('method', 'GET')
             
             if method == 'GET':
-                response = stealth_session.get(test_url, timeout=5)
+                response = make_request_with_retry(
+                    stealth_session, 
+                    test_url, 
+                    max_retries=target.max_retries,
+                    timeout=target.request_timeout
+                )
             elif method == 'OPTIONS':
-                response = stealth_session.options(test_url, timeout=5)
+                # For OPTIONS, we'll use the session directly as it's already wrapped
+                response = stealth_session.options(test_url, timeout=target.request_timeout)
             elif method == 'TRACE':
-                response = stealth_session.request('TRACE', test_url, timeout=5)
+                # For TRACE, we'll use the session directly
+                response = stealth_session.request('TRACE', test_url, timeout=target.request_timeout)
             else:
+                continue
+            
+            if response is None:
+                # Request failed after all retries
                 continue
             
             # Check headers if specified
@@ -461,7 +532,17 @@ def run_wikto_scan(session, target, stealth_session):
         test_url = base_url + path
         
         try:
-            response = stealth_session.get(test_url, timeout=5, allow_redirects=False)
+            response = make_request_with_retry(
+                stealth_session, 
+                test_url, 
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                allow_redirects=False
+            )
+            
+            if response is None:
+                # Request failed after all retries
+                continue
             
             if 200 <= response.status_code < 400:
                 findings.append({
@@ -517,7 +598,25 @@ def brute_force_paths(session, target, stealth_session):
         test_url = base_url + path
         
         try:
-            response = stealth_session.get(test_url, timeout=3, allow_redirects=False)
+            response = make_request_with_retry(
+                stealth_session, 
+                test_url, 
+                max_retries=target.max_retries,
+                timeout=target.request_timeout,
+                allow_redirects=False
+            )
+            
+            if response is None:
+                # Request failed after all retries, still record the attempt
+                BruteForceAttempt.objects.create(
+                    session=session,
+                    base_url=base_url,
+                    path_tested=path,
+                    full_url=test_url,
+                    status_code=None,
+                    success=False
+                )
+                continue
             
             success = 200 <= response.status_code < 400
             
