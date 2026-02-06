@@ -169,7 +169,7 @@ class SensitiveInfoScanner:
         false_positive_indicators = [
             'usd', 'price', 'amount', 'total', 'cost', 
             'volume', 'sales', '":', '":"', 'native',
-            'balance', 'revenue', 'payment', '€', '$', '£'
+            'balance', 'revenue', '€', '$', '£'
         ]
         
         for indicator in false_positive_indicators:
