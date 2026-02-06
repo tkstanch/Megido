@@ -89,13 +89,13 @@ def search_google(query, num_results=5):
             
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 429:
-            result['error'] = 'API quota exceeded'
+            result['error'] = 'API daily quota exceeded. Try again tomorrow or upgrade your Google API quota.'
             logger.warning(f"Google API quota exceeded for query: {query[:50]}")
         elif e.response.status_code == 400:
-            result['error'] = 'Invalid query'
+            result['error'] = 'Invalid query format or unsupported characters'
             logger.error(f"Invalid query for Google API: {query[:50]}")
         elif e.response.status_code == 403:
-            result['error'] = 'Invalid API key or permission denied'
+            result['error'] = 'API authentication failed. Verify your GOOGLE_SEARCH_API_KEY is correct and the Custom Search API is enabled for your project.'
             logger.error("Google API returned 403 - check API key and permissions")
         else:
             result['error'] = f'API error: {e.response.status_code}'

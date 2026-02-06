@@ -106,7 +106,7 @@ class GoogleSearchAPITests(TestCase):
         result = search_google('test query')
         
         self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'API quota exceeded')
+        self.assertEqual(result['error'], 'API daily quota exceeded. Try again tomorrow or upgrade your Google API quota.')
         self.assertEqual(result['result_count'], 0)
 
 
