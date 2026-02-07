@@ -427,7 +427,8 @@ async function checkSessionStatus(sessionId) {
 }
 
 async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
-    const retryDelay = 3000; // 3 seconds between checks
+    // Poll every 3 seconds for up to 60 attempts (total: 180 seconds = 3 minutes)
+    const retryDelay = 3000;
     const startBtn = document.getElementById('start-btn');
     
     try {
@@ -451,7 +452,7 @@ async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
                 document.getElementById('spider-status').innerHTML = `
                     <div class="info" style="background: #fff3cd; border-color: #ffc107; color: #856404;">
                         <strong>⚠️ Spider taking longer than expected</strong><br>
-                        The spider is still running. <a href="#" onclick="pollForResults(${sessionId}); return false;">Click to refresh</a>
+                        The spider is still running. <a href="#" onclick="pollForResults('${sessionId}', 0, ${maxAttempts}); return false;">Click to refresh</a>
                     </div>
                 `;
             }
@@ -468,27 +469,33 @@ async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
             throw new Error(statusCheck.error || 'Unknown error checking status');
         }
     } catch (error) {
-        // Network error or other failure
-        if (attempt < 3) {
-            // Retry up to 3 times for network errors
-            document.getElementById('spider-status').innerHTML = `
-                <div class="info">
-                    <strong>⏳ Retrying connection...</strong><br>
-                    Attempt ${attempt + 1} of 3
-                </div>
-            `;
-            setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
-        } else {
-            document.getElementById('spider-status').innerHTML = `
-                <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
-                    <strong>❌ Network Error:</strong> Unable to connect to server.<br>
-                    Error: ${error.message}<br>
-                    <a href="#" onclick="pollForResults(${sessionId}); return false;">Click to retry</a>
-                </div>
-            `;
-            startBtn.disabled = false;
-            startBtn.innerHTML = '🕷️ Start Spider';
+        // Network error or other failure - retry up to 3 times before giving up
+        // Note: Network retries are separate from polling attempts
+        if (attempt < maxAttempts) {
+            const networkRetryCount = attempt % 3;
+            if (networkRetryCount < 2) {
+                // Still have network retries available
+                document.getElementById('spider-status').innerHTML = `
+                    <div class="info">
+                        <strong>⏳ Retrying connection...</strong><br>
+                        Network retry ${networkRetryCount + 1} of 3
+                    </div>
+                `;
+                setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
+                return;
+            }
         }
+        
+        // Max retries exceeded or max attempts reached
+        document.getElementById('spider-status').innerHTML = `
+            <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
+                <strong>❌ Network Error:</strong> Unable to connect to server.<br>
+                Error: ${error.message}<br>
+                <a href="#" onclick="pollForResults('${sessionId}', 0, ${maxAttempts}); return false;">Click to retry</a>
+            </div>
+        `;
+        startBtn.disabled = false;
+        startBtn.innerHTML = '🕷️ Start Spider';
     }
 }
 
