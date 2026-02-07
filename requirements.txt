@@ -8,3 +8,4 @@ lxml>=4.9.0
 waybackpy>=3.0.6
 pyclamd>=0.4.0
 psycopg2-binary>=2.8
+cefpython3>=66.0  # CEF browser integration

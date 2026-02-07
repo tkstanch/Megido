@@ -2,9 +2,30 @@
 
 ## Overview
 
-The Integrated Browser is an **embedded iframe browser interface** within the Django application that connects to all enabled Django apps. It provides a toolbar with app integration buttons and tracks browser history and interactions.
+The Megido Security platform provides **two browser options**:
 
-**Important Note:** This is an embedded iframe browser within the web application, NOT an external desktop browser like Firefox or Chrome. For future desktop browser integration, consider implementing CEF (Chromium Embedded Framework).
+1. **Web-based iframe browser** - Embedded browser within Django web interface
+2. **CEF Desktop Browser** - Full Chromium browser as a desktop application ✨ **NEW**
+
+Both browsers integrate seamlessly with all Megido apps, interceptor, and backend APIs.
+
+### Iframe Browser (Web-based)
+
+An **embedded iframe browser interface** within the Django application that connects to all enabled Django apps. It provides a toolbar with app integration buttons and tracks browser history and interactions.
+
+**Limitations**: This is an embedded iframe within the web application, NOT a full browser. Many sites block iframe embedding (X-Frame-Options, CSP).
+
+### CEF Browser (Desktop Application)
+
+A **full-featured desktop browser** powered by CEF (Chromium Embedded Framework). Provides complete Chromium capabilities without iframe restrictions.
+
+**See**: [CEF_INTEGRATION.md](browser/CEF_INTEGRATION.md) for detailed documentation.
+
+**Quick Start**:
+```bash
+pip install cefpython3
+python browser/desktop_launcher.py
+```
 
 ## Features
 
@@ -198,28 +219,35 @@ The interceptor status is synchronized across both the browser and interceptor d
 - CSRF protection on all API endpoints
 - Interceptor can be toggled to inspect/modify requests before forwarding
 
-## Important Limitations
+## Important Limitations - iframe Browser
 
 **Embedded Browser vs Desktop Browser:**
-- This is an **iframe-based embedded browser** within the web application
-- It is NOT a full desktop browser like Firefox or Chrome
-- Many websites may not load properly due to iframe restrictions (X-Frame-Options, CSP)
-- For full browser control and desktop browser integration, consider:
-  - CEF (Chromium Embedded Framework)
-  - Selenium WebDriver for automation
-  - Puppeteer/Playwright for headless browser control
+- The **iframe browser** has limitations due to web security policies
+- Many websites block iframe embedding (X-Frame-Options, CSP headers)
+- Sites like Google, Facebook, Twitter, etc. won't load in iframes
+- JavaScript and plugin support is limited within iframes
+
+**Solution: Use CEF Desktop Browser**
+
+For full browser control and compatibility, use the **CEF desktop browser**:
+- ✅ Complete Chromium engine with all features
+- ✅ Works with ALL websites (no X-Frame-Options blocking)
+- ✅ Full JavaScript, plugins, and modern web features
+- ✅ Integrated Chrome Developer Tools (F12)
+- ✅ Complete request interception
+- ✅ All Megido app integration
+
+**See [CEF_INTEGRATION.md](browser/CEF_INTEGRATION.md) for setup and usage.**
 
 ## Future Enhancements
 
-In a production environment, this would be enhanced with:
-- Full browser engine integration (e.g., via CEF or similar)
-- Proper SSL certificate handling
-- Cookie management
-- Local storage support
-- Developer tools integration
-- Screen capture capabilities
-- Network traffic capture
-- WebSocket support for real-time updates
+The CEF desktop browser is now implemented! See [browser/CEF_INTEGRATION.md](browser/CEF_INTEGRATION.md).
+
+Additional future enhancements for the web-based iframe browser:
+- Enhanced cookie management
+- More advanced local storage sync
+- Better WebSocket support
+- Screen capture within iframe limitations
 
 ## Screenshots
 
