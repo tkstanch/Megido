@@ -513,3 +513,220 @@ class SensitiveInfoDeduplicationTests(TestCase):
         self.assertIn('position', finding)
         self.assertIn('url', finding)
         self.assertEqual(finding['url'], 'http://example.com')
+
+
+class CrossURLDeduplicationTests(TestCase):
+    """Tests for cross-URL deduplication in scan_discovered_urls function."""
+    
+    def test_scan_discovered_urls_deduplicates_same_url_multiple_times(self):
+        """Test that scanning the same URL multiple times deduplicates findings."""
+        from discover.sensitive_scanner import scan_discovered_urls
+        from unittest.mock import patch, MagicMock
+        
+        # Mock the scanner's scan_urls method
+        with patch('discover.sensitive_scanner.SensitiveInfoScanner.scan_urls') as mock_scan:
+            # Simulate scanning the same URL twice with same findings
+            mock_scan.return_value = [
+                {
+                    'url': 'https://opensea.io/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'support@help.opensea.io',
+                            'context': 'mate messages from OpenSea Support only come from support@help.opensea.io',
+                            'position': 100,
+                            'url': 'https://opensea.io/'
+                        },
+                        {
+                            'type': 'Email Address',
+                            'value': 'your@email.com',
+                            'context': 'lLabel":"Email Address","emailPlaceholder":"your@email.com"',
+                            'position': 200,
+                            'url': 'https://opensea.io/'
+                        }
+                    ]
+                },
+                {
+                    'url': 'https://opensea.io/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'support@help.opensea.io',
+                            'context': 'mate messages from OpenSea Support only come from support@help.opensea.io',
+                            'position': 100,
+                            'url': 'https://opensea.io/'
+                        },
+                        {
+                            'type': 'Email Address',
+                            'value': 'your@email.com',
+                            'context': 'lLabel":"Email Address","emailPlaceholder":"your@email.com"',
+                            'position': 200,
+                            'url': 'https://opensea.io/'
+                        }
+                    ]
+                }
+            ]
+            
+            result = scan_discovered_urls(['https://opensea.io/', 'https://opensea.io/'])
+            
+            # Should only have 2 unique findings, not 4
+            self.assertEqual(result['total_findings'], 2, "Duplicate findings across same URL should be deduplicated")
+            self.assertEqual(len(result['all_findings']), 2)
+            
+            # Check email findings
+            email_findings = result['findings_by_type'].get('Email Address', [])
+            self.assertEqual(len(email_findings), 2, "Should have 2 unique email findings")
+            
+            # Verify the two unique emails are present
+            email_values = [f['value'] for f in email_findings]
+            self.assertIn('support@help.opensea.io', email_values)
+            self.assertIn('your@email.com', email_values)
+    
+    def test_scan_discovered_urls_case_insensitive_deduplication(self):
+        """Test that deduplication is case-insensitive across URLs."""
+        from discover.sensitive_scanner import scan_discovered_urls
+        from unittest.mock import patch
+        
+        with patch('discover.sensitive_scanner.SensitiveInfoScanner.scan_urls') as mock_scan:
+            # Same URL scanned twice with same email in different cases
+            mock_scan.return_value = [
+                {
+                    'url': 'https://example.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'Support@Example.Com',
+                            'context': 'Contact us at Support@Example.Com',
+                            'position': 50,
+                            'url': 'https://example.com/'
+                        }
+                    ]
+                },
+                {
+                    'url': 'https://example.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'support@example.com',
+                            'context': 'Email: support@example.com',
+                            'position': 100,
+                            'url': 'https://example.com/'
+                        }
+                    ]
+                }
+            ]
+            
+            result = scan_discovered_urls(['https://example.com/', 'https://example.com/'])
+            
+            # Should only have 1 finding (case-insensitive deduplication)
+            self.assertEqual(result['total_findings'], 1, "Case variations should be deduplicated")
+            self.assertEqual(len(result['all_findings']), 1)
+    
+    def test_scan_discovered_urls_different_urls_reported_separately(self):
+        """Test that same value from different URLs are reported separately."""
+        from discover.sensitive_scanner import scan_discovered_urls
+        from unittest.mock import patch
+        
+        with patch('discover.sensitive_scanner.SensitiveInfoScanner.scan_urls') as mock_scan:
+            # Different URLs with the same email value
+            mock_scan.return_value = [
+                {
+                    'url': 'https://example.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'support@example.com',
+                            'context': 'Contact: support@example.com',
+                            'position': 50,
+                            'url': 'https://example.com/'
+                        }
+                    ]
+                },
+                {
+                    'url': 'https://another.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'support@example.com',
+                            'context': 'Email: support@example.com',
+                            'position': 100,
+                            'url': 'https://another.com/'
+                        }
+                    ]
+                }
+            ]
+            
+            result = scan_discovered_urls(['https://example.com/', 'https://another.com/'])
+            
+            # Should have 2 findings (same value but different URLs)
+            self.assertEqual(result['total_findings'], 2, "Same value from different URLs should be reported separately")
+            self.assertEqual(len(result['all_findings']), 2)
+            
+            # Verify both URLs are present
+            urls = [f['url'] for f in result['all_findings']]
+            self.assertIn('https://example.com/', urls)
+            self.assertIn('https://another.com/', urls)
+    
+    def test_scan_discovered_urls_multiple_finding_types(self):
+        """Test deduplication works across multiple finding types."""
+        from discover.sensitive_scanner import scan_discovered_urls
+        from unittest.mock import patch
+        
+        with patch('discover.sensitive_scanner.SensitiveInfoScanner.scan_urls') as mock_scan:
+            # Same URL scanned twice with different finding types
+            mock_scan.return_value = [
+                {
+                    'url': 'https://example.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'test@example.com',
+                            'context': 'Email: test@example.com',
+                            'position': 50,
+                            'url': 'https://example.com/'
+                        },
+                        {
+                            'type': 'AWS Access Key',
+                            'value': 'AKIAIOSFODNN7EXAMPLE',
+                            'context': 'Key: AKIAIOSFODNN7EXAMPLE',
+                            'position': 100,
+                            'url': 'https://example.com/'
+                        }
+                    ]
+                },
+                {
+                    'url': 'https://example.com/',
+                    'success': True,
+                    'findings': [
+                        {
+                            'type': 'Email Address',
+                            'value': 'test@example.com',
+                            'context': 'Email: test@example.com',
+                            'position': 50,
+                            'url': 'https://example.com/'
+                        },
+                        {
+                            'type': 'AWS Access Key',
+                            'value': 'AKIAIOSFODNN7EXAMPLE',
+                            'context': 'Key: AKIAIOSFODNN7EXAMPLE',
+                            'position': 100,
+                            'url': 'https://example.com/'
+                        }
+                    ]
+                }
+            ]
+            
+            result = scan_discovered_urls(['https://example.com/', 'https://example.com/'])
+            
+            # Should have 2 unique findings (1 email + 1 AWS key)
+            self.assertEqual(result['total_findings'], 2, "Should deduplicate across finding types")
+            self.assertEqual(len(result['findings_by_type']), 2)
+            self.assertEqual(len(result['findings_by_type']['Email Address']), 1)
+            self.assertEqual(len(result['findings_by_type']['AWS Access Key']), 1)

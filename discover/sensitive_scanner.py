@@ -352,10 +352,20 @@ def scan_discovered_urls(urls: List[str], max_urls: int = 50) -> Dict[str, Any]:
     # Aggregate findings by type
     findings_by_type = {}
     all_findings = []
+    seen_findings_global = set()  # Track unique findings across all URLs
     
     for result in scan_results:
         if result['success'] and result['findings']:
             for finding in result['findings']:
+                # Create a unique key for cross-URL deduplication
+                finding_key = (finding['url'], finding['type'], finding['value'].lower())
+                
+                # Skip if we've already seen this exact finding from this URL
+                if finding_key in seen_findings_global:
+                    continue
+                
+                seen_findings_global.add(finding_key)
+                
                 finding_type = finding['type']
                 
                 if finding_type not in findings_by_type:
