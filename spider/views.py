@@ -1410,6 +1410,8 @@ def session_analytics(request):
     API endpoint to get comprehensive spider session analytics
     Returns global statistics and recent session details
     """
+    from django.db.models import Sum, Count, Q
+    
     try:
         # Get all sessions
         all_sessions = SpiderSession.objects.all()
@@ -1420,30 +1422,36 @@ def session_analytics(request):
         failed_sessions = all_sessions.filter(status='failed').count()
         running_sessions = all_sessions.filter(status='running').count()
         
-        # Aggregate totals
-        total_urls = sum(session.urls_discovered for session in all_sessions)
-        total_hidden_content = sum(session.hidden_content_found for session in all_sessions)
-        total_parameters = sum(session.parameters_discovered for session in all_sessions)
+        # Aggregate totals using Sum for better performance
+        aggregates = all_sessions.aggregate(
+            total_urls=Sum('urls_discovered'),
+            total_hidden_content=Sum('hidden_content_found'),
+            total_parameters=Sum('parameters_discovered')
+        )
+        total_urls = aggregates['total_urls'] or 0
+        total_hidden_content = aggregates['total_hidden_content'] or 0
+        total_parameters = aggregates['total_parameters'] or 0
         
-        # Get recent 50 sessions with detailed stats
-        recent_sessions = all_sessions[:50]
+        # Get recent 50 sessions ordered by most recent first
+        recent_sessions = all_sessions.select_related('target').order_by('-started_at')[:50]
         
         sessions_data = []
         for session in recent_sessions:
-            # Get brute force stats
-            brute_force_attempts = BruteForceAttempt.objects.filter(session=session)
-            brute_force_successful = brute_force_attempts.filter(success=True).count()
-            brute_force_failed = brute_force_attempts.filter(success=False).count()
-            brute_force_total = brute_force_attempts.count()
+            # Get brute force stats using aggregation
+            brute_force_stats = BruteForceAttempt.objects.filter(session=session).aggregate(
+                total=Count('id'),
+                successful=Count('id', filter=Q(success=True)),
+                failed=Count('id', filter=Q(success=False))
+            )
             
-            # Get inference stats
-            inferences = InferredContent.objects.filter(session=session)
-            inferences_created = inferences.count()
-            inferences_verified = inferences.filter(verified=True).count()
+            # Get inference stats using aggregation
+            inference_stats = InferredContent.objects.filter(session=session).aggregate(
+                created=Count('id'),
+                verified=Count('id', filter=Q(verified=True))
+            )
             
-            # Get parameter discovery stats
-            param_attempts = ParameterDiscoveryAttempt.objects.filter(session=session)
-            param_discovery_attempts = param_attempts.count()
+            # Get parameter discovery stats using aggregation
+            param_discovery_attempts = ParameterDiscoveryAttempt.objects.filter(session=session).count()
             params_discovered = DiscoveredParameter.objects.filter(session=session).count()
             
             session_data = {
@@ -1455,13 +1463,13 @@ def session_analytics(request):
                 'urls_discovered': session.urls_discovered,
                 'hidden_content_found': session.hidden_content_found,
                 'brute_force': {
-                    'successful': brute_force_successful,
-                    'failed': brute_force_failed,
-                    'total': brute_force_total,
+                    'successful': brute_force_stats['successful'] or 0,
+                    'failed': brute_force_stats['failed'] or 0,
+                    'total': brute_force_stats['total'] or 0,
                 },
                 'inference': {
-                    'created': inferences_created,
-                    'verified': inferences_verified,
+                    'created': inference_stats['created'] or 0,
+                    'verified': inference_stats['verified'] or 0,
                 },
                 'parameter_discovery': {
                     'attempts': param_discovery_attempts,
