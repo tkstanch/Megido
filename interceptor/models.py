@@ -2,6 +2,25 @@ from django.db import models
 from proxy.models import ProxyRequest
 
 
+class InterceptorSettings(models.Model):
+    """Global settings for the interceptor"""
+    is_enabled = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Interceptor Settings'
+        verbose_name_plural = 'Interceptor Settings'
+    
+    def __str__(self):
+        return f"Interceptor: {'Enabled' if self.is_enabled else 'Disabled'}"
+    
+    @classmethod
+    def get_settings(cls):
+        """Get or create the interceptor settings singleton"""
+        settings, created = cls.objects.get_or_create(id=1)
+        return settings
+
+
 class InterceptedRequest(models.Model):
     """Model to store intercepted requests for manual inspection/modification"""
     STATUS_CHOICES = [

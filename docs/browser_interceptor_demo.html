@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser UI Demo - Interceptor Integration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+        .browser-toolbar {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .url-bar {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .toolbar-button {
+            padding: 10px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .interceptor-toggle-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .interceptor-toggle-btn.enabled {
+            background: #28a745;
+            color: white;
+        }
+        .interceptor-toggle-btn.disabled {
+            background: #dc3545;
+            color: white;
+        }
+        .interceptor-controls {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #28a745;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .status-indicator.enabled {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-indicator.disabled {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info-message {
+            background: #e3f2fd;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            margin: 20px 0;
+            border-radius: 3px;
+        }
+        .feature-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .feature-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-left: 3px solid #667eea;
+            border-radius: 3px;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Browser & Interceptor Integration - UI Demo</h1>
+        
+        <div class="info-message">
+            <strong>ℹ️ Implementation Summary</strong><br>
+            This page demonstrates the new UI features for the integrated browser and interceptor integration.
+            The interceptor can now be toggled ON/OFF from both the browser and interceptor dashboard.
+        </div>
+
+        <div class="demo-section">
+            <h2>1. Browser Interface with Interceptor Toggle</h2>
+            <p>The browser toolbar now includes an interceptor status button:</p>
+            
+            <div class="browser-toolbar">
+                <button class="toolbar-button">◄</button>
+                <button class="toolbar-button">►</button>
+                <button class="toolbar-button">⟳</button>
+                <input type="text" class="url-bar" placeholder="Enter URL (e.g., https://example.com)" value="https://example.com">
+                <button class="toolbar-button">Go</button>
+                <button class="interceptor-toggle-btn disabled">
+                    <span>🔴</span>
+                    <span>Interceptor OFF</span>
+                </button>
+            </div>
+            
+            <p style="margin-top: 20px;"><strong>When enabled:</strong></p>
+            <div class="browser-toolbar">
+                <button class="toolbar-button">◄</button>
+                <button class="toolbar-button">►</button>
+                <button class="toolbar-button">⟳</button>
+                <input type="text" class="url-bar" placeholder="Enter URL (e.g., https://example.com)" value="https://example.com">
+                <button class="toolbar-button">Go</button>
+                <button class="interceptor-toggle-btn enabled">
+                    <span>🟢</span>
+                    <span>Interceptor ON</span>
+                </button>
+            </div>
+            
+            <div class="info-message" style="margin-top: 20px;">
+                <strong>📝 Note:</strong> This is an <strong>embedded iframe browser</strong>, not an external desktop browser like Firefox.
+                For full desktop browser integration, consider using CEF (Chromium Embedded Framework).
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>2. Interceptor Dashboard with Toggle Switch</h2>
+            <p>The interceptor dashboard now has a dedicated control panel:</p>
+            
+            <div class="interceptor-controls">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div>
+                        <strong>Interceptor Control:</strong>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="status-indicator enabled">
+                    <span>🟢</span>
+                    <span>Active - Intercepting Requests</span>
+                </div>
+            </div>
+            
+            <p><strong>When disabled:</strong></p>
+            <div class="interceptor-controls">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <div>
+                        <strong>Interceptor Control:</strong>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="status-indicator disabled">
+                    <span>🔴</span>
+                    <span>Inactive - Requests Pass Through</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>3. Key Features Implemented</h2>
+            <ul class="feature-list">
+                <li><strong>Go Button Fixed:</strong> Navigate function is properly wired and functional</li>
+                <li><strong>Interceptor ON/OFF Toggle:</strong> Toggle switch in interceptor dashboard</li>
+                <li><strong>Browser Integration:</strong> Interceptor status button in browser toolbar</li>
+                <li><strong>State Synchronization:</strong> Status syncs between browser and interceptor (every 3 seconds)</li>
+                <li><strong>Visual Indicators:</strong> Green for ON, Red for OFF with emoji indicators</li>
+                <li><strong>Embedded Browser Clarification:</strong> Clear message that this is iframe-based, not external browser</li>
+                <li><strong>Database State Management:</strong> InterceptorSettings model stores global state</li>
+                <li><strong>API Endpoints:</strong> RESTful endpoints for status GET/POST operations</li>
+                <li><strong>Documentation:</strong> Comprehensive guides and usage instructions</li>
+                <li><strong>Tests:</strong> Unit tests for models, views, and API endpoints</li>
+            </ul>
+        </div>
+
+        <div class="demo-section">
+            <h2>4. Usage Flow</h2>
+            <ol style="line-height: 2;">
+                <li>User opens browser at <code>/browser/</code></li>
+                <li>User clicks "Interceptor OFF" button to enable interception</li>
+                <li>Button turns green: "🟢 Interceptor ON"</li>
+                <li>User navigates to a URL using the address bar and "Go" button</li>
+                <li>Request is flagged for interception</li>
+                <li>User can view intercepted requests at <code>/interceptor/</code></li>
+                <li>Status is synchronized across both views</li>
+                <li>User can toggle OFF from either location</li>
+            </ol>
+        </div>
+
+        <div class="demo-section">
+            <h2>5. Technical Details</h2>
+            <p><strong>New Model:</strong></p>
+            <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto;">
+class InterceptorSettings(models.Model):
+    is_enabled = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    @classmethod
+    def get_settings(cls):
+        settings, created = cls.objects.get_or_create(id=1)
+        return settings
+            </pre>
+            
+            <p><strong>API Endpoints:</strong></p>
+            <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto;">
+GET  /interceptor/api/status/              # Get interceptor status
+POST /interceptor/api/status/              # Toggle interceptor
+GET  /browser/api/interceptor-status/      # Get status from browser
+POST /browser/api/interceptor-status/      # Toggle from browser
+            </pre>
+        </div>
+
+        <div class="info-message">
+            <strong>📚 Documentation</strong><br>
+            For complete documentation, see:
+            <ul style="margin-top: 10px;">
+                <li><code>BROWSER_README.md</code> - Browser features and usage</li>
+                <li><code>BROWSER_INTERCEPTOR_INTEGRATION.md</code> - Integration guide</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import InterceptedRequest
+from .models import InterceptedRequest, InterceptorSettings
 from proxy.models import ProxyRequest
 
 
@@ -56,4 +56,36 @@ def intercepted_detail(request, request_id):
 
 def interceptor_dashboard(request):
     """Dashboard view for the interceptor"""
-    return render(request, 'interceptor/dashboard.html')
+    settings = InterceptorSettings.get_settings()
+    return render(request, 'interceptor/dashboard.html', {
+        'interceptor_enabled': settings.is_enabled
+    })
+
+
+@api_view(['GET', 'POST'])
+def interceptor_status(request):
+    """Get or set interceptor status"""
+    settings = InterceptorSettings.get_settings()
+    
+    if request.method == 'GET':
+        return Response({
+            'is_enabled': settings.is_enabled,
+            'updated_at': settings.updated_at.isoformat()
+        })
+    
+    elif request.method == 'POST':
+        is_enabled = request.data.get('is_enabled', settings.is_enabled)
+        
+        # Validate boolean type
+        if not isinstance(is_enabled, bool):
+            return Response({
+                'error': 'is_enabled must be a boolean value'
+            }, status=400)
+        
+        settings.is_enabled = is_enabled
+        settings.save()
+        return Response({
+            'success': True,
+            'is_enabled': settings.is_enabled,
+            'message': f"Interceptor {'enabled' if settings.is_enabled else 'disabled'}"
+        })

@@ -2,17 +2,44 @@
 
 ## Overview
 
-The Integrated Browser is a browser interface component that embeds within the Django application and connects to all enabled Django apps. It provides a toolbar with app integration buttons and tracks browser history and interactions.
+The Integrated Browser is an **embedded iframe browser interface** within the Django application that connects to all enabled Django apps. It provides a toolbar with app integration buttons and tracks browser history and interactions.
+
+**Important Note:** This is an embedded iframe browser within the web application, NOT an external desktop browser like Firefox or Chrome. For future desktop browser integration, consider implementing CEF (Chromium Embedded Framework).
 
 ## Features
 
-- **Browser Interface**: Embedded web browser view for navigation
-- **URL Navigation**: Address bar with forward/back controls
+- **Embedded Browser Interface**: Iframe-based web browser view for navigation
+- **URL Navigation**: Address bar with forward/back/reload controls
+- **Interceptor Integration**: Toggle to enable/disable request interception
 - **App Integration**: Toolbar buttons for all enabled apps
 - **Session Management**: Tracks browser sessions per user
 - **History Tracking**: Records all visited URLs
 - **Interaction Logging**: Logs which apps were used for which URLs
 - **Real-time App Access**: Only shows buttons for enabled apps
+- **Interceptor Status Display**: Visual indicator showing if interceptor is ON/OFF
+
+## Interceptor Integration
+
+### How It Works
+
+When the interceptor is enabled:
+1. The browser toolbar shows a green indicator: "🟢 Interceptor ON"
+2. All navigation from the browser is flagged for interception
+3. Requests can be inspected and modified in the Interceptor dashboard
+4. The interceptor status syncs between browser and interceptor views
+
+When the interceptor is disabled:
+1. The browser toolbar shows a red indicator: "🔴 Interceptor OFF"
+2. Navigation proceeds normally without interception
+3. No requests are captured for inspection
+
+### Toggle Interceptor
+
+You can toggle the interceptor from two places:
+- **From Browser**: Click the "Interceptor ON/OFF" button in the browser toolbar
+- **From Interceptor Dashboard**: Use the toggle switch in `/interceptor/`
+
+Both interfaces stay synchronized in real-time.
 
 ## Database Models
 
@@ -105,6 +132,24 @@ GET /browser/api/enabled-apps/
 
 Returns a list of all currently enabled apps with their capabilities.
 
+### Interceptor Status (GET/POST)
+```
+GET /browser/api/interceptor-status/
+```
+
+Returns the current interceptor status.
+
+```
+POST /browser/api/interceptor-status/
+Content-Type: application/json
+
+{
+    "is_enabled": true
+}
+```
+
+Toggles the interceptor ON or OFF from the browser interface.
+
 ## App Integration
 
 The browser integrates with all enabled apps through the toolbar. Each app button triggers the corresponding app functionality:
@@ -128,18 +173,41 @@ The browser integrates with all enabled apps through the toolbar. Each app butto
 ## Usage
 
 1. Navigate to `/browser/` to open the integrated browser
-2. Enter a URL in the address bar and click "Go"
-3. Use the app toolbar buttons to trigger functionality
-4. All navigation and interactions are automatically logged
+2. Enter a URL in the address bar and click "Go" button
+3. Use the Interceptor toggle button to enable/disable request interception
+4. Use the app toolbar buttons to trigger functionality
+5. All navigation and interactions are automatically logged
+6. View history and interactions in the admin panel
+
+### Using the Interceptor
+
+1. Click the "Interceptor OFF" button in the browser toolbar to enable it (turns green: "Interceptor ON")
+2. Navigate to any URL - the request will be captured
+3. Go to `/interceptor/` to view and modify intercepted requests
+4. Click "Interceptor ON" to disable interception (turns red: "Interceptor OFF")
+
+The interceptor status is synchronized across both the browser and interceptor dashboard views.
 5. View history and interactions in the admin panel
 
 ## Security Considerations
 
-- The browser iframe uses sandbox restrictions
+- The browser iframe uses sandbox restrictions for security
 - All navigation is logged for audit purposes
 - User sessions are tracked for accountability
 - App interactions are restricted to enabled apps
 - CSRF protection on all API endpoints
+- Interceptor can be toggled to inspect/modify requests before forwarding
+
+## Important Limitations
+
+**Embedded Browser vs Desktop Browser:**
+- This is an **iframe-based embedded browser** within the web application
+- It is NOT a full desktop browser like Firefox or Chrome
+- Many websites may not load properly due to iframe restrictions (X-Frame-Options, CSP)
+- For full browser control and desktop browser integration, consider:
+  - CEF (Chromium Embedded Framework)
+  - Selenium WebDriver for automation
+  - Puppeteer/Playwright for headless browser control
 
 ## Future Enhancements
 

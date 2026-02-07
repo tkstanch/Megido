@@ -10,4 +10,5 @@ urlpatterns = [
     path('api/history/<int:session_id>/', views.get_history, name='get_history'),
     path('api/interaction/', views.log_app_interaction, name='log_app_interaction'),
     path('api/enabled-apps/', views.get_enabled_apps, name='get_enabled_apps'),
+    path('api/interceptor-status/', views.browser_interceptor_status, name='browser_interceptor_status'),
 ]

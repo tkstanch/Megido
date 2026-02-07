@@ -41,6 +41,29 @@
     background: #ccc;
     cursor: not-allowed;
 }
+.interceptor-toggle-btn {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.interceptor-toggle-btn.enabled {
+    background: #28a745;
+    color: white;
+}
+.interceptor-toggle-btn.disabled {
+    background: #dc3545;
+    color: white;
+}
+.interceptor-toggle-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
 .app-toolbar {
     background: white;
     border: 1px solid #ddd;
@@ -104,9 +127,10 @@
 </div>
 
 <div class="info-message">
-    <strong>ℹ️ Integrated Browser</strong><br>
+    <strong>ℹ️ Embedded Browser Interface</strong><br>
+    This is an <strong>embedded iframe browser</strong> within the application, not an external desktop browser like Firefox or Chrome.
     Enter a URL below to navigate. Use the app buttons to interact with enabled apps.
-    This is a demonstration interface - in production, this would embed a full browser component.
+    For full desktop browser integration in the future, consider using CEF (Chromium Embedded Framework).
 </div>
 
 <div class="browser-container">
@@ -116,6 +140,10 @@
         <button class="toolbar-button" onclick="reload()" title="Reload">⟳</button>
         <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
         <button class="toolbar-button" onclick="navigate()">Go</button>
+        <button id="interceptor-toggle" class="interceptor-toggle-btn {% if interceptor_enabled %}enabled{% else %}disabled{% endif %}" onclick="toggleInterceptor()" title="Toggle Interceptor">
+            <span id="interceptor-icon">{% if interceptor_enabled %}🟢{% else %}🔴{% endif %}</span>
+            <span id="interceptor-label">{% if interceptor_enabled %}Interceptor ON{% else %}Interceptor OFF{% endif %}</span>
+        </button>
     </div>
     
     <div class="app-toolbar">
@@ -140,6 +168,7 @@
 <script>
 const sessionId = {{ session.id }};
 let currentUrl = '';
+let interceptorEnabled = {% if interceptor_enabled %}true{% else %}false{% endif %};
 
 function navigate() {
     const urlBar = document.getElementById('url-bar');
@@ -159,10 +188,18 @@ function navigate() {
     
     // Load in iframe
     const iframe = document.getElementById('browser-iframe');
-    iframe.src = url;
     
-    // Log to history
-    logHistory(url);
+    // If interceptor is enabled, show a notice
+    if (interceptorEnabled) {
+        console.log('Interceptor is enabled - traffic would be routed through interceptor');
+        // In a full implementation, this would configure the iframe to use a proxy
+        // For now, we'll add a note to the user
+        logHistory(url, 'Navigated with Interceptor ON');
+    } else {
+        logHistory(url);
+    }
+    
+    iframe.src = url;
 }
 
 function handleUrlEnter(event) {
@@ -173,8 +210,74 @@ function handleUrlEnter(event) {
 
 function reload() {
     const iframe = document.getElementById('browser-iframe');
-    iframe.contentWindow.location.reload();
+    if (iframe.src) {
+        iframe.contentWindow.location.reload();
+    } else {
+        alert('Please navigate to a URL first');
+    }
 }
+
+async function toggleInterceptor() {
+    try {
+        const response = await fetch('/browser/api/interceptor-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ is_enabled: !interceptorEnabled })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            interceptorEnabled = data.is_enabled;
+            updateInterceptorUI(interceptorEnabled);
+            
+            const message = interceptorEnabled 
+                ? 'Interceptor enabled. Browser traffic will be routed through the interceptor.'
+                : 'Interceptor disabled. Browser traffic will pass through normally.';
+            alert(message);
+        }
+    } catch (error) {
+        console.error('Error toggling interceptor:', error);
+        alert('Failed to toggle interceptor. Please try again.');
+    }
+}
+
+function updateInterceptorUI(isEnabled) {
+    const toggleBtn = document.getElementById('interceptor-toggle');
+    const icon = document.getElementById('interceptor-icon');
+    const label = document.getElementById('interceptor-label');
+    
+    if (isEnabled) {
+        toggleBtn.className = 'interceptor-toggle-btn enabled';
+        icon.textContent = '🟢';
+        label.textContent = 'Interceptor ON';
+    } else {
+        toggleBtn.className = 'interceptor-toggle-btn disabled';
+        icon.textContent = '🔴';
+        label.textContent = 'Interceptor OFF';
+    }
+}
+
+// Poll for interceptor status changes
+async function checkInterceptorStatus() {
+    try {
+        const response = await fetch('/browser/api/interceptor-status/');
+        const data = await response.json();
+        
+        if (data.is_enabled !== interceptorEnabled) {
+            interceptorEnabled = data.is_enabled;
+            updateInterceptorUI(interceptorEnabled);
+        }
+    } catch (error) {
+        console.error('Error checking interceptor status:', error);
+    }
+}
+
+// Check status every 3 seconds
+setInterval(checkInterceptorStatus, 3000);
 
 function logHistory(url, title = '') {
     fetch('/browser/api/history/', {

@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import BrowserSession, BrowserHistory, BrowserAppInteraction, BrowserSettings
 from app_manager.models import AppConfiguration
+from interceptor.models import InterceptorSettings
 import json
 
 
@@ -16,9 +17,13 @@ def browser_view(request):
     # Get all enabled apps for the toolbar
     enabled_apps = AppConfiguration.objects.filter(is_enabled=True)
     
+    # Get interceptor status
+    interceptor_settings = InterceptorSettings.get_settings()
+    
     return render(request, 'browser/browser.html', {
         'session': session,
-        'enabled_apps': enabled_apps
+        'enabled_apps': enabled_apps,
+        'interceptor_enabled': interceptor_settings.is_enabled
     })
 
 
@@ -113,3 +118,32 @@ def get_enabled_apps(request):
         'capabilities': app.get_capabilities_list(),
     } for app in apps]
     return Response(data)
+
+
+@api_view(['GET', 'POST'])
+def browser_interceptor_status(request):
+    """API endpoint to get or toggle interceptor status from browser"""
+    settings = InterceptorSettings.get_settings()
+    
+    if request.method == 'GET':
+        return Response({
+            'is_enabled': settings.is_enabled,
+            'updated_at': settings.updated_at.isoformat()
+        })
+    
+    elif request.method == 'POST':
+        is_enabled = request.data.get('is_enabled', settings.is_enabled)
+        
+        # Validate boolean type
+        if not isinstance(is_enabled, bool):
+            return Response({
+                'error': 'is_enabled must be a boolean value'
+            }, status=400)
+        
+        settings.is_enabled = is_enabled
+        settings.save()
+        return Response({
+            'success': True,
+            'is_enabled': settings.is_enabled,
+            'message': f"Interceptor {'enabled' if settings.is_enabled else 'disabled'}"
+        })
