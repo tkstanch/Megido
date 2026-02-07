@@ -46,6 +46,22 @@ if /i "%create_user%"=="y" (
     python manage.py createsuperuser
 )
 
+REM CEF Browser Setup (optional)
+echo.
+set /p setup_cef="Do you want to set up CEF desktop browser integration? (y/n): "
+if /i "%setup_cef%"=="y" (
+    echo.
+    echo Setting up CEF browser integration...
+    python setup_cef_browser.py --setup-only
+    
+    if errorlevel 1 (
+        echo Warning: CEF browser setup failed, but you can still use the web interface
+    ) else (
+        echo CEF browser setup completed successfully!
+        echo You can launch it anytime with: launch_cef_browser.bat
+    )
+)
+
 echo.
 echo ================================================
 echo   Setup Complete!
