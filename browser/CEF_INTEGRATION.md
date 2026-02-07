@@ -180,7 +180,17 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Method 1: Launch Both Django and CEF Browser
+### Method 1: Launch from Django Web Interface
+
+You can now launch the CEF browser directly from the Django web interface:
+
+1. Navigate to `/browser/` in Django
+2. Click the "🚀 Launch Full Browser (CEF)" button in the toolbar
+3. The CEF desktop browser window will open
+
+This is the easiest way to launch CEF without using the command line.
+
+### Method 2: Launch Both Django and CEF Browser
 
 Start Django server and CEF browser together:
 
@@ -194,7 +204,7 @@ This will:
 3. Open CEF browser window
 4. Connect browser to Django backend
 
-### Method 2: Connect to Existing Django Server
+### Method 3: Connect to Existing Django Server
 
 If Django is already running (e.g., in another terminal):
 
@@ -206,7 +216,7 @@ python manage.py runserver
 python browser/desktop_launcher.py --mode browser-only
 ```
 
-### Method 3: Custom Django URL
+### Method 4: Custom Django URL
 
 Connect to Django on a different host/port:
 
@@ -214,7 +224,7 @@ Connect to Django on a different host/port:
 python browser/desktop_launcher.py --django-url http://localhost:8080
 ```
 
-### Method 4: Server Only Mode
+### Method 5: Server Only Mode
 
 Start only Django server (for development/testing):
 

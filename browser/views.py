@@ -6,6 +6,10 @@ from .models import BrowserSession, BrowserHistory, BrowserAppInteraction, Brows
 from app_manager.models import AppConfiguration
 from interceptor.models import InterceptorSettings
 import json
+import subprocess
+import sys
+import os
+from pathlib import Path
 
 
 def browser_view(request):
@@ -147,3 +151,49 @@ def browser_interceptor_status(request):
             'is_enabled': settings.is_enabled,
             'message': f"Interceptor {'enabled' if settings.is_enabled else 'disabled'}"
         })
+
+
+@api_view(['POST'])
+def launch_cef_browser(request):
+    """API endpoint to launch CEF desktop browser"""
+    try:
+        # Check if CEF is installed
+        try:
+            import cefpython3
+        except ImportError:
+            return Response({
+                'success': False,
+                'error': 'CEF Python is not installed. Install with: pip install cefpython3'
+            }, status=400)
+        
+        # Get Django URL from request or use default
+        django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
+        
+        # Path to desktop launcher
+        base_dir = Path(__file__).parent.parent
+        launcher_path = base_dir / 'browser' / 'desktop_launcher.py'
+        
+        if not launcher_path.exists():
+            return Response({
+                'success': False,
+                'error': 'Desktop launcher not found'
+            }, status=500)
+        
+        # Launch CEF browser in background (browser-only mode)
+        subprocess.Popen(
+            [sys.executable, str(launcher_path), '--mode', 'browser-only', '--django-url', django_url],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True  # Detach from parent process
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'CEF browser launched successfully'
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
