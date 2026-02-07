@@ -80,7 +80,25 @@ if [ ! -f "db.sqlite3" ]; then
     echo "[i] Superuser 'admin' with password 'admin' has been created."
 fi
 
-# Step 6: Run the app
+# Step 6: CEF Browser Setup (optional)
+echo ""
+read -p "Do you want to set up CEF desktop browser integration? [y/N]: " setup_cef
+setup_cef=${setup_cef:-N}
+
+if [[ "$setup_cef" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "[+] Setting up CEF browser integration..."
+    python setup_cef_browser.py --setup-only
+    
+    if [ $? -eq 0 ]; then
+        echo "[+] CEF browser setup completed successfully!"
+        echo "[i] You can launch it anytime with: ./launch_cef_browser.sh"
+    else
+        echo "[!] CEF browser setup failed, but you can still use the web interface"
+    fi
+fi
+
+# Step 7: Run the app
 echo ""
 echo "[+] Starting Megido locally! Visit http://localhost:8000 in your browser."
 python manage.py runserver

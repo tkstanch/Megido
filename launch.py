@@ -48,28 +48,79 @@ def run_web_app():
 
 def main():
     """Main launcher logic"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description='Megido Security Testing Platform Launcher',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        'mode',
+        nargs='?',
+        choices=['web', 'desktop'],
+        help='Launch mode: web or desktop'
+    )
+    parser.add_argument(
+        '--web', '-w',
+        action='store_true',
+        help='Launch in web mode'
+    )
+    parser.add_argument(
+        '--desktop', '-d',
+        action='store_true',
+        help='Launch in desktop mode (requires PySide6)'
+    )
+    parser.add_argument(
+        '--cef',
+        action='store_true',
+        help='Launch with CEF desktop browser'
+    )
+    
+    args = parser.parse_args()
+    
     print("=" * 60)
     print("  Megido Security Testing Platform")
     print("=" * 60)
     print()
     
-    # Check for command line argument
-    if len(sys.argv) > 1:
-        mode = sys.argv[1].lower()
-        if mode in ['web', '--web', '-w']:
-            run_web_app()
-            return
-        elif mode in ['desktop', '--desktop', '-d']:
-            if not check_pyside6():
-                print("❌ Error: PySide6 is not installed or not working properly.")
-                print("   Install it with: pip install PySide6")
-                sys.exit(1)
-            if not is_display_available():
-                print("❌ Error: No display detected. Desktop mode requires a GUI environment.")
-                print("   Use 'python launch.py web' to run in web mode instead.")
-                sys.exit(1)
-            run_desktop_app()
-            return
+    # Handle CEF mode
+    if args.cef:
+        print("🚀 Launching Megido Security with CEF Desktop Browser...")
+        print()
+        try:
+            # Import and launch CEF browser
+            from browser.desktop_launcher import main as launch_cef
+            sys.exit(launch_cef())
+        except ImportError as e:
+            print("❌ Error: CEF browser integration not available.")
+            print(f"   {e}")
+            print()
+            print("To set up CEF browser, run:")
+            print("   python setup_cef_browser.py")
+            print()
+            print("Or use the quick launcher:")
+            print("   ./launch_cef_browser.sh  (Linux/macOS)")
+            print("   launch_cef_browser.bat   (Windows)")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Error launching CEF browser: {e}")
+            sys.exit(1)
+    
+    # Handle explicit mode arguments
+    if args.web or (args.mode and args.mode == 'web'):
+        run_web_app()
+        return
+    elif args.desktop or (args.mode and args.mode == 'desktop'):
+        if not check_pyside6():
+            print("❌ Error: PySide6 is not installed or not working properly.")
+            print("   Install it with: pip install PySide6")
+            sys.exit(1)
+        if not is_display_available():
+            print("❌ Error: No display detected. Desktop mode requires a GUI environment.")
+            print("   Use 'python launch.py web' to run in web mode instead.")
+            sys.exit(1)
+        run_desktop_app()
+        return
     
     # Auto-detect best mode
     if is_display_available() and check_pyside6():

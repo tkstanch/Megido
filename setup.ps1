@@ -50,6 +50,22 @@ if (!(Test-Path "db.sqlite3")) {
     Write-Host "[i] Superuser created!"
 }
 
+# CEF Browser Setup (optional)
+Write-Host ""
+$setupCef = Read-Host "Do you want to set up CEF desktop browser integration? [y/N]"
+if ($setupCef -eq "y" -or $setupCef -eq "Y") {
+    Write-Host ""
+    Write-Host "[+] Setting up CEF browser integration..."
+    python setup_cef_browser.py --setup-only
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[+] CEF browser setup completed successfully!"
+        Write-Host "[i] You can launch it anytime with: .\launch_cef_browser.bat"
+    } else {
+        Write-Host "[!] CEF browser setup failed, but you can still use the web interface"
+    }
+}
+
 Write-Host ""
 Write-Host "[+] Starting Megido server. Open http://localhost:8000 in your browser, login: admin/admin."
 python manage.py runserver
