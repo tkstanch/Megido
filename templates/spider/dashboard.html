@@ -177,6 +177,20 @@ button:disabled {
 <h2>🕷️ Web Spider & Content Discovery</h2>
 <p>Automated web spidering with DirBuster, Nikto, Wikto integration, brute force, and content inference.</p>
 
+<div class="result-section" style="margin-bottom: 30px;">
+    <h3>📊 Spider Analytics</h3>
+    <button onclick="loadAnalytics()" style="margin-bottom: 15px;">
+        🔄 Refresh Analytics
+    </button>
+    <div id="analytics-content">
+        <div style="text-align: center; padding: 20px;">
+            <span class="spinner"></span> Loading analytics...
+        </div>
+    </div>
+</div>
+
+<hr style="border: none; border-top: 2px solid #ddd; margin: 30px 0;">
+
 <div class="spider-form">
     <h3>Configure Spider Target</h3>
     <div style="margin-top: 15px;">
@@ -571,5 +585,164 @@ function showTab(tabName) {
     document.getElementById('tab-' + tabName).classList.add('active');
     event.target.classList.add('active');
 }
+
+async function loadAnalytics() {
+    const analyticsContent = document.getElementById('analytics-content');
+    
+    // Show loading state
+    analyticsContent.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <span class="spinner"></span> Loading analytics...
+        </div>
+    `;
+    
+    try {
+        // Extract CSRF token for authenticated requests
+        const csrfToken = getCsrfTokenFromCookies('csrftoken');
+        
+        const response = await fetch('/spider/api/analytics/', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to load analytics: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Helper function to get status color
+        const getStatusColor = (status) => {
+            switch(status) {
+                case 'completed': return '#28a745';
+                case 'failed': return '#dc3545';
+                case 'running': return '#ffc107';
+                default: return '#6c757d';
+            }
+        };
+        
+        // Render global statistics
+        const globalStats = data.global_stats;
+        let statsHtml = `
+            <div class="stats">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="number">${globalStats.total_sessions}</div>
+                    <div class="label">Total Sessions</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                    <div class="number">${globalStats.completed_sessions}</div>
+                    <div class="label">Completed</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);">
+                    <div class="number">${globalStats.failed_sessions}</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
+                    <div class="number">${globalStats.running_sessions}</div>
+                    <div class="label">Running</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
+                    <div class="number">${globalStats.total_urls_discovered}</div>
+                    <div class="label">Total URLs Found</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #6f42c1 0%, #553087 100%);">
+                    <div class="number">${globalStats.total_hidden_content}</div>
+                    <div class="label">Hidden Content</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);">
+                    <div class="number">${globalStats.total_parameters_discovered}</div>
+                    <div class="label">Parameters Discovered</div>
+                </div>
+            </div>
+        `;
+        
+        // Render recent sessions
+        const sessions = data.recent_sessions;
+        if (sessions.length === 0) {
+            statsHtml += `
+                <div style="text-align: center; padding: 20px; color: #6c757d;">
+                    <p>No sessions found. Start a spider session to see analytics!</p>
+                </div>
+            `;
+        } else {
+            statsHtml += `
+                <h4 style="margin-top: 30px; margin-bottom: 15px; color: #667eea;">Recent Sessions</h4>
+                <div style="max-height: 600px; overflow-y: auto;">
+            `;
+            
+            sessions.forEach(session => {
+                const statusColor = getStatusColor(session.status);
+                const startTime = session.started_at ? new Date(session.started_at).toLocaleString() : 'N/A';
+                const endTime = session.completed_at ? new Date(session.completed_at).toLocaleString() : 'Running...';
+                
+                statsHtml += `
+                    <div class="result-section" style="border-left: 4px solid ${statusColor}; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div>
+                                <strong>Session #${session.id}</strong>
+                                <span class="badge" style="background: ${statusColor}; color: white; margin-left: 10px;">
+                                    ${session.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <button onclick="loadResults(${session.id})" style="padding: 8px 16px; font-size: 0.9em;">
+                                👁️ View Details
+                            </button>
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                            <strong>Target:</strong> ${session.target_url}
+                        </div>
+                        <div style="font-size: 0.85em; color: #888; margin-bottom: 10px;">
+                            <strong>Started:</strong> ${startTime} | <strong>Completed:</strong> ${endTime}
+                        </div>
+                        <div class="stats" style="margin-top: 15px;">
+                            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center;">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #667eea;">${session.urls_discovered}</div>
+                                <div style="font-size: 0.85em; color: #666;">URLs Discovered</div>
+                            </div>
+                            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center;">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #6f42c1;">${session.hidden_content_found}</div>
+                                <div style="font-size: 0.85em; color: #666;">Hidden Content</div>
+                            </div>
+                            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center;">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #28a745;">${session.brute_force.successful}/${session.brute_force.total}</div>
+                                <div style="font-size: 0.85em; color: #666;">Brute Force Success</div>
+                            </div>
+                            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center;">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #17a2b8;">${session.inference.verified}/${session.inference.created}</div>
+                                <div style="font-size: 0.85em; color: #666;">Inference Verified</div>
+                            </div>
+                            <div style="background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; text-align: center;">
+                                <div style="font-size: 1.5em; font-weight: bold; color: #fd7e14;">${session.parameter_discovery.discovered}</div>
+                                <div style="font-size: 0.85em; color: #666;">Hidden Parameters</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsHtml += `</div>`;
+        }
+        
+        analyticsContent.innerHTML = statsHtml;
+        
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+        analyticsContent.innerHTML = `
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 15px; color: #721c24;">
+                <strong>❌ Error loading analytics:</strong> ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Auto-load analytics when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadAnalytics();
+});
+
 </script>
 {% endblock %}
