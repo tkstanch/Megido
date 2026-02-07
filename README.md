@@ -28,4 +28,35 @@ These scripts will:
 
 > For full details, troubleshooting, and all platform instructions, please see [LOCAL_INSTALLATION_GUIDE.md](LOCAL_INSTALLATION_GUIDE.md).
 
+## 🌐 Desktop Browser with Traffic Interception
+
+Megido now includes a **PyQt6 Desktop Browser** with integrated **mitmproxy** for powerful HTTP/HTTPS traffic interception:
+
+### Quick Launch
+```bash
+# Linux/Mac
+./launch_megido_browser.sh
+
+# Windows
+launch_megido_browser.bat
+
+# Python (cross-platform)
+python launch_megido_browser.py
+```
+
+This launches:
+- Django development server
+- mitmproxy with Megido addon for traffic interception
+- PyQt6 desktop browser with real-time interceptor panel
+
+### Features
+- ✅ **Python 3.13 Compatible** (replaces CEF Python)
+- ✅ **Full HTTP/HTTPS Interception** via mitmproxy
+- ✅ **Payload Injection Rules** - Automatically modify requests
+- ✅ **Real-time Request Viewer** - See intercepted traffic instantly
+- ✅ **App Integration** - Track traffic by source app (Scanner, Spider, etc.)
+- ✅ **Certificate Helper** - Easy HTTPS interception setup
+
+See [BROWSER_INTERCEPTOR_INTEGRATION.md](BROWSER_INTERCEPTOR_INTEGRATION.md) for complete documentation.
+
 [...]rest of README untouched...

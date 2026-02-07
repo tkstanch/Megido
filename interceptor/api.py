@@ -2,6 +2,7 @@
 API endpoints for interceptor integration with mitmproxy
 """
 from django.utils import timezone
+from django.db import models
 from rest_framework import status, generics, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
