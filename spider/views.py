@@ -1402,3 +1402,93 @@ def brute_force_discovered_parameters(session, stealth_session, verify_ssl):
                 
             except Exception as e:
                 continue
+
+
+@api_view(['GET'])
+def session_analytics(request):
+    """
+    API endpoint to get comprehensive spider session analytics
+    Returns global statistics and recent session details
+    """
+    try:
+        # Get all sessions
+        all_sessions = SpiderSession.objects.all()
+        
+        # Calculate global statistics
+        total_sessions = all_sessions.count()
+        completed_sessions = all_sessions.filter(status='completed').count()
+        failed_sessions = all_sessions.filter(status='failed').count()
+        running_sessions = all_sessions.filter(status='running').count()
+        
+        # Aggregate totals
+        total_urls = sum(session.urls_discovered for session in all_sessions)
+        total_hidden_content = sum(session.hidden_content_found for session in all_sessions)
+        total_parameters = sum(session.parameters_discovered for session in all_sessions)
+        
+        # Get recent 50 sessions with detailed stats
+        recent_sessions = all_sessions[:50]
+        
+        sessions_data = []
+        for session in recent_sessions:
+            # Get brute force stats
+            brute_force_attempts = BruteForceAttempt.objects.filter(session=session)
+            brute_force_successful = brute_force_attempts.filter(success=True).count()
+            brute_force_failed = brute_force_attempts.filter(success=False).count()
+            brute_force_total = brute_force_attempts.count()
+            
+            # Get inference stats
+            inferences = InferredContent.objects.filter(session=session)
+            inferences_created = inferences.count()
+            inferences_verified = inferences.filter(verified=True).count()
+            
+            # Get parameter discovery stats
+            param_attempts = ParameterDiscoveryAttempt.objects.filter(session=session)
+            param_discovery_attempts = param_attempts.count()
+            params_discovered = DiscoveredParameter.objects.filter(session=session).count()
+            
+            session_data = {
+                'id': session.id,
+                'target_url': session.target.url,
+                'status': session.status,
+                'started_at': session.started_at.isoformat() if session.started_at else None,
+                'completed_at': session.completed_at.isoformat() if session.completed_at else None,
+                'urls_discovered': session.urls_discovered,
+                'hidden_content_found': session.hidden_content_found,
+                'brute_force': {
+                    'successful': brute_force_successful,
+                    'failed': brute_force_failed,
+                    'total': brute_force_total,
+                },
+                'inference': {
+                    'created': inferences_created,
+                    'verified': inferences_verified,
+                },
+                'parameter_discovery': {
+                    'attempts': param_discovery_attempts,
+                    'discovered': params_discovered,
+                },
+            }
+            sessions_data.append(session_data)
+        
+        # Build response
+        analytics_data = {
+            'global_stats': {
+                'total_sessions': total_sessions,
+                'completed_sessions': completed_sessions,
+                'failed_sessions': failed_sessions,
+                'running_sessions': running_sessions,
+                'total_urls_discovered': total_urls,
+                'total_hidden_content': total_hidden_content,
+                'total_parameters_discovered': total_parameters,
+            },
+            'recent_sessions': sessions_data,
+        }
+        
+        return Response(analytics_data)
+        
+    except Exception as e:
+        logger.error(f"Error fetching analytics: {str(e)}")
+        return Response(
+            {'error': f'Failed to fetch analytics: {str(e)}'},
+            status=500
+        )
