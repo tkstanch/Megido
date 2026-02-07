@@ -6,6 +6,10 @@ from .models import BrowserSession, BrowserHistory, BrowserAppInteraction, Brows
 from app_manager.models import AppConfiguration
 from interceptor.models import InterceptorSettings
 import json
+import subprocess
+import sys
+import os
+from pathlib import Path
 
 
 def browser_view(request):
@@ -147,3 +151,61 @@ def browser_interceptor_status(request):
             'is_enabled': settings.is_enabled,
             'message': f"Interceptor {'enabled' if settings.is_enabled else 'disabled'}"
         })
+
+
+@api_view(['POST'])
+def launch_cef_browser(request):
+    """API endpoint to launch CEF desktop browser"""
+    # Check if CEF is installed first
+    try:
+        import cefpython3
+    except (ImportError, Exception) as e:
+        # Handle both ImportError and the Python version exception that cefpython3 raises
+        error_msg = str(e)
+        if 'not installed' in error_msg.lower() or 'no module' in error_msg.lower():
+            error_msg = 'CEF Python is not installed. Install with: pip install cefpython3'
+        return Response({
+            'success': False,
+            'error': error_msg
+        }, status=400)
+    
+    try:
+        # Get Django URL from request or use default
+        django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
+        
+        # Validate django_url to prevent command injection
+        # Only allow URLs starting with http:// or https://
+        if not (django_url.startswith('http://') or django_url.startswith('https://')):
+            return Response({
+                'success': False,
+                'error': 'Invalid Django URL. Must start with http:// or https://'
+            }, status=400)
+        
+        # Path to desktop launcher
+        base_dir = Path(__file__).parent.parent
+        launcher_path = base_dir / 'browser' / 'desktop_launcher.py'
+        
+        if not launcher_path.exists():
+            return Response({
+                'success': False,
+                'error': 'Desktop launcher not found'
+            }, status=500)
+        
+        # Launch CEF browser in background (browser-only mode)
+        subprocess.Popen(
+            [sys.executable, str(launcher_path), '--mode', 'browser-only', '--django-url', django_url],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True  # Detach from parent process
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'CEF browser launched successfully'
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)

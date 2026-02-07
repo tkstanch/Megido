@@ -52,6 +52,8 @@ class BrowserViewsTest(TestCase):
         self.assertContains(response, 'Available Apps')
         # Check for new interceptor integration
         self.assertContains(response, 'Interceptor')
+        # Check for new CEF launch button
+        self.assertContains(response, 'Launch Full Browser (CEF)')
     
     def test_interceptor_status_get(self):
         """Test getting interceptor status from browser"""
@@ -77,6 +79,63 @@ class BrowserViewsTest(TestCase):
         data = response.json()
         self.assertTrue(data['success'])
         self.assertEqual(data['is_enabled'], not current_status)
+    
+    @patch('browser.views.subprocess.Popen')
+    def test_launch_cef_browser_success(self, mock_popen):
+        """Test successful CEF browser launch"""
+        # Mock cefpython3 import
+        with patch.dict('sys.modules', {'cefpython3': MagicMock()}):
+            response = self.client.post(
+                '/browser/api/launch-cef/',
+                {'django_url': 'http://127.0.0.1:8000'},
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertTrue(data['success'])
+            self.assertEqual(data['message'], 'CEF browser launched successfully')
+            # Verify subprocess.Popen was called
+            mock_popen.assert_called_once()
+    
+    def test_launch_cef_browser_no_cef_installed(self):
+        """Test CEF launch when cefpython3 is not installed"""
+        # Ensure cefpython3 is not in sys.modules
+        if 'cefpython3' in sys.modules:
+            cef_module = sys.modules.pop('cefpython3')
+        else:
+            cef_module = None
+        
+        try:
+            response = self.client.post(
+                '/browser/api/launch-cef/',
+                {'django_url': 'http://127.0.0.1:8000'},
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = response.json()
+            self.assertFalse(data['success'])
+            self.assertIn('CEF Python is not installed', data['error'])
+        finally:
+            # Restore cefpython3 module if it was present
+            if cef_module is not None:
+                sys.modules['cefpython3'] = cef_module
+    
+    def test_launch_cef_browser_invalid_url(self):
+        """Test CEF launch with invalid URL"""
+        # Mock cefpython3 import
+        with patch.dict('sys.modules', {'cefpython3': MagicMock()}):
+            response = self.client.post(
+                '/browser/api/launch-cef/',
+                {'django_url': 'javascript:alert(1)'},
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = response.json()
+            self.assertFalse(data['success'])
+            self.assertIn('Invalid Django URL', data['error'])
     
     def test_list_sessions_api(self):
         """Test that list sessions API works"""

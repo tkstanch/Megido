@@ -41,6 +41,13 @@
     background: #ccc;
     cursor: not-allowed;
 }
+.cef-launch-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    font-weight: bold;
+}
+.cef-launch-btn:hover {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+}
 .interceptor-toggle-btn {
     padding: 8px 15px;
     border: none;
@@ -127,10 +134,9 @@
 </div>
 
 <div class="info-message">
-    <strong>ℹ️ Embedded Browser Interface</strong><br>
-    This is an <strong>embedded iframe browser</strong> within the application, not an external desktop browser like Firefox or Chrome.
-    Enter a URL below to navigate. Use the app buttons to interact with enabled apps.
-    For full desktop browser integration in the future, consider using CEF (Chromium Embedded Framework).
+    <strong>💡 Browser Options:</strong> 
+    Use the iframe browser below for most sites. 
+    Click "Launch Full Browser (CEF)" to open CEF desktop browser for sites that block iframes (Google, Facebook, etc.) or when you need Chrome DevTools (F12).
 </div>
 
 <div class="browser-container">
@@ -140,6 +146,7 @@
         <button class="toolbar-button" onclick="reload()" title="Reload">⟳</button>
         <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
         <button class="toolbar-button" onclick="navigate()">Go</button>
+        <button class="toolbar-button cef-launch-btn" onclick="launchCEFBrowser()" title="Launch full desktop browser with CEF">🚀 Launch Full Browser (CEF)</button>
         <button id="interceptor-toggle" class="interceptor-toggle-btn {% if interceptor_enabled %}enabled{% else %}disabled{% endif %}" onclick="toggleInterceptor()" title="Toggle Interceptor">
             <span id="interceptor-icon">{% if interceptor_enabled %}🟢{% else %}🔴{% endif %}</span>
             <span id="interceptor-label">{% if interceptor_enabled %}Interceptor ON{% else %}Interceptor OFF{% endif %}</span>
@@ -346,5 +353,38 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+async function launchCEFBrowser() {
+    const button = document.querySelector('.cef-launch-btn');
+    button.disabled = true;
+    button.textContent = '🚀 Launching...';
+    
+    try {
+        const response = await fetch('/browser/api/launch-cef/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                django_url: window.location.origin
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ CEF browser launched! Look for a new window.');
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('❌ Failed to launch CEF browser: ' + error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = '🚀 Launch Full Browser (CEF)';
+    }
+}
+
 </script>
 {% endblock %}
