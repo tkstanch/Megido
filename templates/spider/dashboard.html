@@ -818,9 +818,7 @@ async function loadResults(sessionId) {
         `;
         
         // Set up parameter filters after loading results
-        setTimeout(() => {
-            setupParameterFilters();
-        }, 100);
+        setupParameterFilters();
         
     } catch (error) {
         console.error('Error loading results:', error);
@@ -1023,11 +1021,6 @@ async function loadAnalytics() {
 // Auto-load analytics when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadAnalytics();
-    
-    // Set up event listeners for parameter filters when results are loaded
-    setTimeout(() => {
-        setupParameterFilters();
-    }, 1000);
 });
 
 // Parameter Filtering Functions
@@ -1041,17 +1034,24 @@ function setupParameterFilters() {
     const revealsHidden = document.getElementById('param-reveals-hidden');
     const sortSelect = document.getElementById('param-sort');
     
-    // Add event listeners if elements exist
-    if (searchInput) {
-        searchInput.addEventListener('input', filterParameters);
-        riskFilter.addEventListener('change', filterParameters);
-        typeFilter.addEventListener('change', filterParameters);
-        methodFilter.addEventListener('change', filterParameters);
-        revealsDebug.addEventListener('change', filterParameters);
-        revealsSource.addEventListener('change', filterParameters);
-        revealsHidden.addEventListener('change', filterParameters);
-        sortSelect.addEventListener('change', filterParameters);
+    // Only set up if search input exists (parameter tab has been loaded)
+    if (!searchInput) {
+        return;
     }
+    
+    // Remove any existing event listeners by cloning and replacing (prevents duplicates)
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    
+    // Add event listeners to elements
+    newSearchInput.addEventListener('input', filterParameters);
+    if (riskFilter) riskFilter.addEventListener('change', filterParameters);
+    if (typeFilter) typeFilter.addEventListener('change', filterParameters);
+    if (methodFilter) methodFilter.addEventListener('change', filterParameters);
+    if (revealsDebug) revealsDebug.addEventListener('change', filterParameters);
+    if (revealsSource) revealsSource.addEventListener('change', filterParameters);
+    if (revealsHidden) revealsHidden.addEventListener('change', filterParameters);
+    if (sortSelect) sortSelect.addEventListener('change', filterParameters);
 }
 
 function filterParameters() {
