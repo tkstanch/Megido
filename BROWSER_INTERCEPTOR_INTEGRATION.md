@@ -2,7 +2,493 @@
 
 ## Overview
 
-This document describes the integrated browser and interceptor features, including the ON/OFF toggle functionality and how they work together.
+The Megido Security Platform now features a modern **PyQt6 Desktop Browser** with integrated **mitmproxy** for powerful HTTP/HTTPS traffic interception and modification. This replaces the previous CEF Python implementation with a Python 3.13-compatible solution.
+
+## Architecture
+
+### Components
+
+1. **PyQt6 Desktop Browser** (`desktop_browser/megido_browser.py`)
+   - Native desktop browser using Qt WebEngine
+   - Automatic proxy configuration for mitmproxy
+   - Real-time interceptor panel
+   - Quick access toolbar for Megido apps
+
+2. **mitmproxy Addon** (`proxy_addon.py`)
+   - Intercepts all HTTP/HTTPS traffic
+   - Applies payload rules automatically
+   - Sends request/response data to Django API
+   - Configurable source app tracking
+
+3. **Enhanced Interceptor App** (`interceptor/`)
+   - New models for requests, responses, and payload rules
+   - RESTful API for mitmproxy integration
+   - Django admin interface for management
+   - History and filtering capabilities
+
+4. **Launch Scripts**
+   - `launch_megido_browser.py` - Main launcher (starts all components)
+   - `launch_megido_browser.sh` - Linux/Mac launcher
+   - `launch_megido_browser.bat` - Windows launcher
+
+## New Features
+
+### 1. PyQt6 Desktop Browser
+
+The new browser offers:
+- **Native Performance**: Full Qt WebEngine (Chromium-based)
+- **Python 3.13 Compatible**: No CEF Python limitations
+- **Integrated Interceptor Panel**: View intercepted requests in real-time
+- **Proxy Configuration**: Automatic mitmproxy setup
+- **App Shortcuts**: Quick access to Scanner, Spider, SQL Attacker, etc.
+- **Navigation Controls**: Back, forward, reload, home
+- **Certificate Helper**: Easy mitmproxy certificate installation
+
+### 2. mitmproxy Integration
+
+Traffic interception powered by mitmproxy:
+- **HTTP/HTTPS Interception**: All traffic captured
+- **Payload Injection**: Automatic rule-based payload insertion
+- **Request Logging**: Every request sent to Django API
+- **Response Tracking**: Response time and status tracking
+- **Source App Tracking**: Know which app generated traffic
+- **Rule Caching**: Efficient rule loading with TTL
+
+### 3. Payload Rules System
+
+Create rules for automatic payload injection:
+- **Injection Types**: Header, URL parameter, cookie, request body
+- **URL Pattern Matching**: Regex-based targeting
+- **App Filtering**: Apply rules to specific apps only
+- **Active/Inactive Toggle**: Enable/disable rules on the fly
+- **Django Admin Interface**: Easy rule management
+
+## Models
+
+### InterceptedRequest
+```python
+class InterceptedRequest(models.Model):
+    url = models.URLField(max_length=2000)
+    method = models.CharField(max_length=10)
+    headers = models.JSONField()
+    body = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, ...)
+    source_app = models.CharField(max_length=50)
+```
+
+### InterceptedResponse
+```python
+class InterceptedResponse(models.Model):
+    request = models.OneToOneField(InterceptedRequest, ...)
+    status_code = models.IntegerField()
+    headers = models.JSONField()
+    body = models.TextField()
+    response_time = models.FloatField()
+```
+
+### PayloadRule
+```python
+class PayloadRule(models.Model):
+    name = models.CharField(max_length=200)
+    target_url_pattern = models.CharField(max_length=500)
+    injection_type = models.CharField(...)  # header, body, param, cookie
+    injection_point = models.CharField(max_length=100)
+    payload_content = models.TextField()
+    active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, ...)
+    target_apps = models.JSONField(default=list)
+```
+
+## API Endpoints
+
+### Request/Response Logging
+- `POST /interceptor/api/request/` - Log intercepted request
+- `POST /interceptor/api/response/` - Log intercepted response
+- `GET /interceptor/api/request/<id>/` - Get request details
+
+### Payload Rules
+- `GET /interceptor/api/payload-rules/active/` - Get active rules (for mitmproxy)
+- `GET /interceptor/api/payload-rules/` - List all rules
+- `POST /interceptor/api/payload-rules/` - Create new rule
+- `GET/PUT/DELETE /interceptor/api/payload-rules/<id>/` - Manage specific rule
+
+### History & Injection
+- `GET /interceptor/api/history/` - Get intercept history with filtering
+- `POST /interceptor/api/inject/` - Manually trigger payload injection
+
+### Legacy Endpoints
+- `GET/POST /interceptor/api/status/` - Get/set interceptor status
+- `GET /interceptor/api/intercepted/` - List intercepted requests (legacy)
+
+## Usage Guide
+
+### Quick Start
+
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Run Migrations**
+   ```bash
+   python manage.py migrate
+   ```
+
+3. **Launch Browser** (All-in-One)
+   ```bash
+   # Linux/Mac
+   ./launch_megido_browser.sh
+   
+   # Windows
+   launch_megido_browser.bat
+   
+   # Python (cross-platform)
+   python launch_megido_browser.py
+   ```
+
+This will automatically:
+- Start Django development server
+- Start mitmproxy with Megido addon
+- Launch PyQt6 browser
+
+### Manual Launch (Advanced)
+
+1. **Start Django Server**
+   ```bash
+   python manage.py runserver
+   ```
+
+2. **Start mitmproxy**
+   ```bash
+   mitmdump -s proxy_addon.py --set api_url=http://localhost:8000 --listen-port 8080
+   ```
+
+3. **Launch Browser**
+   ```bash
+   python desktop_browser/megido_browser.py --django-url http://localhost:8000 --proxy-port 8080
+   ```
+
+### HTTPS Certificate Installation
+
+To intercept HTTPS traffic:
+
+1. Launch the browser
+2. Navigate to `http://mitm.it`
+3. Download certificate for your platform
+4. Install as trusted root certificate
+
+**Or use the helper dialog:**
+- Browser will prompt if mitmproxy is not detected
+- Click "Yes" to open certificate installation page
+
+### Creating Payload Rules
+
+#### Via Django Admin
+
+1. Go to `/admin/interceptor/payloadrule/`
+2. Click "Add Payload Rule"
+3. Fill in:
+   - **Name**: Descriptive name (e.g., "Add XSS Payload to Search")
+   - **Target URL Pattern**: Regex (e.g., `.*search.*`)
+   - **Injection Type**: Choose header/body/param/cookie
+   - **Injection Point**: Name (e.g., `X-Custom-Header` or `q`)
+   - **Payload Content**: Your payload
+   - **Active**: Check to enable
+   - **Target Apps**: Leave empty for all, or specify ["scanner", "spider"]
+4. Save
+
+#### Via API
+
+```python
+import requests
+
+# Create a new payload rule
+rule_data = {
+    "name": "SQL Injection Test",
+    "target_url_pattern": ".*login.*",
+    "injection_type": "param",
+    "injection_point": "username",
+    "payload_content": "' OR 1=1--",
+    "active": True,
+    "target_apps": ["sql_attacker"]
+}
+
+response = requests.post(
+    "http://localhost:8000/interceptor/api/payload-rules/",
+    json=rule_data,
+    headers={"Authorization": "Token YOUR_TOKEN"}
+)
+```
+
+### Viewing Intercepted Traffic
+
+#### In the Browser
+- Interceptor panel on the right side shows real-time requests
+- Filter by source app
+- Double-click request for details
+- Auto-refreshes every 2 seconds
+
+#### In Django Admin
+- Go to `/admin/interceptor/interceptedrequest/`
+- Filter by method, source_app, timestamp
+- Search URL or body content
+- View associated responses
+
+#### Via API
+```python
+import requests
+
+# Get history for scanner app
+response = requests.get(
+    "http://localhost:8000/interceptor/api/history/",
+    params={"source_app": "scanner"},
+    headers={"Authorization": "Token YOUR_TOKEN"}
+)
+
+requests_data = response.json()
+```
+
+## Integration with Other Apps
+
+Each Megido app can leverage the interceptor:
+
+### Scanner Integration
+```python
+# In scanner app
+from interceptor.models import InterceptedRequest
+
+# All scanner requests automatically tagged with source_app='scanner'
+# Retrieve scanner requests
+scanner_requests = InterceptedRequest.objects.filter(source_app='scanner')
+```
+
+### SQL Attacker Integration
+```python
+# Create SQL injection payload rule
+from interceptor.models import PayloadRule
+
+rule = PayloadRule.objects.create(
+    name="SQL Injection - Union Select",
+    target_url_pattern=".*",
+    injection_type="param",
+    injection_point="id",
+    payload_content="1' UNION SELECT NULL--",
+    active=True,
+    target_apps=["sql_attacker"],
+    created_by=user
+)
+```
+
+### Spider Integration
+```python
+# Spider discovers URLs from intercepted traffic
+from interceptor.models import InterceptedRequest
+
+discovered_urls = set()
+for req in InterceptedRequest.objects.filter(source_app='spider'):
+    discovered_urls.add(req.url)
+```
+
+## mitmproxy Addon Configuration
+
+The `proxy_addon.py` supports these options:
+
+```bash
+mitmdump -s proxy_addon.py \
+    --set api_url=http://localhost:8000 \
+    --set source_app=browser \
+    --set cache_ttl=60 \
+    --listen-port 8080
+```
+
+Options:
+- `api_url` - Django API base URL (default: http://localhost:8000)
+- `source_app` - Source app identifier (default: browser)
+- `cache_ttl` - Payload rules cache TTL in seconds (default: 60)
+
+## Security Considerations
+
+### Data Validation
+- All data from mitmproxy is validated before storing
+- JSON fields sanitized
+- Body content size limited
+- Headers filtered to exclude sensitive data
+
+### Authentication
+- API endpoints require authentication for sensitive operations
+- `receive_request` and `receive_response` allow anonymous (for mitmproxy)
+- All other endpoints require `IsAuthenticated`
+
+### Rate Limiting
+Consider adding rate limiting for production:
+```python
+# settings.py
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
+```
+
+### Legal Use Warning
+**IMPORTANT**: This tool is for authorized security testing only. Intercepting traffic without permission is illegal.
+
+## Troubleshooting
+
+### Browser Won't Start
+- **Check dependencies**: `pip install -r requirements.txt`
+- **Check Python version**: Requires Python 3.7+
+- **Check Qt installation**: Try `python -c "from PyQt6 import QtCore"`
+
+### mitmproxy Won't Start
+- **Check installation**: `mitmdump --version`
+- **Port already in use**: Change port with `--listen-port`
+- **Addon not found**: Use absolute path to `proxy_addon.py`
+
+### HTTPS Not Intercepted
+- **Certificate not installed**: Go to `http://mitm.it` and install
+- **Certificate not trusted**: Add to system trust store
+- **Browser using different proxy**: Check browser proxy settings
+
+### No Requests Logged
+- **Django not accessible**: Check `api_url` setting
+- **API endpoints failing**: Check Django logs
+- **Proxy not configured**: Verify browser is using proxy
+
+### Payload Rules Not Applied
+- **Rules not active**: Check `active` field in admin
+- **URL pattern wrong**: Test regex pattern
+- **Cache not refreshed**: Wait for TTL or restart mitmproxy
+- **Target apps mismatch**: Check `target_apps` field
+
+## Performance Tips
+
+1. **Limit Request Body Size**
+   - Large bodies slow down storage
+   - Consider truncating in mitmproxy addon
+
+2. **Clean Old Data**
+   ```python
+   # Delete requests older than 7 days
+   from datetime import timedelta
+   from django.utils import timezone
+   from interceptor.models import InterceptedRequest
+   
+   old_date = timezone.now() - timedelta(days=7)
+   InterceptedRequest.objects.filter(timestamp__lt=old_date).delete()
+   ```
+
+3. **Use Database Indexes**
+   - Models already have indexes on common filter fields
+   - Monitor slow queries and add indexes as needed
+
+4. **Cache Payload Rules**
+   - mitmproxy addon caches rules
+   - Adjust `cache_ttl` based on rule change frequency
+
+## Migration from CEF Python
+
+### What's Removed
+- `cefpython3` dependency (incompatible with Python 3.13)
+- `browser/cef_integration/` directory
+- `setup_cef_browser.py`
+- `launch_cef_browser.sh` and `launch_cef_browser.bat`
+- `QUICKSTART_CEF.md`
+
+### What's Added
+- `PyQt6` and `PyQt6-WebEngine` dependencies
+- `desktop_browser/` package
+- `proxy_addon.py`
+- `launch_megido_browser.py` and platform scripts
+- Enhanced interceptor models and API
+
+### Migration Steps
+1. Update dependencies: `pip install -r requirements.txt`
+2. Run migrations: `python manage.py migrate`
+3. Remove old CEF files (see cleanup section)
+4. Use new launch scripts
+
+## Future Enhancements
+
+1. **WebSocket Support**
+   - Real-time updates in Django templates
+   - Live interceptor dashboard
+
+2. **Request Modification**
+   - Edit requests before forwarding
+   - Drop or replay requests
+   - Manual rule testing
+
+3. **Advanced Filtering**
+   - Whitelist/blacklist domains
+   - Method-based filtering
+   - Content-type filtering
+
+4. **Export Formats**
+   - HAR file export
+   - Burp Suite format
+   - CSV export
+
+5. **Session Management**
+   - Link requests to browser sessions
+   - Session-based filtering
+   - Session replay
+
+## Code Examples
+
+### Check Interceptor Status
+```python
+from interceptor.models import InterceptorSettings
+
+settings = InterceptorSettings.get_settings()
+print(f"Interceptor: {'ON' if settings.is_enabled else 'OFF'}")
+```
+
+### Create Payload Rule Programmatically
+```python
+from interceptor.models import PayloadRule
+from django.contrib.auth.models import User
+
+user = User.objects.first()
+
+rule = PayloadRule.objects.create(
+    name="Add Custom Header",
+    target_url_pattern=".*api.*",
+    injection_type="header",
+    injection_point="X-Custom-Header",
+    payload_content="test-value",
+    active=True,
+    created_by=user,
+    target_apps=["scanner", "spider"]
+)
+```
+
+### Query Intercepted Requests
+```python
+from interceptor.models import InterceptedRequest
+from datetime import timedelta
+from django.utils import timezone
+
+# Get recent requests
+recent = InterceptedRequest.objects.filter(
+    timestamp__gte=timezone.now() - timedelta(hours=1)
+)
+
+# Get requests by app
+scanner_reqs = InterceptedRequest.objects.filter(source_app='scanner')
+
+# Get requests with responses
+with_responses = InterceptedRequest.objects.exclude(response__isnull=True)
+```
+
+## Support
+
+For issues and questions:
+- Check GitHub Issues: https://github.com/tkstanch/Megido/issues
+- Review documentation: `/docs/` directory
+- Check logs: `logs/` directory
 
 ## New Features Implemented
 
