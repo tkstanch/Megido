@@ -467,14 +467,15 @@ function showConnectionSuccess(containerId) {
     }
     
     container.innerHTML = `
-        <div class="info" style="background: #d4edda; border-color: #c3e6cb; color: #155724;">
+        <div class="info connection-success" style="background: #d4edda; border-color: #c3e6cb; color: #155724;">
             <strong>✅ Connected to server</strong>
         </div>
     `;
     
     // Auto-hide success message after 3 seconds
     setTimeout(() => {
-        if (container.innerHTML.includes('Connected to server')) {
+        const successMsg = container.querySelector('.connection-success');
+        if (successMsg) {
             container.innerHTML = '';
         }
     }, 3000);
@@ -513,7 +514,13 @@ async function fetchWithRetry(url, options = {}, retryConfig = {}) {
     let attempt = 0;
     retryState.isRetrying = false;
     
-    while (attempt < maxRetries) {
+    // Track if we should continue retrying
+    const shouldContinueRetry = () => {
+        return attempt < maxRetries && 
+               (!retryState.abortController || !retryState.abortController.signal.aborted);
+    };
+    
+    while (shouldContinueRetry()) {
         try {
             // Create new abort controller for this attempt
             retryState.abortController = new AbortController();
@@ -563,7 +570,7 @@ async function fetchWithRetry(url, options = {}, retryConfig = {}) {
         } catch (error) {
             // Check if request was manually aborted for retry
             if (error.name === 'AbortError') {
-                attempt = 0; // Reset attempt counter for manual retry
+                // Don't reset counter, just retry immediately
                 continue;
             }
             
@@ -591,7 +598,8 @@ async function fetchWithRetry(url, options = {}, retryConfig = {}) {
                 showRetryFeedback(statusContainerId, attempt, delay, errorMsg, showManualRetry);
             }
             
-            if (attempt >= maxRetries) {
+            // Only throw if maxRetries is not Infinity and we've reached the limit
+            if (maxRetries !== Infinity && attempt >= maxRetries) {
                 throw new Error(`${errorContext} failed after ${attempt} attempts: ${errorMsg}`);
             }
             
@@ -740,6 +748,8 @@ async function checkSessionStatus(sessionId) {
 
 async function pollForResults(sessionId, attempt = 0) {
     // Poll every 3 seconds indefinitely until spider completes
+    // Note: checkSessionStatus uses fetchWithRetry internally, so network errors
+    // are already handled with retries before reaching this function
     const retryDelay = 3000;
     const startBtn = document.getElementById('start-btn');
     
@@ -768,13 +778,13 @@ async function pollForResults(sessionId, attempt = 0) {
             startBtn.disabled = false;
             startBtn.innerHTML = '🕷️ Start Spider';
         } else {
-            // Network or unknown error - will be retried by fetchWithRetry
+            // Network or unknown error - already retried by fetchWithRetry
             // Continue polling after a delay
             setTimeout(() => pollForResults(sessionId, attempt + 1), retryDelay);
         }
     } catch (error) {
-        // Network error - continue polling with retry feedback
-        console.log('Error polling for results, will retry:', error.message);
+        // Unexpected error - continue polling after delay
+        console.error('Unexpected error polling for results:', error.message);
         setTimeout(() => pollForResults(sessionId, attempt + 1), retryDelay);
     }
 }
@@ -1074,7 +1084,7 @@ async function loadAnalytics() {
             statusContainerId: 'analytics-content',
             showManualRetry: true,
             errorContext: 'Load analytics',
-            onRetry: async (attempt, delay, error) => {
+            onRetry: (attempt, delay, error) => {
                 // Custom retry feedback for analytics
                 const seconds = Math.floor(delay / 1000);
                 analyticsContent.innerHTML = `
