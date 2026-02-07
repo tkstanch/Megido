@@ -518,7 +518,7 @@ class SensitiveInfoDeduplicationTests(TestCase):
 class CrossURLDeduplicationTests(TestCase):
     """Tests for cross-URL deduplication in scan_discovered_urls function."""
     
-    def test_scan_discovered_urls_deduplicates_same_url_multiple_times(self):
+    def test_deduplicates_findings_across_duplicate_urls(self):
         """Test that scanning the same URL multiple times deduplicates findings."""
         from discover.sensitive_scanner import scan_discovered_urls
         from unittest.mock import patch, MagicMock
@@ -584,7 +584,7 @@ class CrossURLDeduplicationTests(TestCase):
             self.assertIn('support@help.opensea.io', email_values)
             self.assertIn('your@email.com', email_values)
     
-    def test_scan_discovered_urls_case_insensitive_deduplication(self):
+    def test_deduplicates_case_insensitive_findings(self):
         """Test that deduplication is case-insensitive across URLs."""
         from discover.sensitive_scanner import scan_discovered_urls
         from unittest.mock import patch
@@ -626,7 +626,7 @@ class CrossURLDeduplicationTests(TestCase):
             self.assertEqual(result['total_findings'], 1, "Case variations should be deduplicated")
             self.assertEqual(len(result['all_findings']), 1)
     
-    def test_scan_discovered_urls_different_urls_reported_separately(self):
+    def test_preserves_same_value_across_different_urls(self):
         """Test that same value from different URLs are reported separately."""
         from discover.sensitive_scanner import scan_discovered_urls
         from unittest.mock import patch
@@ -673,8 +673,8 @@ class CrossURLDeduplicationTests(TestCase):
             self.assertIn('https://example.com/', urls)
             self.assertIn('https://another.com/', urls)
     
-    def test_scan_discovered_urls_multiple_finding_types(self):
-        """Test deduplication works across multiple finding types."""
+    def test_deduplicates_across_multiple_finding_types(self):
+        """Test deduplication works independently for different finding types."""
         from discover.sensitive_scanner import scan_discovered_urls
         from unittest.mock import patch
         
