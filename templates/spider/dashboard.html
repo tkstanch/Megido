@@ -403,6 +403,204 @@ function getCsrfTokenFromCookies(tokenName) {
     return null;
 }
 
+// Global retry state management
+let retryState = {
+    isRetrying: false,
+    currentAttempt: 0,
+    countdownInterval: null,
+    abortController: null
+};
+
+// Retry UI feedback helper
+function showRetryFeedback(containerId, attempt, delay, error, showManualRetry = true) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const seconds = Math.floor(delay / 1000);
+    let countdown = seconds;
+    
+    // Clear any existing countdown interval
+    if (retryState.countdownInterval) {
+        clearInterval(retryState.countdownInterval);
+    }
+    
+    const updateCountdown = () => {
+        const retryButton = showManualRetry ? 
+            `<button onclick="retryNow('${containerId}')" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+                🔄 Retry Now
+            </button>` : '';
+        
+        container.innerHTML = `
+            <div class="info" style="background: #fff3cd; border-color: #ffc107; color: #856404;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="spinner"></span>
+                    <div style="flex: 1;">
+                        <strong>⚠️ Connection Issue</strong><br>
+                        <div style="margin-top: 5px;">
+                            Attempt #${attempt} - Retrying in ${countdown}s...<br>
+                            <small style="opacity: 0.8;">Last error: ${error}</small>
+                        </div>
+                    </div>
+                </div>
+                ${retryButton}
+            </div>
+        `;
+        
+        if (countdown > 0) {
+            countdown--;
+        } else {
+            clearInterval(retryState.countdownInterval);
+        }
+    };
+    
+    updateCountdown();
+    retryState.countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+// Show connection success feedback
+function showConnectionSuccess(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    if (retryState.countdownInterval) {
+        clearInterval(retryState.countdownInterval);
+    }
+    
+    container.innerHTML = `
+        <div class="info" style="background: #d4edda; border-color: #c3e6cb; color: #155724;">
+            <strong>✅ Connected to server</strong>
+        </div>
+    `;
+    
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+        if (container.innerHTML.includes('Connected to server')) {
+            container.innerHTML = '';
+        }
+    }, 3000);
+}
+
+// Manual retry trigger
+function retryNow(containerId) {
+    if (retryState.abortController) {
+        retryState.abortController.abort();
+        retryState.abortController = null;
+    }
+    
+    const container = document.getElementById(containerId);
+    if (container) {
+        container.innerHTML = `
+            <div class="info">
+                <span class="spinner"></span> Attempting to reconnect...
+            </div>
+        `;
+    }
+}
+
+// Enhanced fetchWithRetry helper function
+async function fetchWithRetry(url, options = {}, retryConfig = {}) {
+    const {
+        maxRetries = Infinity,
+        initialDelay = 1000,
+        maxDelay = 30000,
+        retryableStatuses = [503, 504],
+        onRetry = null,
+        statusContainerId = 'spider-status',
+        showManualRetry = true,
+        errorContext = 'request'
+    } = retryConfig;
+    
+    let attempt = 0;
+    retryState.isRetrying = false;
+    
+    while (attempt < maxRetries) {
+        try {
+            // Create new abort controller for this attempt
+            retryState.abortController = new AbortController();
+            const fetchOptions = {
+                ...options,
+                signal: retryState.abortController.signal
+            };
+            
+            const response = await fetch(url, fetchOptions);
+            
+            // Success
+            if (response.ok) {
+                retryState.isRetrying = false;
+                retryState.currentAttempt = 0;
+                if (retryState.countdownInterval) {
+                    clearInterval(retryState.countdownInterval);
+                }
+                return response;
+            }
+            
+            // Determine if error is retryable
+            const isNetworkError = response.status === 0;
+            const isRetryableStatus = retryableStatuses.includes(response.status);
+            const isServerError = response.status >= 500 && response.status < 600;
+            
+            // Non-retryable client errors (4xx except 429)
+            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                // Don't retry client errors
+                return response;
+            }
+            
+            // Server errors - limited retry (5 attempts)
+            if (isServerError && !isRetryableStatus) {
+                if (attempt >= 5) {
+                    return response;
+                }
+            }
+            
+            // If we reach here, it's a retryable error
+            if (isNetworkError || isRetryableStatus || isServerError) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Other status codes, return response
+            return response;
+            
+        } catch (error) {
+            // Check if request was manually aborted for retry
+            if (error.name === 'AbortError') {
+                attempt = 0; // Reset attempt counter for manual retry
+                continue;
+            }
+            
+            attempt++;
+            retryState.currentAttempt = attempt;
+            retryState.isRetrying = true;
+            
+            // Calculate backoff delay: exponential with cap
+            const delay = Math.min(
+                initialDelay * Math.pow(2, attempt - 1),
+                maxDelay
+            );
+            
+            // Determine error message
+            let errorMsg = error.message;
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMsg = 'NetworkError - Server may be unavailable';
+            }
+            
+            // Notify about retry
+            if (onRetry) {
+                await onRetry(attempt, delay, errorMsg);
+            } else {
+                // Default UI feedback
+                showRetryFeedback(statusContainerId, attempt, delay, errorMsg, showManualRetry);
+            }
+            
+            if (attempt >= maxRetries) {
+                throw new Error(`${errorContext} failed after ${attempt} attempts: ${errorMsg}`);
+            }
+            
+            // Wait before retry with countdown
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 async function startSpider() {
     const url = document.getElementById('target-url').value;
     const name = document.getElementById('target-name').value;
@@ -434,8 +632,8 @@ async function startSpider() {
     const csrfToken = getCsrfTokenFromCookies('csrftoken');
     
     try {
-        // Create target
-        const targetResponse = await fetch('/spider/api/targets/', {
+        // Create target with retry
+        const targetResponse = await fetchWithRetry('/spider/api/targets/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -458,6 +656,9 @@ async function startSpider() {
                 request_timeout: requestTimeout,
                 max_retries: maxRetries
             })
+        }, {
+            statusContainerId: 'spider-status',
+            errorContext: 'Create target'
         });
         
         // Check response status before parsing JSON
@@ -468,6 +669,9 @@ async function startSpider() {
         
         const target = await targetResponse.json();
         
+        // Show connection success
+        showConnectionSuccess('spider-status');
+        
         document.getElementById('spider-status').innerHTML = `
             <div class="info">
                 <strong>⏳ Spider running...</strong><br>
@@ -475,13 +679,16 @@ async function startSpider() {
             </div>
         `;
         
-        // Start spider
-        const spiderResponse = await fetch(`/spider/api/targets/${target.id}/spider/`, {
+        // Start spider with retry
+        const spiderResponse = await fetchWithRetry(`/spider/api/targets/${target.id}/spider/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin'
+        }, {
+            statusContainerId: 'spider-status',
+            errorContext: 'Start spider'
         });
         
         // Check response status before parsing JSON
@@ -514,7 +721,13 @@ async function startSpider() {
 
 async function checkSessionStatus(sessionId) {
     try {
-        const response = await fetch(`/spider/api/sessions/${sessionId}/results/`);
+        const response = await fetchWithRetry(`/spider/api/sessions/${sessionId}/results/`, {}, {
+            maxRetries: 3, // Limited retries for status checks
+            statusContainerId: 'spider-status',
+            showManualRetry: false,
+            errorContext: 'Check session status'
+        });
+        
         if (!response.ok) {
             return { status: 'unknown', error: `HTTP ${response.status}` };
         }
@@ -525,8 +738,8 @@ async function checkSessionStatus(sessionId) {
     }
 }
 
-async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
-    // Poll every 3 seconds for up to 60 attempts (total: 180 seconds = 3 minutes)
+async function pollForResults(sessionId, attempt = 0) {
+    // Poll every 3 seconds indefinitely until spider completes
     const retryDelay = 3000;
     const startBtn = document.getElementById('start-btn');
     
@@ -541,20 +754,11 @@ async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
             document.getElementById('spider-status').innerHTML = `
                 <div class="info">
                     <strong>⏳ Spider running...</strong><br>
-                    Checking progress (${attempt + 1}/${maxAttempts})...
+                    Checking progress (attempt ${attempt + 1})...
                 </div>
             `;
             
-            if (attempt < maxAttempts) {
-                setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
-            } else {
-                document.getElementById('spider-status').innerHTML = `
-                    <div class="info" style="background: #fff3cd; border-color: #ffc107; color: #856404;">
-                        <strong>⚠️ Spider taking longer than expected</strong><br>
-                        The spider is still running. <a href="#" onclick="pollForResults('${sessionId}', 0, ${maxAttempts}); return false;">Click to refresh</a>
-                    </div>
-                `;
-            }
+            setTimeout(() => pollForResults(sessionId, attempt + 1), retryDelay);
         } else if (statusCheck.status === 'failed') {
             document.getElementById('spider-status').innerHTML = `
                 <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
@@ -564,43 +768,23 @@ async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
             startBtn.disabled = false;
             startBtn.innerHTML = '🕷️ Start Spider';
         } else {
-            // Network or unknown error
-            throw new Error(statusCheck.error || 'Unknown error checking status');
+            // Network or unknown error - will be retried by fetchWithRetry
+            // Continue polling after a delay
+            setTimeout(() => pollForResults(sessionId, attempt + 1), retryDelay);
         }
     } catch (error) {
-        // Network error or other failure - retry up to 3 times before giving up
-        // Note: Network retries are separate from polling attempts
-        if (attempt < maxAttempts) {
-            const networkRetryCount = attempt % 3;
-            if (networkRetryCount < 2) {
-                // Still have network retries available
-                document.getElementById('spider-status').innerHTML = `
-                    <div class="info">
-                        <strong>⏳ Retrying connection...</strong><br>
-                        Network retry ${networkRetryCount + 1} of 3
-                    </div>
-                `;
-                setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
-                return;
-            }
-        }
-        
-        // Max retries exceeded or max attempts reached
-        document.getElementById('spider-status').innerHTML = `
-            <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
-                <strong>❌ Network Error:</strong> Unable to connect to server.<br>
-                Error: ${error.message}<br>
-                <a href="#" onclick="pollForResults('${sessionId}', 0, ${maxAttempts}); return false;">Click to retry</a>
-            </div>
-        `;
-        startBtn.disabled = false;
-        startBtn.innerHTML = '🕷️ Start Spider';
+        // Network error - continue polling with retry feedback
+        console.log('Error polling for results, will retry:', error.message);
+        setTimeout(() => pollForResults(sessionId, attempt + 1), retryDelay);
     }
 }
 
 async function loadResults(sessionId) {
     try {
-        const response = await fetch(`/spider/api/sessions/${sessionId}/results/`);
+        const response = await fetchWithRetry(`/spider/api/sessions/${sessionId}/results/`, {}, {
+            statusContainerId: 'spider-status',
+            errorContext: 'Load results'
+        });
         
         // Check response status before parsing JSON
         if (!response.ok) {
@@ -879,12 +1063,36 @@ async function loadAnalytics() {
         // Extract CSRF token for authenticated requests
         const csrfToken = getCsrfTokenFromCookies('csrftoken');
         
-        const response = await fetch('/spider/api/analytics/', {
+        const response = await fetchWithRetry('/spider/api/analytics/', {
             method: 'GET',
             headers: {
                 'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin'
+        }, {
+            maxRetries: 5, // Limited retries for analytics - don't block forever
+            statusContainerId: 'analytics-content',
+            showManualRetry: true,
+            errorContext: 'Load analytics',
+            onRetry: async (attempt, delay, error) => {
+                // Custom retry feedback for analytics
+                const seconds = Math.floor(delay / 1000);
+                analyticsContent.innerHTML = `
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; color: #856404; text-align: center;">
+                        <div style="margin-bottom: 10px;">
+                            <span class="spinner"></span>
+                        </div>
+                        <strong>⚠️ Connecting to server...</strong><br>
+                        <div style="margin-top: 5px;">
+                            Retry attempt #${attempt} - Next retry in ${seconds}s<br>
+                            <small style="opacity: 0.8;">${error}</small>
+                        </div>
+                        <button onclick="loadAnalytics()" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+                            🔄 Retry Now
+                        </button>
+                    </div>
+                `;
+            }
         });
         
         if (!response.ok) {
@@ -1010,9 +1218,17 @@ async function loadAnalytics() {
         
     } catch (error) {
         console.error('Error loading analytics:', error);
+        // Graceful degradation - show error but don't block other operations
         analyticsContent.innerHTML = `
-            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 15px; color: #721c24;">
-                <strong>❌ Error loading analytics:</strong> ${error.message}
+            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; color: #856404;">
+                <strong>⚠️ Analytics unavailable</strong><br>
+                <div style="margin-top: 5px;">
+                    ${error.message}<br>
+                    <small>Spider operations are still available below.</small>
+                </div>
+                <button onclick="loadAnalytics()" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+                    🔄 Try Again
+                </button>
             </div>
         `;
     }
