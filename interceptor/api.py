@@ -115,8 +115,10 @@ def get_active_payload_rules(request):
         
         # Filter by source_app if provided
         if source_app:
+            # Check if source_app is in the target_apps JSONField list
+            # Empty target_apps list means applies to all apps
             rules = rules.filter(
-                models.Q(target_apps__contains=[source_app]) |
+                models.Q(target_apps__contains=source_app) |
                 models.Q(target_apps=[])  # Empty list means applies to all
             )
         

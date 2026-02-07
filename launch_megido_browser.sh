@@ -37,6 +37,8 @@ pip install -q -r requirements.txt
 # Run migrations
 echo ""
 echo "🗄️  Running database migrations..."
+# Use SQLite for simplicity in development/testing environments
+# This can be overridden by setting USE_SQLITE=false before running this script
 export USE_SQLITE=true
 python3 manage.py migrate --noinput
 

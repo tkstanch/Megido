@@ -222,7 +222,15 @@ class MegidoInterceptor:
                     params = parse_qs(parsed.query)
                     params[injection_point] = [payload_content]
                     new_query = urlencode(params, doseq=True)
-                    flow.request.url = urlunparse(parsed._replace(query=new_query))
+                    # Reconstruct URL with new query string
+                    flow.request.url = urlunparse((
+                        parsed.scheme,
+                        parsed.netloc,
+                        parsed.path,
+                        parsed.params,
+                        new_query,
+                        parsed.fragment
+                    ))
                     ctx.log.info(f"Applied rule '{rule['name']}': Added parameter {injection_point}")
                 
                 elif injection_type == 'cookie':

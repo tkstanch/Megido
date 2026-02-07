@@ -236,11 +236,14 @@ class MegidoBrowser(QMainWindow):
                 'http': self.proxy_url,
                 'https': self.proxy_url
             }
+            # Note: SSL verification is disabled here for testing with self-signed mitmproxy certs
+            # This is acceptable for local development but should NOT be used in production
+            # without proper certificate validation
             response = requests.get(
                 "http://mitm.it",  # mitmproxy cert page
                 proxies=proxies,
                 timeout=2,
-                verify=False
+                verify=False  # Disable SSL verification for mitmproxy self-signed cert
             )
             return True
         except Exception:
