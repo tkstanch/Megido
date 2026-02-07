@@ -171,6 +171,105 @@ button:disabled {
 .tab-content.active {
     display: block;
 }
+/* Parameter Filter Styles */
+.filter-bar {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 10px;
+    z-index: 10;
+}
+.filter-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.filter-input, .filter-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95em;
+    transition: border-color 0.2s;
+}
+.filter-input:focus, .filter-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+.filter-input {
+    flex: 1;
+    min-width: 200px;
+}
+.filter-select {
+    min-width: 150px;
+}
+.filter-checkbox-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.filter-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.filter-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+.clear-filters-btn {
+    background: #6c757d;
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+.clear-filters-btn:hover {
+    background: #5a6268;
+}
+.results-counter {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}
+.highlight {
+    background-color: #fff3cd;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-weight: bold;
+}
+.no-results-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 1.1em;
+}
+.parameter-item {
+    transition: opacity 0.2s;
+}
+.parameter-item.filtered-out {
+    display: none;
+}
+@media (max-width: 768px) {
+    .filter-row {
+        flex-direction: column;
+    }
+    .filter-input, .filter-select {
+        width: 100%;
+    }
+    .filter-bar {
+        position: relative;
+        top: 0;
+    }
+}
 {% endblock %}
 
 {% block content %}
@@ -626,27 +725,102 @@ async function loadResults(sessionId) {
             
             <div id="tab-parameters" class="tab-content">
                 <div class="result-section">
-                    <h4>🔑 Discovered Hidden Parameters (${data.discovered_parameters ? data.discovered_parameters.length : 0})</h4>
-                    ${!data.discovered_parameters || data.discovered_parameters.length === 0 ? '<p>No hidden parameters discovered.</p>' :
-                        data.discovered_parameters.map(param => `
-                            <div class="content-item risk-${param.risk_level}">
-                                <span class="badge badge-${param.http_method === 'GET' ? 'crawl' : 'brute_force'}">${param.http_method}</span>
-                                <strong>${param.risk_level.toUpperCase()}</strong> - ${param.parameter_type}
-                                <div style="margin-top: 8px;">
-                                    <strong>Parameter:</strong> ${param.parameter_name}=${param.parameter_value}
-                                </div>
-                                <div style="margin-top: 5px;">
-                                    <strong>URL:</strong> ${param.target_url}
-                                </div>
-                                ${param.reveals_debug_info ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Debug Information</div>' : ''}
-                                ${param.reveals_source_code ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Source Code</div>' : ''}
-                                ${param.reveals_hidden_content ? '<div style="margin-top: 5px; color: #ffc107;">📂 Reveals Hidden Content</div>' : ''}
+                    <h4>🔑 Discovered Hidden Parameters (<span id="param-total-count">${data.discovered_parameters ? data.discovered_parameters.length : 0}</span>)</h4>
+                    ${!data.discovered_parameters || data.discovered_parameters.length === 0 ? '<p>No hidden parameters discovered.</p>' : `
+                        <div class="filter-bar">
+                            <div class="filter-row">
+                                <input type="text" id="param-search" class="filter-input" placeholder="🔍 Search by parameter name, value, or URL..." title="Search for parameters">
+                                <select id="param-risk-filter" class="filter-select" title="Filter by risk level">
+                                    <option value="all">All Risk Levels</option>
+                                    <option value="critical">Critical</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                    <option value="info">Info</option>
+                                </select>
+                                <select id="param-type-filter" class="filter-select" title="Filter by parameter type">
+                                    <option value="all">All Types</option>
+                                    <option value="debug">Debug</option>
+                                    <option value="test">Test</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="developer">Developer</option>
+                                    <option value="feature_flag">Feature Flag</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <select id="param-method-filter" class="filter-select" title="Filter by HTTP method">
+                                    <option value="all">All Methods</option>
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                </select>
                             </div>
-                        `).join('')
-                    }
+                            <div class="filter-row">
+                                <div class="filter-checkbox-group">
+                                    <label class="filter-checkbox-label" title="Show only parameters that reveal debug information">
+                                        <input type="checkbox" id="param-reveals-debug">
+                                        <span>Shows Debug Info</span>
+                                    </label>
+                                    <label class="filter-checkbox-label" title="Show only parameters that reveal source code">
+                                        <input type="checkbox" id="param-reveals-source">
+                                        <span>Shows Source Code</span>
+                                    </label>
+                                    <label class="filter-checkbox-label" title="Show only parameters that reveal hidden content">
+                                        <input type="checkbox" id="param-reveals-hidden">
+                                        <span>Shows Hidden Content</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="filter-row">
+                                <select id="param-sort" class="filter-select" title="Sort parameters">
+                                    <option value="risk-desc">Risk Level (High to Low)</option>
+                                    <option value="risk-asc">Risk Level (Low to High)</option>
+                                    <option value="name-asc">Name (A-Z)</option>
+                                    <option value="name-desc">Name (Z-A)</option>
+                                </select>
+                                <button onclick="clearParameterFilters()" class="clear-filters-btn">Clear All Filters</button>
+                            </div>
+                            <div class="results-counter" id="param-results-counter">
+                                Showing ${data.discovered_parameters.length} of ${data.discovered_parameters.length} parameters
+                            </div>
+                        </div>
+                        <div id="parameters-container">
+                            ${data.discovered_parameters.map((param, index) => `
+                                <div class="content-item parameter-item risk-${param.risk_level}" 
+                                     data-index="${index}"
+                                     data-risk="${param.risk_level}"
+                                     data-type="${param.parameter_type}"
+                                     data-method="${param.http_method}"
+                                     data-reveals-debug="${param.reveals_debug_info || false}"
+                                     data-reveals-source="${param.reveals_source_code || false}"
+                                     data-reveals-hidden="${param.reveals_hidden_content || false}"
+                                     data-name="${param.parameter_name.toLowerCase()}"
+                                     data-value="${param.parameter_value.toLowerCase()}"
+                                     data-url="${param.target_url.toLowerCase()}">
+                                    <span class="badge badge-${param.http_method === 'GET' ? 'crawl' : 'brute_force'}">${param.http_method}</span>
+                                    <strong>${param.risk_level.toUpperCase()}</strong> - ${param.parameter_type}
+                                    <div style="margin-top: 8px;">
+                                        <strong>Parameter:</strong> <span class="param-name-value">${param.parameter_name}=${param.parameter_value}</span>
+                                    </div>
+                                    <div style="margin-top: 5px;">
+                                        <strong>URL:</strong> <span class="param-url">${param.target_url}</span>
+                                    </div>
+                                    ${param.reveals_debug_info ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Debug Information</div>' : ''}
+                                    ${param.reveals_source_code ? '<div style="margin-top: 5px; color: #dc3545;">⚠️ Reveals Source Code</div>' : ''}
+                                    ${param.reveals_hidden_content ? '<div style="margin-top: 5px; color: #ffc107;">📂 Reveals Hidden Content</div>' : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div id="no-params-message" class="no-results-message" style="display: none;">
+                            🔍 No parameters match your filters. Try adjusting your search criteria.
+                        </div>
+                    `}
                 </div>
             </div>
         `;
+        
+        // Set up parameter filters after loading results
+        setTimeout(() => {
+            setupParameterFilters();
+        }, 100);
         
     } catch (error) {
         console.error('Error loading results:', error);
@@ -849,7 +1023,214 @@ async function loadAnalytics() {
 // Auto-load analytics when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadAnalytics();
+    
+    // Set up event listeners for parameter filters when results are loaded
+    setTimeout(() => {
+        setupParameterFilters();
+    }, 1000);
 });
+
+// Parameter Filtering Functions
+function setupParameterFilters() {
+    const searchInput = document.getElementById('param-search');
+    const riskFilter = document.getElementById('param-risk-filter');
+    const typeFilter = document.getElementById('param-type-filter');
+    const methodFilter = document.getElementById('param-method-filter');
+    const revealsDebug = document.getElementById('param-reveals-debug');
+    const revealsSource = document.getElementById('param-reveals-source');
+    const revealsHidden = document.getElementById('param-reveals-hidden');
+    const sortSelect = document.getElementById('param-sort');
+    
+    // Add event listeners if elements exist
+    if (searchInput) {
+        searchInput.addEventListener('input', filterParameters);
+        riskFilter.addEventListener('change', filterParameters);
+        typeFilter.addEventListener('change', filterParameters);
+        methodFilter.addEventListener('change', filterParameters);
+        revealsDebug.addEventListener('change', filterParameters);
+        revealsSource.addEventListener('change', filterParameters);
+        revealsHidden.addEventListener('change', filterParameters);
+        sortSelect.addEventListener('change', filterParameters);
+    }
+}
+
+function filterParameters() {
+    const searchTerm = document.getElementById('param-search')?.value.toLowerCase() || '';
+    const riskLevel = document.getElementById('param-risk-filter')?.value || 'all';
+    const paramType = document.getElementById('param-type-filter')?.value || 'all';
+    const httpMethod = document.getElementById('param-method-filter')?.value || 'all';
+    const revealsDebug = document.getElementById('param-reveals-debug')?.checked || false;
+    const revealsSource = document.getElementById('param-reveals-source')?.checked || false;
+    const revealsHidden = document.getElementById('param-reveals-hidden')?.checked || false;
+    const sortBy = document.getElementById('param-sort')?.value || 'risk-desc';
+    
+    const container = document.getElementById('parameters-container');
+    if (!container) return;
+    
+    const items = Array.from(container.querySelectorAll('.parameter-item'));
+    let visibleCount = 0;
+    const totalCount = items.length;
+    
+    // Filter items
+    items.forEach(item => {
+        let visible = true;
+        
+        // Search filter
+        if (searchTerm) {
+            const name = item.dataset.name || '';
+            const value = item.dataset.value || '';
+            const url = item.dataset.url || '';
+            const searchableText = `${name} ${value} ${url}`;
+            visible = visible && searchableText.includes(searchTerm);
+        }
+        
+        // Risk level filter
+        if (riskLevel !== 'all') {
+            visible = visible && item.dataset.risk === riskLevel;
+        }
+        
+        // Parameter type filter
+        if (paramType !== 'all') {
+            visible = visible && item.dataset.type === paramType;
+        }
+        
+        // HTTP method filter
+        if (httpMethod !== 'all') {
+            visible = visible && item.dataset.method === httpMethod;
+        }
+        
+        // Reveals filters (only apply if checked)
+        if (revealsDebug) {
+            visible = visible && item.dataset.revealsDebug === 'true';
+        }
+        if (revealsSource) {
+            visible = visible && item.dataset.revealsSource === 'true';
+        }
+        if (revealsHidden) {
+            visible = visible && item.dataset.revealsHidden === 'true';
+        }
+        
+        if (visible) {
+            item.classList.remove('filtered-out');
+            visibleCount++;
+            
+            // Highlight search terms
+            if (searchTerm) {
+                highlightSearchTerms(item, searchTerm);
+            } else {
+                removeHighlights(item);
+            }
+        } else {
+            item.classList.add('filtered-out');
+        }
+    });
+    
+    // Apply sorting
+    sortParameters(items, sortBy, container);
+    
+    // Update counter
+    updateParameterCounter(visibleCount, totalCount);
+    
+    // Show/hide no results message
+    const noResultsMsg = document.getElementById('no-params-message');
+    if (noResultsMsg) {
+        noResultsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+}
+
+function sortParameters(items, sortBy, container) {
+    const riskOrder = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+    
+    items.sort((a, b) => {
+        switch(sortBy) {
+            case 'risk-desc':
+                return (riskOrder[b.dataset.risk] || 0) - (riskOrder[a.dataset.risk] || 0);
+            case 'risk-asc':
+                return (riskOrder[a.dataset.risk] || 0) - (riskOrder[b.dataset.risk] || 0);
+            case 'name-asc':
+                return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+            case 'name-desc':
+                return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+            default:
+                return 0;
+        }
+    });
+    
+    // Reorder items in the DOM
+    items.forEach(item => container.appendChild(item));
+}
+
+function highlightSearchTerms(item, searchTerm) {
+    const nameValueSpan = item.querySelector('.param-name-value');
+    const urlSpan = item.querySelector('.param-url');
+    
+    if (nameValueSpan && !nameValueSpan.dataset.original) {
+        nameValueSpan.dataset.original = nameValueSpan.textContent;
+    }
+    if (urlSpan && !urlSpan.dataset.original) {
+        urlSpan.dataset.original = urlSpan.textContent;
+    }
+    
+    if (nameValueSpan && nameValueSpan.dataset.original) {
+        nameValueSpan.innerHTML = highlightText(nameValueSpan.dataset.original, searchTerm);
+    }
+    if (urlSpan && urlSpan.dataset.original) {
+        urlSpan.innerHTML = highlightText(urlSpan.dataset.original, searchTerm);
+    }
+}
+
+function removeHighlights(item) {
+    const nameValueSpan = item.querySelector('.param-name-value');
+    const urlSpan = item.querySelector('.param-url');
+    
+    if (nameValueSpan && nameValueSpan.dataset.original) {
+        nameValueSpan.textContent = nameValueSpan.dataset.original;
+    }
+    if (urlSpan && urlSpan.dataset.original) {
+        urlSpan.textContent = urlSpan.dataset.original;
+    }
+}
+
+function highlightText(text, searchTerm) {
+    if (!searchTerm) return text;
+    const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+}
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function updateParameterCounter(visible, total) {
+    const counter = document.getElementById('param-results-counter');
+    if (counter) {
+        counter.textContent = `Showing ${visible} of ${total} parameters`;
+    }
+}
+
+function clearParameterFilters() {
+    // Reset all filters
+    const searchInput = document.getElementById('param-search');
+    const riskFilter = document.getElementById('param-risk-filter');
+    const typeFilter = document.getElementById('param-type-filter');
+    const methodFilter = document.getElementById('param-method-filter');
+    const revealsDebug = document.getElementById('param-reveals-debug');
+    const revealsSource = document.getElementById('param-reveals-source');
+    const revealsHidden = document.getElementById('param-reveals-hidden');
+    const sortSelect = document.getElementById('param-sort');
+    
+    if (searchInput) searchInput.value = '';
+    if (riskFilter) riskFilter.value = 'all';
+    if (typeFilter) typeFilter.value = 'all';
+    if (methodFilter) methodFilter.value = 'all';
+    if (revealsDebug) revealsDebug.checked = false;
+    if (revealsSource) revealsSource.checked = false;
+    if (revealsHidden) revealsHidden.checked = false;
+    if (sortSelect) sortSelect.value = 'risk-desc';
+    
+    // Reapply filters (which will show all items)
+    filterParameters();
+}
 
 </script>
 {% endblock %}
