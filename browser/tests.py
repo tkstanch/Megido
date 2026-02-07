@@ -48,6 +48,33 @@ class BrowserViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Integrated Browser')
         self.assertContains(response, 'Available Apps')
+        # Check for new interceptor integration
+        self.assertContains(response, 'Interceptor')
+    
+    def test_interceptor_status_get(self):
+        """Test getting interceptor status from browser"""
+        response = self.client.get('/browser/api/interceptor-status/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('is_enabled', data)
+        self.assertIn('updated_at', data)
+    
+    def test_interceptor_status_toggle(self):
+        """Test toggling interceptor status from browser"""
+        # First get current status
+        response = self.client.get('/browser/api/interceptor-status/')
+        current_status = response.json()['is_enabled']
+        
+        # Toggle it
+        response = self.client.post(
+            '/browser/api/interceptor-status/',
+            {'is_enabled': not current_status},
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['is_enabled'], not current_status)
     
     def test_list_sessions_api(self):
         """Test that list sessions API works"""
