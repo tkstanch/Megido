@@ -58,3 +58,4 @@ htmlcov/
 # Temporary files
 /tmp/
 *.tmp
+*.log
