@@ -121,7 +121,7 @@ def check_port_available(host: str, port: int) -> bool:
         result = sock.connect_ex((host, port))
         sock.close()
         return result != 0
-    except:
+    except Exception:
         return False
 
 
@@ -140,7 +140,7 @@ def verify_django_server(url: str, timeout: int = 5) -> bool:
         import requests
         response = requests.get(url, timeout=timeout)
         return response.status_code in [200, 301, 302, 404]
-    except:
+    except Exception:
         return False
 
 
@@ -206,7 +206,9 @@ def create_directory(dir_path: Path) -> bool:
     try:
         dir_path.mkdir(parents=True, exist_ok=True)
         return True
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to create directory {dir_path}: {e}")
         return False
 
 

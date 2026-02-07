@@ -313,7 +313,7 @@ class CEFSetup:
                 response = requests.get(f"http://{host}:{port}/", timeout=2)
                 self.print_status("Django server is already running", "success")
                 return None  # Don't start a new one
-            except:
+            except Exception:
                 self.print_status(
                     f"Port {port} is in use by another application. Try a different port with --port",
                     "error"
@@ -414,8 +414,8 @@ class CEFSetup:
         # Check CEF files
         try:
             status['cef_files_exist'] = self.verify_cef_files()
-        except:
-            pass
+        except Exception as e:
+            self.logger.warning(f"Failed to verify CEF files: {e}")
         
         # Check Django
         try:
