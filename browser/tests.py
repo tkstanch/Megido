@@ -122,6 +122,21 @@ class BrowserViewsTest(TestCase):
             if cef_module is not None:
                 sys.modules['cefpython3'] = cef_module
     
+    def test_launch_cef_browser_invalid_url(self):
+        """Test CEF launch with invalid URL"""
+        # Mock cefpython3 import
+        with patch.dict('sys.modules', {'cefpython3': MagicMock()}):
+            response = self.client.post(
+                '/browser/api/launch-cef/',
+                {'django_url': 'javascript:alert(1)'},
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = response.json()
+            self.assertFalse(data['success'])
+            self.assertIn('Invalid Django URL', data['error'])
+    
     def test_list_sessions_api(self):
         """Test that list sessions API works"""
         response = self.client.get('/browser/api/sessions/')

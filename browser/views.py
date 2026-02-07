@@ -156,18 +156,30 @@ def browser_interceptor_status(request):
 @api_view(['POST'])
 def launch_cef_browser(request):
     """API endpoint to launch CEF desktop browser"""
+    # Check if CEF is installed first
     try:
-        # Check if CEF is installed
-        try:
-            import cefpython3
-        except ImportError:
-            return Response({
-                'success': False,
-                'error': 'CEF Python is not installed. Install with: pip install cefpython3'
-            }, status=400)
-        
+        import cefpython3
+    except (ImportError, Exception) as e:
+        # Handle both ImportError and the Python version exception that cefpython3 raises
+        error_msg = str(e)
+        if 'not installed' in error_msg.lower() or 'no module' in error_msg.lower():
+            error_msg = 'CEF Python is not installed. Install with: pip install cefpython3'
+        return Response({
+            'success': False,
+            'error': error_msg
+        }, status=400)
+    
+    try:
         # Get Django URL from request or use default
         django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
+        
+        # Validate django_url to prevent command injection
+        # Only allow URLs starting with http:// or https://
+        if not (django_url.startswith('http://') or django_url.startswith('https://')):
+            return Response({
+                'success': False,
+                'error': 'Invalid Django URL. Must start with http:// or https://'
+            }, status=400)
         
         # Path to desktop launcher
         base_dir = Path(__file__).parent.parent
