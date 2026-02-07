@@ -220,6 +220,7 @@ class SensitiveInfoScanner:
             List of findings with details
         """
         findings = []
+        seen_findings = set()  # Track unique findings
         
         for pattern_name, pattern in self.patterns.items():
             try:
@@ -229,6 +230,12 @@ class SensitiveInfoScanner:
                 for match in matches:
                     # Get the matched value
                     value = match.group(0)
+                    
+                    # Create a unique key for deduplication
+                    finding_key = (pattern_name, value.lower())
+                    if finding_key in seen_findings:
+                        continue  # Skip duplicate findings
+                    seen_findings.add(finding_key)
                     
                     # Extract context (50 chars before and after)
                     start = max(0, match.start() - 50)

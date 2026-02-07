@@ -406,3 +406,110 @@ class SensitiveInfoScannerTests(TestCase):
         credit_card_findings = [f for f in findings if f['type'] == 'Credit Card Number']
         self.assertEqual(len(credit_card_findings), 1)
         self.assertEqual(credit_card_findings[0]['value'], '4532015112830366')
+
+
+class SensitiveInfoDeduplicationTests(TestCase):
+    """Tests for sensitive information scanner deduplication feature."""
+    
+    def test_scan_content_deduplicates_exact_matches(self):
+        """Test that duplicate findings are filtered out."""
+        from discover.sensitive_scanner import SensitiveInfoScanner
+        
+        scanner = SensitiveInfoScanner()
+        
+        # Content with the same API key appearing 3 times
+        content = '''
+        API_KEY = "AKIAIOSFODNN7EXAMPLE"
+        backup_key = "AKIAIOSFODNN7EXAMPLE"
+        primary_key = "AKIAIOSFODNN7EXAMPLE"
+        '''
+        
+        findings = scanner.scan_content_for_sensitive_data(content, 'http://example.com')
+        
+        # Should only find one occurrence
+        aws_findings = [f for f in findings if f['type'] == 'AWS Access Key']
+        self.assertEqual(len(aws_findings), 1, "Duplicate findings should be deduplicated")
+        self.assertEqual(aws_findings[0]['value'], 'AKIAIOSFODNN7EXAMPLE')
+    
+    def test_scan_content_deduplication_is_case_insensitive(self):
+        """Test that deduplication is case-insensitive."""
+        from discover.sensitive_scanner import SensitiveInfoScanner
+        
+        scanner = SensitiveInfoScanner()
+        
+        # Content with same API key in different cases
+        content = '''
+        key1 = "AKIAIOSFODNN7EXAMPLE"
+        key2 = "akiaiosfodnn7example"
+        key3 = "AkIaIoSfOdNn7ExAmPlE"
+        '''
+        
+        findings = scanner.scan_content_for_sensitive_data(content, 'http://example.com')
+        
+        # Should only find one occurrence (case-insensitive deduplication)
+        aws_findings = [f for f in findings if f['type'] == 'AWS Access Key']
+        self.assertEqual(len(aws_findings), 1, "Case-insensitive deduplication should work")
+    
+    def test_scan_content_reports_different_values_separately(self):
+        """Test that different values are still reported separately."""
+        from discover.sensitive_scanner import SensitiveInfoScanner
+        
+        scanner = SensitiveInfoScanner()
+        
+        # Content with different API keys
+        content = '''
+        key1 = "AKIAIOSFODNN7EXAMPLE"
+        key2 = "AKIAIOSFODNN7DIFFERE"
+        key3 = "AKIAIOSFODNN7ANOTHER"
+        '''
+        
+        findings = scanner.scan_content_for_sensitive_data(content, 'http://example.com')
+        
+        # Should find all three different keys
+        aws_findings = [f for f in findings if f['type'] == 'AWS Access Key']
+        self.assertEqual(len(aws_findings), 3, "Different values should be reported separately")
+    
+    def test_scan_content_deduplicates_github_tokens(self):
+        """Test deduplication works for GitHub tokens."""
+        from discover.sensitive_scanner import SensitiveInfoScanner
+        
+        scanner = SensitiveInfoScanner()
+        
+        # Content with same GitHub token appearing multiple times
+        content = '''
+        token1 = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        token2 = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        token3 = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        token4 = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        token5 = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        '''
+        
+        findings = scanner.scan_content_for_sensitive_data(content, 'http://example.com')
+        
+        # Should only find one occurrence
+        github_findings = [f for f in findings if f['type'] == 'GitHub Personal Access Token']
+        self.assertEqual(len(github_findings), 1, "Duplicate GitHub tokens should be deduplicated")
+    
+    def test_scan_content_maintains_structure(self):
+        """Test that deduplication maintains the expected output structure."""
+        from discover.sensitive_scanner import SensitiveInfoScanner
+        
+        scanner = SensitiveInfoScanner()
+        
+        # Content with duplicate API key
+        content = 'key = "AKIAIOSFODNN7EXAMPLE" and backup = "AKIAIOSFODNN7EXAMPLE"'
+        
+        findings = scanner.scan_content_for_sensitive_data(content, 'http://example.com')
+        
+        # Should find one finding with correct structure
+        aws_findings = [f for f in findings if f['type'] == 'AWS Access Key']
+        self.assertEqual(len(aws_findings), 1)
+        
+        # Verify structure
+        finding = aws_findings[0]
+        self.assertIn('type', finding)
+        self.assertIn('value', finding)
+        self.assertIn('context', finding)
+        self.assertIn('position', finding)
+        self.assertIn('url', finding)
+        self.assertEqual(finding['url'], 'http://example.com')
