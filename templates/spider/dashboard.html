@@ -426,7 +426,7 @@ function showRetryFeedback(containerId, attempt, delay, error, showManualRetry =
     
     const updateCountdown = () => {
         const retryButton = showManualRetry ? 
-            `<button onclick="retryNow('${containerId}')" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+            `<button onclick="retryNow('${containerId}')" aria-label="Manually retry connection" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
                 🔄 Retry Now
             </button>` : '';
         
@@ -514,6 +514,17 @@ async function fetchWithRetry(url, options = {}, retryConfig = {}) {
     let attempt = 0;
     retryState.isRetrying = false;
     
+    // Handle edge case: maxRetries = 0 means no retries at all
+    if (maxRetries === 0) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) return response;
+            throw new Error(`${errorContext} failed: HTTP ${response.status}`);
+        } catch (error) {
+            throw new Error(`${errorContext} failed: ${error.message}`);
+        }
+    }
+    
     // Track if we should continue retrying
     const shouldContinueRetry = () => {
         return attempt < maxRetries && 
@@ -579,6 +590,7 @@ async function fetchWithRetry(url, options = {}, retryConfig = {}) {
             retryState.isRetrying = true;
             
             // Calculate backoff delay: exponential with cap
+            // First retry: 1s, second: 2s, third: 4s, etc.
             const delay = Math.min(
                 initialDelay * Math.pow(2, attempt - 1),
                 maxDelay
@@ -1085,7 +1097,7 @@ async function loadAnalytics() {
             showManualRetry: true,
             errorContext: 'Load analytics',
             onRetry: (attempt, delay, error) => {
-                // Custom retry feedback for analytics
+                // Custom retry feedback for analytics (centered, specific to analytics section)
                 const seconds = Math.floor(delay / 1000);
                 analyticsContent.innerHTML = `
                     <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; color: #856404; text-align: center;">
@@ -1097,7 +1109,7 @@ async function loadAnalytics() {
                             Retry attempt #${attempt} - Next retry in ${seconds}s<br>
                             <small style="opacity: 0.8;">${error}</small>
                         </div>
-                        <button onclick="loadAnalytics()" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+                        <button onclick="loadAnalytics()" aria-label="Retry loading analytics" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
                             🔄 Retry Now
                         </button>
                     </div>
@@ -1236,7 +1248,7 @@ async function loadAnalytics() {
                     ${error.message}<br>
                     <small>Spider operations are still available below.</small>
                 </div>
-                <button onclick="loadAnalytics()" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
+                <button onclick="loadAnalytics()" aria-label="Try loading analytics again" style="margin-top: 10px; padding: 8px 16px; font-size: 0.9em;">
                     🔄 Try Again
                 </button>
             </div>
