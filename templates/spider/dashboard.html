@@ -399,8 +399,8 @@ async function startSpider() {
         
         currentSessionId = session.id;
         
-        // Load results
-        setTimeout(() => loadResults(session.id), 2000);
+        // Start polling for results
+        pollForResults(session.id);
         
     } catch (error) {
         document.getElementById('spider-status').innerHTML = `
@@ -410,6 +410,85 @@ async function startSpider() {
         `;
         startBtn.disabled = false;
         startBtn.innerHTML = '🕷️ Start Spider';
+    }
+}
+
+async function checkSessionStatus(sessionId) {
+    try {
+        const response = await fetch(`/spider/api/sessions/${sessionId}/results/`);
+        if (!response.ok) {
+            return { status: 'unknown', error: `HTTP ${response.status}` };
+        }
+        const data = await response.json();
+        return { status: data.status, data: data };
+    } catch (error) {
+        return { status: 'error', error: error.message };
+    }
+}
+
+async function pollForResults(sessionId, attempt = 0, maxAttempts = 60) {
+    const retryDelay = 3000; // 3 seconds between checks
+    const startBtn = document.getElementById('start-btn');
+    
+    try {
+        const statusCheck = await checkSessionStatus(sessionId);
+        
+        if (statusCheck.status === 'completed') {
+            // Spider finished successfully
+            await loadResults(sessionId);
+        } else if (statusCheck.status === 'running') {
+            // Spider still running, continue polling
+            document.getElementById('spider-status').innerHTML = `
+                <div class="info">
+                    <strong>⏳ Spider running...</strong><br>
+                    Checking progress (${attempt + 1}/${maxAttempts})...
+                </div>
+            `;
+            
+            if (attempt < maxAttempts) {
+                setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
+            } else {
+                document.getElementById('spider-status').innerHTML = `
+                    <div class="info" style="background: #fff3cd; border-color: #ffc107; color: #856404;">
+                        <strong>⚠️ Spider taking longer than expected</strong><br>
+                        The spider is still running. <a href="#" onclick="pollForResults(${sessionId}); return false;">Click to refresh</a>
+                    </div>
+                `;
+            }
+        } else if (statusCheck.status === 'failed') {
+            document.getElementById('spider-status').innerHTML = `
+                <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
+                    <strong>❌ Spider failed:</strong> ${statusCheck.data.error_message || 'Unknown error'}
+                </div>
+            `;
+            startBtn.disabled = false;
+            startBtn.innerHTML = '🕷️ Start Spider';
+        } else {
+            // Network or unknown error
+            throw new Error(statusCheck.error || 'Unknown error checking status');
+        }
+    } catch (error) {
+        // Network error or other failure
+        if (attempt < 3) {
+            // Retry up to 3 times for network errors
+            document.getElementById('spider-status').innerHTML = `
+                <div class="info">
+                    <strong>⏳ Retrying connection...</strong><br>
+                    Attempt ${attempt + 1} of 3
+                </div>
+            `;
+            setTimeout(() => pollForResults(sessionId, attempt + 1, maxAttempts), retryDelay);
+        } else {
+            document.getElementById('spider-status').innerHTML = `
+                <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
+                    <strong>❌ Network Error:</strong> Unable to connect to server.<br>
+                    Error: ${error.message}<br>
+                    <a href="#" onclick="pollForResults(${sessionId}); return false;">Click to retry</a>
+                </div>
+            `;
+            startBtn.disabled = false;
+            startBtn.innerHTML = '🕷️ Start Spider';
+        }
     }
 }
 
@@ -564,9 +643,30 @@ async function loadResults(sessionId) {
         
     } catch (error) {
         console.error('Error loading results:', error);
+        
+        let errorMessage = 'Unknown error';
+        let errorType = 'Error';
+        
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            errorType = 'Network Error';
+            errorMessage = 'Unable to connect to the server. Check if Django is running.';
+        } else if (error.message.includes('500')) {
+            errorType = 'Server Error';
+            errorMessage = 'The server encountered an error processing your request.';
+        } else if (error.message.includes('404')) {
+            errorType = 'Not Found';
+            errorMessage = 'Spider session not found. It may have been deleted.';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        const startBtn = document.getElementById('start-btn');
+        startBtn.disabled = false;
+        startBtn.innerHTML = '🕷️ Start Spider';
+        
         document.getElementById('spider-status').innerHTML = `
             <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
-                <strong>Error loading results:</strong> ${error.message}
+                <strong>❌ ${errorType}:</strong> ${errorMessage}
             </div>
         `;
     }
