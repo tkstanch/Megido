@@ -75,6 +75,13 @@ def interceptor_status(request):
     
     elif request.method == 'POST':
         is_enabled = request.data.get('is_enabled', settings.is_enabled)
+        
+        # Validate boolean type
+        if not isinstance(is_enabled, bool):
+            return Response({
+                'error': 'is_enabled must be a boolean value'
+            }, status=400)
+        
         settings.is_enabled = is_enabled
         settings.save()
         return Response({
