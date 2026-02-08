@@ -154,21 +154,8 @@ def browser_interceptor_status(request):
 
 
 @api_view(['POST'])
-def launch_cef_browser(request):
-    """API endpoint to launch CEF desktop browser"""
-    # Check if CEF is installed first
-    try:
-        import cefpython3
-    except (ImportError, Exception) as e:
-        # Handle both ImportError and the Python version exception that cefpython3 raises
-        error_msg = str(e)
-        if 'not installed' in error_msg.lower() or 'no module' in error_msg.lower():
-            error_msg = 'CEF Python is not installed. Install with: pip install cefpython3'
-        return Response({
-            'success': False,
-            'error': error_msg
-        }, status=400)
-    
+def launch_pyqt_browser(request):
+    """API endpoint to launch PyQt6 desktop browser"""
     try:
         # Get Django URL from request or use default
         django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
@@ -181,19 +168,19 @@ def launch_cef_browser(request):
                 'error': 'Invalid Django URL. Must start with http:// or https://'
             }, status=400)
         
-        # Path to desktop launcher
+        # Path to PyQt6 launcher
         base_dir = Path(__file__).parent.parent
-        launcher_path = base_dir / 'browser' / 'desktop_launcher.py'
+        launcher_path = base_dir / 'launch_megido_browser.py'
         
         if not launcher_path.exists():
             return Response({
                 'success': False,
-                'error': 'Desktop launcher not found'
+                'error': 'Desktop browser launcher not found'
             }, status=500)
         
-        # Launch CEF browser in background (browser-only mode)
+        # Launch PyQt6 browser in background
         subprocess.Popen(
-            [sys.executable, str(launcher_path), '--mode', 'browser-only', '--django-url', django_url],
+            [sys.executable, str(launcher_path), '--django-url', django_url],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True  # Detach from parent process
@@ -201,7 +188,7 @@ def launch_cef_browser(request):
         
         return Response({
             'success': True,
-            'message': 'CEF browser launched successfully'
+            'message': 'Desktop browser launched successfully!'
         })
         
     except Exception as e:
