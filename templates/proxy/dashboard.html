@@ -62,7 +62,12 @@
 <script>
 async function loadRequests() {
     try {
-        const response = await fetch('/proxy/api/requests/');
+        const response = await MegidoErrorHandler.fetchWithRetry('/proxy/api/requests/', {
+            errorContext: 'Load proxy requests',
+            onRetry: (attempt, maxAttempts, delay) => {
+                document.getElementById('proxy-status').textContent = `Retrying (${attempt}/${maxAttempts})...`;
+            }
+        });
         const requests = await response.json();
         
         document.getElementById('total-requests').textContent = requests.length;
@@ -93,6 +98,12 @@ async function loadRequests() {
     } catch (error) {
         console.error('Error loading requests:', error);
         document.getElementById('proxy-status').textContent = 'Error';
+        
+        // Show user-facing error notification
+        MegidoErrorHandler.showErrorNotification(error, {
+            title: 'Failed to Load Proxy Requests',
+            retryCallback: loadRequests
+        });
     }
 }
 
