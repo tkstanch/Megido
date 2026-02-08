@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import re
 import os
+from .exploit_integration import exploit_all_vulnerabilities, exploit_selected_vulnerabilities
 
 
 @api_view(['GET', 'POST'])
@@ -152,16 +153,74 @@ def scan_results(request, scan_id):
             'vulnerabilities': [{
                 'id': vuln.id,
                 'type': vuln.get_vulnerability_type_display(),
+                'vulnerability_type': vuln.vulnerability_type,
                 'severity': vuln.severity,
                 'url': vuln.url,
                 'description': vuln.description,
                 'evidence': vuln.evidence,
                 'remediation': vuln.remediation,
+                'exploited': vuln.exploited,
+                'exploit_status': vuln.exploit_status,
+                'exploit_result': vuln.exploit_result,
             } for vuln in vulnerabilities]
         }
         return Response(data)
     except Scan.DoesNotExist:
         return Response({'error': 'Scan not found'}, status=404)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def exploit_vulnerabilities(request, scan_id):
+    """
+    Exploit vulnerabilities from a scan.
+    
+    Request body should contain:
+    - action: 'all' to exploit all vulnerabilities, 'selected' for specific ones
+    - vulnerability_ids: (optional) list of vulnerability IDs when action='selected'
+    """
+    try:
+        scan = Scan.objects.get(id=scan_id)
+    except Scan.DoesNotExist:
+        return Response({'error': 'Scan not found'}, status=404)
+    
+    action = request.data.get('action', 'all')
+    
+    # Configuration for exploit attempts
+    config = {
+        'timeout': 30,
+        'verify_ssl': False,
+        'enable_exploitation': True,
+    }
+    
+    if action == 'all':
+        # Exploit all vulnerabilities in the scan
+        results = exploit_all_vulnerabilities(scan_id, config)
+        return Response(results)
+    
+    elif action == 'selected':
+        # Exploit only selected vulnerabilities
+        vulnerability_ids = request.data.get('vulnerability_ids', [])
+        
+        if not vulnerability_ids:
+            return Response({'error': 'No vulnerability IDs provided'}, status=400)
+        
+        # Validate that all IDs belong to this scan
+        valid_ids = list(scan.vulnerabilities.filter(
+            id__in=vulnerability_ids
+        ).values_list('id', flat=True))
+        
+        if len(valid_ids) != len(vulnerability_ids):
+            return Response({
+                'error': 'Some vulnerability IDs do not belong to this scan'
+            }, status=400)
+        
+        results = exploit_selected_vulnerabilities(valid_ids, config)
+        return Response(results)
+    
+    else:
+        return Response({'error': 'Invalid action. Use "all" or "selected"'}, status=400)
 
 
 @login_required

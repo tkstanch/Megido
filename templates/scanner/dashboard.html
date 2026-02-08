@@ -22,6 +22,30 @@
 .severity-high { border-left: 5px solid #fd7e14; }
 .severity-medium { border-left: 5px solid #ffc107; }
 .severity-low { border-left: 5px solid #28a745; }
+.exploit-actions {
+    background: #e9ecef;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+.exploit-results {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+.exploit-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+.exploit-status-success { background: #28a745; color: white; }
+.exploit-status-failed { background: #dc3545; color: white; }
+.exploit-status-no_plugin { background: #6c757d; color: white; }
+.exploit-status-not_attempted { background: #e9ecef; color: #333; }
+.exploit-status-in_progress { background: #ffc107; color: #333; }
 input[type="text"] {
     width: 100%;
     padding: 10px;
@@ -37,9 +61,23 @@ button {
     border-radius: 5px;
     cursor: pointer;
     font-size: 1em;
+    margin-right: 10px;
 }
 button:hover {
     opacity: 0.9;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+}
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+.vuln-checkbox {
+    margin-right: 10px;
 }
 {% endblock %}
 
@@ -62,6 +100,8 @@ button:hover {
 
 <div id="scan-status" style="margin: 20px 0;"></div>
 
+<div id="exploit-actions-container"></div>
+
 <div class="scan-results" id="scan-results">
 </div>
 {% endblock %}
@@ -69,6 +109,7 @@ button:hover {
 {% block extra_script %}
 <script>
 let currentScanId = null;
+let currentVulnerabilities = [];
 
 // Helper function to safely display error messages
 function displayError(message) {
@@ -192,6 +233,7 @@ async function loadResults(scanId) {
         }
         
         const data = await response.json();
+        currentVulnerabilities = data.vulnerabilities;
         
         document.getElementById('scan-status').innerHTML = `
             <div class="info">
@@ -200,26 +242,236 @@ async function loadResults(scanId) {
             </div>
         `;
         
-        const resultsDiv = document.getElementById('scan-results');
-        if (data.vulnerabilities.length === 0) {
-            resultsDiv.innerHTML = '<div class="info"><p>No vulnerabilities found.</p></div>';
-            return;
+        // Show exploit actions if vulnerabilities found
+        if (data.vulnerabilities.length > 0) {
+            showExploitActions();
         }
         
-        resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + data.vulnerabilities.map(vuln => `
-            <div class="vulnerability severity-${sanitizeSeverity(vuln.severity)}">
-                <div><strong>${escapeHtml(vuln.type)}</strong> - <span style="color: ${getSeverityColor(vuln.severity)};">${escapeHtml(vuln.severity.toUpperCase())}</span></div>
-                <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
-                <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
-                ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${escapeHtml(vuln.evidence)}</div>` : ''}
-                ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${escapeHtml(vuln.remediation)}</div>` : ''}
-            </div>
-        `).join('');
+        displayVulnerabilities(data.vulnerabilities);
         
     } catch (error) {
         displayError(error.message);
         console.error('Error loading results:', error);
     }
+}
+
+function showExploitActions() {
+    const container = document.getElementById('exploit-actions-container');
+    container.innerHTML = `
+        <div class="exploit-actions">
+            <h3>Exploit Actions</h3>
+            <p>Choose how to proceed with discovered vulnerabilities:</p>
+            <button onclick="exploitAll()">Exploit All Compatible Vulnerabilities</button>
+            <button onclick="showSelectMode()" class="btn-secondary">Select Vulnerabilities to Exploit</button>
+            <button onclick="skipExploitation()" class="btn-danger">Skip Exploitation</button>
+        </div>
+    `;
+}
+
+function displayVulnerabilities(vulnerabilities) {
+    const resultsDiv = document.getElementById('scan-results');
+    
+    if (vulnerabilities.length === 0) {
+        resultsDiv.innerHTML = '<div class="info"><p>No vulnerabilities found.</p></div>';
+        return;
+    }
+    
+    resultsDiv.innerHTML = '<h3>Vulnerabilities Detected:</h3>' + vulnerabilities.map(vuln => `
+        <div class="vulnerability severity-${sanitizeSeverity(vuln.severity)}" id="vuln-${vuln.id}">
+            <div>
+                <input type="checkbox" class="vuln-checkbox" id="checkbox-${vuln.id}" value="${vuln.id}" style="display:none;">
+                <strong>${escapeHtml(vuln.type)}</strong> - 
+                <span style="color: ${getSeverityColor(vuln.severity)};">${escapeHtml(vuln.severity.toUpperCase())}</span>
+                ${vuln.exploit_status !== 'not_attempted' ? 
+                    `<span class="exploit-status exploit-status-${vuln.exploit_status}">${formatExploitStatus(vuln.exploit_status)}</span>` : ''}
+            </div>
+            <div style="margin-top: 10px;"><strong>URL:</strong> ${escapeHtml(vuln.url)}</div>
+            <div style="margin-top: 5px;"><strong>Description:</strong> ${escapeHtml(vuln.description)}</div>
+            ${vuln.evidence ? `<div style="margin-top: 5px;"><strong>Evidence:</strong> ${escapeHtml(vuln.evidence)}</div>` : ''}
+            ${vuln.remediation ? `<div style="margin-top: 5px;"><strong>Remediation:</strong> ${escapeHtml(vuln.remediation)}</div>` : ''}
+            ${vuln.exploit_result ? `<div class="exploit-results" style="margin-top: 10px;">
+                <strong>Exploit Results:</strong><br>
+                <pre style="white-space: pre-wrap; margin-top: 5px;">${escapeHtml(vuln.exploit_result)}</pre>
+            </div>` : ''}
+        </div>
+    `).join('');
+}
+
+function formatExploitStatus(status) {
+    const statusMap = {
+        'not_attempted': 'Not Attempted',
+        'in_progress': 'In Progress',
+        'success': 'Successfully Exploited',
+        'failed': 'Exploitation Failed',
+        'no_plugin': 'No Plugin Available'
+    };
+    return statusMap[status] || status;
+}
+
+async function exploitAll() {
+    if (!currentScanId) {
+        alert('No scan selected');
+        return;
+    }
+    
+    if (!confirm('This will attempt to exploit ALL discovered vulnerabilities. Continue?')) {
+        return;
+    }
+    
+    const csrfToken = getCsrfTokenFromCookies('csrftoken');
+    
+    try {
+        // Disable buttons during exploitation
+        disableExploitButtons();
+        
+        document.getElementById('scan-status').innerHTML = `
+            <div class="info" style="color: #007bff;">
+                <strong>Exploitation in progress...</strong> Please wait.
+            </div>
+        `;
+        
+        const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({action: 'all'})
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Exploitation failed: ${response.status} - ${errorText}`);
+        }
+        
+        const results = await response.json();
+        showExploitResults(results);
+        
+        // Reload vulnerabilities to show updated status
+        await loadResults(currentScanId);
+        
+    } catch (error) {
+        displayError(error.message);
+        enableExploitButtons();
+    }
+}
+
+function showSelectMode() {
+    // Show checkboxes for all vulnerabilities
+    document.querySelectorAll('.vuln-checkbox').forEach(checkbox => {
+        checkbox.style.display = 'inline-block';
+    });
+    
+    // Update exploit actions to show selection buttons
+    const container = document.getElementById('exploit-actions-container');
+    container.innerHTML = `
+        <div class="exploit-actions">
+            <h3>Select Vulnerabilities to Exploit</h3>
+            <p>Check the vulnerabilities you want to exploit:</p>
+            <button onclick="exploitSelected()">Exploit Selected</button>
+            <button onclick="cancelSelection()" class="btn-secondary">Cancel Selection</button>
+        </div>
+    `;
+}
+
+async function exploitSelected() {
+    const selectedIds = Array.from(document.querySelectorAll('.vuln-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (selectedIds.length === 0) {
+        alert('Please select at least one vulnerability to exploit');
+        return;
+    }
+    
+    if (!confirm(`This will attempt to exploit ${selectedIds.length} selected vulnerability(ies). Continue?`)) {
+        return;
+    }
+    
+    const csrfToken = getCsrfTokenFromCookies('csrftoken');
+    
+    try {
+        disableExploitButtons();
+        
+        document.getElementById('scan-status').innerHTML = `
+            <div class="info" style="color: #007bff;">
+                <strong>Exploitation in progress...</strong> Processing ${selectedIds.length} vulnerability(ies).
+            </div>
+        `;
+        
+        const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                action: 'selected',
+                vulnerability_ids: selectedIds
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Exploitation failed: ${response.status} - ${errorText}`);
+        }
+        
+        const results = await response.json();
+        showExploitResults(results);
+        
+        // Reload vulnerabilities to show updated status
+        await loadResults(currentScanId);
+        
+    } catch (error) {
+        displayError(error.message);
+        enableExploitButtons();
+    }
+}
+
+function cancelSelection() {
+    // Hide checkboxes
+    document.querySelectorAll('.vuln-checkbox').forEach(checkbox => {
+        checkbox.style.display = 'none';
+        checkbox.checked = false;
+    });
+    
+    // Restore original exploit actions
+    showExploitActions();
+}
+
+function skipExploitation() {
+    const container = document.getElementById('exploit-actions-container');
+    container.innerHTML = `
+        <div class="info">
+            <p>Exploitation skipped. Showing scan results only.</p>
+        </div>
+    `;
+}
+
+function showExploitResults(results) {
+    const statusDiv = document.getElementById('scan-status');
+    statusDiv.innerHTML = `
+        <div class="exploit-results">
+            <h3>Exploitation Results</h3>
+            <p><strong>Total vulnerabilities:</strong> ${results.total}</p>
+            <p><strong>Successfully exploited:</strong> <span style="color: #28a745;">${results.exploited}</span></p>
+            <p><strong>Failed:</strong> <span style="color: #dc3545;">${results.failed}</span></p>
+            <p><strong>No plugin available:</strong> <span style="color: #6c757d;">${results.no_plugin}</span></p>
+        </div>
+    `;
+}
+
+function disableExploitButtons() {
+    document.querySelectorAll('#exploit-actions-container button').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+function enableExploitButtons() {
+    document.querySelectorAll('#exploit-actions-container button').forEach(btn => {
+        btn.disabled = false;
+    });
 }
 
 function getSeverityColor(severity) {

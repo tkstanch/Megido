@@ -58,6 +58,14 @@ class Vulnerability(models.Model):
         ('other', 'Other'),
     ]
     
+    EXPLOIT_STATUS_CHOICES = [
+        ('not_attempted', 'Not Attempted'),
+        ('in_progress', 'In Progress'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+        ('no_plugin', 'No Plugin Available'),
+    ]
+    
     scan = models.ForeignKey(Scan, on_delete=models.CASCADE, related_name='vulnerabilities')
     vulnerability_type = models.CharField(max_length=50, choices=VULNERABILITY_TYPES)
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
@@ -67,6 +75,16 @@ class Vulnerability(models.Model):
     evidence = models.TextField(blank=True, null=True)
     remediation = models.TextField(blank=True, null=True)
     discovered_at = models.DateTimeField(auto_now_add=True)
+    
+    # Exploit-related fields
+    exploited = models.BooleanField(default=False)
+    exploit_status = models.CharField(
+        max_length=20,
+        choices=EXPLOIT_STATUS_CHOICES,
+        default='not_attempted'
+    )
+    exploit_result = models.TextField(blank=True, null=True)
+    exploit_attempted_at = models.DateTimeField(blank=True, null=True)
     
     class Meta:
         ordering = ['-discovered_at']
