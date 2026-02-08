@@ -729,6 +729,15 @@ async function startSpider() {
         pollForResults(session.id);
         
     } catch (error) {
+        const errorInfo = {
+            message: error.message,
+            isNetworkError: error instanceof TypeError && error.message.includes('fetch'),
+            debugInfo: {
+                url: '/spider/api/sessions/',
+                method: 'POST'
+            }
+        };
+        
         document.getElementById('spider-status').innerHTML = `
             <div class="info" style="background: #f8d7da; border-color: #f5c6cb; color: #721c24;">
                 <strong>❌ Error:</strong> ${error.message}
@@ -736,6 +745,14 @@ async function startSpider() {
         `;
         startBtn.disabled = false;
         startBtn.innerHTML = '🕷️ Start Spider';
+        
+        // Show user-facing error notification with retry
+        if (window.MegidoErrorHandler) {
+            MegidoErrorHandler.showErrorNotification(errorInfo, {
+                title: 'Failed to Start Spider',
+                retryCallback: startSpider
+            });
+        }
     }
 }
 
@@ -1031,10 +1048,12 @@ async function loadResults(sessionId) {
         
         let errorMessage = 'Unknown error';
         let errorType = 'Error';
+        let isNetworkError = false;
         
         if (error instanceof TypeError && error.message.includes('fetch')) {
             errorType = 'Network Error';
             errorMessage = 'Unable to connect to the server. Check if Django is running.';
+            isNetworkError = true;
         } else if (error.message.includes('500')) {
             errorType = 'Server Error';
             errorMessage = 'The server encountered an error processing your request.';
@@ -1054,6 +1073,21 @@ async function loadResults(sessionId) {
                 <strong>❌ ${errorType}:</strong> ${errorMessage}
             </div>
         `;
+        
+        // Show user-facing error notification
+        if (window.MegidoErrorHandler) {
+            MegidoErrorHandler.showErrorNotification({
+                message: errorMessage,
+                isNetworkError: isNetworkError,
+                debugInfo: {
+                    url: `/spider/api/sessions/${sessionId}/results/`,
+                    method: 'GET'
+                }
+            }, {
+                title: 'Failed to Load Results',
+                retryCallback: () => loadResults(sessionId)
+            });
+        }
     }
 }
 
