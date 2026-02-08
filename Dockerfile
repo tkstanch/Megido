@@ -36,5 +36,6 @@ EXPOSE 8000
 # Set entrypoint
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
-# Default command
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Default command: Use Gunicorn with extended timeout for production
+# For development, override with: docker run ... python manage.py runserver 0.0.0.0:8000
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "megido_security.wsgi:application"]

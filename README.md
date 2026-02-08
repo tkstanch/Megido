@@ -59,4 +59,64 @@ This launches:
 
 See [BROWSER_INTERCEPTOR_INTEGRATION.md](BROWSER_INTERCEPTOR_INTEGRATION.md) for complete documentation.
 
+## ⚙️ Production Deployment Notes
+
+### Worker Timeout Configuration
+
+The Megido platform includes security scanning plugins (especially XSS exploitation) that perform **long-running operations** such as:
+- Smart crawling of target sites (potentially minutes for deep scans)
+- DOM-based exploitation with Selenium browser automation
+- External site interaction and response analysis
+
+**Important for Production Environments:**
+
+When deploying with Gunicorn or other WSGI servers, the default 30-second worker timeout is insufficient and will cause premature worker termination during heavy scans.
+
+#### Docker Deployment (Recommended)
+
+The provided Docker configuration uses Gunicorn with a **300-second timeout** by default:
+
+```bash
+docker compose up --build
+```
+
+The timeout is configured in `gunicorn.conf.py` and automatically applied.
+
+#### Manual Gunicorn Deployment
+
+If running Gunicorn manually, use the provided configuration file:
+
+```bash
+gunicorn --config gunicorn.conf.py megido_security.wsgi:application
+```
+
+Or specify the timeout directly:
+
+```bash
+gunicorn --timeout 300 --workers 4 megido_security.wsgi:application
+```
+
+#### Development Mode
+
+For local development, the Django development server has no timeout limits:
+
+```bash
+python manage.py runserver
+# or
+python launch.py
+```
+
+### Scalable Production Architecture
+
+For high-volume production deployments, consider moving heavy exploit tasks to **asynchronous background workers**:
+
+- Use **Celery** with Redis/RabbitMQ for distributed task queuing
+- Use **RQ (Redis Queue)** for simpler async task processing
+- Implement job queuing for scan requests to prevent blocking web workers
+- Add progress tracking and result retrieval via API endpoints
+
+This architecture allows the web tier to remain responsive while exploitation tasks run in dedicated worker processes.
+
+> **See Also:** [DOCKER_TESTING.md](DOCKER_TESTING.md) for additional production deployment guidance.
+
 [...]rest of README untouched...
