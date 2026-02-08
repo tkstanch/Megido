@@ -12,8 +12,9 @@ bind = "0.0.0.0:8000"
 backlog = 2048
 
 # Worker processes
-# Use 2-4 workers for CPU-bound tasks, or (2 x CPU cores) + 1 for general use
-workers = multiprocessing.cpu_count() * 2 + 1
+# For CPU-bound security scanning tasks (like XSS exploitation), use CPU cores
+# without oversubscription to avoid context switching overhead
+workers = multiprocessing.cpu_count() + 1
 worker_class = "sync"
 worker_connections = 1000
 
@@ -33,7 +34,7 @@ keepalive = 5
 # Server mechanics
 daemon = False
 pidfile = None
-umask = 0
+umask = 0o022  # Secure file permissions (0755 for directories, 0644 for files)
 user = None
 group = None
 tmp_upload_dir = None
