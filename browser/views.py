@@ -175,7 +175,7 @@ def launch_pyqt_browser(request):
         if not launcher_path.exists():
             return Response({
                 'success': False,
-                'error': 'Desktop browser launcher not found'
+                'error': f'Desktop browser launcher not found at {launcher_path}'
             }, status=500)
         
         # Launch PyQt6 browser in background
