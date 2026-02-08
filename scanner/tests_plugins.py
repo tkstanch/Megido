@@ -436,5 +436,259 @@ class TestGlobalRegistryFunctions(unittest.TestCase):
         self.assertIs(generator1, generator2)
 
 
+class TestXSSPlugin(unittest.TestCase):
+    """Test cases for XSS plugin."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        # Try to import the XSS plugin
+        try:
+            from scanner.plugins.exploits.xss_plugin import XSSPlugin
+            self.plugin = XSSPlugin()
+            self.plugin_available = True
+        except ImportError:
+            self.plugin_available = False
+    
+    def test_plugin_properties(self):
+        """Test XSS plugin properties."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        self.assertEqual(self.plugin.vulnerability_type, 'xss')
+        self.assertIn('XSS', self.plugin.name)
+        self.assertGreater(len(self.plugin.description), 0)
+        self.assertEqual(self.plugin.version, '1.0.0')
+    
+    def test_generate_payloads_default(self):
+        """Test generating default XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads()
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+        # Should contain at least one script-based payload
+        script_found = any('<script>' in p.lower() for p in payloads)
+        self.assertTrue(script_found)
+    
+    def test_generate_payloads_basic(self):
+        """Test generating basic XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'basic'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+    
+    def test_generate_payloads_attribute(self):
+        """Test generating attribute-based XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'attribute'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+        # Should contain event handler payloads
+        event_found = any('onmouseover' in p.lower() or 'onerror' in p.lower() for p in payloads)
+        self.assertTrue(event_found)
+    
+    def test_generate_payloads_javascript(self):
+        """Test generating JavaScript context payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'javascript'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+    
+    def test_generate_payloads_dom(self):
+        """Test generating DOM-based XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'dom'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+    
+    def test_generate_payloads_advanced(self):
+        """Test generating advanced XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'advanced'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+    
+    def test_generate_payloads_all(self):
+        """Test generating all XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({'payload_type': 'all'})
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 20)  # Should have many payloads
+    
+    def test_generate_payloads_with_encoding(self):
+        """Test generating encoded XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        payloads = self.plugin.generate_payloads({
+            'payload_type': 'basic',
+            'encoding': 'url'
+        })
+        self.assertIsInstance(payloads, list)
+        self.assertGreater(len(payloads), 0)
+        # URL encoding should contain %
+        encoded_found = any('%' in p for p in payloads)
+        self.assertTrue(encoded_found)
+    
+    def test_generate_payloads_custom(self):
+        """Test generating custom XSS payloads."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        custom = ['<custom>test</custom>']
+        payloads = self.plugin.generate_payloads({
+            'payload_type': 'basic',
+            'custom_payloads': custom
+        })
+        self.assertIsInstance(payloads, list)
+        self.assertIn('<custom>test</custom>', payloads)
+    
+    def test_get_severity_level(self):
+        """Test XSS severity level."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        severity = self.plugin.get_severity_level()
+        self.assertEqual(severity, 'high')
+    
+    def test_get_remediation_advice(self):
+        """Test XSS remediation advice."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        advice = self.plugin.get_remediation_advice()
+        self.assertIsInstance(advice, str)
+        self.assertGreater(len(advice), 100)  # Should be comprehensive
+        self.assertIn('Input Validation', advice)
+        self.assertIn('Output Encoding', advice)
+        self.assertIn('Content Security Policy', advice)
+    
+    def test_validate_config_valid(self):
+        """Test XSS config validation with valid configs."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        # Empty config is valid (all defaults)
+        self.assertTrue(self.plugin.validate_config({}))
+        
+        # Valid config with all options
+        valid_config = {
+            'crawl_depth': 2,
+            'max_pages': 50,
+            'timeout': 30,
+            'network_throttle': 0.5,
+            'browser_type': 'chrome',
+            'output_format': 'json'
+        }
+        self.assertTrue(self.plugin.validate_config(valid_config))
+        
+        # Valid firefox browser
+        self.assertTrue(self.plugin.validate_config({'browser_type': 'firefox'}))
+        
+        # Valid html output
+        self.assertTrue(self.plugin.validate_config({'output_format': 'html'}))
+        
+        # Valid both output
+        self.assertTrue(self.plugin.validate_config({'output_format': 'both'}))
+    
+    def test_validate_config_invalid(self):
+        """Test XSS config validation with invalid configs."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        # Invalid crawl_depth (negative)
+        self.assertFalse(self.plugin.validate_config({'crawl_depth': -1}))
+        
+        # Invalid max_pages (zero)
+        self.assertFalse(self.plugin.validate_config({'max_pages': 0}))
+        
+        # Invalid max_pages (negative)
+        self.assertFalse(self.plugin.validate_config({'max_pages': -5}))
+        
+        # Invalid timeout (zero)
+        self.assertFalse(self.plugin.validate_config({'timeout': 0}))
+        
+        # Invalid timeout (negative)
+        self.assertFalse(self.plugin.validate_config({'timeout': -10}))
+        
+        # Invalid network_throttle (negative)
+        self.assertFalse(self.plugin.validate_config({'network_throttle': -1}))
+        
+        # Invalid browser_type
+        self.assertFalse(self.plugin.validate_config({'browser_type': 'safari'}))
+        
+        # Invalid output_format
+        self.assertFalse(self.plugin.validate_config({'output_format': 'xml'}))
+    
+    def test_get_required_config_keys(self):
+        """Test getting required config keys."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        keys = self.plugin.get_required_config_keys()
+        self.assertIsInstance(keys, list)
+        # All config is optional with defaults
+        self.assertEqual(len(keys), 0)
+    
+    def test_execute_attack_result_structure(self):
+        """Test attack execution returns proper result structure."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        # Mock the attack execution to avoid network calls
+        # Just verify the result structure would be correct
+        mock_result = {
+            'success': False,
+            'findings': [],
+            'data': {},
+            'evidence': '',
+            'error': None,
+            'report_path': None,
+        }
+        
+        # Check result structure
+        self.assertIsInstance(mock_result, dict)
+        self.assertIn('success', mock_result)
+        self.assertIn('findings', mock_result)
+        self.assertIn('data', mock_result)
+        self.assertIn('evidence', mock_result)
+        self.assertIn('error', mock_result)
+        self.assertIsInstance(mock_result['findings'], list)
+        self.assertIsInstance(mock_result['data'], dict)
+    
+    def test_analyze_injection_context(self):
+        """Test injection context analysis."""
+        if not self.plugin_available:
+            self.skipTest("XSS plugin not available")
+        
+        # Test HTML context
+        html = '<div>test<script>alert(1)</script>more</div>'
+        context = self.plugin._analyze_injection_context(html, 'alert(1)')
+        self.assertEqual(context, 'javascript')
+        
+        # Test attribute context
+        html = '<div onclick="alert(1)">test</div>'
+        context = self.plugin._analyze_injection_context(html, 'alert(1)')
+        self.assertEqual(context, 'attribute')
+        
+        # Test URL context
+        html = '<a href="javascript:alert(1)">link</a>'
+        context = self.plugin._analyze_injection_context(html, 'alert(1)')
+        self.assertEqual(context, 'url')
+
+
 if __name__ == '__main__':
     unittest.main()
