@@ -154,24 +154,21 @@ def browser_interceptor_status(request):
 
 
 @api_view(['POST'])
-def launch_cef_browser(request):
-    """API endpoint to launch CEF desktop browser"""
-    # Check if CEF is installed first
-    try:
-        import cefpython3
-    except (ImportError, Exception) as e:
-        # Handle both ImportError and the Python version exception that cefpython3 raises
-        error_msg = str(e)
-        if 'not installed' in error_msg.lower() or 'no module' in error_msg.lower():
-            error_msg = 'CEF Python is not installed. Install with: pip install cefpython3'
-        return Response({
-            'success': False,
-            'error': error_msg
-        }, status=400)
+def launch_pyqt_browser(request):
+    """API endpoint to launch PyQt6 desktop browser with mitmproxy integration
     
+    Request body parameters:
+        django_url (str): Django server URL (default: http://127.0.0.1:8000)
+        proxy_port (int): mitmproxy port (default: 8080)
+        enable_proxy (bool): Enable mitmproxy integration (default: true)
+    """
     try:
         # Get Django URL from request or use default
         django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
+        
+        # Get proxy configuration
+        proxy_port = request.data.get('proxy_port', 8080)
+        enable_proxy = request.data.get('enable_proxy', True)
         
         # Validate django_url to prevent command injection
         # Only allow URLs starting with http:// or https://
@@ -181,27 +178,57 @@ def launch_cef_browser(request):
                 'error': 'Invalid Django URL. Must start with http:// or https://'
             }, status=400)
         
-        # Path to desktop launcher
+        # Validate proxy_port
+        if not isinstance(proxy_port, int) or proxy_port < 1 or proxy_port > 65535:
+            return Response({
+                'success': False,
+                'error': 'Invalid proxy port. Must be an integer between 1 and 65535'
+            }, status=400)
+        
+        # Validate enable_proxy
+        if not isinstance(enable_proxy, bool):
+            return Response({
+                'success': False,
+                'error': 'Invalid enable_proxy value. Must be a boolean'
+            }, status=400)
+        
+        # Path to PyQt6 launcher
         base_dir = Path(__file__).parent.parent
-        launcher_path = base_dir / 'browser' / 'desktop_launcher.py'
+        launcher_path = base_dir / 'launch_megido_browser.py'
         
         if not launcher_path.exists():
             return Response({
                 'success': False,
-                'error': 'Desktop launcher not found'
+                'error': f'Desktop browser launcher not found at {launcher_path}'
             }, status=500)
         
-        # Launch CEF browser in background (browser-only mode)
+        # Build command with proxy configuration
+        cmd = [sys.executable, str(launcher_path), '--django-url', django_url]
+        
+        if enable_proxy:
+            cmd.extend(['--proxy-port', str(proxy_port)])
+        else:
+            cmd.append('--no-proxy')
+        
+        # Launch PyQt6 browser in background
         subprocess.Popen(
-            [sys.executable, str(launcher_path), '--mode', 'browser-only', '--django-url', django_url],
+            cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True  # Detach from parent process
         )
         
+        # Build response message
+        if enable_proxy:
+            message = f'Desktop browser launched successfully with mitmproxy on port {proxy_port}!'
+        else:
+            message = 'Desktop browser launched successfully without proxy!'
+        
         return Response({
             'success': True,
-            'message': 'CEF browser launched successfully'
+            'message': message,
+            'proxy_enabled': enable_proxy,
+            'proxy_port': proxy_port if enable_proxy else None
         })
         
     except Exception as e:

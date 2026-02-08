@@ -136,7 +136,7 @@
 <div class="info-message">
     <strong>💡 Browser Options:</strong> 
     Use the iframe browser below for most sites. 
-    Click "Launch Full Browser (CEF)" to open CEF desktop browser for sites that block iframes (Google, Facebook, etc.) or when you need Chrome DevTools (F12).
+    Click "Launch Desktop Browser (PyQt6)" to open PyQt6 desktop browser with optional mitmproxy integration for sites that block iframes (Google, Facebook, etc.) or when you need traffic interception and full browser functionality.
 </div>
 
 <div class="browser-container">
@@ -146,7 +146,7 @@
         <button class="toolbar-button" onclick="reload()" title="Reload">⟳</button>
         <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
         <button class="toolbar-button" onclick="navigate()">Go</button>
-        <button class="toolbar-button cef-launch-btn" onclick="launchCEFBrowser()" title="Launch full desktop browser with CEF">🚀 Launch Full Browser (CEF)</button>
+        <button class="toolbar-button cef-launch-btn" onclick="launchDesktopBrowser()" title="Launch full desktop browser with PyQt6">🚀 Launch Desktop Browser (PyQt6)</button>
         <button id="interceptor-toggle" class="interceptor-toggle-btn {% if interceptor_enabled %}enabled{% else %}disabled{% endif %}" onclick="toggleInterceptor()" title="Toggle Interceptor">
             <span id="interceptor-icon">{% if interceptor_enabled %}🟢{% else %}🔴{% endif %}</span>
             <span id="interceptor-label">{% if interceptor_enabled %}Interceptor ON{% else %}Interceptor OFF{% endif %}</span>
@@ -354,35 +354,63 @@ function getCookie(name) {
     return cookieValue;
 }
 
-async function launchCEFBrowser() {
+async function launchDesktopBrowser() {
     const button = document.querySelector('.cef-launch-btn');
     button.disabled = true;
     button.textContent = '🚀 Launching...';
     
     try {
-        const response = await fetch('/browser/api/launch-cef/', {
+        // Ask user about proxy configuration
+        const enableProxy = confirm('Enable mitmproxy for traffic interception?\n\n' +
+            '✓ Yes = Launch with mitmproxy (intercept and analyze traffic)\n' +
+            '✗ No = Launch without proxy (direct connection)');
+        
+        let requestBody = {
+            django_url: window.location.origin,
+            enable_proxy: enableProxy
+        };
+        
+        // If proxy is enabled, optionally ask for custom port
+        if (enableProxy) {
+            const customPort = prompt('Enter mitmproxy port (or leave empty for default 8080):');
+            if (customPort && customPort.trim() !== '') {
+                const port = parseInt(customPort);
+                if (!isNaN(port) && port > 0 && port < 65536) {
+                    requestBody.proxy_port = port;
+                } else {
+                    alert('Invalid port number. Using default port 8080.');
+                }
+            }
+        }
+        
+        const response = await fetch('/browser/api/launch-desktop-browser/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                django_url: window.location.origin
-            })
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();
         
         if (data.success) {
-            alert('✅ CEF browser launched! Look for a new window.');
+            let message = '✅ ' + data.message + '\n\n';
+            if (data.proxy_enabled) {
+                message += `🔒 mitmproxy enabled on port ${data.proxy_port}\n`;
+                message += '📝 To intercept HTTPS, install certificate from http://mitm.it';
+            } else {
+                message += '🌐 Browser launched without proxy (direct connection)';
+            }
+            alert(message);
         } else {
             alert('❌ Error: ' + data.error);
         }
     } catch (error) {
-        alert('❌ Failed to launch CEF browser: ' + error.message);
+        alert('❌ Failed to launch desktop browser: ' + error.message);
     } finally {
         button.disabled = false;
-        button.textContent = '🚀 Launch Full Browser (CEF)';
+        button.textContent = '🚀 Launch Desktop Browser (PyQt6)';
     }
 }
 

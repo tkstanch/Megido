@@ -11,5 +11,5 @@ urlpatterns = [
     path('api/interaction/', views.log_app_interaction, name='log_app_interaction'),
     path('api/enabled-apps/', views.get_enabled_apps, name='get_enabled_apps'),
     path('api/interceptor-status/', views.browser_interceptor_status, name='browser_interceptor_status'),
-    path('api/launch-cef/', views.launch_cef_browser, name='launch_cef'),
+    path('api/launch-desktop-browser/', views.launch_pyqt_browser, name='launch_desktop_browser'),
 ]

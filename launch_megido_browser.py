@@ -186,18 +186,28 @@ class MegidoLauncher:
             
             self.print_status("Launching browser...", "info")
             
+            # Build command
+            cmd = [
+                sys.executable,
+                str(browser_script),
+                '--django-url', django_url
+            ]
+            
+            # Add proxy configuration if enabled
+            if proxy_port is not None:
+                cmd.extend(['--proxy-port', str(proxy_port)])
+            
             # Start browser
             self.browser_process = subprocess.Popen(
-                [
-                    sys.executable,
-                    str(browser_script),
-                    '--django-url', django_url,
-                    '--proxy-port', str(proxy_port)
-                ],
+                cmd,
                 cwd=str(self.base_dir)
             )
             
             self.print_status("Browser launched", "success")
+            if proxy_port is not None:
+                self.print_status(f"Browser configured to use proxy on port {proxy_port}", "info")
+            else:
+                self.print_status("Browser running without proxy", "info")
             return True
             
         except Exception as e:
@@ -266,12 +276,17 @@ class MegidoLauncher:
             else:
                 self.print_status(f"Using external Django at {django_url}", "info")
             
-            # Start mitmproxy
-            if not self.start_mitmproxy(args.proxy_port, django_url):
-                return 1
+            # Start mitmproxy (if enabled)
+            if not args.no_proxy:
+                if not self.start_mitmproxy(args.proxy_port, django_url):
+                    return 1
+                proxy_port = args.proxy_port
+            else:
+                self.print_status("mitmproxy disabled", "info")
+                proxy_port = None
             
             # Start browser
-            if not self.start_browser(django_url, args.proxy_port):
+            if not self.start_browser(django_url, proxy_port):
                 return 1
             
             # Wait for browser to close
@@ -319,6 +334,11 @@ def main():
         type=int,
         default=8080,
         help='mitmproxy port (default: 8080)'
+    )
+    parser.add_argument(
+        '--no-proxy',
+        action='store_true',
+        help='Disable mitmproxy (launch browser without proxy)'
     )
     parser.add_argument(
         '--external-django',

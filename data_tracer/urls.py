@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'data_tracer'
 
@@ -12,4 +13,5 @@ urlpatterns = [
     path('result/<uuid:result_id>/', views.result_detail, name='result_detail'),
     path('result/<uuid:result_id>/packets/', views.packet_analysis, name='packet_analysis'),
     path('stealth/', views.stealth_config, name='stealth_config'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

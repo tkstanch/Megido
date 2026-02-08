@@ -5,6 +5,7 @@ This module defines URL patterns for all decompiler endpoints.
 """
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'decompiler'
 
@@ -46,4 +47,5 @@ urlpatterns = [
     
     # Target web app interaction
     path('interact/', views.interact_with_webapp, name='interact_webapp'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

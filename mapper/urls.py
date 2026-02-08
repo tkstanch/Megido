@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'mapper'
 
@@ -13,4 +14,5 @@ urlpatterns = [
     path('submit-data/', views.submit_user_data, name='submit_data'),
     path('query/', views.secure_query, name='secure_query'),
     path('validate/', views.validate_input, name='validate_input'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]
