@@ -3,6 +3,9 @@ Plugin Registry
 
 This module implements the plugin discovery and registry system.
 It automatically finds and loads exploit plugins from the plugins/exploits/ directory.
+
+Note: Logging is configured at the module level. Configure Django logging settings
+to control the verbosity of plugin discovery and registration messages.
 """
 
 import os

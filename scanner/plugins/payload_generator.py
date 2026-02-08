@@ -4,6 +4,9 @@ Payload Generator Utility
 This module provides utility functions for generating and managing exploit payloads.
 It serves as a centralized payload library that can be used by plugins to retrieve
 example payloads for various vulnerability types.
+
+Note: Logging is configured at the module level. Configure Django logging settings
+to control the verbosity of payload generation messages.
 """
 
 from typing import Dict, List, Optional, Any
