@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'manipulator'
 
@@ -13,4 +14,5 @@ urlpatterns = [
     path('crafted/', views.crafted_payloads, name='crafted_payloads'),
     path('tricks/', views.manipulation_tricks, name='manipulation_tricks'),
     path('encoding-tools/', views.encoding_tools, name='encoding_tools'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

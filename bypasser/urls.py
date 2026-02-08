@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'bypasser'
 
@@ -27,4 +28,5 @@ urlpatterns = [
     path('api/payloads/categories/', views.get_payload_categories, name='payload_categories'),
     path('api/payloads/initialize/', views.initialize_payload_library, name='initialize_payloads'),
     path('api/sessions/<int:session_id>/inject-payloads/', views.inject_payload, name='inject_payload'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

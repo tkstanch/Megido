@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from browser.views import launch_pyqt_browser
 
 app_name = 'collaborator'
 
@@ -11,4 +12,5 @@ urlpatterns = [
     path('api/servers/<int:server_id>/interactions/log/', views.log_interaction, name='log_interaction'),
     path('api/servers/<int:server_id>/interactions/clear/', views.clear_interactions, name='clear_interactions'),
     path('api/servers/<int:server_id>/interactions/poll/', views.poll_interactions, name='poll_interactions'),
+    path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]
