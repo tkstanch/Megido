@@ -14,6 +14,7 @@
             initialDelay: 1000,
             maxDelay: 30000,
             backoffMultiplier: 2,
+            // 429 (Too Many Requests) is retryable unlike other 4xx errors
             retryableStatuses: [408, 429, 500, 502, 503, 504],
             retryableErrors: ['NetworkError', 'TypeError', 'TimeoutError']
         }
@@ -334,7 +335,13 @@
         fetchWithNotification,
         showErrorNotification,
         createError,
-        setDebugMode: (enabled) => { MegidoErrorHandler.debugMode = enabled; }
+        setDebugMode: (enabled) => { 
+            if (typeof enabled !== 'boolean') {
+                console.warn('setDebugMode expects a boolean value, got:', typeof enabled);
+                return;
+            }
+            MegidoErrorHandler.debugMode = enabled; 
+        }
     };
     
     // Log initialization

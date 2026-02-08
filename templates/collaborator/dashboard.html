@@ -313,7 +313,8 @@ async function loadInteractions() {
         
     } catch (error) {
         console.error('Error loading interactions:', error);
-        // Silently fail for polling - don't show notification for background operations
+        // Silent failure for polling - log to console only
+        // This prevents notification spam during background polling operations
     }
 }
 

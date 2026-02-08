@@ -109,10 +109,15 @@ async function sendRequest() {
         }
     }
     
-    const responseDiv = document.getElementById('response');
-    responseDiv.innerHTML = '<p style="color: #666;">Sending request...</p>';
-    
     try {
+        const responseDiv = document.getElementById('response');
+        if (!responseDiv) {
+            console.error('Response div not found');
+            return;
+        }
+        
+        responseDiv.innerHTML = '<p style="color: #666;">Sending request...</p>';
+        
         // First, create the request
         const createResponse = await MegidoErrorHandler.fetchWithRetry('/repeater/api/requests/', {
             method: 'POST',
@@ -139,7 +144,10 @@ async function sendRequest() {
         `;
     } catch (error) {
         console.error('Error sending request:', error);
-        responseDiv.innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        const responseDiv = document.getElementById('response');
+        if (responseDiv) {
+            responseDiv.innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        }
         
         // Show user-facing error notification
         MegidoErrorHandler.showErrorNotification(error, {
