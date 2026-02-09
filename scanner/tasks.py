@@ -39,7 +39,8 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
         - results: List of individual exploit results
         - task_id: The Celery task ID for tracking
     """
-    logger.info(f"Starting async exploit task for scan {scan_id} (task_id: {self.request.id})")
+    task_id = self.request.id if self.request.id else 'eager-mode'
+    logger.info(f"Starting async exploit task for scan {scan_id} (task_id: {task_id})")
     
     try:
         scan = Scan.objects.get(id=scan_id)
@@ -51,7 +52,7 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
             'failed': 0,
             'no_plugin': 0,
             'results': [],
-            'task_id': self.request.id,
+            'task_id': task_id,
         }
         logger.error(f"Scan {scan_id} not found")
         return error_result
@@ -66,21 +67,22 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
         'failed': 0,
         'no_plugin': 0,
         'results': [],
-        'task_id': self.request.id,
+        'task_id': task_id,
     }
     
     logger.info(f"Processing {total} vulnerabilities for scan {scan_id}")
     
     for idx, vuln in enumerate(vulnerabilities, 1):
-        # Update task state for progress tracking
-        self.update_state(
-            state='PROGRESS',
-            meta={
-                'current': idx,
-                'total': total,
-                'status': f'Processing vulnerability {idx}/{total}'
-            }
-        )
+        # Update task state for progress tracking (only if not in eager mode)
+        if self.request.id:
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': idx,
+                    'total': total,
+                    'status': f'Processing vulnerability {idx}/{total}'
+                }
+            )
         
         _exploit_vulnerability_and_update(vuln, config, results)
     
@@ -115,9 +117,10 @@ def async_exploit_selected_vulnerabilities(
         - results: List of individual exploit results
         - task_id: The Celery task ID for tracking
     """
+    task_id = self.request.id if self.request.id else 'eager-mode'
     logger.info(
         f"Starting async exploit task for {len(vulnerability_ids)} vulnerabilities "
-        f"(task_id: {self.request.id})"
+        f"(task_id: {task_id})"
     )
     
     config = config or {}
@@ -130,21 +133,22 @@ def async_exploit_selected_vulnerabilities(
         'failed': 0,
         'no_plugin': 0,
         'results': [],
-        'task_id': self.request.id,
+        'task_id': task_id,
     }
     
     logger.info(f"Processing {total} selected vulnerabilities")
     
     for idx, vuln in enumerate(vulnerabilities, 1):
-        # Update task state for progress tracking
-        self.update_state(
-            state='PROGRESS',
-            meta={
-                'current': idx,
-                'total': total,
-                'status': f'Processing vulnerability {idx}/{total}'
-            }
-        )
+        # Update task state for progress tracking (only if not in eager mode)
+        if self.request.id:
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': idx,
+                    'total': total,
+                    'status': f'Processing vulnerability {idx}/{total}'
+                }
+            )
         
         _exploit_vulnerability_and_update(vuln, config, results)
     
