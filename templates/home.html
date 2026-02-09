@@ -1,146 +1,318 @@
-{% extends 'base.html' %}
+{% extends 'base_new.html' %}
 
-{% block title %}Megido Security - Home{% endblock %}
+{% block title %}Home - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Megido Security</span>
+<span class="breadcrumb-separator">›</span>
+<span class="breadcrumb-item active">Dashboard</span>
+{% endblock %}
 
 {% block extra_style %}
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 30px;
-    margin-top: 30px;
-}
-.feature-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 10px;
+.hero-section {
+    background: var(--gradient-primary);
+    color: var(--text-inverse);
+    padding: 3rem 2rem;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 2rem;
     text-align: center;
-    transition: transform 0.3s;
+}
+
+.hero-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    opacity: 0.95;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    transition: all var(--transition-fast);
     cursor: pointer;
+    text-decoration: none;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
+
 .feature-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-500);
 }
-.feature-card h2 {
-    margin-bottom: 15px;
-    font-size: 1.8em;
+
+.feature-icon {
+    font-size: 2.5rem;
 }
-.feature-card p {
+
+.feature-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.feature-description {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    margin: 0;
     line-height: 1.6;
 }
-.info {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 5px;
-    margin: 20px 0;
+
+.feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    background: var(--primary-100);
+    color: var(--primary-700);
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    margin-top: auto;
+}
+
+[data-theme="dark"] .feature-badge {
+    background: rgba(102, 126, 234, 0.2);
+    color: var(--primary-300);
+}
+
+.info-card {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.info-card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.feature-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.feature-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+}
+
+.feature-list-item::before {
+    content: '✓';
+    color: var(--success);
+    font-weight: 700;
+    font-size: 1.125rem;
 }
 {% endblock %}
 
 {% block content %}
-<div class="info">
-    <h2>Welcome to Megido Security Testing Platform</h2>
-    <p>A powerful cross-platform desktop application for web security testing, built with Django.</p>
-    <p>This platform provides professional-grade security testing tools similar to Burp Suite Professional.</p>
+<!-- Hero Section -->
+<div class="hero-section">
+    <h1 class="hero-title">🛡️ Megido Security Platform</h1>
+    <p class="hero-subtitle">Professional Web Security Testing Suite</p>
 </div>
 
-<div class="feature-grid">
-    <div class="feature-card" onclick="window.location='/app-manager/'">
-        <h2>🔧 App Manager</h2>
-        <p>Control panel to enable/disable all Django apps with toggle switches and state persistence.</p>
+<!-- Quick Stats -->
+<div class="grid grid-cols-4">
+    <div class="stat-card stat-card-primary">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-value">17</div>
+                <div class="stat-card-label">Security Tools</div>
+            </div>
+            <div class="stat-card-icon">🔧</div>
+        </div>
     </div>
     
-    <div class="feature-card" onclick="window.location='/browser/'">
-        <h2>🌐 Integrated Browser</h2>
-        <p>Browser interface that connects to all enabled Django apps with toolbar integration.</p>
+    <div class="stat-card stat-card-success">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-value">Active</div>
+                <div class="stat-card-label">System Status</div>
+            </div>
+            <div class="stat-card-icon">✅</div>
+        </div>
     </div>
     
-    <div class="feature-card" onclick="window.location='/proxy/'">
-        <h2>🔄 HTTP Proxy</h2>
-        <p>Intercept and analyze all HTTP/HTTPS traffic between your browser and target applications.</p>
+    <div class="stat-card stat-card-info">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-value">Pro</div>
+                <div class="stat-card-label">Feature Set</div>
+            </div>
+            <div class="stat-card-icon">⭐</div>
+        </div>
     </div>
     
-    <div class="feature-card" onclick="window.location='/interceptor/'">
-        <h2>✋ Request Interceptor</h2>
-        <p>Capture and modify HTTP requests in real-time before they reach the server.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/repeater/'">
-        <h2>🔁 HTTP Repeater</h2>
-        <p>Manually test and replay HTTP requests with custom modifications.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/scanner/'">
-        <h2>🔍 Vulnerability Scanner</h2>
-        <p>Automatically scan web applications for common security vulnerabilities.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/discover/'">
-        <h2>🎯 Discover</h2>
-        <p>Automated OSINT gathering from Wayback Machine, Shodan, Hunter.io, and Google Dorks.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/collaborator/'">
-        <h2>🤝 Collaborator</h2>
-        <p>Track out-of-band interactions for detecting blind vulnerabilities like SSRF and XXE.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/spider/'">
-        <h2>🕷️ Spider</h2>
-        <p>Automated web crawling and content discovery with DirBuster, Nikto, and Wikto integration.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/bypasser/'">
-        <h2>🚧 Bypasser</h2>
-        <p>WAF and input filter bypass testing with character probing and encoding techniques.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/mapper/'">
-        <h2>🗺️ Mapper</h2>
-        <p>Attack surface mapping and secure development practices across 19 key security areas.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/decompiler/'">
-        <h2>📦 Decompiler</h2>
-        <p>Browser extension decompilation and analysis for Java, Flash, and Silverlight packages.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/malware-analyser/'">
-        <h2>🦠 Malware Analyser</h2>
-        <p>Malware scanning and analysis with signature-based and heuristic detection capabilities.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/response-analyser/'">
-        <h2>📊 Response Analyser</h2>
-        <p>Automated HTTP response analysis and vulnerability detection with evidence collection.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/sql-attacker/'">
-        <h2>💉 SQL Attacker</h2>
-        <p>SQL injection testing with error-based, time-based, and exploitation capabilities.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/data-tracer/'">
-        <h2>📡 Data Tracer</h2>
-        <p>Network traffic analysis and data tracing with port scanning and OS fingerprinting.</p>
-    </div>
-    
-    <div class="feature-card" onclick="window.location='/manipulator/'">
-        <h2>🔧 Manipulator</h2>
-        <p>Payload crafting and manipulation with 23+ encoding techniques and bypass methods.</p>
+    <div class="stat-card stat-card-warning">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-value">Local</div>
+                <div class="stat-card-label">Environment</div>
+            </div>
+            <div class="stat-card-icon">💻</div>
+        </div>
     </div>
 </div>
 
-<div class="info" style="margin-top: 30px;">
-    <h3>Key Features:</h3>
-    <ul style="margin-left: 20px; margin-top: 10px; line-height: 2;">
-        <li>✅ Cross-platform desktop application (Windows, macOS, Linux)</li>
-        <li>✅ HTTP/HTTPS proxy with SSL/TLS support</li>
-        <li>✅ Request/Response interceptor and modifier</li>
-        <li>✅ Manual request repeater for security testing</li>
-        <li>✅ Automated vulnerability scanner</li>
-        <li>✅ Database-backed request history</li>
-        <li>✅ REST API for automation</li>
+<!-- Core Features -->
+<div class="features-grid">
+    <a href="/scanner/" class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3 class="feature-title">Vulnerability Scanner</h3>
+        <p class="feature-description">Automatically scan web applications for common security vulnerabilities with exploitation capabilities.</p>
+        <span class="feature-badge">Core Tool</span>
+    </a>
+    
+    <a href="/discover/" class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3 class="feature-title">Discover (OSINT)</h3>
+        <p class="feature-description">Automated OSINT gathering from Wayback Machine, Shodan, Hunter.io, and Google Dorks.</p>
+        <span class="feature-badge">Intelligence</span>
+    </a>
+    
+    <a href="/manipulator/" class="feature-card">
+        <div class="feature-icon">🔧</div>
+        <h3 class="feature-title">Payload Manipulator</h3>
+        <p class="feature-description">Craft, encode, and manipulate payloads with 23+ encoding techniques and bypass methods.</p>
+        <span class="feature-badge">Core Tool</span>
+    </a>
+    
+    <a href="/sql-attacker/" class="feature-card">
+        <div class="feature-icon">💉</div>
+        <h3 class="feature-title">SQL Attacker</h3>
+        <p class="feature-description">SQL injection testing with error-based, time-based, and exploitation capabilities.</p>
+        <span class="feature-badge">Attack Tool</span>
+    </a>
+    
+    <a href="/proxy/" class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h3 class="feature-title">HTTP Proxy</h3>
+        <p class="feature-description">Intercept and analyze all HTTP/HTTPS traffic between your browser and target applications.</p>
+        <span class="feature-badge">Core Tool</span>
+    </a>
+    
+    <a href="/interceptor/" class="feature-card">
+        <div class="feature-icon">✋</div>
+        <h3 class="feature-title">Request Interceptor</h3>
+        <p class="feature-description">Capture and modify HTTP requests in real-time before they reach the server.</p>
+        <span class="feature-badge">Analysis</span>
+    </a>
+    
+    <a href="/repeater/" class="feature-card">
+        <div class="feature-icon">🔁</div>
+        <h3 class="feature-title">HTTP Repeater</h3>
+        <p class="feature-description">Manually test and replay HTTP requests with custom modifications.</p>
+        <span class="feature-badge">Analysis</span>
+    </a>
+    
+    <a href="/spider/" class="feature-card">
+        <div class="feature-icon">🕷️</div>
+        <h3 class="feature-title">Spider</h3>
+        <p class="feature-description">Automated web crawling and content discovery with DirBuster, Nikto, and Wikto integration.</p>
+        <span class="feature-badge">Discovery</span>
+    </a>
+    
+    <a href="/bypasser/" class="feature-card">
+        <div class="feature-icon">🚧</div>
+        <h3 class="feature-title">WAF Bypasser</h3>
+        <p class="feature-description">WAF and input filter bypass testing with character probing and encoding techniques.</p>
+        <span class="feature-badge">Attack Tool</span>
+    </a>
+    
+    <a href="/mapper/" class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <h3 class="feature-title">Attack Surface Mapper</h3>
+        <p class="feature-description">Map attack surfaces and secure development practices across 19 key security areas.</p>
+        <span class="feature-badge">Analysis</span>
+    </a>
+    
+    <a href="/data-tracer/" class="feature-card">
+        <div class="feature-icon">📡</div>
+        <h3 class="feature-title">Data Tracer</h3>
+        <p class="feature-description">Network traffic analysis and data tracing with port scanning and OS fingerprinting.</p>
+        <span class="feature-badge">Network</span>
+    </a>
+    
+    <a href="/collaborator/" class="feature-card">
+        <div class="feature-icon">🤝</div>
+        <h3 class="feature-title">Collaborator</h3>
+        <p class="feature-description">Track out-of-band interactions for detecting blind vulnerabilities like SSRF and XXE.</p>
+        <span class="feature-badge">Advanced</span>
+    </a>
+    
+    <a href="/malware-analyser/" class="feature-card">
+        <div class="feature-icon">🦠</div>
+        <h3 class="feature-title">Malware Analyser</h3>
+        <p class="feature-description">Malware scanning and analysis with signature-based and heuristic detection capabilities.</p>
+        <span class="feature-badge">Advanced</span>
+    </a>
+    
+    <a href="/decompiler/" class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h3 class="feature-title">Decompiler</h3>
+        <p class="feature-description">Browser extension decompilation and analysis for Java, Flash, and Silverlight packages.</p>
+        <span class="feature-badge">Advanced</span>
+    </a>
+    
+    <a href="/response-analyser/" class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3 class="feature-title">Response Analyser</h3>
+        <p class="feature-description">Automated HTTP response analysis and vulnerability detection with evidence collection.</p>
+        <span class="feature-badge">Analysis</span>
+    </a>
+    
+    <a href="/browser/" class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3 class="feature-title">Integrated Browser</h3>
+        <p class="feature-description">Browser interface that connects to all enabled Django apps with toolbar integration.</p>
+        <span class="feature-badge">System</span>
+    </a>
+    
+    <a href="/app-manager/" class="feature-card">
+        <div class="feature-icon">⚙️</div>
+        <h3 class="feature-title">App Manager</h3>
+        <p class="feature-description">Control panel to enable/disable all Django apps with toggle switches and state persistence.</p>
+        <span class="feature-badge">System</span>
+    </a>
+</div>
+
+<!-- Platform Information -->
+<div class="info-card">
+    <h2 class="info-card-title">Platform Features</h2>
+    <ul class="feature-list">
+        <li class="feature-list-item">Cross-platform desktop application (Windows, macOS, Linux)</li>
+        <li class="feature-list-item">HTTP/HTTPS proxy with SSL/TLS support</li>
+        <li class="feature-list-item">Request/Response interceptor and modifier</li>
+        <li class="feature-list-item">Manual request repeater for security testing</li>
+        <li class="feature-list-item">Automated vulnerability scanner</li>
+        <li class="feature-list-item">Database-backed request history</li>
+        <li class="feature-list-item">REST API for automation</li>
+        <li class="feature-list-item">Professional-grade security testing tools</li>
     </ul>
 </div>
 {% endblock %}
