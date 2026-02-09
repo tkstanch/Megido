@@ -2,103 +2,208 @@
 
 {% block title %}Vulnerability Scanner - Megido Security{% endblock %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-item">Megido Security</span>
+<span class="breadcrumb-separator">›</span>
+<span class="breadcrumb-item active">Scanner</span>
+{% endblock %}
+
 {% block extra_style %}
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.page-description {
+    font-size: 1.0625rem;
+    color: var(--text-secondary);
+}
+
 .scan-form {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 5px;
-    margin: 20px 0;
+    background: var(--surface);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-light);
+    margin-bottom: 1.5rem;
 }
 .scan-results {
-    margin-top: 30px;
+    margin-top: 1.5rem;
 }
+
 .vulnerability {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin: 10px 0;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    transition: all var(--transition-fast);
 }
-.severity-critical { border-left: 5px solid #dc3545; }
-.severity-high { border-left: 5px solid #fd7e14; }
-.severity-medium { border-left: 5px solid #ffc107; }
-.severity-low { border-left: 5px solid #28a745; }
+
+.vulnerability:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.severity-critical { 
+    border-left: 4px solid var(--severity-critical); 
+}
+
+.severity-high { 
+    border-left: 4px solid var(--severity-high); 
+}
+
+.severity-medium { 
+    border-left: 4px solid var(--severity-medium); 
+}
+
+.severity-low { 
+    border-left: 4px solid var(--severity-low); 
+}
 .exploit-actions {
-    background: #e9ecef;
-    padding: 15px;
-    border-radius: 5px;
-    margin: 20px 0;
+    background: var(--bg-tertiary);
+    padding: 1.25rem;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 1.5rem;
 }
+
 .exploit-results {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 5px;
-    margin: 10px 0;
+    background: var(--bg-tertiary);
+    padding: 1.25rem;
+    border-radius: var(--border-radius-lg);
+    margin-top: 1rem;
 }
+
 .exploit-status {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 0.85em;
-    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
-.exploit-status-success { background: #28a745; color: white; }
-.exploit-status-failed { background: #dc3545; color: white; }
-.exploit-status-no_plugin { background: #6c757d; color: white; }
-.exploit-status-not_attempted { background: #e9ecef; color: #333; }
-.exploit-status-in_progress { background: #ffc107; color: #333; }
-input[type="text"] {
+
+.exploit-status-success { 
+    background: var(--success); 
+    color: var(--text-inverse); 
+}
+
+.exploit-status-failed { 
+    background: var(--danger); 
+    color: var(--text-inverse); 
+}
+
+.exploit-status-no_plugin { 
+    background: var(--gray-500); 
+    color: var(--text-inverse); 
+}
+
+.exploit-status-not_attempted { 
+    background: var(--gray-200); 
+    color: var(--text-primary); 
+}
+
+.exploit-status-in_progress { 
+    background: var(--warning); 
+    color: var(--text-primary); 
+}
+input[type="text"],
+input[type="url"] {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--border-radius-md);
+    margin-bottom: 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+    background-color: var(--surface);
+    transition: all var(--transition-fast);
 }
+
+input[type="text"]:focus,
+input[type="url"]:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
     border: none;
-    padding: 12px 24px;
-    border-radius: 5px;
+    border-radius: var(--border-radius-md);
     cursor: pointer;
-    font-size: 1em;
-    margin-right: 10px;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
-button:hover {
-    opacity: 0.9;
+
+button:not(.btn-secondary):not(.btn-danger) {
+    background: var(--gradient-primary);
+    color: var(--text-inverse);
 }
+
+button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
 button:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
+
 .btn-secondary {
-    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    background: var(--gray-200);
+    color: var(--text-primary);
 }
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--gray-300);
+}
+
 .btn-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background: var(--gradient-danger);
+    color: var(--text-inverse);
 }
 .vuln-checkbox {
-    margin-right: 10px;
+    margin-right: 0.625rem;
+    cursor: pointer;
 }
 {% endblock %}
 
 {% block content %}
-<h2>Vulnerability Scanner</h2>
-<p>Automatically scan web applications for common security vulnerabilities.</p>
-
-<div class="scan-form">
-    <h3>Start New Scan</h3>
-    <div style="margin-top: 15px;">
-        <label>Target URL:</label>
-        <input type="text" id="target-url" placeholder="https://example.com">
-    </div>
-    <div style="margin-top: 10px;">
-        <label>Scan Name (optional):</label>
-        <input type="text" id="scan-name" placeholder="My Security Scan">
-    </div>
-    <button onclick="startScan()" style="margin-top: 10px;">Start Scan</button>
+<div class="page-header">
+    <h2 class="page-title">Vulnerability Scanner</h2>
+    <p class="page-description">Automatically scan web applications for common security vulnerabilities.</p>
 </div>
 
-<div id="scan-status" style="margin: 20px 0;"></div>
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Start New Scan</h3>
+    </div>
+    <div class="card-body">
+        <div class="form-group">
+            <label class="form-label">Target URL:</label>
+            <input type="url" id="target-url" class="form-input" placeholder="https://example.com" required>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Scan Name (optional):</label>
+            <input type="text" id="scan-name" class="form-input" placeholder="My Security Scan">
+        </div>
+        <button class="btn btn-primary" id="start-scan-btn">
+            🚀 Start Scan
+        </button>
+    </div>
+</div>
+
+<div id="scan-status" class="mt-4"></div>
 
 <div id="exploit-actions-container"></div>
 
@@ -108,26 +213,57 @@ button:disabled {
 
 {% block extra_script %}
 <script>
+(function() {
+    'use strict';
+    
 let currentScanId = null;
 let currentVulnerabilities = [];
 let currentTaskId = null;
 let ws = null;
 let wsConnected = false;
 let pollingInterval = null;
-let useWebSocket = true;  // Try WebSocket first, fallback to polling if needed
+let useWebSocket = true;
+
+// Attach event listener securely
+document.addEventListener('DOMContentLoaded', function() {
+    const startBtn = document.getElementById('start-scan-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', startScan);
+    }
+});
 
 // Helper function to safely display error messages
 function displayError(message) {
     const statusDiv = document.getElementById('scan-status');
-    statusDiv.textContent = ''; // Clear existing content safely
-    const errorParagraph = document.createElement('p');
-    errorParagraph.style.color = '#dc3545';
-    errorParagraph.textContent = 'Error: ' + message;
-    statusDiv.appendChild(errorParagraph);
+    if (!statusDiv) return;
+    
+    // Use MegidoToast for better UX
+    if (window.MegidoToast) {
+        window.MegidoToast.error(message);
+    }
+    
+    statusDiv.textContent = '';
+    const errorCard = document.createElement('div');
+    errorCard.className = 'card';
+    errorCard.style.borderLeft = '4px solid var(--danger)';
+    
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    
+    const errorText = document.createElement('p');
+    errorText.style.color = 'var(--danger)';
+    errorText.textContent = 'Error: ' + message;
+    
+    cardBody.appendChild(errorText);
+    errorCard.appendChild(cardBody);
+    statusDiv.appendChild(errorCard);
 }
 
 // Helper function to escape HTML to prevent XSS
 function escapeHtml(text) {
+    if (window.MegidoUtils && window.MegidoUtils.Security) {
+        return window.MegidoUtils.Security.escapeHtml(text);
+    }
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -135,8 +271,19 @@ function escapeHtml(text) {
 
 // Helper function to validate severity values (only allow known values)
 function sanitizeSeverity(severity) {
+    if (window.MegidoUtils && window.MegidoUtils.Security) {
+        return window.MegidoUtils.Security.validateSeverity(severity);
+    }
     const validSeverities = ['low', 'medium', 'high', 'critical'];
     return validSeverities.includes(severity) ? severity : 'low';
+}
+
+// Extract CSRF token from browser cookies for API requests
+function getCsrfToken() {
+    if (window.MegidoUtils && window.MegidoUtils.Security) {
+        return window.MegidoUtils.Security.getCsrfToken();
+    }
+    return getCsrfTokenFromCookies('csrftoken');
 }
 
 // Extract CSRF token from browser cookies for API requests
@@ -162,18 +309,31 @@ function getCsrfTokenFromCookies(tokenName) {
 }
 
 async function startScan() {
-    const url = document.getElementById('target-url').value;
-    const name = document.getElementById('scan-name').value;
+    const urlInput = document.getElementById('target-url');
+    const nameInput = document.getElementById('scan-name');
+    
+    if (!urlInput) return;
+    
+    const url = urlInput.value.trim();
+    const name = nameInput ? nameInput.value.trim() : '';
     
     if (!url) {
-        alert('Please enter a target URL');
+        if (window.MegidoToast) {
+            window.MegidoToast.warning('Please enter a target URL');
+        } else {
+            alert('Please enter a target URL');
+        }
         return;
     }
     
-    // Extract CSRF token for authenticated requests
-    const csrfToken = getCsrfTokenFromCookies('csrftoken');
+    const csrfToken = getCsrfToken();
     
     try {
+        // Show loading status
+        if (window.MegidoToast) {
+            window.MegidoToast.info('Starting scan...', { duration: 3000 });
+        }
+        
         // Create target with authentication
         const targetResponse = await fetch('/scanner/api/targets/', {
             method: 'POST',
@@ -195,11 +355,23 @@ async function startScan() {
         
         // Display starting message safely
         const statusDiv = document.getElementById('scan-status');
-        statusDiv.textContent = '';
-        const statusParagraph = document.createElement('p');
-        statusParagraph.style.color = '#007bff';
-        statusParagraph.textContent = 'Starting scan...';
-        statusDiv.appendChild(statusParagraph);
+        if (statusDiv) {
+            statusDiv.textContent = '';
+            const statusCard = document.createElement('div');
+            statusCard.className = 'card';
+            statusCard.style.borderLeft = '4px solid var(--info)';
+            
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+            
+            const statusText = document.createElement('p');
+            statusText.style.color = 'var(--info)';
+            statusText.textContent = 'Starting scan...';
+            
+            cardBody.appendChild(statusText);
+            statusCard.appendChild(cardBody);
+            statusDiv.appendChild(statusCard);
+        }
         
         // Start scan with authentication
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
@@ -262,15 +434,53 @@ async function loadResults(scanId) {
 
 function showExploitActions() {
     const container = document.getElementById('exploit-actions-container');
-    container.innerHTML = `
-        <div class="exploit-actions">
-            <h3>Exploit Actions</h3>
-            <p>Choose how to proceed with discovered vulnerabilities:</p>
-            <button onclick="exploitAll()">Exploit All Compatible Vulnerabilities</button>
-            <button onclick="showSelectMode()" class="btn-secondary">Select Vulnerabilities to Exploit</button>
-            <button onclick="skipExploitation()" class="btn-danger">Skip Exploitation</button>
-        </div>
-    `;
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const actionsCard = document.createElement('div');
+    actionsCard.className = 'card';
+    
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'card-header';
+    const headerTitle = document.createElement('h3');
+    headerTitle.className = 'card-title';
+    headerTitle.textContent = 'Exploit Actions';
+    cardHeader.appendChild(headerTitle);
+    
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    
+    const description = document.createElement('p');
+    description.textContent = 'Choose how to proceed with discovered vulnerabilities:';
+    cardBody.appendChild(description);
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 0.75rem; flex-wrap: wrap;';
+    
+    const exploitAllBtn = document.createElement('button');
+    exploitAllBtn.className = 'btn btn-primary';
+    exploitAllBtn.textContent = 'Exploit All Compatible Vulnerabilities';
+    exploitAllBtn.addEventListener('click', exploitAll);
+    
+    const selectBtn = document.createElement('button');
+    selectBtn.className = 'btn btn-secondary';
+    selectBtn.textContent = 'Select Vulnerabilities to Exploit';
+    selectBtn.addEventListener('click', showSelectMode);
+    
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'btn btn-danger';
+    skipBtn.textContent = 'Skip Exploitation';
+    skipBtn.addEventListener('click', skipExploitation);
+    
+    buttonContainer.appendChild(exploitAllBtn);
+    buttonContainer.appendChild(selectBtn);
+    buttonContainer.appendChild(skipBtn);
+    cardBody.appendChild(buttonContainer);
+    
+    actionsCard.appendChild(cardHeader);
+    actionsCard.appendChild(cardBody);
+    container.appendChild(actionsCard);
 }
 
 function displayVulnerabilities(vulnerabilities) {
@@ -574,14 +784,47 @@ function showSelectMode() {
     
     // Update exploit actions to show selection buttons
     const container = document.getElementById('exploit-actions-container');
-    container.innerHTML = `
-        <div class="exploit-actions">
-            <h3>Select Vulnerabilities to Exploit</h3>
-            <p>Check the vulnerabilities you want to exploit:</p>
-            <button onclick="exploitSelected()">Exploit Selected</button>
-            <button onclick="cancelSelection()" class="btn-secondary">Cancel Selection</button>
-        </div>
-    `;
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const actionsCard = document.createElement('div');
+    actionsCard.className = 'card';
+    
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'card-header';
+    const headerTitle = document.createElement('h3');
+    headerTitle.className = 'card-title';
+    headerTitle.textContent = 'Select Vulnerabilities to Exploit';
+    cardHeader.appendChild(headerTitle);
+    
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    
+    const description = document.createElement('p');
+    description.textContent = 'Check the vulnerabilities you want to exploit:';
+    cardBody.appendChild(description);
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 0.75rem; flex-wrap: wrap;';
+    
+    const exploitBtn = document.createElement('button');
+    exploitBtn.className = 'btn btn-primary';
+    exploitBtn.textContent = 'Exploit Selected';
+    exploitBtn.addEventListener('click', exploitSelected);
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = 'Cancel Selection';
+    cancelBtn.addEventListener('click', cancelSelection);
+    
+    buttonContainer.appendChild(exploitBtn);
+    buttonContainer.appendChild(cancelBtn);
+    cardBody.appendChild(buttonContainer);
+    
+    actionsCard.appendChild(cardHeader);
+    actionsCard.appendChild(cardBody);
+    container.appendChild(actionsCard);
 }
 
 async function exploitSelected() {
@@ -658,11 +901,27 @@ function cancelSelection() {
 
 function skipExploitation() {
     const container = document.getElementById('exploit-actions-container');
-    container.innerHTML = `
-        <div class="info">
-            <p>Exploitation skipped. Showing scan results only.</p>
-        </div>
-    `;
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const infoCard = document.createElement('div');
+    infoCard.className = 'card';
+    infoCard.style.borderLeft = '4px solid var(--info)';
+    
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    
+    const infoText = document.createElement('p');
+    infoText.textContent = 'Exploitation skipped. Showing scan results only.';
+    
+    cardBody.appendChild(infoText);
+    infoCard.appendChild(cardBody);
+    container.appendChild(infoCard);
+    
+    if (window.MegidoToast) {
+        window.MegidoToast.info('Exploitation skipped');
+    }
 }
 
 function showExploitResults(results) {
@@ -692,12 +951,14 @@ function enableExploitButtons() {
 
 function getSeverityColor(severity) {
     const colors = {
-        'critical': '#dc3545',
-        'high': '#fd7e14',
-        'medium': '#ffc107',
-        'low': '#28a745'
+        'critical': 'var(--severity-critical)',
+        'high': 'var(--severity-high)',
+        'medium': 'var(--severity-medium)',
+        'low': 'var(--severity-low)'
     };
-    return colors[severity] || '#666';
+    return colors[severity] || 'var(--text-secondary)';
 }
+
+})(); // End IIFE
 </script>
 {% endblock %}

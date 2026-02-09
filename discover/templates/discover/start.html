@@ -2,107 +2,89 @@
 
 {% block title %}Discover - OSINT & Information Gathering{% endblock %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-item">Megido Security</span>
+<span class="breadcrumb-separator">›</span>
+<span class="breadcrumb-item active">Discover</span>
+{% endblock %}
+
 {% block extra_style %}
-.form-container {
-    max-width: 600px;
-    margin: 40px auto;
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+.page-header {
+    margin-bottom: 2rem;
 }
-.form-group {
-    margin-bottom: 20px;
+
+.page-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
 }
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #333;
-}
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-}
-.form-group input:focus {
-    outline: none;
-    border-color: #667eea;
-}
-.btn-primary {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.3s;
-}
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-}
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-}
+
 .info-box {
-    background: #f0f4ff;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 30px;
-    border-left: 4px solid #667eea;
+    background: var(--surface);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-light);
+    border-left: 4px solid var(--primary-500);
 }
+
 .info-box h3 {
-    margin-bottom: 10px;
-    color: #667eea;
+    margin-bottom: 0.75rem;
+    color: var(--primary-600);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
+
 .info-box ul {
-    margin-left: 20px;
+    margin-left: 1.5rem;
     line-height: 1.8;
+    color: var(--text-secondary);
 }
 .loading {
     text-align: center;
-    padding: 20px;
+    padding: 1.5rem;
     display: none;
 }
+
 .loading.active {
     display: block;
 }
+
 .spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
+    border: 4px solid var(--gray-200);
+    border-top: 4px solid var(--primary-500);
     border-radius: 50%;
     width: 40px;
     height: 40px;
     animation: spin 1s linear infinite;
-    margin: 0 auto 10px;
+    margin: 0 auto 0.75rem;
 }
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
 .error-message {
     background: #fee;
     color: #c33;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 15px;
+    padding: 1rem;
+    border-radius: var(--border-radius-md);
+    margin-top: 1rem;
     display: none;
 }
+
 .error-message.active {
     display: block;
 }
 {% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <h2 class="page-title">🔍 Discover - OSINT Tool</h2>
+</div>
+
 <div class="info-box">
     <h3>🔍 What is Discover?</h3>
     <p>Discover is an automated OSINT (Open Source Intelligence) tool that gathers information about a target domain or URL from multiple sources:</p>
@@ -112,92 +94,106 @@
         <li><strong>Hunter.io:</strong> Email addresses associated with the domain</li>
         <li><strong>Google Dorks:</strong> Pre-built search queries to find sensitive information</li>
     </ul>
-    <p style="margin-top: 10px;"><strong>Note:</strong> API keys for Shodan and Hunter.io are required in Django settings for those features to work.</p>
+    <p style="margin-top: 0.75rem;"><strong>Note:</strong> API keys for Shodan and Hunter.io are required in Django settings for those features to work.</p>
 </div>
 
-<div class="form-container">
-    <h2 style="text-align: center; margin-bottom: 30px;">🎯 Enter Target</h2>
-    
-    <form id="scanForm">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="target">Target Domain or URL:</label>
-            <input 
-                type="text" 
-                id="target" 
-                name="target" 
-                placeholder="e.g., example.com or https://example.com"
-                required
-            >
-        </div>
-        
-        <div class="form-group">
-            <label style="display: flex; align-items: center; cursor: pointer;">
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">🎯 Enter Target</h3>
+    </div>
+    <div class="card-body">
+        <form id="scanForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="target" class="form-label">Target Domain or URL:</label>
                 <input 
-                    type="checkbox" 
-                    id="enable_sensitive_scan" 
-                    name="enable_sensitive_scan" 
-                    checked
-                    style="width: auto; margin-right: 10px;"
+                    type="text" 
+                    id="target" 
+                    name="target" 
+                    class="form-input"
+                    placeholder="e.g., example.com or https://example.com"
+                    required
                 >
-                <span>Enable Sensitive Information Scanning</span>
-            </label>
-            <small style="color: #666; margin-top: 5px; display: block;">
-                Scans discovered URLs for API keys, credentials, and other sensitive data. 
-                This runs in the background and won't delay the initial scan results.
-            </small>
+            </div>
+            
+            <div class="form-group">
+                <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem;">
+                    <input 
+                        type="checkbox" 
+                        id="enable_sensitive_scan" 
+                        name="enable_sensitive_scan" 
+                        checked
+                        style="width: auto; cursor: pointer;"
+                    >
+                    <span>Enable Sensitive Information Scanning</span>
+                </label>
+                <small class="form-help">
+                    Scans discovered URLs for API keys, credentials, and other sensitive data. 
+                    This runs in the background and won't delay the initial scan results.
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label style="display: flex; align-items: center; cursor: pointer; gap: 0.5rem;">
+                    <input 
+                        type="checkbox" 
+                        id="enable_dork_search" 
+                        name="enable_dork_search"
+                        style="width: auto; cursor: pointer;"
+                    >
+                    <span>Enable Automated Google Dorks Search</span>
+                </label>
+                <small class="form-help">
+                    Automatically executes Google Dorks queries and displays results. 
+                    Requires Google Custom Search API configuration (see documentation).
+                </small>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                🚀 Start OSINT Scan
+            </button>
+            
+            <div class="error-message" id="errorMessage"></div>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Gathering information... This may take a minute.</p>
         </div>
-        
-        <div class="form-group">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <input 
-                    type="checkbox" 
-                    id="enable_dork_search" 
-                    name="enable_dork_search"
-                    style="width: auto; margin-right: 10px;"
-                >
-                <span>Enable Automated Google Dorks Search</span>
-            </label>
-            <small style="color: #666; margin-top: 5px; display: block;">
-                Automatically executes Google Dorks queries and displays results. 
-                Requires Google Custom Search API configuration (see documentation).
-            </small>
-        </div>
-        
-        <button type="submit" class="btn-primary" id="submitBtn">
-            🚀 Start OSINT Scan
-        </button>
-        
-        <div class="error-message" id="errorMessage"></div>
-    </form>
-    
-    <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p>Gathering information... This may take a minute.</p>
     </div>
 </div>
 
 <script>
+(function() {
+    'use strict';
+    
 document.getElementById('scanForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    const target = document.getElementById('target').value.trim();
+    const targetInput = document.getElementById('target');
+    const target = targetInput ? targetInput.value.trim() : '';
     const submitBtn = document.getElementById('submitBtn');
     const loading = document.getElementById('loading');
     const errorMessage = document.getElementById('errorMessage');
-    const form = document.getElementById('scanForm');
     
     if (!target) {
-        errorMessage.textContent = 'Please enter a target domain or URL';
-        errorMessage.classList.add('active');
+        if (errorMessage) {
+            errorMessage.textContent = 'Please enter a target domain or URL';
+            errorMessage.classList.add('active');
+        }
+        if (window.MegidoToast) {
+            window.MegidoToast.warning('Please enter a target domain or URL');
+        }
         return;
     }
     
     // Hide error, show loading
-    errorMessage.classList.remove('active');
-    loading.classList.add('active');
-    submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Scanning...';
+    if (errorMessage) errorMessage.classList.remove('active');
+    if (loading) loading.classList.add('active');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Scanning...';
+    }
     
     // Get CSRF token
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -211,23 +207,36 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
             'X-CSRFToken': csrftoken,
             'Content-Type': 'application/x-www-form-urlencoded',
         },
+        credentials: 'same-origin',
         body: 'target=' + encodeURIComponent(target) + '&enable_sensitive_scan=' + enableSensitiveScan + '&enable_dork_search=' + enableDorkSearch
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            if (window.MegidoToast) {
+                window.MegidoToast.success('Scan started successfully!');
+            }
             window.location.href = data.redirect_url;
         } else {
             throw new Error(data.error || 'Unknown error occurred');
         }
     })
     .catch(error => {
-        loading.classList.remove('active');
-        submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 Start OSINT Scan';
-        errorMessage.textContent = 'Error: ' + error.message;
-        errorMessage.classList.add('active');
+        if (loading) loading.classList.remove('active');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '🚀 Start OSINT Scan';
+        }
+        if (errorMessage) {
+            errorMessage.textContent = 'Error: ' + error.message;
+            errorMessage.classList.add('active');
+        }
+        if (window.MegidoToast) {
+            window.MegidoToast.error('Scan failed: ' + error.message);
+        }
     });
 });
+
+})(); // End IIFE
 </script>
 {% endblock %}
