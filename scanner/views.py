@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import re
 import os
-from .exploit_integration import exploit_all_vulnerabilities, exploit_selected_vulnerabilities
+from celery.result import AsyncResult
+from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
 
 
 @api_view(['GET', 'POST'])
@@ -174,11 +175,15 @@ def scan_results(request, scan_id):
 @permission_classes([IsAuthenticated])
 def exploit_vulnerabilities(request, scan_id):
     """
-    Exploit vulnerabilities from a scan.
+    Trigger background exploitation of vulnerabilities from a scan.
     
     Request body should contain:
     - action: 'all' to exploit all vulnerabilities, 'selected' for specific ones
     - vulnerability_ids: (optional) list of vulnerability IDs when action='selected'
+    
+    Returns:
+    - task_id: Celery task ID for polling status
+    - message: Confirmation message
     """
     try:
         scan = Scan.objects.get(id=scan_id)
@@ -195,9 +200,13 @@ def exploit_vulnerabilities(request, scan_id):
     }
     
     if action == 'all':
-        # Exploit all vulnerabilities in the scan
-        results = exploit_all_vulnerabilities(scan_id, config)
-        return Response(results)
+        # Submit Celery task to exploit all vulnerabilities in the scan
+        task = async_exploit_all_vulnerabilities.delay(scan_id, config)
+        return Response({
+            'task_id': task.id,
+            'message': 'Exploitation started in background',
+            'status_url': f'/scanner/api/exploit_status/{task.id}/'
+        }, status=202)
     
     elif action == 'selected':
         # Exploit only selected vulnerabilities
@@ -216,11 +225,67 @@ def exploit_vulnerabilities(request, scan_id):
                 'error': 'Some vulnerability IDs do not belong to this scan'
             }, status=400)
         
-        results = exploit_selected_vulnerabilities(valid_ids, config)
-        return Response(results)
+        # Submit Celery task to exploit selected vulnerabilities
+        task = async_exploit_selected_vulnerabilities.delay(valid_ids, config)
+        return Response({
+            'task_id': task.id,
+            'message': 'Exploitation started in background',
+            'status_url': f'/scanner/api/exploit_status/{task.id}/'
+        }, status=202)
     
     else:
         return Response({'error': 'Invalid action. Use "all" or "selected"'}, status=400)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def exploit_status(request, task_id):
+    """
+    Check the status of a background exploitation task.
+    
+    Returns:
+    - state: Task state (PENDING, PROGRESS, SUCCESS, FAILURE)
+    - current: Current progress (if in PROGRESS state)
+    - total: Total items to process (if in PROGRESS state)
+    - status: Status message (if in PROGRESS state)
+    - result: Final results (if SUCCESS state)
+    - error: Error message (if FAILURE state)
+    """
+    task_result = AsyncResult(task_id)
+    
+    response_data = {
+        'task_id': task_id,
+        'state': task_result.state,
+    }
+    
+    if task_result.state == 'PENDING':
+        # Task is waiting to be executed
+        response_data['status'] = 'Task is pending...'
+    
+    elif task_result.state == 'PROGRESS':
+        # Task is in progress
+        response_data.update({
+            'current': task_result.info.get('current', 0),
+            'total': task_result.info.get('total', 0),
+            'status': task_result.info.get('status', 'Processing...')
+        })
+    
+    elif task_result.state == 'SUCCESS':
+        # Task completed successfully
+        response_data['result'] = task_result.result
+        response_data['status'] = 'Completed'
+    
+    elif task_result.state == 'FAILURE':
+        # Task failed with an error
+        response_data['error'] = str(task_result.info)
+        response_data['status'] = 'Failed'
+    
+    else:
+        # Any other state
+        response_data['status'] = str(task_result.state)
+    
+    return Response(response_data)
 
 
 @login_required

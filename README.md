@@ -106,16 +106,125 @@ python manage.py runserver
 python launch.py
 ```
 
-### Scalable Production Architecture
+### Scalable Production Architecture with Celery
 
-For high-volume production deployments, consider moving heavy exploit tasks to **asynchronous background workers**:
+Megido now includes **Celery** integration for asynchronous exploit operations, preventing Gunicorn worker timeouts and improving scalability.
 
-- Use **Celery** with Redis/RabbitMQ for distributed task queuing
-- Use **RQ (Redis Queue)** for simpler async task processing
-- Implement job queuing for scan requests to prevent blocking web workers
-- Add progress tracking and result retrieval via API endpoints
+#### Background Task Processing
 
-This architecture allows the web tier to remain responsive while exploitation tasks run in dedicated worker processes.
+Exploit operations are automatically executed in the background using Celery workers. The API immediately returns a task ID that can be polled for status and results.
+
+#### Development Setup
+
+**1. Install Redis (required for Celery broker/backend)**
+
+```bash
+# macOS
+brew install redis
+brew services start redis
+
+# Ubuntu/Debian
+sudo apt-get install redis-server
+sudo systemctl start redis
+
+# Windows (via WSL2 or Windows native)
+# Download from https://redis.io/download
+```
+
+**2. Install Python dependencies** (if not already installed)
+
+```bash
+pip install -r requirements.txt
+# This includes celery>=5.3.0 and redis>=5.0.0
+```
+
+**3. Start the Celery worker** (in a separate terminal)
+
+```bash
+celery -A megido_security worker --loglevel=info
+```
+
+**4. Start the Django development server** (in another terminal)
+
+```bash
+python manage.py runserver
+# or
+python launch.py
+```
+
+#### Production Deployment
+
+For production, run Celery worker(s) alongside your web server:
+
+```bash
+# Start multiple workers for parallel processing
+celery -A megido_security worker --loglevel=info --concurrency=4
+
+# Optional: Start Celery Beat for periodic tasks (if needed in future)
+celery -A megido_security beat --loglevel=info
+```
+
+#### Configuration
+
+Celery settings can be configured via environment variables:
+
+```bash
+# Redis connection (defaults shown)
+export CELERY_BROKER_URL=redis://localhost:6379/0
+export CELERY_RESULT_BACKEND=redis://localhost:6379/0
+```
+
+#### API Usage
+
+**Submit an exploit task:**
+
+```bash
+POST /scanner/api/scans/{scan_id}/exploit/
+{
+  "action": "all"  # or "selected" with "vulnerability_ids": [1, 2, 3]
+}
+
+Response (HTTP 202):
+{
+  "task_id": "a1b2c3d4-...",
+  "message": "Exploitation started in background",
+  "status_url": "/scanner/api/exploit_status/a1b2c3d4-.../"
+}
+```
+
+**Poll for task status:**
+
+```bash
+GET /scanner/api/exploit_status/{task_id}/
+
+Response:
+{
+  "task_id": "a1b2c3d4-...",
+  "state": "PROGRESS",  # PENDING, PROGRESS, SUCCESS, or FAILURE
+  "current": 2,
+  "total": 5,
+  "status": "Processing vulnerability 2/5"
+}
+```
+
+**When complete (state: SUCCESS):**
+
+```bash
+{
+  "task_id": "a1b2c3d4-...",
+  "state": "SUCCESS",
+  "status": "Completed",
+  "result": {
+    "total": 5,
+    "exploited": 3,
+    "failed": 1,
+    "no_plugin": 1,
+    "results": [...]
+  }
+}
+```
+
+This architecture allows the web tier to remain responsive while exploitation tasks run in dedicated worker processes, improving reliability and user experience for long-running scans.
 
 > **See Also:** [DOCKER_TESTING.md](DOCKER_TESTING.md) for additional production deployment guidance.
 
