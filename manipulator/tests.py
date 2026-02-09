@@ -60,9 +60,8 @@ class PopulateManipulatorDataTest(TestCase):
         
         # Check if warning was logged about NUL character removal
         # The output should mention removing NUL character
-        if '\x00' in output:
-            # If the literal NUL is in output, it wasn't sanitized
-            self.fail("NUL character found in output - sanitization may have failed")
+        self.assertIn('Removed NUL character', output, 
+                      "Warning about NUL character removal should be logged")
         
         # Verify that the "Null Byte Injection" trick was created
         xss_vuln = VulnerabilityType.objects.get(name='XSS')
