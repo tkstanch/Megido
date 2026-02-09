@@ -553,14 +553,12 @@ async function exploitAll() {
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // If WebSocket connection fails or is disabled, use polling
-        if (!wsConnected) {
-            setTimeout(() => {
-                if (!wsConnected) {
-                    fallbackToPolling(currentTaskId);
-                }
-            }, 1000);
-        }
+        // If WebSocket connection fails, fallback to polling after 1 second
+        setTimeout(() => {
+            if (!wsConnected) {
+                fallbackToPolling(currentTaskId);
+            }
+        }, 1000);
         
     } catch (error) {
         displayError(error.message);
@@ -634,14 +632,12 @@ async function exploitSelected() {
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // If WebSocket connection fails or is disabled, use polling
-        if (!wsConnected) {
-            setTimeout(() => {
-                if (!wsConnected) {
-                    fallbackToPolling(currentTaskId);
-                }
-            }, 1000);
-        }
+        // If WebSocket connection fails, fallback to polling after 1 second
+        setTimeout(() => {
+            if (!wsConnected) {
+                fallbackToPolling(currentTaskId);
+            }
+        }, 1000);
         
     } catch (error) {
         displayError(error.message);

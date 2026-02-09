@@ -99,8 +99,7 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
     )
     
     # Send final success update via WebSocket
-    if self.request.id:
-        send_success_update(task_id=task_id, result=results)
+    send_success_update(task_id=task_id, result=results)
     
     return results
 
@@ -177,8 +176,7 @@ def async_exploit_selected_vulnerabilities(
     )
     
     # Send final success update via WebSocket
-    if self.request.id:
-        send_success_update(task_id=task_id, result=results)
+    send_success_update(task_id=task_id, result=results)
     
     return results
 

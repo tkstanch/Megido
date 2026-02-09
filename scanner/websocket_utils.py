@@ -101,7 +101,7 @@ def send_progress_update(task_id: str, current: int, total: int, status: str = N
     data = {
         'current': current,
         'total': total,
-        'percent': int((current / total * 100)) if total > 0 else 0,
+        'percent': int(current / total * 100) if total > 0 else 0,
     }
     
     if status:
@@ -123,7 +123,7 @@ async def send_progress_update_async(task_id: str, current: int, total: int, sta
     data = {
         'current': current,
         'total': total,
-        'percent': int((current / total * 100)) if total > 0 else 0,
+        'percent': int(current / total * 100) if total > 0 else 0,
     }
     
     if status:
