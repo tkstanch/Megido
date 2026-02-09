@@ -163,7 +163,9 @@ window.addEventListener('DOMContentLoaded', loadServers);
 
 async function loadServers() {
     try {
-        const response = await fetch('/collaborator/api/servers/');
+        const response = await MegidoErrorHandler.fetchWithRetry('/collaborator/api/servers/', {
+            errorContext: 'Load collaborator servers'
+        });
         const servers = await response.json();
         
         const container = document.getElementById('servers-container');
@@ -194,6 +196,12 @@ async function loadServers() {
     } catch (error) {
         console.error('Error loading servers:', error);
         document.getElementById('servers-container').innerHTML = '<p style="color: #dc3545;">Error loading servers.</p>';
+        
+        // Show user-facing error notification
+        MegidoErrorHandler.showErrorNotification(error, {
+            title: 'Failed to Load Collaborator Servers',
+            retryCallback: loadServers
+        });
     }
 }
 
@@ -208,10 +216,11 @@ async function createServer() {
     }
     
     try {
-        const response = await fetch('/collaborator/api/servers/', {
+        const response = await MegidoErrorHandler.fetchWithRetry('/collaborator/api/servers/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({domain, ip_address: ip, description})
+            body: JSON.stringify({domain, ip_address: ip, description}),
+            errorContext: 'Create collaborator server'
         });
         
         if (response.ok) {
@@ -224,7 +233,14 @@ async function createServer() {
             alert('Error creating server: ' + JSON.stringify(error));
         }
     } catch (error) {
+        console.error('Error creating server:', error);
         alert('Error creating server: ' + error.message);
+        
+        // Show user-facing error notification
+        MegidoErrorHandler.showErrorNotification(error, {
+            title: 'Failed to Create Collaborator Server',
+            retryCallback: createServer
+        });
     }
 }
 
@@ -257,7 +273,10 @@ async function loadInteractions() {
     if (!currentServerId) return;
     
     try {
-        const response = await fetch(`/collaborator/api/servers/${currentServerId}/interactions/`);
+        const response = await MegidoErrorHandler.fetchWithRetry(
+            `/collaborator/api/servers/${currentServerId}/interactions/`,
+            { errorContext: 'Load interactions' }
+        );
         const interactions = await response.json();
         
         document.getElementById('interactions-title').textContent = `Interactions (${interactions.length})`;
@@ -294,6 +313,8 @@ async function loadInteractions() {
         
     } catch (error) {
         console.error('Error loading interactions:', error);
+        // Silent failure for polling - log to console only
+        // This prevents notification spam during background polling operations
     }
 }
 

@@ -59,6 +59,10 @@
         }
         {% block extra_style %}{% endblock %}
     </style>
+    <script>
+        // Pass Django debug mode to JavaScript
+        window.MEGIDO_DEBUG = {% if debug %}true{% else %}false{% endif %};
+    </script>
 </head>
 <body>
     <div class="container">
@@ -82,6 +86,13 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+    <script src="/static/megido-error-handler.js"></script>
+    <script>
+        // Initialize error handler with debug mode from Django
+        if (window.MegidoErrorHandler && window.MEGIDO_DEBUG !== undefined) {
+            MegidoErrorHandler.setDebugMode(window.MEGIDO_DEBUG);
+        }
+    </script>
     {% block extra_script %}{% endblock %}
 </body>
 </html>

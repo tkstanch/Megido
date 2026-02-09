@@ -59,3 +59,6 @@ htmlcov/
 /tmp/
 *.tmp
 *.log
+
+# Test files
+test_error_handler.html

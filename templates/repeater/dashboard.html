@@ -110,21 +110,30 @@ async function sendRequest() {
     }
     
     try {
+        const responseDiv = document.getElementById('response');
+        if (!responseDiv) {
+            console.error('Response div not found');
+            return;
+        }
+        
+        responseDiv.innerHTML = '<p style="color: #666;">Sending request...</p>';
+        
         // First, create the request
-        const createResponse = await fetch('/repeater/api/requests/', {
+        const createResponse = await MegidoErrorHandler.fetchWithRetry('/repeater/api/requests/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({method, url, headers, body})
+            body: JSON.stringify({method, url, headers, body}),
+            errorContext: 'Create repeater request'
         });
         const created = await createResponse.json();
         
         // Then send it
-        const sendResponse = await fetch(`/repeater/api/requests/${created.id}/send/`, {
-            method: 'POST'
+        const sendResponse = await MegidoErrorHandler.fetchWithRetry(`/repeater/api/requests/${created.id}/send/`, {
+            method: 'POST',
+            errorContext: 'Send repeater request'
         });
         const result = await sendResponse.json();
         
-        const responseDiv = document.getElementById('response');
         responseDiv.innerHTML = `
             <div><strong>Status:</strong> ${result.status_code || result.error}</div>
             <div style="margin-top: 10px;"><strong>Response Time:</strong> ${result.response_time ? result.response_time.toFixed(2) + ' ms' : 'N/A'}</div>
@@ -134,7 +143,17 @@ async function sendRequest() {
             <pre style="background: white; padding: 10px; border-radius: 3px; max-height: 400px; overflow: auto;">${result.body || result.error || 'N/A'}</pre>
         `;
     } catch (error) {
-        document.getElementById('response').innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        console.error('Error sending request:', error);
+        const responseDiv = document.getElementById('response');
+        if (responseDiv) {
+            responseDiv.innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
+        }
+        
+        // Show user-facing error notification
+        MegidoErrorHandler.showErrorNotification(error, {
+            title: 'Failed to Send Request',
+            retryCallback: sendRequest
+        });
     }
 }
 </script>
