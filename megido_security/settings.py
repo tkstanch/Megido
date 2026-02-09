@@ -20,12 +20,14 @@ DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']
 
 INSTALLED_APPS = [
+    'daphne',  # Must be first for Channels ASGI support
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'rest_framework',
     'rest_framework.authtoken',
     'app_manager',
@@ -76,6 +78,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'megido_security.wsgi.application'
+
+# ASGI application for Channels (WebSocket support)
+ASGI_APPLICATION = 'megido_security.asgi.application'
 
 
 # Database
@@ -282,3 +287,27 @@ CELERY_TIMEZONE = TIME_ZONE
 # This is overridden in tests with @override_settings
 CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# ============================================================================
+# Django Channels Configuration (WebSocket Support)
+# ============================================================================
+# Redis is used as the channel layer backend for WebSocket communication
+# This enables real-time updates for exploitation results
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
+            'capacity': 1500,  # Maximum number of messages to store
+            'expiry': 10,  # Message expiry time in seconds
+        },
+    },
+}
+
+# For testing without Redis, use InMemoryChannelLayer
+# Uncomment the following to use in-memory layer (development only)
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer'
+#     }
+# }

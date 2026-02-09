@@ -226,6 +226,97 @@ Response:
 
 This architecture allows the web tier to remain responsive while exploitation tasks run in dedicated worker processes, improving reliability and user experience for long-running scans.
 
+### Real-Time WebSocket Updates
+
+The scanner now supports **WebSocket-based real-time updates** for exploitation progress, providing instant feedback as tasks execute. The system automatically falls back to polling if WebSocket connections fail, ensuring reliability across all environments.
+
+#### How It Works
+
+When you trigger an exploitation operation, the UI:
+1. **Attempts WebSocket connection** to receive real-time updates
+2. **Displays live progress** as vulnerabilities are processed
+3. **Automatically falls back to polling** if WebSocket is unavailable
+4. **Shows completion results** instantly when the task finishes
+
+#### WebSocket Configuration
+
+WebSockets require Redis as the channel layer backend:
+
+```bash
+# Redis is already required for Celery, same instance can be used
+export REDIS_URL=redis://localhost:6379/1  # Optional, defaults to localhost
+```
+
+The WebSocket endpoint is automatically configured at:
+```
+ws://localhost:8000/ws/scanner/task/<task_id>/
+wss://your-domain.com/ws/scanner/task/<task_id>/  # For HTTPS
+```
+
+#### ASGI Deployment for Production
+
+For production deployments with WebSocket support, use **Daphne** (ASGI server) instead of Gunicorn:
+
+```bash
+# Install dependencies (already in requirements.txt)
+pip install daphne channels channels-redis
+
+# Start Daphne server
+daphne -b 0.0.0.0 -p 8000 megido_security.asgi:application
+
+# Or with more workers
+daphne -b 0.0.0.0 -p 8000 --workers 4 megido_security.asgi:application
+```
+
+**Docker Compose** automatically uses Daphne when the ASGI application is detected.
+
+#### Troubleshooting WebSockets
+
+**Issue: WebSocket connection fails**
+- **Cause**: Redis not running or not accessible
+- **Solution**: Start Redis (`redis-server`) or check REDIS_URL setting
+- **Fallback**: System automatically uses polling - no manual intervention needed
+
+**Issue: No real-time updates in browser**
+- **Check browser console** for WebSocket connection messages
+- **Verify Redis is running**: `redis-cli ping` should return `PONG`
+- **Check firewall rules** if Redis is on a different host
+
+**Issue: WebSocket works locally but not in production**
+- **Ensure HTTPS/WSS protocol** match your site protocol
+- **Configure reverse proxy** (nginx/Apache) to proxy WebSocket connections:
+  ```nginx
+  location /ws/ {
+      proxy_pass http://localhost:8000;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+  }
+  ```
+
+**Testing without Redis**
+
+For testing purposes, you can use the in-memory channel layer (not for production):
+
+```python
+# In settings.py, temporarily replace CHANNEL_LAYERS with:
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
+```
+
+> **Note**: The in-memory layer only works with a single server process and doesn't persist across restarts. Always use Redis for production deployments.
+
+#### Benefits
+
+- **Instant feedback**: See exploitation progress in real-time
+- **Better UX**: No need to refresh or wait for polling
+- **Graceful degradation**: Automatic fallback to polling ensures compatibility
+- **Low overhead**: WebSocket connections are lightweight and efficient
+- **Production-ready**: Built on battle-tested Django Channels
+
 > **See Also:** [DOCKER_TESTING.md](DOCKER_TESTING.md) for additional production deployment guidance.
 
 [...]rest of README untouched...

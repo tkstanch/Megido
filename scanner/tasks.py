@@ -15,6 +15,11 @@ from scanner.exploit_integration import (
     exploit_vulnerability,
     format_exploit_result
 )
+from scanner.websocket_utils import (
+    send_progress_update,
+    send_success_update,
+    send_failure_update
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +98,9 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
         f"{results['no_plugin']} no plugin"
     )
     
+    # Send final success update via WebSocket
+    send_success_update(task_id=task_id, result=results)
+    
     return results
 
 
@@ -150,6 +158,14 @@ def async_exploit_selected_vulnerabilities(
                     'status': f'Processing vulnerability {idx}/{total}'
                 }
             )
+            
+            # Send WebSocket update for real-time UI updates
+            send_progress_update(
+                task_id=task_id,
+                current=idx,
+                total=total,
+                status=f'Processing vulnerability {idx}/{total}'
+            )
         
         _exploit_vulnerability_and_update(vuln, config, results)
     
@@ -158,6 +174,9 @@ def async_exploit_selected_vulnerabilities(
         f"{results['exploited']} exploited, {results['failed']} failed, "
         f"{results['no_plugin']} no plugin"
     )
+    
+    # Send final success update via WebSocket
+    send_success_update(task_id=task_id, result=results)
     
     return results
 
