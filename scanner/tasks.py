@@ -4,16 +4,17 @@ Celery tasks for scanner application
 This module contains background tasks for long-running exploit operations.
 """
 
-from celery import shared_task
-from typing import Dict, Any, Optional, List
 import logging
+from typing import Dict, Any, Optional, List
+
+from celery import shared_task
+from django.utils import timezone
 
 from scanner.models import Scan, Vulnerability
 from scanner.exploit_integration import (
     exploit_vulnerability,
     format_exploit_result
 )
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 

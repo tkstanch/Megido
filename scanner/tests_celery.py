@@ -252,7 +252,7 @@ class CeleryExploitAPITestCase(TestCase):
     def test_exploit_status_progress(self, mock_async_result):
         """Test exploit status endpoint for task in progress"""
         mock_result = MagicMock()
-        mock_result.state = 'PROGRESS'  # Custom state used in our tasks
+        mock_result.state = 'PROGRESS'  # Task state used in our implementation
         mock_result.info = {
             'current': 2,
             'total': 5,

@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlparse
 import re
 import os
 from celery.result import AsyncResult
+from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
 
 
 @api_view(['GET', 'POST'])
@@ -184,8 +185,6 @@ def exploit_vulnerabilities(request, scan_id):
     - task_id: Celery task ID for polling status
     - message: Confirmation message
     """
-    from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
-    
     try:
         scan = Scan.objects.get(id=scan_id)
     except Scan.DoesNotExist:
