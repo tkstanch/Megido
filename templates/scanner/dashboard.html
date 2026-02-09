@@ -110,6 +110,11 @@ button:disabled {
 <script>
 let currentScanId = null;
 let currentVulnerabilities = [];
+let currentTaskId = null;
+let ws = null;
+let wsConnected = false;
+let pollingInterval = null;
+let useWebSocket = true;  // Try WebSocket first, fallback to polling if needed
 
 // Helper function to safely display error messages
 function displayError(message) {
@@ -308,6 +313,203 @@ function formatExploitStatus(status) {
     return statusMap[status] || status;
 }
 
+// ============================================================================
+// WebSocket Connection Management
+// ============================================================================
+
+function connectWebSocket(taskId) {
+    if (!useWebSocket) {
+        console.log('WebSocket disabled, using polling fallback');
+        return;
+    }
+    
+    // Close existing connection if any
+    closeWebSocket();
+    
+    // Determine WebSocket protocol based on page protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/scanner/task/${taskId}/`;
+    
+    console.log(`Attempting WebSocket connection to: ${wsUrl}`);
+    
+    try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function(event) {
+            console.log('WebSocket connected successfully');
+            wsConnected = true;
+            
+            // Stop polling if it was running
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        };
+        
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message received:', data);
+                handleWebSocketUpdate(data);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            fallbackToPolling(taskId);
+        };
+        
+        ws.onclose = function(event) {
+            console.log('WebSocket closed:', event.code, event.reason);
+            wsConnected = false;
+            ws = null;
+            
+            // If task is still in progress, fallback to polling
+            if (currentTaskId) {
+                fallbackToPolling(taskId);
+            }
+        };
+        
+    } catch (error) {
+        console.error('WebSocket connection failed:', error);
+        fallbackToPolling(taskId);
+    }
+}
+
+function closeWebSocket() {
+    if (ws) {
+        try {
+            ws.close();
+        } catch (error) {
+            console.error('Error closing WebSocket:', error);
+        }
+        ws = null;
+        wsConnected = false;
+    }
+}
+
+function handleWebSocketUpdate(data) {
+    const updateType = data.update_type;
+    
+    if (updateType === 'connection') {
+        console.log('WebSocket connection confirmed');
+        return;
+    }
+    
+    if (updateType === 'progress') {
+        updateProgressDisplay(data);
+    } else if (updateType === 'success') {
+        handleExploitationComplete(data.result);
+        closeWebSocket();
+    } else if (updateType === 'failure') {
+        displayError(data.error || 'Exploitation failed');
+        enableExploitButtons();
+        closeWebSocket();
+    }
+}
+
+function updateProgressDisplay(data) {
+    const statusDiv = document.getElementById('scan-status');
+    statusDiv.innerHTML = `
+        <div class="info" style="color: #007bff;">
+            <strong>Exploitation in progress...</strong><br>
+            Processing vulnerability ${data.current}/${data.total} (${data.percent}%)
+            ${data.status ? '<br>' + escapeHtml(data.status) : ''}
+        </div>
+    `;
+}
+
+function fallbackToPolling(taskId) {
+    if (!useWebSocket) return;  // Already using polling
+    
+    console.log('Falling back to polling for task status');
+    useWebSocket = false;
+    
+    // Start polling if not already running
+    if (!pollingInterval && taskId) {
+        startPolling(taskId);
+    }
+}
+
+function startPolling(taskId) {
+    console.log('Starting polling for task:', taskId);
+    
+    // Clear any existing interval
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+    
+    // Poll every 2 seconds
+    pollingInterval = setInterval(async () => {
+        try {
+            await pollTaskStatus(taskId);
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    }, 2000);
+    
+    // Do an immediate poll
+    pollTaskStatus(taskId);
+}
+
+async function pollTaskStatus(taskId) {
+    try {
+        const csrfToken = getCsrfTokenFromCookies('csrftoken');
+        const response = await fetch(`/scanner/api/exploit_status/${taskId}/`, {
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.state === 'PROGRESS') {
+            updateProgressDisplay({
+                current: data.current || 0,
+                total: data.total || 0,
+                percent: data.total > 0 ? Math.floor((data.current / data.total) * 100) : 0,
+                status: data.status
+            });
+        } else if (data.state === 'SUCCESS') {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            handleExploitationComplete(data.result);
+        } else if (data.state === 'FAILURE') {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            displayError(data.error || 'Exploitation failed');
+            enableExploitButtons();
+        }
+    } catch (error) {
+        console.error('Error polling task status:', error);
+    }
+}
+
+function handleExploitationComplete(results) {
+    currentTaskId = null;
+    showExploitResults(results);
+    
+    // Reload vulnerabilities to show updated status
+    if (currentScanId) {
+        loadResults(currentScanId);
+    }
+}
+
+// ============================================================================
+// End WebSocket Code
+// ============================================================================
+
 async function exploitAll() {
     if (!currentScanId) {
         alert('No scan selected');
@@ -326,7 +528,7 @@ async function exploitAll() {
         
         document.getElementById('scan-status').innerHTML = `
             <div class="info" style="color: #007bff;">
-                <strong>Exploitation in progress...</strong> Please wait.
+                <strong>Starting exploitation...</strong> Please wait.
             </div>
         `;
         
@@ -345,11 +547,20 @@ async function exploitAll() {
             throw new Error(`Exploitation failed: ${response.status} - ${errorText}`);
         }
         
-        const results = await response.json();
-        showExploitResults(results);
+        const data = await response.json();
+        currentTaskId = data.task_id;
         
-        // Reload vulnerabilities to show updated status
-        await loadResults(currentScanId);
+        // Connect to WebSocket for real-time updates
+        connectWebSocket(currentTaskId);
+        
+        // If WebSocket connection fails or is disabled, use polling
+        if (!wsConnected) {
+            setTimeout(() => {
+                if (!wsConnected) {
+                    fallbackToPolling(currentTaskId);
+                }
+            }, 1000);
+        }
         
     } catch (error) {
         displayError(error.message);
@@ -395,7 +606,7 @@ async function exploitSelected() {
         
         document.getElementById('scan-status').innerHTML = `
             <div class="info" style="color: #007bff;">
-                <strong>Exploitation in progress...</strong> Processing ${selectedIds.length} vulnerability(ies).
+                <strong>Starting exploitation...</strong> Processing ${selectedIds.length} vulnerability(ies).
             </div>
         `;
         
@@ -417,11 +628,20 @@ async function exploitSelected() {
             throw new Error(`Exploitation failed: ${response.status} - ${errorText}`);
         }
         
-        const results = await response.json();
-        showExploitResults(results);
+        const data = await response.json();
+        currentTaskId = data.task_id;
         
-        // Reload vulnerabilities to show updated status
-        await loadResults(currentScanId);
+        // Connect to WebSocket for real-time updates
+        connectWebSocket(currentTaskId);
+        
+        // If WebSocket connection fails or is disabled, use polling
+        if (!wsConnected) {
+            setTimeout(() => {
+                if (!wsConnected) {
+                    fallbackToPolling(currentTaskId);
+                }
+            }, 1000);
+        }
         
     } catch (error) {
         displayError(error.message);
