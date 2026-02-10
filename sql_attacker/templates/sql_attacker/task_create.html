@@ -31,15 +31,19 @@
             </div>
             <div class="card-body space-y-4">
                 <div>
-                    <label for="target_url" class="form-label">Target URL *</label>
+                    <label for="target_url" class="form-label">
+                        Target URL <span class="text-red-500" aria-label="required">*</span>
+                    </label>
                     <input type="url" class="form-input" id="target_url" name="target_url" required
-                           placeholder="https://example.com/page?id=1">
+                           aria-required="true" placeholder="https://example.com/page?id=1">
                     <p class="form-hint">The URL to test for SQL injection vulnerabilities</p>
                 </div>
                 
                 <div>
-                    <label for="http_method" class="form-label">HTTP Method *</label>
-                    <select class="form-select" id="http_method" name="http_method">
+                    <label for="http_method" class="form-label">
+                        HTTP Method <span class="text-red-500" aria-label="required">*</span>
+                    </label>
+                    <select class="form-select" id="http_method" name="http_method" required aria-required="true">
                         {% for value, label in method_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}

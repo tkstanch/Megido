@@ -162,13 +162,12 @@ function initCategoryToggle() {
             const content = this.nextElementSibling;
             const icon = this.querySelector('.collapse-icon');
             
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▲';
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▼';
-            }
+            content.classList.toggle('hidden');
+            icon.textContent = content.classList.contains('hidden') ? '▼' : '▲';
+            
+            // Update ARIA attribute
+            const isExpanded = !content.classList.contains('hidden');
+            this.setAttribute('aria-expanded', isExpanded);
         });
     });
 }
@@ -176,23 +175,29 @@ function initCategoryToggle() {
 // Tab switching functionality
 function initTabs() {
     const tabLinks = document.querySelectorAll('.tab-link');
+    const activeClasses = ['active', 'border-primary-500', 'text-primary-600', 'dark:text-primary-400'];
+    const inactiveClasses = ['text-gray-600', 'dark:text-gray-400'];
     
     tabLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Remove active class from all tabs and contents
+            // Remove active state from all tabs
             document.querySelectorAll('.tab-link').forEach(tab => {
-                tab.classList.remove('active', 'border-primary-500', 'text-primary-600', 'dark:text-primary-400');
-                tab.classList.add('text-gray-600', 'dark:text-gray-400');
+                tab.classList.remove(...activeClasses);
+                tab.classList.add(...inactiveClasses);
             });
+            
+            // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');
             });
             
-            // Add active class to clicked tab and show corresponding content
-            this.classList.add('active', 'border-primary-500', 'text-primary-600', 'dark:text-primary-400');
-            this.classList.remove('text-gray-600', 'dark:text-gray-400');
+            // Activate clicked tab
+            this.classList.add(...activeClasses);
+            this.classList.remove(...inactiveClasses);
+            
+            // Show corresponding content
             const targetId = this.getAttribute('data-tab-target');
             const targetContent = document.getElementById(targetId);
             if (targetContent) {
@@ -258,11 +263,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Auto-expand all categories by default
     document.querySelectorAll('.payload-category-content').forEach(content => {
-        content.style.display = 'block';
+        content.classList.remove('hidden');
     });
     
     document.querySelectorAll('.collapse-icon').forEach(icon => {
         icon.textContent = '▲';
+    });
+    
+    // Set initial ARIA attributes
+    document.querySelectorAll('.payload-category-header').forEach(header => {
+        header.setAttribute('aria-expanded', 'true');
     });
     
     // Show welcome toast
