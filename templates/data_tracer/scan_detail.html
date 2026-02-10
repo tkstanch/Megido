@@ -36,7 +36,7 @@
                     {% if scan_target.status == 'pending' %}
                         <span class="badge badge-warning">{{ scan_target.get_status_display }}</span>
                     {% elif scan_target.status == 'running' %}
-                        <span class="badge" style="background: #2196f3; color: white;">{{ scan_target.get_status_display }}</span>
+                        <span class="badge bg-blue-500 text-white">{{ scan_target.get_status_display }}</span>
                     {% elif scan_target.status == 'completed' %}
                         <span class="badge badge-success">{{ scan_target.get_status_display }}</span>
                     {% else %}

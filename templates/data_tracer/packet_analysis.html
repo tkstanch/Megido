@@ -86,7 +86,7 @@
                                 {% elif packet.relevance == 'low' %}
                                     <span class="badge badge-success">{{ packet.get_relevance_display }}</span>
                                 {% else %}
-                                    <span class="badge" style="background: #9e9e9e; color: white;">{{ packet.get_relevance_display }}</span>
+                                    <span class="badge bg-gray-500 text-white">{{ packet.get_relevance_display }}</span>
                                 {% endif %}
                             </td>
                             <td>{{ packet.captured_at|date:"H:i:s" }}</td>
