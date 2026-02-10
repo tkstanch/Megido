@@ -1,22 +1,27 @@
 {% extends 'base.html' %}
 
+{% block title %}Payload Library - Manipulator - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:home' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">Manipulator</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Payload Library</li>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
-            <li class="breadcrumb-item active">Payload Library</li>
-        </ol>
-    </nav>
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Payload Library</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">Browse all available payloads across different vulnerability types.</p>
+    </div>
 
-    <h1>Payload Library</h1>
-    <p class="lead">Browse all available payloads across different vulnerability types.</p>
-
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <form method="get" class="form-inline">
-                <label class="mr-2">Filter by:</label>
-                <select name="vulnerability" class="form-control mr-2" onchange="this.form.submit()">
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="flex flex-wrap items-center gap-4">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by:</label>
+                <select name="vulnerability" class="form-select flex-1 min-w-[200px]" onchange="this.form.submit()">
                     <option value="">All Vulnerabilities</option>
                     {% for vuln in vulnerabilities %}
                         <option value="{{ vuln.name }}" {% if selected_vuln == vuln.name %}selected{% endif %}>
@@ -25,58 +30,66 @@
                     {% endfor %}
                 </select>
                 
-                <input type="text" name="platform" class="form-control mr-2" 
+                <input type="text" name="platform" class="form-input flex-1 min-w-[150px]" 
                        placeholder="Platform" value="{{ selected_platform }}">
                 
                 <button type="submit" class="btn btn-primary">Filter</button>
-                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary ml-2">Clear</a>
+                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary">Clear</a>
             </form>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-12">
-            <p>Found {{ payloads.count }} payload(s)</p>
-            
-            {% if payloads %}
-                <div class="list-group">
-                    {% for payload in payloads %}
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h5>
-                                    {{ payload.name }}
-                                    {% if payload.is_custom %}
-                                        <span class="badge badge-success">Custom</span>
-                                    {% endif %}
-                                </h5>
-                                <p class="mb-1">{{ payload.description }}</p>
-                                <p class="mb-0">
-                                    <small>
-                                        <strong>Vulnerability:</strong> 
-                                        <a href="{% url 'manipulator:vulnerability_detail' payload.vulnerability.id %}">
-                                            {{ payload.vulnerability.name }}
-                                        </a> |
-                                        <strong>Platform:</strong> {{ payload.platform|default:"Any" }} |
-                                        <strong>Bypass:</strong> {{ payload.bypass_technique|default:"None" }}
-                                    </small>
-                                </p>
-                                <pre class="mt-2 p-2 bg-light border rounded"><code>{{ payload.payload_text }}</code></pre>
-                            </div>
+    <div class="text-gray-600 dark:text-gray-400">
+        Found <span class="font-semibold text-gray-900 dark:text-white">{{ payloads.count }}</span> payload(s)
+    </div>
+    
+    {% if payloads %}
+        <div class="space-y-4">
+            {% for payload in payloads %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ payload.name }}</h3>
+                        {% if payload.is_custom %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                Custom
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">{{ payload.description }}</p>
+                    
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <div>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">Vulnerability:</span>
+                            <a href="{% url 'manipulator:vulnerability_detail' payload.vulnerability.id %}" 
+                               class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 ml-1">
+                                {{ payload.vulnerability.name }}
+                            </a>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">Platform:</span>
+                            <span class="ml-1">{{ payload.platform|default:"Any" }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">Bypass:</span>
+                            <span class="ml-1">{{ payload.bypass_technique|default:"None" }}</span>
                         </div>
                     </div>
-                    {% endfor %}
+                    
+                    <pre class="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto"><code class="text-sm text-gray-900 dark:text-gray-100">{{ payload.payload_text }}</code></pre>
                 </div>
-            {% else %}
-                <div class="alert alert-info">No payloads found matching your criteria.</div>
-            {% endif %}
+            </div>
+            {% endfor %}
         </div>
-    </div>
+    {% else %}
+        <div class="alert alert-info">No payloads found matching your criteria.</div>
+    {% endif %}
 
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <a href="{% url 'manipulator:add_payload' %}" class="btn btn-success">Add Custom Payload</a>
-        </div>
+    <div class="flex justify-center">
+        <a href="{% url 'manipulator:add_payload' %}" class="btn btn-primary">
+            ➕ Add Custom Payload
+        </a>
     </div>
 </div>
 {% endblock %}
