@@ -28,39 +28,55 @@ These scripts will:
 
 > For full details, troubleshooting, and all platform instructions, please see [LOCAL_INSTALLATION_GUIDE.md](LOCAL_INSTALLATION_GUIDE.md).
 
-## 🎨 Modern UI with Tailwind CSS
+## 🎨 Modern UI with Enhanced Design System
 
-Megido features a **professional, modern user interface** built with Tailwind CSS, offering:
+Megido features a **stunning, professional user interface** built with an enhanced Tailwind CSS design system, offering:
 
-### Key Features
+### ✨ New UI Features (v2.1)
 
-- ✅ **Modern Design System** - Clean, professional aesthetic inspired by security tools like Burp Suite
-- ✅ **Dark Mode Support** - Seamless light/dark mode toggle with persistent preferences
-- ✅ **Fully Responsive** - Mobile-first design that works on all devices (320px to 4K)
+- ✨ **Glassmorphism Effects** - Beautiful frosted glass aesthetics with backdrop blur
+- ✨ **Mesh Gradients** - Multi-color gradient backgrounds for premium visual appeal
+- ✨ **Premium Shadows** - Sophisticated shadow system with glow effects
+- ✨ **Modern Icons** - Professional Feather-style SVG icons throughout
+- ✨ **Micro-Animations** - Smooth transitions, hover effects, and loading states
+- ✨ **Enhanced Dark Mode** - Refined color palette with smooth theme transitions
+- ✨ **Background Patterns** - Subtle dot and grid patterns for depth
+
+### 🎯 Core Features
+
+- ✅ **Modern Design System** - Clean, professional aesthetic inspired by enterprise security tools
+- ✅ **Dark Mode Support** - Seamless light/dark mode toggle with animated transitions
+- ✅ **Fully Responsive** - Mobile-first design that works on all devices (320px to 4K+)
 - ✅ **Accessible by Default** - WCAG 2.1 AA compliant with proper ARIA labels and keyboard navigation
-- ✅ **Consistent Components** - Reusable cards, buttons, badges, forms, and tables
+- ✅ **Premium Components** - Cards, buttons, badges, forms, tables with refined styling
 - ✅ **Security-Themed Colors** - Purple/blue gradients with severity-based color coding
-- ✅ **Fast & Lightweight** - Utility-first CSS with minimal overhead
+- ✅ **Fast & Lightweight** - Optimized CSS with minimal overhead
+- ✅ **Beautiful Typography** - Inter font family for modern, readable text
 
-### Screenshots
+### 📸 Screenshots
 
-**Light Mode:**
+**Light Mode Dashboard:**
 ![Megido Light Mode](https://github.com/user-attachments/assets/d892e776-23f3-40db-993f-01c6d1c77879)
 
-**Dark Mode:**
+**Dark Mode Dashboard:**
 ![Megido Dark Mode](https://github.com/user-attachments/assets/883298ba-436d-42a2-938c-33eb40f7c3c3)
 
-### Documentation
+> Note: Screenshots show the enhanced v2.1 interface with glassmorphism, premium shadows, and modern iconography.
 
-- **[UI_DESIGN_SYSTEM.md](UI_DESIGN_SYSTEM.md)** - Complete design system documentation
-  - Color palette and typography
-  - Component library with code examples
+### 📚 Documentation
+
+- **[UI_DESIGN_SYSTEM.md](UI_DESIGN_SYSTEM.md)** - Complete design system documentation (1,241 lines)
+  - Extended color palette (50-950 scales)
+  - Comprehensive component library with 88+ code examples
+  - Glassmorphism and premium effects
+  - Enhanced animations and transitions
+  - Background patterns and utilities
   - Dark mode implementation
   - Responsive design patterns
-  - Accessibility guidelines
+  - Accessibility guidelines (WCAG AA)
   - Best practices for extending the UI
 
-### Customization
+### 🎨 Customization
 
 To modify the UI or add custom styles:
 
@@ -76,6 +92,19 @@ npm run watch:css
 ```
 
 All Tailwind configuration is in `tailwind.config.js`. Custom components are defined in `static/css/tailwind.input.css`.
+
+### 🆕 What's New in UI v2.1
+
+- **Enhanced Base Template**: Glassmorphism sidebar with gradient header
+- **Premium Card System**: Multiple card variants with sophisticated hover effects
+- **Modern Navigation**: SVG icons, active indicators, smooth transitions
+- **Refined Color Palette**: Extended scales (50-950) for all colors
+- **Advanced Shadows**: Premium, glow, and inner shadow variants
+- **New Animations**: 12+ animation utilities including shimmer, bounce-subtle, scale-in
+- **Form Enhancements**: Validation states, required field styling
+- **Table Improvements**: Striped variants, better hover states
+- **Alert System**: 4 alert variants with border accents
+- **Background Patterns**: Dot and grid patterns for visual depth
 
 ## 🌐 Desktop Browser with Traffic Interception
 
