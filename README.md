@@ -59,6 +59,52 @@ This launches:
 
 See [BROWSER_INTERCEPTOR_INTEGRATION.md](BROWSER_INTERCEPTOR_INTEGRATION.md) for complete documentation.
 
+## 🎯 Advanced Exploit Plugins
+
+Megido includes a powerful pluggable exploit system with production-quality plugins for automated vulnerability exploitation:
+
+### Clickjacking Exploit Plugin
+
+The **Advanced Clickjacking Exploit Plugin** provides comprehensive clickjacking detection and exploitation capabilities:
+
+- ✅ **HTML PoC Generation** - Interactive proof-of-concept with customizable overlays (transparent, opaque, partial)
+- ✅ **Automated Frameability Detection** - Headless browser testing with Selenium/WebDriver  
+- ✅ **Security Header Analysis** - X-Frame-Options and CSP frame-ancestors validation
+- ✅ **Evidence Collection** - Annotated screenshots and detailed reports
+- ✅ **Configurable Testing** - Test mode, browser selection, evidence control
+- ✅ **Severity Classification** - Context-aware risk assessment
+- ✅ **Comprehensive Remediation** - Detailed fix guidance
+
+**Quick Start:**
+```python
+from scanner.plugins import get_registry
+
+# Get the clickjacking plugin
+plugin = get_registry().get_plugin('clickjacking')
+
+# Test a target
+result = plugin.execute_attack(
+    target_url='http://example.com',
+    vulnerability_data={'action_description': 'user login'},
+    config={'browser_type': 'chrome', 'collect_evidence': True}
+)
+
+if result['vulnerable']:
+    print(f"Vulnerability found! PoC: {result['data']['poc_path']}")
+```
+
+**Demo:** Run `python3 demo_clickjacking_plugin.py` for interactive demonstration.
+
+### Other Available Plugins
+
+- **SQL Injection Plugin** - Multi-database support with error-based, time-based, and union-based detection
+- **XSS Plugin** - Advanced cross-site scripting testing with DOM simulation and smart crawling
+
+**Documentation:**
+- [CLICKJACKING_PLUGIN_GUIDE.md](CLICKJACKING_PLUGIN_GUIDE.md) - Comprehensive clickjacking plugin guide
+- [EXPLOIT_PLUGINS_GUIDE.md](EXPLOIT_PLUGINS_GUIDE.md) - Plugin system overview and all available plugins
+- [XSS_PLUGIN_GUIDE.md](XSS_PLUGIN_GUIDE.md) - Detailed XSS plugin documentation
+
 ## ⚙️ Production Deployment Notes
 
 ### Worker Timeout Configuration
