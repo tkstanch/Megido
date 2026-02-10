@@ -49,9 +49,29 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Parameter Source:</strong>
+                    {% if result.parameter_source == 'hidden' %}
+                    <span class="badge badge-warning ml-2" title="Hidden form field">🔒 Hidden Form Field</span>
+                    {% elif result.parameter_source == 'form' %}
+                    <span class="badge badge-info ml-2" title="Visible form field">📝 Visible Form Field</span>
+                    {% elif result.parameter_source == 'link' %}
+                    <span class="badge badge-primary ml-2" title="Link parameter">🔗 Link Parameter</span>
+                    {% elif result.parameter_source == 'js' %}
+                    <span class="badge badge-secondary ml-2" title="JavaScript variable">📜 JavaScript Variable</span>
+                    {% elif result.parameter_source == 'url' %}
+                    <span class="badge badge-success ml-2" title="URL parameter">🌐 URL Parameter</span>
+                    {% elif result.parameter_source == 'manual' %}
+                    <span class="badge badge-secondary ml-2" title="Manually specified">✋ Manual Parameter</span>
+                    {% else %}
+                    <span class="badge badge-secondary ml-2">{{ result.parameter_source|title }}</span>
+                    {% endif %}
+                </div>
+                <div>
                     <strong class="text-gray-700 dark:text-gray-300">Database Type:</strong>
                     <span class="text-gray-900 dark:text-white ml-2">{{ result.database_type|title }}</span>
                 </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <strong class="text-gray-700 dark:text-gray-300">Exploitable:</strong>
                     {% if result.is_exploitable %}
@@ -60,10 +80,10 @@
                     <span class="badge badge-secondary ml-2">No</span>
                     {% endif %}
                 </div>
-            </div>
-            <div>
-                <strong class="text-gray-700 dark:text-gray-300">Detected:</strong>
-                <span class="text-gray-900 dark:text-white ml-2">{{ result.detected_at|date:"Y-m-d H:i:s" }}</span>
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Detected:</strong>
+                    <span class="text-gray-900 dark:text-white ml-2">{{ result.detected_at|date:"Y-m-d H:i:s" }}</span>
+                </div>
             </div>
         </div>
     </div>

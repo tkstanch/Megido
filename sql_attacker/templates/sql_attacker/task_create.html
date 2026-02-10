@@ -86,6 +86,18 @@
             </div>
             <div class="card-body space-y-3">
                 <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="auto_discover_params" 
+                           name="auto_discover_params" checked>
+                    <label class="form-checkbox-label" for="auto_discover_params">
+                        🔍 Automatically Discover Parameters (Recommended)
+                    </label>
+                </div>
+                <p class="form-hint ml-6">
+                    Automatically extract parameters from forms, links, and JavaScript before testing.
+                    Discovers hidden fields, URL parameters, and JS variables.
+                </p>
+                
+                <div class="form-checkbox">
                     <input class="form-checkbox-input" type="checkbox" id="enable_error_based" 
                            name="enable_error_based" checked>
                     <label class="form-checkbox-label" for="enable_error_based">

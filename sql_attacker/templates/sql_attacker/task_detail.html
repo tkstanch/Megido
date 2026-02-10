@@ -120,6 +120,75 @@
         </div>
     </div>
     
+    <!-- Discovered Parameters -->
+    {% if task.discovered_params %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">🔍 Discovered Parameters</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Automatically discovered {{ task.discovered_params|length }} parameter(s) from the target page.
+            </p>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Parameter Name</th>
+                            <th>Value</th>
+                            <th>Source</th>
+                            <th>Method</th>
+                            <th>Field Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for param in task.discovered_params %}
+                        <tr>
+                            <td><code class="text-sm font-semibold">{{ param.name }}</code></td>
+                            <td>
+                                {% if param.value %}
+                                <code class="text-sm text-gray-600 dark:text-gray-400">{{ param.value|truncatechars:30 }}</code>
+                                {% else %}
+                                <span class="text-gray-400 dark:text-gray-600 text-sm">(empty)</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if param.source == 'hidden' %}
+                                <span class="badge badge-warning">🔒 Hidden</span>
+                                {% elif param.source == 'form' %}
+                                <span class="badge badge-info">📝 Form</span>
+                                {% elif param.source == 'link' %}
+                                <span class="badge badge-primary">🔗 Link</span>
+                                {% elif param.source == 'js' %}
+                                <span class="badge badge-secondary">📜 JavaScript</span>
+                                {% elif param.source == 'url' %}
+                                <span class="badge badge-success">🌐 URL</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ param.source }}</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-info">{{ param.method }}</span></td>
+                            <td class="text-sm text-gray-600 dark:text-gray-400">{{ param.field_type }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% elif task.auto_discover_params and task.status == 'completed' %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">🔍 Parameter Discovery</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-gray-600 dark:text-gray-400">
+                No parameters were discovered from the target page. Only manual parameters were tested.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Stealth Configuration -->
     <div class="card">
         <div class="card-header">
@@ -171,6 +240,7 @@
                             <th>Injection Type</th>
                             <th>Vulnerable Parameter</th>
                             <th>Type</th>
+                            <th>Source</th>
                             <th>Database</th>
                             <th>Exploitable</th>
                             <th>Detected</th>
@@ -184,6 +254,23 @@
                             <td><span class="badge badge-danger">{{ result.get_injection_type_display }}</span></td>
                             <td><code class="text-sm">{{ result.vulnerable_parameter }}</code></td>
                             <td><span class="badge badge-info">{{ result.parameter_type }}</span></td>
+                            <td>
+                                {% if result.parameter_source == 'hidden' %}
+                                <span class="badge badge-warning" title="Hidden form field">🔒 Hidden</span>
+                                {% elif result.parameter_source == 'form' %}
+                                <span class="badge badge-info" title="Visible form field">📝 Form</span>
+                                {% elif result.parameter_source == 'link' %}
+                                <span class="badge badge-primary" title="Link parameter">🔗 Link</span>
+                                {% elif result.parameter_source == 'js' %}
+                                <span class="badge badge-secondary" title="JavaScript variable">📜 JS</span>
+                                {% elif result.parameter_source == 'url' %}
+                                <span class="badge badge-success" title="URL parameter">🌐 URL</span>
+                                {% elif result.parameter_source == 'manual' %}
+                                <span class="badge badge-secondary" title="Manually specified">✋ Manual</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ result.parameter_source }}</span>
+                                {% endif %}
+                            </td>
                             <td class="text-gray-700 dark:text-gray-300">{{ result.database_type }}</td>
                             <td>
                                 {% if result.is_exploitable %}
