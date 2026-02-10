@@ -28,6 +28,55 @@ These scripts will:
 
 > For full details, troubleshooting, and all platform instructions, please see [LOCAL_INSTALLATION_GUIDE.md](LOCAL_INSTALLATION_GUIDE.md).
 
+## 🎨 Modern UI with Tailwind CSS
+
+Megido features a **professional, modern user interface** built with Tailwind CSS, offering:
+
+### Key Features
+
+- ✅ **Modern Design System** - Clean, professional aesthetic inspired by security tools like Burp Suite
+- ✅ **Dark Mode Support** - Seamless light/dark mode toggle with persistent preferences
+- ✅ **Fully Responsive** - Mobile-first design that works on all devices (320px to 4K)
+- ✅ **Accessible by Default** - WCAG 2.1 AA compliant with proper ARIA labels and keyboard navigation
+- ✅ **Consistent Components** - Reusable cards, buttons, badges, forms, and tables
+- ✅ **Security-Themed Colors** - Purple/blue gradients with severity-based color coding
+- ✅ **Fast & Lightweight** - Utility-first CSS with minimal overhead
+
+### Screenshots
+
+**Light Mode:**
+![Megido Light Mode](https://github.com/user-attachments/assets/d892e776-23f3-40db-993f-01c6d1c77879)
+
+**Dark Mode:**
+![Megido Dark Mode](https://github.com/user-attachments/assets/883298ba-436d-42a2-938c-33eb40f7c3c3)
+
+### Documentation
+
+- **[UI_DESIGN_SYSTEM.md](UI_DESIGN_SYSTEM.md)** - Complete design system documentation
+  - Color palette and typography
+  - Component library with code examples
+  - Dark mode implementation
+  - Responsive design patterns
+  - Accessibility guidelines
+  - Best practices for extending the UI
+
+### Customization
+
+To modify the UI or add custom styles:
+
+```bash
+# Install Node.js dependencies
+npm install
+
+# Build CSS for production
+npm run build:css
+
+# Watch for changes during development
+npm run watch:css
+```
+
+All Tailwind configuration is in `tailwind.config.js`. Custom components are defined in `static/css/tailwind.input.css`.
+
 ## 🌐 Desktop Browser with Traffic Interception
 
 Megido now includes a **PyQt6 Desktop Browser** with integrated **mitmproxy** for powerful HTTP/HTTPS traffic interception:
