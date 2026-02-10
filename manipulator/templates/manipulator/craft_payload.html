@@ -127,13 +127,29 @@
 
 <script>
 function copyToClipboard() {
-    const text = document.querySelector('textarea[readonly]');
-    text.select();
-    document.execCommand('copy');
-    if (window.MegidoToast) {
-        window.MegidoToast.success('Copied to clipboard!');
+    const text = document.querySelector('textarea[readonly]').value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (window.MegidoToast) {
+                window.MegidoToast.success('Copied to clipboard!');
+            } else {
+                alert('Copied to clipboard!');
+            }
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            if (window.MegidoToast) {
+                window.MegidoToast.error('Failed to copy to clipboard');
+            }
+        });
     } else {
-        alert('Copied to clipboard!');
+        const textarea = document.querySelector('textarea[readonly]');
+        textarea.select();
+        document.execCommand('copy');
+        if (window.MegidoToast) {
+            window.MegidoToast.success('Copied to clipboard!');
+        } else {
+            alert('Copied to clipboard!');
+        }
     }
 }
 </script>
