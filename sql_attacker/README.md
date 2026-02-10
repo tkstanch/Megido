@@ -56,13 +56,42 @@ The `sql_attacker` app provides the most advanced automated SQL injection vulner
 - Privilege escalation detection
 - Real-world impact proof
 
-### Stealth Features
-- Random delays between requests
-- Randomized User-Agent headers
-- Payload obfuscation for WAF evasion
-- Configurable request timing
-- Comment-based obfuscation
-- Case variation techniques
+### 🕵️ Enhanced Stealth Features (NEW!)
+- **Advanced request rate limiting**: Configurable max requests per minute (default: 20)
+- **Timing jitter**: Adds ±50% randomness to all delays for unpredictability
+- **Extended User-Agent pool**: 100+ real browser user agents (Chrome, Firefox, Safari, Edge, Mobile)
+- **Advanced header randomization**: 
+  - Referer (Google, Bing, DuckDuckGo, social media)
+  - Accept-Language variations
+  - Accept header variations
+  - Connection header randomization
+  - DNT (Do Not Track)
+  - Sec-Fetch-* headers for modern browsers
+  - Upgrade-Insecure-Requests
+- **Cookie persistence**: Maintains session cookies across requests
+- **Automatic retry logic**: Exponential backoff for failed requests (429, 500, 502, 503, 504)
+- **Session fingerprint randomization**: Unique session tracking per scan
+- **WAF evasion techniques**: Multiple obfuscation and encoding methods
+- **Configurable request throttling**: Balance between speed and stealth
+
+### 🤝 Interactive Mode (NEW!)
+- **Manual confirmation after discovery**: Pause after parameter discovery to review findings
+- **Parameter selection interface**: Choose which discovered parameters to test
+- **Visual parameter review**: See all discovered parameters with source tags (hidden, form, link, JS, URL)
+- **Two operation modes**:
+  - **Automated**: Continue testing all discovered parameters automatically
+  - **Manual**: Select specific parameters to test with checkboxes
+- **Clear visualization**: Interactive UI with parameter details and selection
+- **Control over testing scope**: Reduce scan time by selecting only relevant parameters
+
+### Exploitation Features
+- Database version extraction
+- Current database name extraction
+- Current database user extraction
+- Table name enumeration (FULLY AUTOMATED)
+- Data extraction from tables (FULLY AUTOMATED)
+- Privilege escalation detection
+- Real-world impact proof
 
 ### Integration
 - **Automatic integration with response_analyser app**: All findings are automatically forwarded to the `response_analyser` app for centralized vulnerability tracking
@@ -97,7 +126,25 @@ The app is already installed as part of the Megido platform. No additional setup
    - Display discovered parameters in task details
    - Test all discovered parameters with SQL injection payloads
 
-4. **View Results**: Tasks show enhanced vulnerability findings with:
+4. **Interactive Mode (Optional)**: Enable "Require Confirmation" for manual control:
+   - After parameter discovery, task pauses with status "Awaiting Confirmation"
+   - Navigate to task detail page and click "Review & Confirm Parameters"
+   - View all discovered parameters with source information (hidden, form, link, JS, URL)
+   - Choose your action:
+     - **Continue Automated**: Test all discovered parameters (one click)
+     - **Manual Selection**: Select specific parameters using checkboxes
+   - Attack proceeds with your selection
+   - **Benefits**: Control testing scope, reduce scan time, focus on specific parameters
+
+5. **Enhanced Stealth Configuration**: Configure stealth settings for evasion:
+   - **Max Requests Per Minute**: Limit request rate (lower = stealthier, default: 20)
+   - **Timing Jitter**: Add randomness to delays (recommended: enabled)
+   - **Header Randomization**: Randomize Referer, Accept-Language, etc. (recommended: enabled)
+   - **Max Retries**: Automatic retry for failed requests (default: 3)
+   - **Random Delays**: Additional delays between requests
+   - **Payload Obfuscation**: Evade WAF detection
+   
+6. **View Results**: Tasks show enhanced vulnerability findings with:
    - **Confidence Score**: 0.0-1.0 accuracy metric with visual progress bar
    - **Risk Score**: 0-100 exploitability rating with color-coded badges
    - **Impact Analysis**: Comprehensive section showing:
@@ -109,7 +156,7 @@ The app is already installed as part of the Megido platform. No additional setup
    - **Parameter Source**: Where the vulnerable parameter was found
    - **Severity**: Auto-calculated based on risk score (Low/Medium/High/Critical)
 
-5. **Advanced Metrics Visualization**:
+7. **Advanced Metrics Visualization**:
    - Color-coded risk indicators (red for critical, orange for high, yellow for medium)
    - Progress bars showing confidence levels
    - Tables with extracted data displayed in-line
