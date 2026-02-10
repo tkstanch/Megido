@@ -8,6 +8,14 @@ The `sql_attacker` app provides automated SQL injection vulnerability detection 
 
 ## Features
 
+### 🔍 Automatic Parameter Discovery (NEW!)
+- **Intelligent parameter extraction**: Automatically discovers all testable parameters from target pages
+- **Form field detection**: Finds both visible and hidden form fields
+- **Link parameter extraction**: Discovers parameters from anchor tags, scripts, images, and iframes
+- **JavaScript analysis**: Extracts variables and parameters from inline and on-page JavaScript
+- **Source tracking**: Tags each discovered parameter with its origin (form, hidden, link, JS, URL)
+- **No manual input required**: Fully automated discovery process runs before testing
+
 ### Detection Capabilities
 - **Error-based SQL injection detection**: Tests for SQL syntax errors in responses
 - **Time-based (blind) SQL injection detection**: Detects blind SQLi using time delays
@@ -44,14 +52,24 @@ The app is already installed as part of the Megido platform. No additional setup
 
 2. **Create New Task**: Click "Create New Attack Task" or go to `/sql-attacker/tasks/create/`
    - Enter target URL
-   - Configure HTTP method and parameters (GET/POST/cookies/headers)
+   - Enable/disable automatic parameter discovery (enabled by default)
+   - Optionally specify manual parameters (GET/POST/cookies/headers)
    - Select attack types (error-based, time-based, exploitation)
    - Configure stealth options
    - Execute immediately or schedule for later
 
-3. **View Results**: Tasks show status and all vulnerability findings
+3. **Automatic Parameter Discovery**: When enabled (default), the attacker will:
+   - Fetch the target page
+   - Extract all form fields (visible and hidden)
+   - Parse links and URLs for parameters
+   - Analyze JavaScript for variables and parameters
+   - Display discovered parameters in task details
+   - Test all discovered parameters with SQL injection payloads
+
+4. **View Results**: Tasks show status and all vulnerability findings
    - View detailed information about each vulnerability
-   - See exploitation results when available
+   - See parameter source (form, hidden, link, JS, URL, manual)
+   - Access exploitation results when available
 
 ### REST API
 
@@ -64,6 +82,7 @@ Content-Type: application/json
   "target_url": "https://example.com/page?id=1",
   "http_method": "GET",
   "get_params": {"id": "1"},
+  "auto_discover_params": true,
   "enable_error_based": true,
   "enable_time_based": true,
   "enable_exploitation": true,
@@ -71,6 +90,9 @@ Content-Type: application/json
   "randomize_user_agent": true,
   "execute_now": true
 }
+```
+
+**Note**: When `auto_discover_params` is `true` (default), the attacker will automatically discover and test additional parameters from the target page.
 ```
 
 #### Get task details and results:
@@ -94,6 +116,7 @@ GET /sql-attacker/api/results/
 Stores attack task configuration and status:
 - Target URL, HTTP method, parameters
 - Attack configuration (error-based, time-based, exploitation)
+- **Parameter discovery** (auto_discover_params, discovered_params)
 - Stealth configuration
 - Status tracking (pending, running, completed, failed)
 
@@ -101,6 +124,7 @@ Stores attack task configuration and status:
 Stores vulnerability findings:
 - Injection type (error-based, time-based, etc.)
 - Vulnerable parameter and type
+- **Parameter source** (manual, form, hidden, link, js, url)
 - Test payload and detection evidence
 - Exploitation results (database info, extracted data)
 - Request/response details
@@ -109,7 +133,14 @@ Stores vulnerability findings:
 
 ### Core Components
 
-1. **sqli_engine.py**: Pure Python SQL injection engine
+1. **param_discovery.py**: Automatic parameter discovery engine (NEW!)
+   - `ParameterDiscoveryEngine` class for intelligent parameter extraction
+   - `DiscoveredParameter` data structure for tracking parameter metadata
+   - HTML parsing with BeautifulSoup for form fields and links
+   - JavaScript analysis with regex for variables and parameters
+   - Deduplication and merging of discovered parameters
+
+2. **sqli_engine.py**: Pure Python SQL injection engine
    - `SQLInjectionEngine` class handles all attack logic
    - Payload generation and obfuscation
    - Request handling with stealth features
@@ -117,14 +148,16 @@ Stores vulnerability findings:
    - Time-based detection
    - Exploitation methods
 
-2. **views.py**: Web UI and REST API views
+3. **views.py**: Web UI and REST API views
    - Dashboard, task creation, task/result viewing
    - Background task execution using threading
+   - Parameter discovery integration
    - Automatic forwarding to response_analyser
 
-3. **models.py**: Django models for data persistence
+4. **models.py**: Django models for data persistence
    - Task tracking and configuration
    - Result storage with full evidence
+   - Parameter discovery metadata
 
 ## Security Considerations
 
