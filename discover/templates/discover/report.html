@@ -3,17 +3,18 @@
 
 {% block title %}{{ title }}{% endblock %}
 
-{% block breadcrumb %}
-<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
-<li class="text-gray-400 dark:text-gray-500">/</li>
-<li class="text-gray-500 dark:text-gray-400">Discover</li>
-<li class="text-gray-400 dark:text-gray-500">/</li>
-<li class="text-gray-900 dark:text-white font-medium">Report</li>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-7xl mx-auto space-y-6">
     {% if error %}
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="/discover/" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Report</span>
+    </nav>
+
     <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg">
         <h3 class="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">❌ Error</h3>
         <p class="text-red-700 dark:text-red-400">{{ error }}</p>
@@ -22,6 +23,15 @@
         <a href="/discover/" class="btn btn-primary">← Back to Discover</a>
     </div>
     {% else %}
+    
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="/discover/" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Report</span>
+    </nav>
     
     <div class="bg-gradient-to-br from-primary-500 to-purple-600 text-white p-8 rounded-xl shadow-lg text-center">
         <h2 class="text-3xl font-bold mb-4">📊 OSINT Scan Report</h2>
