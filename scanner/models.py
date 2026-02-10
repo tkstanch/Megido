@@ -86,8 +86,57 @@ class Vulnerability(models.Model):
     exploit_result = models.TextField(blank=True, null=True)
     exploit_attempted_at = models.DateTimeField(blank=True, null=True)
     
+    # Advanced features fields
+    # Risk scoring
+    risk_score = models.FloatField(default=0.0, help_text='Composite risk score (0-100)')
+    risk_level = models.CharField(max_length=20, default='medium', help_text='Risk level: critical, high, medium, low')
+    confidence_score = models.FloatField(default=0.5, help_text='Confidence in finding (0.0-1.0)')
+    
+    # Verification and proof of impact
+    verified = models.BooleanField(default=False, help_text='Verified through successful exploitation')
+    proof_of_impact = models.TextField(blank=True, null=True, help_text='Evidence of real-world impact')
+    
+    # False positive management
+    false_positive_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('unknown', 'Unknown'),
+            ('confirmed', 'Confirmed Vulnerability'),
+            ('false_positive', 'False Positive'),
+            ('accepted_risk', 'Accepted Risk'),
+        ],
+        default='unknown'
+    )
+    false_positive_reason = models.TextField(blank=True, null=True)
+    reviewed_by = models.CharField(max_length=255, blank=True, null=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Compliance mapping
+    compliance_violations = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Mapping to compliance frameworks (GDPR, PCI-DSS, OWASP, etc.)'
+    )
+    
+    # Remediation
+    remediation_priority = models.IntegerField(default=3, help_text='Priority 1-5 (1=highest)')
+    remediation_effort = models.CharField(
+        max_length=20,
+        choices=[
+            ('low', 'Low'),
+            ('medium', 'Medium'),
+            ('high', 'High'),
+        ],
+        default='medium'
+    )
+    
     class Meta:
         ordering = ['-discovered_at']
+        indexes = [
+            models.Index(fields=['risk_score']),
+            models.Index(fields=['verified']),
+            models.Index(fields=['false_positive_status']),
+        ]
     
     def __str__(self):
         return f"{self.severity.upper()} - {self.get_vulnerability_type_display()} at {self.url}"
