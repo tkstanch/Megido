@@ -64,6 +64,12 @@ class SQLInjectionTask(models.Model):
     started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     
+    # Parameter discovery
+    discovered_params = models.JSONField(blank=True, null=True,
+                                        help_text="Parameters discovered during attack")
+    auto_discover_params = models.BooleanField(default=True,
+                                              help_text="Automatically discover parameters from target page")
+    
     # Results summary
     vulnerabilities_found = models.IntegerField(default=0,
                                                help_text="Number of vulnerabilities found")
@@ -152,6 +158,12 @@ class SQLInjectionResult(models.Model):
                                        help_text="List of extracted table names")
     extracted_data = models.JSONField(blank=True, null=True,
                                      help_text="Sample extracted data")
+    
+    # Parameter discovery metadata
+    parameter_source = models.CharField(max_length=20, default='manual',
+                                       help_text="Source: manual, form, hidden, link, url, js")
+    discovered_params = models.JSONField(blank=True, null=True,
+                                        help_text="All discovered parameters from target page")
     
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
