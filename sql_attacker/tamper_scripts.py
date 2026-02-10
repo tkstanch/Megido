@@ -404,15 +404,17 @@ class TamperEngine:
     
     def apply_random_tamper(self, payload: str, count: int = 1) -> str:
         """Apply random tamper scripts to payload"""
-        selected = random.sample(self.available_tampers, min(count, len(self.available_tampers)))
+        available = self.available_tamper_scripts
+        selected = random.sample(available, min(count, len(available)))
         return self.apply_multiple_tampers(payload, selected)
     
     def get_all_variations(self, payload: str, max_variations: int = 10) -> List[str]:
         """Generate multiple variations of payload using different tamper scripts"""
         variations = [payload]  # Include original
+        available = self.available_tamper_scripts
         
         # Single tamper variations
-        for tamper_name in random.sample(self.available_tampers, min(max_variations - 1, len(self.available_tampers))):
+        for tamper_name in random.sample(available, min(max_variations - 1, len(available))):
             variations.append(self.apply_tamper(payload, tamper_name))
         
         # Combo tampers (2 scripts combined)
