@@ -189,6 +189,16 @@ class PayloadGenerator:
         'undefined',
     ]
     
+    # Clickjacking HTML Payloads (basic templates)
+    CLICKJACKING_PAYLOADS = [
+        # Basic iframe embedding test
+        '<iframe src="{target_url}" width="100%" height="600"></iframe>',
+        # Transparent overlay test
+        '<div style="position:relative;"><iframe src="{target_url}" style="opacity:0.1;position:absolute;"></iframe></div>',
+        # Hidden iframe test
+        '<iframe src="{target_url}" style="opacity:0;position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>',
+    ]
+    
     def __init__(self):
         """Initialize the payload generator."""
         self._custom_payloads: Dict[str, List[str]] = {}
@@ -229,6 +239,7 @@ class PayloadGenerator:
             'ssrf': self.SSRF_PAYLOADS,
             'open_redirect': self.OPEN_REDIRECT_PAYLOADS,
             'csrf': self.CSRF_PAYLOADS,
+            'clickjacking': self.CLICKJACKING_PAYLOADS,
         }
         
         # Check custom payloads first
@@ -262,7 +273,7 @@ class PayloadGenerator:
             List[str]: List of vulnerability type identifiers
         """
         types = ['xss', 'sqli', 'rce', 'lfi', 'rfi', 'xxe', 'ssrf', 
-                'open_redirect', 'csrf']
+                'open_redirect', 'csrf', 'clickjacking']
         types.extend(self._custom_payloads.keys())
         return list(set(types))
     
