@@ -15,46 +15,50 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto space-y-8">
-    <!-- Hero Section - EXTREME BEAUTY with Aurora, 3D, and Floating Elements -->
-    <div class="relative overflow-hidden rounded-3xl shadow-premium-lg transform-3d">
+    <!-- Hero Section - ULTRA EXTREME BEAUTY with Aurora, Particles, Light Rays -->
+    <div class="relative overflow-hidden rounded-3xl shadow-premium-lg transform-3d grain light-ray">
         <!-- Animated Aurora Background -->
         <div class="absolute inset-0 bg-aurora opacity-95"></div>
         
-        <!-- Floating Blobs -->
-        <div class="absolute top-10 left-10 w-64 h-64 bg-primary-400/30 rounded-full blob blur-3xl"></div>
-        <div class="absolute bottom-10 right-10 w-80 h-80 bg-secondary-400/30 rounded-full blob blur-3xl" style="animation-delay: -2s"></div>
+        <!-- Floating Blobs with Liquid Animation -->
+        <div class="absolute top-10 left-10 w-64 h-64 bg-primary-400/30 rounded-full blob liquid blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-80 h-80 bg-secondary-400/30 rounded-full blob liquid blur-3xl" style="animation-delay: -2s"></div>
+        <div class="absolute top-1/2 left-1/2 w-48 h-48 bg-pink-400/20 rounded-full blob liquid blur-3xl" style="animation-delay: -4s"></div>
         
         <!-- Pattern Overlay -->
         <div class="absolute inset-0 bg-pattern-dots opacity-10"></div>
         
-        <!-- Content with Glassmorphism -->
+        <!-- Vignette for depth -->
+        <div class="absolute inset-0 vignette"></div>
+        
+        <!-- Content with Enhanced Glassmorphism -->
         <div class="relative p-8 lg:p-20 text-center backdrop-blur-sm">
-            <!-- Floating Shield Icon with Glow -->
-            <div class="inline-flex items-center justify-center w-24 h-24 mb-8 rounded-3xl bg-white/20 backdrop-blur-md shadow-premium glow-primary float-element">
-                <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            <!-- Floating Shield Icon with Ambient Glow -->
+            <div class="inline-flex items-center justify-center w-28 h-28 mb-8 rounded-3xl glass-refract shadow-premium ambient-glow float-element breathe">
+                <svg class="w-16 h-16 text-white drop-shadow-2xl" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                 </svg>
             </div>
             
-            <!-- Animated Title with Shimmer -->
-            <h1 class="text-5xl lg:text-7xl font-bold mb-6 text-white drop-shadow-2xl animate-slide-in-down">
-                <span class="text-shimmer">Megido Security Platform</span>
+            <!-- Animated Title with 3D Text and Shimmer -->
+            <h1 class="text-5xl lg:text-7xl font-bold mb-6 text-white drop-shadow-2xl animate-slide-in-down text-3d">
+                <span class="text-shimmer inline-block">Megido Security Platform</span>
             </h1>
             
-            <!-- Subtitle with Glow -->
-            <p class="text-2xl lg:text-3xl text-white/95 font-semibold mb-4 text-glow animate-slide-in-up">
+            <!-- Subtitle with Glow and Spring Animation -->
+            <p class="text-2xl lg:text-3xl text-white/95 font-semibold mb-4 text-glow animate-slide-in-up spring">
                 Professional Web Security Testing Suite
             </p>
             
-            <!-- Feature Badges with Stagger Animation -->
+            <!-- Feature Badges with Ultra Effects -->
             <div class="mt-10 flex flex-wrap gap-4 justify-center">
-                <span class="stagger-item px-6 py-3 rounded-full glass-strong text-white text-sm font-bold border border-white/40 hover-lift holographic">
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium holographic ultra-smooth">
                     🔒 17 Security Tools
                 </span>
-                <span class="stagger-item px-6 py-3 rounded-full glass-strong text-white text-sm font-bold border border-white/40 hover-lift holographic">
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium prism ultra-smooth">
                     ⚡ Advanced Features
                 </span>
-                <span class="stagger-item px-6 py-3 rounded-full glass-strong text-white text-sm font-bold border border-white/40 hover-lift holographic">
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium metallic ultra-smooth">
                     🛡️ Local & Secure
                 </span>
             </div>

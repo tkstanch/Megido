@@ -742,4 +742,376 @@
     opacity: 1;
     transform: translateY(0);
   }
+  
+  /* ============================================================================
+     ULTRA EXTREME BEAUTY UTILITIES v2.3
+     ============================================================================ */
+  
+  /* Noise Texture Overlay */
+  .texture-noise {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .texture-noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxwYXRoIGQ9Ik0wIDBoMzAwdjMwMEgweiIgZmlsdGVyPSJ1cmwoI2EpIiBvcGFjaXR5PSIuMDUiLz48L3N2Zz4=');
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  .dark .texture-noise::before {
+    opacity: 0.15;
+  }
+  
+  /* Grain Effect */
+  .grain {
+    position: relative;
+  }
+  
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJhIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9IjAuOSIgbnVtT2N0YXZlcz0iNCIgc2VlZD0iMCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9InNhdHVyYXRlIiB2YWx1ZXM9IjAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjYSkiIG9wYWNpdHk9Ii4wMyIvPjwvc3ZnPg==');
+    pointer-events: none;
+    animation: grain 0.5s steps(10) infinite;
+  }
+  
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -10%); }
+    20% { transform: translate(-15%, 5%); }
+    30% { transform: translate(7%, -25%); }
+    40% { transform: translate(-5%, 25%); }
+    50% { transform: translate(-15%, 10%); }
+    60% { transform: translate(15%, 0%); }
+    70% { transform: translate(0%, 15%); }
+    80% { transform: translate(3%, 35%); }
+    90% { transform: translate(-10%, 10%); }
+  }
+  
+  /* Vignette Overlay */
+  .vignette {
+    position: relative;
+  }
+  
+  .vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 100%);
+    pointer-events: none;
+  }
+  
+  .dark .vignette::after {
+    background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.5) 100%);
+  }
+  
+  /* Light Leak Effect */
+  .light-leak {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .light-leak::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+    animation: light-leak 10s ease-in-out infinite;
+  }
+  
+  @keyframes light-leak {
+    0%, 100% { transform: translate(-100%, -100%) rotate(0deg); }
+    50% { transform: translate(0%, 0%) rotate(45deg); }
+  }
+  
+  /* Elastic Animation */
+  .animate-elastic {
+    animation: elastic 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  @keyframes elastic {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  /* Spring Physics */
+  .spring {
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .spring:hover {
+    transform: scale(1.1);
+  }
+  
+  /* Perspective Card Flip */
+  .flip-card {
+    perspective: 1000px;
+  }
+  
+  .flip-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+  
+  .flip-card:hover .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+  
+  .flip-card-front,
+  .flip-card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+  }
+  
+  .flip-card-back {
+    transform: rotateY(180deg);
+  }
+  
+  /* Liquid/Fluid Animation */
+  .liquid {
+    animation: liquid 4s ease-in-out infinite;
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  }
+  
+  @keyframes liquid {
+    0%, 100% {
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    }
+    25% {
+      border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    }
+    50% {
+      border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+    }
+    75% {
+      border-radius: 40% 60% 60% 40% / 60% 40% 60% 40%;
+    }
+  }
+  
+  /* Wave Ripple Propagation */
+  .wave {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .wave::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(102, 126, 234, 0.3);
+    transform: translate(-50%, -50%);
+    animation: wave 2s ease-out infinite;
+  }
+  
+  @keyframes wave {
+    0% {
+      width: 0;
+      height: 0;
+      opacity: 1;
+    }
+    100% {
+      width: 300px;
+      height: 300px;
+      opacity: 0;
+    }
+  }
+  
+  /* Gradient Stroke Text */
+  .text-stroke-gradient {
+    -webkit-text-stroke: 2px transparent;
+    -webkit-text-fill-color: transparent;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    paint-order: stroke fill;
+  }
+  
+  /* Glitch Effect */
+  .text-glitch {
+    position: relative;
+  }
+  
+  .text-glitch::before,
+  .text-glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .text-glitch::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff00de;
+    animation: glitch-1 2s infinite;
+  }
+  
+  .text-glitch::after {
+    left: -2px;
+    text-shadow: 2px 0 #00fff2;
+    animation: glitch-2 2s infinite;
+  }
+  
+  @keyframes glitch-1 {
+    0%, 100% { clip-path: inset(40% 0 61% 0); }
+    20% { clip-path: inset(92% 0 1% 0); }
+    40% { clip-path: inset(43% 0 1% 0); }
+    60% { clip-path: inset(25% 0 58% 0); }
+    80% { clip-path: inset(54% 0 7% 0); }
+  }
+  
+  @keyframes glitch-2 {
+    0%, 100% { clip-path: inset(65% 0 10% 0); }
+    20% { clip-path: inset(12% 0 63% 0); }
+    40% { clip-path: inset(80% 0 5% 0); }
+    60% { clip-path: inset(37% 0 51% 0); }
+    80% { clip-path: inset(21% 0 47% 0); }
+  }
+  
+  /* 3D Text Shadow */
+  .text-3d {
+    text-shadow:
+      1px 1px 0 rgba(0,0,0,0.1),
+      2px 2px 0 rgba(0,0,0,0.1),
+      3px 3px 0 rgba(0,0,0,0.1),
+      4px 4px 0 rgba(0,0,0,0.1),
+      5px 5px 0 rgba(0,0,0,0.1),
+      6px 6px 10px rgba(0,0,0,0.3);
+  }
+  
+  /* Dynamic Shadow (follows cursor) */
+  .shadow-dynamic {
+    transition: box-shadow 0.3s ease;
+  }
+  
+  /* Ambient Glow */
+  .ambient-glow {
+    animation: ambient-glow 3s ease-in-out infinite alternate;
+  }
+  
+  @keyframes ambient-glow {
+    from {
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+    }
+    to {
+      box-shadow: 0 0 40px rgba(102, 126, 234, 0.6);
+    }
+  }
+  
+  /* Light Ray */
+  .light-ray {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .light-ray::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(255,255,255,0.1) 45deg,
+      transparent 90deg
+    );
+    animation: light-ray-spin 10s linear infinite;
+  }
+  
+  @keyframes light-ray-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Kinetic Typography */
+  .kinetic-text {
+    display: inline-block;
+  }
+  
+  .kinetic-text span {
+    display: inline-block;
+    animation: kinetic 2s ease-in-out infinite;
+  }
+  
+  .kinetic-text span:nth-child(2n) {
+    animation-delay: 0.1s;
+  }
+  
+  .kinetic-text span:nth-child(3n) {
+    animation-delay: 0.2s;
+  }
+  
+  @keyframes kinetic {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  /* Glass Refraction */
+  .glass-refract {
+    backdrop-filter: blur(20px) saturate(180%);
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Prism Effect */
+  .prism {
+    background: linear-gradient(
+      45deg,
+      #ff0000 0%,
+      #ff7f00 16.666%,
+      #ffff00 33.333%,
+      #00ff00 50%,
+      #0000ff 66.666%,
+      #4b0082 83.333%,
+      #9400d3 100%
+    );
+    background-size: 200% 200%;
+    animation: prism 10s ease infinite;
+  }
+  
+  @keyframes prism {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  /* Ultra Smooth Transitions */
+  .ultra-smooth {
+    transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  /* Breathing Animation */
+  .breathe {
+    animation: breathe 4s ease-in-out infinite;
+  }
+  
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+  }
 }
