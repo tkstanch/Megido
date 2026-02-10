@@ -19,9 +19,12 @@ import tempfile
 import shutil
 from pathlib import Path
 
-# Add parent directory to path
+# Add parent directory to path for imports
+# This handles both direct test execution and django test runner
 current_dir = Path(__file__).parent
-sys.path.insert(0, str(current_dir.parent.parent))
+project_root = current_dir.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from scanner.plugins.exploit_plugin import ExploitPlugin
 from scanner.plugins.plugin_registry import PluginRegistry, get_registry, reset_registry
