@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, Optional, List
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 from django.utils import timezone
 
 from scanner.models import Scan, Vulnerability
@@ -24,7 +25,9 @@ from scanner.websocket_utils import (
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name='scanner.exploit_all_vulnerabilities')
+# Time limit increased from 30 minutes to 1 hour to handle large numbers of vulnerabilities
+# Soft time limit set to 58:20 to allow graceful cleanup before hard termination
+@shared_task(bind=True, name='scanner.exploit_all_vulnerabilities', time_limit=3600, soft_time_limit=3500)
 def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Celery task to exploit all vulnerabilities in a scan.
@@ -78,19 +81,27 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
     
     logger.info(f"Processing {total} vulnerabilities for scan {scan_id}")
     
-    for idx, vuln in enumerate(vulnerabilities, 1):
-        # Update task state for progress tracking (only if not in eager mode)
-        if self.request.id:
-            self.update_state(
-                state='PROGRESS',
-                meta={
-                    'current': idx,
-                    'total': total,
-                    'status': f'Processing vulnerability {idx}/{total}'
-                }
-            )
-        
-        _exploit_vulnerability_and_update(vuln, config, results)
+    try:
+        for idx, vuln in enumerate(vulnerabilities, 1):
+            # Update task state for progress tracking (only if not in eager mode)
+            if self.request.id:
+                self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': idx,
+                        'total': total,
+                        'status': f'Processing vulnerability {idx}/{total}'
+                    }
+                )
+            
+            _exploit_vulnerability_and_update(vuln, config, results)
+    except SoftTimeLimitExceeded:
+        logger.warning(
+            f"Soft time limit reached for scan {scan_id}. "
+            f"Processed {len(results['results'])}/{total} vulnerabilities. "
+            "Terminating gracefully."
+        )
+        results['error'] = f'Task exceeded time limit. Processed {len(results["results"])}/{total} vulnerabilities.'
     
     logger.info(
         f"Completed exploit task for scan {scan_id}: "
@@ -104,7 +115,7 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
     return results
 
 
-@shared_task(bind=True, name='scanner.exploit_selected_vulnerabilities')
+@shared_task(bind=True, name='scanner.exploit_selected_vulnerabilities', time_limit=3600, soft_time_limit=3500)
 def async_exploit_selected_vulnerabilities(
     self,
     vulnerability_ids: List[int],
@@ -147,27 +158,35 @@ def async_exploit_selected_vulnerabilities(
     
     logger.info(f"Processing {total} selected vulnerabilities")
     
-    for idx, vuln in enumerate(vulnerabilities, 1):
-        # Update task state for progress tracking (only if not in eager mode)
-        if self.request.id:
-            self.update_state(
-                state='PROGRESS',
-                meta={
-                    'current': idx,
-                    'total': total,
-                    'status': f'Processing vulnerability {idx}/{total}'
-                }
-            )
+    try:
+        for idx, vuln in enumerate(vulnerabilities, 1):
+            # Update task state for progress tracking (only if not in eager mode)
+            if self.request.id:
+                self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': idx,
+                        'total': total,
+                        'status': f'Processing vulnerability {idx}/{total}'
+                    }
+                )
+                
+                # Send WebSocket update for real-time UI updates
+                send_progress_update(
+                    task_id=task_id,
+                    current=idx,
+                    total=total,
+                    status=f'Processing vulnerability {idx}/{total}'
+                )
             
-            # Send WebSocket update for real-time UI updates
-            send_progress_update(
-                task_id=task_id,
-                current=idx,
-                total=total,
-                status=f'Processing vulnerability {idx}/{total}'
-            )
-        
-        _exploit_vulnerability_and_update(vuln, config, results)
+            _exploit_vulnerability_and_update(vuln, config, results)
+    except SoftTimeLimitExceeded:
+        logger.warning(
+            f"Soft time limit reached for selected vulnerabilities. "
+            f"Processed {len(results['results'])}/{total} vulnerabilities. "
+            "Terminating gracefully."
+        )
+        results['error'] = f'Task exceeded time limit. Processed {len(results["results"])}/{total} vulnerabilities.'
     
     logger.info(
         f"Completed selected exploit task: "

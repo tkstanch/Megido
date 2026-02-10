@@ -273,9 +273,10 @@ CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 
 # Celery task settings
+# Default time limits - can be overridden per task for long-running operations
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes hard limit
-CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes soft limit
+CELERY_TASK_TIME_LIMIT = 60 * 60  # 1 hour hard limit (default)
+CELERY_TASK_SOFT_TIME_LIMIT = 58 * 60 + 20  # 58 minutes 20 seconds soft limit (default)
 CELERY_RESULT_EXTENDED_ENABLE = True
 CELERY_RESULT_EXPIRES = 3600  # Results expire after 1 hour
 
