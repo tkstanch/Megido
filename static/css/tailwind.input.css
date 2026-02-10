@@ -1,0 +1,224 @@
+/**
+ * Tailwind CSS Input File
+ * This file is processed by Tailwind to generate the final CSS
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Custom Base Styles
+ */
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+}
+
+/**
+ * Custom Component Styles
+ */
+@layer components {
+  /* Card Components */
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-card overflow-hidden;
+  }
+  
+  .card-header {
+    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900;
+  }
+  
+  .card-body {
+    @apply p-6;
+  }
+  
+  .card-footer {
+    @apply px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900;
+  }
+  
+  /* Stat Card */
+  .stat-card {
+    @apply card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-1;
+  }
+  
+  .stat-card-gradient {
+    @apply text-white border-0;
+  }
+  
+  /* Button Variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-primary text-white hover:shadow-lg hover:-translate-y-0.5 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 focus:ring-gray-500;
+  }
+  
+  .btn-success {
+    @apply bg-gradient-success text-white hover:shadow-lg focus:ring-green-500;
+  }
+  
+  .btn-danger {
+    @apply bg-gradient-danger text-white hover:shadow-lg focus:ring-red-500;
+  }
+  
+  .btn-warning {
+    @apply bg-gradient-warning text-white hover:shadow-lg focus:ring-yellow-500;
+  }
+  
+  .btn-info {
+    @apply bg-gradient-info text-white hover:shadow-lg focus:ring-blue-500;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-gray-500;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .btn-lg {
+    @apply px-7 py-3.5 text-base;
+  }
+  
+  /* Badge Components */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full;
+  }
+  
+  .badge-primary {
+    @apply bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300;
+  }
+  
+  .badge-success {
+    @apply bg-success-light dark:bg-green-900 text-success-dark dark:text-green-300;
+  }
+  
+  .badge-danger {
+    @apply bg-danger-light dark:bg-red-900 text-danger-dark dark:text-red-300;
+  }
+  
+  .badge-warning {
+    @apply bg-warning-light dark:bg-yellow-900 text-warning-dark dark:text-yellow-300;
+  }
+  
+  .badge-info {
+    @apply bg-info-light dark:bg-blue-900 text-info-dark dark:text-blue-300;
+  }
+  
+  .badge-gray {
+    @apply bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300;
+  }
+  
+  /* Severity Badges */
+  .badge-critical {
+    @apply bg-severity-critical text-white;
+  }
+  
+  .badge-high {
+    @apply bg-severity-high text-white;
+  }
+  
+  .badge-medium {
+    @apply bg-severity-medium text-gray-900;
+  }
+  
+  .badge-low {
+    @apply bg-severity-low text-white;
+  }
+  
+  /* Form Components */
+  .form-input {
+    @apply w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors;
+  }
+  
+  .form-label {
+    @apply block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300;
+  }
+  
+  .form-help {
+    @apply mt-1 text-sm text-gray-500 dark:text-gray-400;
+  }
+  
+  /* Table Styles */
+  .table {
+    @apply w-full text-sm text-left border-collapse;
+  }
+  
+  .table thead {
+    @apply bg-gray-50 dark:bg-gray-900;
+  }
+  
+  .table th {
+    @apply px-4 py-3.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700;
+  }
+  
+  .table td {
+    @apply px-4 py-4 border-b border-gray-200 dark:border-gray-700;
+  }
+  
+  .table tbody tr {
+    @apply hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors;
+  }
+  
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    @apply text-center py-12 px-6;
+  }
+  
+  .empty-state-icon {
+    @apply text-5xl text-gray-400 dark:text-gray-600 mb-4;
+  }
+  
+  .empty-state-title {
+    @apply text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2;
+  }
+  
+  .empty-state-description {
+    @apply text-gray-500 dark:text-gray-400 mb-6;
+  }
+}
+
+/**
+ * Custom Utility Classes
+ */
+@layer utilities {
+  .text-gradient-primary {
+    @apply bg-gradient-primary bg-clip-text text-transparent;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+}
