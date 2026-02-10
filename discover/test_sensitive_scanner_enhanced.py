@@ -220,7 +220,7 @@ class TestScanResultCache(unittest.TestCase):
         cache.set('http://example.com', result)
         
         import time
-        time.sleep(1)
+        time.sleep(0.1)  # Short sleep sufficient for TTL=0
         
         cached = cache.get('http://example.com')
         self.assertIsNone(cached)
@@ -391,7 +391,8 @@ class TestEnhancedSensitiveInfoScanner(unittest.TestCase):
                 f.write("API Key: AKIAIOSFODNN7EXAMPLE")
             
             with open(test_file2, 'w') as f:
-                f.write("Token: ghp_1234567890abcdefghijklmnopqrstuv123")
+                # GitHub token pattern requires exactly 36 chars after ghp_
+                f.write("Token: ghp_123456789012345678901234567890123456")
             
             scanner = EnhancedSensitiveInfoScanner(enable_heuristics=False)
             results = scanner.scan_directory(temp_dir, recursive=False)

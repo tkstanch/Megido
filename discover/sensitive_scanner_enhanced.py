@@ -352,7 +352,7 @@ class HeuristicScanner:
             
             # Skip if value looks like a placeholder
             if any(placeholder in value.lower() for placeholder in 
-                   ['example', 'placeholder', 'your_', 'xxx', 'test']):
+                   ['example', 'placeholder', 'your_', 'xxx', 'test_', '_test_', 'testing_']):
                 continue
             
             # Extract context
