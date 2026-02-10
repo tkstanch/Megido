@@ -44,15 +44,17 @@ function copyToClipboard(text, button) {
             .then(() => {
                 // Visual feedback
                 const originalHTML = button.innerHTML;
-                button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                button.classList.add('copied');
+                button.innerHTML = '✓ Copied!';
+                button.classList.add('btn-success');
+                button.classList.remove('btn-secondary');
                 
                 Toast.show('Payload copied to clipboard!', 'success');
                 
                 // Reset button after 2 seconds
                 setTimeout(() => {
                     button.innerHTML = originalHTML;
-                    button.classList.remove('copied');
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-secondary');
                 }, 2000);
             })
             .catch(err => {
@@ -76,15 +78,17 @@ function copyToClipboard(text, button) {
             
             // Visual feedback
             const originalHTML = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            button.classList.add('copied');
+            button.innerHTML = '✓ Copied!';
+            button.classList.add('btn-success');
+            button.classList.remove('btn-secondary');
             
             Toast.show('Payload copied to clipboard!', 'success');
             
             // Reset button after 2 seconds
             setTimeout(() => {
                 button.innerHTML = originalHTML;
-                button.classList.remove('copied');
+                button.classList.remove('btn-success');
+                button.classList.add('btn-secondary');
             }, 2000);
         } catch (err) {
             Toast.show('Failed to copy payload', 'error');
@@ -102,28 +106,32 @@ function initPayloadSearch() {
     
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
-        const payloadItems = document.querySelectorAll('.payload-item');
+        const payloadCategories = document.querySelectorAll('.payload-category-content');
         let visibleCount = 0;
         
-        payloadItems.forEach(item => {
-            const payloadText = item.querySelector('.payload-code').textContent.toLowerCase();
-            const tags = Array.from(item.querySelectorAll('.payload-tag')).map(tag => tag.textContent.toLowerCase()).join(' ');
+        payloadCategories.forEach(category => {
+            const payloadItems = category.querySelectorAll('.flex.items-center.justify-between');
+            let categoryHasVisible = false;
             
-            if (payloadText.includes(searchTerm) || tags.includes(searchTerm)) {
-                item.classList.remove('hidden');
-                visibleCount++;
+            payloadItems.forEach(item => {
+                const payloadText = item.querySelector('code').textContent.toLowerCase();
+                const tags = Array.from(item.querySelectorAll('.badge')).map(tag => tag.textContent.toLowerCase()).join(' ');
+                
+                if (payloadText.includes(searchTerm) || tags.includes(searchTerm)) {
+                    item.classList.remove('hidden');
+                    categoryHasVisible = true;
+                    visibleCount++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            
+            // Show/hide category based on visible items
+            const categoryContainer = category.parentElement;
+            if (searchTerm && !categoryHasVisible) {
+                categoryContainer.classList.add('hidden');
             } else {
-                item.classList.add('hidden');
-            }
-        });
-        
-        // Show/hide categories based on visible items
-        document.querySelectorAll('.payload-category').forEach(category => {
-            const visibleItems = category.querySelectorAll('.payload-item:not(.hidden)').length;
-            if (searchTerm && visibleItems === 0) {
-                category.classList.add('hidden');
-            } else {
-                category.classList.remove('hidden');
+                categoryContainer.classList.remove('hidden');
             }
         });
         
@@ -133,13 +141,13 @@ function initPayloadSearch() {
             if (!noResultsMsg) {
                 noResultsMsg = document.createElement('div');
                 noResultsMsg.id = 'noResultsMsg';
-                noResultsMsg.className = 'empty-state';
+                noResultsMsg.className = 'text-center py-12';
                 noResultsMsg.innerHTML = `
-                    <i class="fas fa-search"></i>
-                    <h4>No payloads found</h4>
-                    <p>Try a different search term</p>
+                    <div class="text-6xl mb-4">🔍</div>
+                    <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No payloads found</h4>
+                    <p class="text-gray-600 dark:text-gray-400">Try a different search term</p>
                 `;
-                document.querySelector('.payload-library').appendChild(noResultsMsg);
+                document.querySelector('.tab-content#payload-library > div').appendChild(noResultsMsg);
             }
         } else if (noResultsMsg) {
             noResultsMsg.remove();
@@ -154,40 +162,45 @@ function initCategoryToggle() {
             const content = this.nextElementSibling;
             const icon = this.querySelector('.collapse-icon');
             
-            if (content.classList.contains('show')) {
-                content.classList.remove('show');
-                icon.classList.remove('rotated');
-            } else {
-                content.classList.add('show');
-                icon.classList.add('rotated');
-            }
+            content.classList.toggle('hidden');
+            icon.textContent = content.classList.contains('hidden') ? '▼' : '▲';
+            
+            // Update ARIA attribute
+            const isExpanded = !content.classList.contains('hidden');
+            this.setAttribute('aria-expanded', isExpanded);
         });
     });
 }
 
 // Tab switching functionality
 function initTabs() {
-    const tabLinks = document.querySelectorAll('[data-tab-target]');
+    const tabLinks = document.querySelectorAll('.tab-link');
+    const activeClasses = ['active', 'border-primary-500', 'text-primary-600', 'dark:text-primary-400'];
+    const inactiveClasses = ['text-gray-600', 'dark:text-gray-400'];
     
     tabLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Remove active class from all tabs and contents
-            document.querySelectorAll('[data-tab-target]').forEach(tab => {
-                tab.classList.remove('active');
+            // Remove active state from all tabs
+            document.querySelectorAll('.tab-link').forEach(tab => {
+                tab.classList.remove(...activeClasses);
+                tab.classList.add(...inactiveClasses);
             });
+            
+            // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
                 content.classList.add('hidden');
             });
             
-            // Add active class to clicked tab and show corresponding content
-            this.classList.add('active');
+            // Activate clicked tab
+            this.classList.add(...activeClasses);
+            this.classList.remove(...inactiveClasses);
+            
+            // Show corresponding content
             const targetId = this.getAttribute('data-tab-target');
             const targetContent = document.getElementById(targetId);
             if (targetContent) {
-                targetContent.classList.add('active');
                 targetContent.classList.remove('hidden');
             }
         });
@@ -243,18 +256,23 @@ document.addEventListener('DOMContentLoaded', function() {
     initKeyboardShortcuts();
     
     // Show first tab by default
-    const firstTab = document.querySelector('[data-tab-target]');
+    const firstTab = document.querySelector('.tab-link');
     if (firstTab) {
         firstTab.click();
     }
     
     // Auto-expand all categories by default
     document.querySelectorAll('.payload-category-content').forEach(content => {
-        content.classList.add('show');
+        content.classList.remove('hidden');
     });
     
     document.querySelectorAll('.collapse-icon').forEach(icon => {
-        icon.classList.add('rotated');
+        icon.textContent = '▲';
+    });
+    
+    // Set initial ARIA attributes
+    document.querySelectorAll('.payload-category-header').forEach(header => {
+        header.setAttribute('aria-expanded', 'true');
     });
     
     // Show welcome toast

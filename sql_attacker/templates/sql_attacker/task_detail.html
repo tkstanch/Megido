@@ -4,55 +4,61 @@
 {% block title %}Task #{{ task.id }} - SQL Injection Attacker{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>SQL Injection Attack Task #{{ task.id }}</h1>
-        <div>
-            <a href="{% url 'sql_attacker:dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-        </div>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Task #{{ task.id }}</span>
+    </nav>
+
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">SQL Injection Attack Task #{{ task.id }}</h1>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
     </div>
     
     <!-- Task Status -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Task Status</h5>
+            <h3 class="card-title">📊 Task Status</h3>
         </div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <strong>Status:</strong>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Status:</strong><br>
                     {% if task.status == 'completed' %}
-                    <span class="badge badge-success badge-lg">{{ task.status|upper }}</span>
+                    <span class="badge badge-success mt-1">{{ task.status|upper }}</span>
                     {% elif task.status == 'running' %}
-                    <span class="badge badge-info badge-lg">{{ task.status|upper }}</span>
+                    <span class="badge badge-info mt-1">{{ task.status|upper }}</span>
                     {% elif task.status == 'failed' %}
-                    <span class="badge badge-danger badge-lg">{{ task.status|upper }}</span>
+                    <span class="badge badge-danger mt-1">{{ task.status|upper }}</span>
                     {% else %}
-                    <span class="badge badge-warning badge-lg">{{ task.status|upper }}</span>
+                    <span class="badge badge-warning mt-1">{{ task.status|upper }}</span>
                     {% endif %}
                 </div>
-                <div class="col-md-3">
-                    <strong>Created:</strong> {{ task.created_at|date:"Y-m-d H:i:s" }}
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Created:</strong><br>
+                    <span class="text-gray-900 dark:text-white">{{ task.created_at|date:"Y-m-d H:i:s" }}</span>
                 </div>
-                <div class="col-md-3">
-                    <strong>Started:</strong> 
-                    {% if task.started_at %}{{ task.started_at|date:"Y-m-d H:i:s" }}{% else %}N/A{% endif %}
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Started:</strong><br>
+                    <span class="text-gray-900 dark:text-white">{% if task.started_at %}{{ task.started_at|date:"Y-m-d H:i:s" }}{% else %}N/A{% endif %}</span>
                 </div>
-                <div class="col-md-3">
-                    <strong>Completed:</strong> 
-                    {% if task.completed_at %}{{ task.completed_at|date:"Y-m-d H:i:s" }}{% else %}N/A{% endif %}
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Completed:</strong><br>
+                    <span class="text-gray-900 dark:text-white">{% if task.completed_at %}{{ task.completed_at|date:"Y-m-d H:i:s" }}{% else %}N/A{% endif %}</span>
                 </div>
             </div>
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>Vulnerabilities Found:</strong> 
-                    <span class="badge badge-{% if task.vulnerabilities_found > 0 %}danger{% else %}secondary{% endif %} badge-lg">
-                        {{ task.vulnerabilities_found }}
-                    </span>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Vulnerabilities Found:</strong>
+                <span class="badge {% if task.vulnerabilities_found > 0 %}badge-danger{% else %}badge-secondary{% endif %} ml-2">
+                    {{ task.vulnerabilities_found }}
+                </span>
             </div>
             {% if task.error_message %}
-            <div class="alert alert-danger mt-3">
+            <div class="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg">
                 <strong>Error:</strong> {{ task.error_message }}
             </div>
             {% endif %}
@@ -60,114 +66,105 @@
     </div>
     
     <!-- Target Information -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Target Information</h5>
+            <h3 class="card-title">🎯 Target Information</h3>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-12">
-                    <strong>Target URL:</strong><br>
-                    <code>{{ task.target_url }}</code>
-                </div>
+        <div class="card-body space-y-4">
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Target URL:</strong><br>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1 inline-block">{{ task.target_url }}</code>
             </div>
-            <div class="row mt-3">
-                <div class="col-md-3">
-                    <strong>HTTP Method:</strong> <span class="badge badge-info">{{ task.http_method }}</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">HTTP Method:</strong>
+                    <span class="badge badge-info ml-2">{{ task.http_method }}</span>
                 </div>
-                <div class="col-md-9">
-                    <strong>Configuration:</strong>
-                    {% if task.enable_error_based %}<span class="badge badge-secondary">Error-Based</span>{% endif %}
-                    {% if task.enable_time_based %}<span class="badge badge-secondary">Time-Based</span>{% endif %}
-                    {% if task.enable_exploitation %}<span class="badge badge-secondary">Exploitation</span>{% endif %}
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Configuration:</strong>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                        {% if task.enable_error_based %}<span class="badge badge-secondary">Error-Based</span>{% endif %}
+                        {% if task.enable_time_based %}<span class="badge badge-secondary">Time-Based</span>{% endif %}
+                        {% if task.enable_exploitation %}<span class="badge badge-secondary">Exploitation</span>{% endif %}
+                    </div>
                 </div>
             </div>
             
             {% if task.get_params %}
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>GET Parameters:</strong>
-                    <pre><code>{{ task.get_params|safe }}</code></pre>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">GET Parameters:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-1 overflow-x-auto"><code>{{ task.get_params|safe }}</code></pre>
             </div>
             {% endif %}
             
             {% if task.post_params %}
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>POST Parameters:</strong>
-                    <pre><code>{{ task.post_params|safe }}</code></pre>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">POST Parameters:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-1 overflow-x-auto"><code>{{ task.post_params|safe }}</code></pre>
             </div>
             {% endif %}
             
             {% if task.cookies %}
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>Cookies:</strong>
-                    <pre><code>{{ task.cookies|safe }}</code></pre>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Cookies:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-1 overflow-x-auto"><code>{{ task.cookies|safe }}</code></pre>
             </div>
             {% endif %}
             
             {% if task.headers %}
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>Custom Headers:</strong>
-                    <pre><code>{{ task.headers|safe }}</code></pre>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Custom Headers:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-1 overflow-x-auto"><code>{{ task.headers|safe }}</code></pre>
             </div>
             {% endif %}
         </div>
     </div>
     
     <!-- Stealth Configuration -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Stealth Configuration</h5>
+            <h3 class="card-title">🕵️ Stealth Configuration</h3>
         </div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Random Delays:</strong> 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Random Delays:</strong>
                     {% if task.use_random_delays %}
-                    <span class="badge badge-success">Enabled</span>
-                    ({{ task.min_delay }}s - {{ task.max_delay }}s)
+                    <span class="badge badge-success ml-2">Enabled</span>
+                    <span class="text-gray-700 dark:text-gray-300">({{ task.min_delay }}s - {{ task.max_delay }}s)</span>
                     {% else %}
-                    <span class="badge badge-secondary">Disabled</span>
+                    <span class="badge badge-secondary ml-2">Disabled</span>
                     {% endif %}
                 </div>
-                <div class="col-md-6">
-                    <strong>Randomize User-Agent:</strong> 
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Randomize User-Agent:</strong>
                     {% if task.randomize_user_agent %}
-                    <span class="badge badge-success">Enabled</span>
+                    <span class="badge badge-success ml-2">Enabled</span>
                     {% else %}
-                    <span class="badge badge-secondary">Disabled</span>
+                    <span class="badge badge-secondary ml-2">Disabled</span>
                     {% endif %}
                 </div>
             </div>
-            <div class="row mt-2">
-                <div class="col-md-6">
-                    <strong>Payload Obfuscation:</strong> 
-                    {% if task.use_payload_obfuscation %}
-                    <span class="badge badge-success">Enabled</span>
-                    {% else %}
-                    <span class="badge badge-secondary">Disabled</span>
-                    {% endif %}
-                </div>
+            <div class="mt-4">
+                <strong class="text-gray-700 dark:text-gray-300">Payload Obfuscation:</strong>
+                {% if task.use_payload_obfuscation %}
+                <span class="badge badge-success ml-2">Enabled</span>
+                {% else %}
+                <span class="badge badge-secondary ml-2">Disabled</span>
+                {% endif %}
             </div>
         </div>
     </div>
     
     <!-- Results -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Vulnerability Findings ({{ results.count }})</h5>
+            <h3 class="card-title">🐛 Vulnerability Findings ({{ results.count }})</h3>
         </div>
         <div class="card-body">
             {% if results %}
-            <div class="table-responsive">
-                <table class="table table-striped">
+            <div class="table-container">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -183,11 +180,11 @@
                     <tbody>
                         {% for result in results %}
                         <tr>
-                            <td>{{ result.id }}</td>
+                            <td class="font-semibold">#{{ result.id }}</td>
                             <td><span class="badge badge-danger">{{ result.get_injection_type_display }}</span></td>
-                            <td><code>{{ result.vulnerable_parameter }}</code></td>
+                            <td><code class="text-sm">{{ result.vulnerable_parameter }}</code></td>
                             <td><span class="badge badge-info">{{ result.parameter_type }}</span></td>
-                            <td>{{ result.database_type }}</td>
+                            <td class="text-gray-700 dark:text-gray-300">{{ result.database_type }}</td>
                             <td>
                                 {% if result.is_exploitable %}
                                 <span class="badge badge-danger">Yes</span>
@@ -195,7 +192,7 @@
                                 <span class="badge badge-secondary">No</span>
                                 {% endif %}
                             </td>
-                            <td>{{ result.detected_at|date:"Y-m-d H:i" }}</td>
+                            <td class="text-sm">{{ result.detected_at|date:"Y-m-d H:i" }}</td>
                             <td>
                                 <a href="{% url 'sql_attacker:result_detail' result.id %}" 
                                    class="btn btn-sm btn-primary">View Details</a>
@@ -206,7 +203,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-muted">
+            <p class="text-gray-600 dark:text-gray-400">
                 {% if task.status == 'completed' %}
                 No vulnerabilities found.
                 {% elif task.status == 'running' %}

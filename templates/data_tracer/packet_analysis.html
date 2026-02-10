@@ -1,146 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packet Analysis - Data Tracer</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        h1, h2 {
-            color: #333;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #667eea;
-            text-decoration: none;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .stat-card {
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #666;
-            margin-top: 5px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        th {
-            background: #667eea;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 13px;
-        }
-        tr:hover {
-            background: #f5f5f5;
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .badge-high { background: #f44336; color: white; }
-        .badge-medium { background: #ff9800; color: white; }
-        .badge-low { background: #4caf50; color: white; }
-        .badge-none { background: #9e9e9e; color: white; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="{% url 'data_tracer:result_detail' scan_result.id %}" class="back-link">← Back to Results</a>
-        
-        <h1>Packet Analysis</h1>
-        <p><strong>Target:</strong> {{ scan_result.scan_target.target }}</p>
-        
-        {% if aggregated %}
-        <h2>Statistics</h2>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{ aggregated.total_packets }}</div>
-                <div class="stat-label">Total Packets</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ aggregated.high_relevance_count }}</div>
-                <div class="stat-label">High Relevance</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ aggregated.unique_ports|length }}</div>
-                <div class="stat-label">Unique Ports</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ aggregated.unique_ips|length }}</div>
-                <div class="stat-label">Unique IPs</div>
+{% extends 'base.html' %}
+
+{% block title %}Packet Analysis - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400">Data Tracer</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Packet Analysis</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-6">
+        <a href="{% url 'data_tracer:result_detail' scan_result.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1">
+            ← Back to Results
+        </a>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Packet Analysis</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+            <strong>Target:</strong> {{ scan_result.scan_target.target }}
+        </p>
+    </div>
+
+    {% if aggregated %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Statistics</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ aggregated.total_packets }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Total Packets</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ aggregated.high_relevance_count }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">High Relevance</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ aggregated.unique_ports|length }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Unique Ports</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">{{ aggregated.unique_ips|length }}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Unique IPs</div>
+                </div>
             </div>
         </div>
-        {% endif %}
-        
-        {% if packets %}
-        <h2>Captured Packets</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Source</th>
-                    <th>Destination</th>
-                    <th>Size</th>
-                    <th>Relevance</th>
-                    <th>Captured</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for packet in packets %}
-                <tr>
-                    <td>{{ packet.packet_type|upper }}</td>
-                    <td>{{ packet.source_ip }}:{{ packet.source_port|default:"N/A" }}</td>
-                    <td>{{ packet.destination_ip }}:{{ packet.destination_port|default:"N/A" }}</td>
-                    <td>{{ packet.packet_size }} bytes</td>
-                    <td><span class="badge badge-{{ packet.relevance }}">{{ packet.get_relevance_display }}</span></td>
-                    <td>{{ packet.captured_at|date:"H:i:s" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No packets captured for this scan.</p>
-        {% endif %}
     </div>
-</body>
-</html>
+    {% endif %}
+
+    {% if packets %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Captured Packets</h3>
+        </div>
+        <div class="card-body">
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Size</th>
+                            <th>Relevance</th>
+                            <th>Captured</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for packet in packets %}
+                        <tr>
+                            <td>{{ packet.packet_type|upper }}</td>
+                            <td>{{ packet.source_ip }}:{{ packet.source_port|default:"N/A" }}</td>
+                            <td>{{ packet.destination_ip }}:{{ packet.destination_port|default:"N/A" }}</td>
+                            <td>{{ packet.packet_size }} bytes</td>
+                            <td>
+                                {% if packet.relevance == 'high' %}
+                                    <span class="badge badge-danger">{{ packet.get_relevance_display }}</span>
+                                {% elif packet.relevance == 'medium' %}
+                                    <span class="badge badge-warning">{{ packet.get_relevance_display }}</span>
+                                {% elif packet.relevance == 'low' %}
+                                    <span class="badge badge-success">{{ packet.get_relevance_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-gray-500 text-white">{{ packet.get_relevance_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ packet.captured_at|date:"H:i:s" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-12">
+            <div class="text-6xl mb-4">📡</div>
+            <p class="text-gray-600 dark:text-gray-400">No packets captured for this scan.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

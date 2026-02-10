@@ -4,21 +4,30 @@
 {% block title %}SQL Injection Attack Tasks{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>SQL Injection Attack Tasks</h1>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Tasks</span>
+    </nav>
+
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">SQL Injection Attack Tasks</h1>
         <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Create New Task
+            ➕ Create New Task
         </a>
     </div>
     
     <!-- Filters -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-body">
-            <form method="get" class="form-inline">
-                <div class="form-group mr-3">
-                    <label for="status" class="mr-2">Status:</label>
-                    <select name="status" id="status" class="form-control">
+            <form method="get" class="flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-[200px]">
+                    <label for="status" class="form-label">Status:</label>
+                    <select name="status" id="status" class="form-select">
                         <option value="">All</option>
                         {% for value, label in status_choices %}
                         <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
@@ -27,13 +36,15 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group mr-3">
-                    <label for="search" class="mr-2">Search:</label>
-                    <input type="text" name="search" id="search" class="form-control" 
+                <div class="flex-1 min-w-[200px]">
+                    <label for="search" class="form-label">Search:</label>
+                    <input type="text" name="search" id="search" class="form-input" 
                            value="{{ request.GET.search }}" placeholder="URL...">
                 </div>
-                <button type="submit" class="btn btn-primary">Filter</button>
-                <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary ml-2">Clear</a>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">🔍 Filter</button>
+                    <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary">✗ Clear</a>
+                </div>
             </form>
         </div>
     </div>
@@ -41,12 +52,12 @@
     <!-- Tasks Table -->
     <div class="card">
         <div class="card-header">
-            <h5>Tasks ({{ tasks.count }})</h5>
+            <h3 class="card-title">Tasks ({{ tasks.count }})</h3>
         </div>
         <div class="card-body">
             {% if tasks %}
-            <div class="table-responsive">
-                <table class="table table-striped">
+            <div class="table-container">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -62,9 +73,9 @@
                     <tbody>
                         {% for task in tasks %}
                         <tr>
-                            <td>{{ task.id }}</td>
+                            <td class="font-semibold">#{{ task.id }}</td>
                             <td>
-                                <a href="{% url 'sql_attacker:task_detail' task.id %}">
+                                <a href="{% url 'sql_attacker:task_detail' task.id %}" class="text-primary-600 dark:text-primary-400 hover:underline">
                                     {{ task.target_url|truncatechars:60 }}
                                 </a>
                             </td>
@@ -87,8 +98,8 @@
                                 <span class="badge badge-secondary">0</span>
                                 {% endif %}
                             </td>
-                            <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
-                            <td>
+                            <td class="text-sm">{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="text-sm">
                                 {% if task.completed_at %}
                                 {{ task.completed_at|date:"Y-m-d H:i" }}
                                 {% else %}
@@ -105,7 +116,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-muted">No tasks found.</p>
+            <p class="text-gray-600 dark:text-gray-400">No tasks found.</p>
             {% endif %}
         </div>
     </div>

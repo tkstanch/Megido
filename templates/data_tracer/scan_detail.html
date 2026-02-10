@@ -1,154 +1,121 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scan Details - Data Tracer</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        h1, h2 {
-            color: #333;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #667eea;
-            text-decoration: none;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .info-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .info-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-        .info-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-        .status {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .status-pending { background: #ffc107; color: #000; }
-        .status-running { background: #2196f3; color: white; }
-        .status-completed { background: #4caf50; color: white; }
-        .status-failed { background: #f44336; color: white; }
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            margin: 10px 10px 0 0;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        .result-card {
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="{% url 'data_tracer:scan_list' %}" class="back-link">← Back to My Scans</a>
-        
-        <h1>Scan Details</h1>
-        
-        <div class="info-grid">
-            <div class="info-item">
-                <div class="info-label">Target</div>
-                <div class="info-value">{{ scan_target.target }}</div>
+{% extends 'base.html' %}
+
+{% block title %}Scan Details - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400">Data Tracer</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Scan Details</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-6">
+        <a href="{% url 'data_tracer:scan_list' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1">
+            ← Back to My Scans
+        </a>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Scan Details</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Target</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ scan_target.target }}</div>
             </div>
-            <div class="info-item">
-                <div class="info-label">Status</div>
-                <div class="info-value">
-                    <span class="status status-{{ scan_target.status }}">{{ scan_target.get_status_display }}</span>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Status</div>
+                <div class="text-lg font-semibold">
+                    {% if scan_target.status == 'pending' %}
+                        <span class="badge badge-warning">{{ scan_target.get_status_display }}</span>
+                    {% elif scan_target.status == 'running' %}
+                        <span class="badge bg-blue-500 text-white">{{ scan_target.get_status_display }}</span>
+                    {% elif scan_target.status == 'completed' %}
+                        <span class="badge badge-success">{{ scan_target.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge badge-danger">{{ scan_target.get_status_display }}</span>
+                    {% endif %}
                 </div>
             </div>
-            <div class="info-item">
-                <div class="info-label">Scan Type</div>
-                <div class="info-value">{{ scan_target.scan_type }}</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Stealth Mode</div>
-                <div class="info-value">{{ scan_target.stealth_mode|yesno:"Yes,No" }}</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Created</div>
-                <div class="info-value">{{ scan_target.created_at|date:"Y-m-d H:i" }}</div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Scan Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ scan_target.scan_type }}</div>
             </div>
         </div>
-        
-        {% if scan_target.notes %}
-        <div class="result-card">
-            <strong>Notes:</strong> {{ scan_target.notes }}
-        </div>
-        {% endif %}
-        
-        {% if scan_target.status == 'pending' %}
-        <form method="post" action="{% url 'data_tracer:execute_scan' scan_target.id %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary">Execute Scan Now</button>
-        </form>
-        {% endif %}
-        
-        <h2>Scan Results</h2>
-        
-        {% if results %}
-            {% for result in results %}
-            <div class="result-card">
-                <h3>Scan executed at {{ result.started_at|date:"Y-m-d H:i:s" }}</h3>
-                {% if result.completed_at %}
-                <p><strong>Duration:</strong> {{ result.duration_seconds|floatformat:2 }} seconds</p>
-                {% endif %}
-                <p><strong>Host Discovered:</strong> {{ result.host_discovered|yesno:"Yes,No" }}</p>
-                <p><strong>Open Ports:</strong> {{ result.open_ports_count }}</p>
-                {% if result.summary %}
-                <p><strong>Summary:</strong> {{ result.summary }}</p>
-                {% endif %}
-                <a href="{% url 'data_tracer:result_detail' result.id %}" class="btn btn-primary">View Full Results</a>
+        <div class="card">
+            <div class="card-body">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Stealth Mode</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ scan_target.stealth_mode|yesno:"Yes,No" }}</div>
             </div>
-            {% endfor %}
-        {% else %}
-            <p>No results yet. Execute the scan to generate results.</p>
-        {% endif %}
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Created</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ scan_target.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
     </div>
-</body>
-</html>
+
+    {% if scan_target.notes %}
+    <div class="card">
+        <div class="card-body">
+            <p class="text-sm text-gray-700 dark:text-gray-300"><strong>Notes:</strong> {{ scan_target.notes }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if scan_target.status == 'pending' %}
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'data_tracer:execute_scan' scan_target.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Execute Scan Now</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Scan Results</h3>
+        </div>
+        <div class="card-body">
+            {% if results %}
+                <div class="space-y-4">
+                    {% for result in results %}
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 border-l-4 border-l-primary-600">
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Scan executed at {{ result.started_at|date:"Y-m-d H:i:s" }}
+                        </h4>
+                        <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300 mb-3">
+                            {% if result.completed_at %}
+                            <p><strong>Duration:</strong> {{ result.duration_seconds|floatformat:2 }} seconds</p>
+                            {% endif %}
+                            <p><strong>Host Discovered:</strong> {{ result.host_discovered|yesno:"Yes,No" }}</p>
+                            <p><strong>Open Ports:</strong> {{ result.open_ports_count }}</p>
+                            {% if result.summary %}
+                            <p><strong>Summary:</strong> {{ result.summary }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'data_tracer:result_detail' result.id %}" class="btn btn-primary">
+                            View Full Results
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-600 dark:text-gray-400 text-center py-8">No results yet. Execute the scan to generate results.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

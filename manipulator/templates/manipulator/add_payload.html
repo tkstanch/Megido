@@ -1,16 +1,21 @@
 {% extends 'base.html' %}
 
-{% block content %}
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
-            <li class="breadcrumb-item active">Add Payload</li>
-        </ol>
-    </nav>
+{% block title %}Add Payload - Manipulator - Megido Security{% endblock %}
 
-    <h1>Add Custom Payload</h1>
-    <p class="lead">Submit your own payload to the library.</p>
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:home' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">Manipulator</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Add Payload</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Add Custom Payload</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">Submit your own payload to the library.</p>
+    </div>
 
     {% if messages %}
         {% for message in messages %}
@@ -18,14 +23,14 @@
         {% endfor %}
     {% endif %}
 
-    <div class="row">
-        <div class="col-md-8">
-            <form method="post">
+    <div class="card">
+        <div class="card-body">
+            <form method="post" class="space-y-6">
                 {% csrf_token %}
                 
                 <div class="form-group">
-                    <label>Vulnerability Type *</label>
-                    <select name="vulnerability" class="form-control" required>
+                    <label class="form-label required">Vulnerability Type</label>
+                    <select name="vulnerability" class="form-select" required>
                         <option value="">-- Select Vulnerability --</option>
                         {% for vuln in vulnerabilities %}
                             <option value="{{ vuln.id }}">{{ vuln.name }}</option>
@@ -34,37 +39,39 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Payload Name *</label>
-                    <input type="text" name="name" class="form-control" 
+                    <label class="form-label required">Payload Name</label>
+                    <input type="text" name="name" class="form-input" 
                            placeholder="e.g., XSS via SVG" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Payload Text *</label>
-                    <textarea name="payload_text" class="form-control" rows="5" 
+                    <label class="form-label required">Payload Text</label>
+                    <textarea name="payload_text" class="form-textarea" rows="5" 
                               placeholder="Enter the payload code here" required></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" class="form-control" rows="3" 
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-textarea" rows="3" 
                               placeholder="Explain what this payload does and how it works"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Bypass Technique</label>
-                    <input type="text" name="bypass_technique" class="form-control" 
+                    <label class="form-label">Bypass Technique</label>
+                    <input type="text" name="bypass_technique" class="form-input" 
                            placeholder="e.g., WAF bypass, Filter evasion">
                 </div>
 
                 <div class="form-group">
-                    <label>Platform</label>
-                    <input type="text" name="platform" class="form-control" 
+                    <label class="form-label">Platform</label>
+                    <input type="text" name="platform" class="form-input" 
                            placeholder="e.g., Web, Windows, Linux, PHP">
                 </div>
 
-                <button type="submit" class="btn btn-success">Add Payload</button>
-                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary">Cancel</a>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn btn-primary">✅ Add Payload</button>
+                    <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary">Cancel</a>
+                </div>
             </form>
         </div>
     </div>

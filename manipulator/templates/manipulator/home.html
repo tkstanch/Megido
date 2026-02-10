@@ -1,78 +1,81 @@
 {% extends 'base.html' %}
 
-{% block content %}
-<div class="container mt-4">
-    <h1>Payload Manipulator</h1>
-    <p class="lead">
-        Craft, encode, and manipulate payloads for various vulnerability types.
-        Support for XSS, SQLi, LFI, RCE, CSRF, and more.
-    </p>
+{% block title %}Payload Manipulator - Megido Security{% endblock %}
 
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <a href="{% url 'manipulator:craft_payload' %}" class="btn btn-success btn-lg btn-block mb-2">
-                                Craft Payload
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{% url 'manipulator:payload_library' %}" class="btn btn-info btn-lg btn-block mb-2">
-                                Payload Library
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{% url 'manipulator:encoding_tools' %}" class="btn btn-warning btn-lg btn-block mb-2">
-                                Encoding Tools
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{% url 'manipulator:manipulation_tricks' %}" class="btn btn-secondary btn-lg btn-block mb-2">
-                                Manipulation Tricks
-                            </a>
-                        </div>
-                    </div>
-                </div>
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Manipulator</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Payload Manipulator</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+            Craft, encode, and manipulate payloads for various vulnerability types.
+            Support for XSS, SQLi, LFI, RCE, CSRF, and more.
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Quick Actions</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <a href="{% url 'manipulator:craft_payload' %}" class="btn btn-primary w-full justify-center">
+                    🛠️ Craft Payload
+                </a>
+                <a href="{% url 'manipulator:payload_library' %}" class="btn btn-secondary w-full justify-center">
+                    📚 Payload Library
+                </a>
+                <a href="{% url 'manipulator:encoding_tools' %}" class="btn btn-secondary w-full justify-center">
+                    🔐 Encoding Tools
+                </a>
+                <a href="{% url 'manipulator:manipulation_tricks' %}" class="btn btn-secondary w-full justify-center">
+                    🎯 Manipulation Tricks
+                </a>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-12">
-            <h2>Vulnerability Types</h2>
-            <p>Select a vulnerability type to view available payloads and manipulation techniques.</p>
-        </div>
+    <div>
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Vulnerability Types</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">Select a vulnerability type to view available payloads and manipulation techniques.</p>
     </div>
 
-    <div class="row">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for vuln in vulnerabilities %}
-        <div class="col-md-4 mb-3">
-            <div class="card h-100">
-                <div class="card-header 
-                    {% if vuln.severity == 'critical' %}bg-danger text-white
-                    {% elif vuln.severity == 'high' %}bg-warning
-                    {% elif vuln.severity == 'medium' %}bg-info text-white
-                    {% else %}bg-secondary text-white{% endif %}">
-                    <h5 class="mb-0">{{ vuln.name }}</h5>
-                    <small>{{ vuln.get_severity_display }} - {{ vuln.category }}</small>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">{{ vuln.description|truncatewords:20 }}</p>
-                    <a href="{% url 'manipulator:vulnerability_detail' vuln.id %}" class="btn btn-primary btn-sm">
-                        View Payloads →
-                    </a>
-                </div>
+        <div class="card h-full">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 
+                {% if vuln.severity == 'critical' %}bg-red-50 dark:bg-red-900/20
+                {% elif vuln.severity == 'high' %}bg-orange-50 dark:bg-orange-900/20
+                {% elif vuln.severity == 'medium' %}bg-yellow-50 dark:bg-yellow-900/20
+                {% else %}bg-gray-50 dark:bg-gray-800{% endif %}">
+                <h4 class="text-lg font-semibold text-gray-900 dark:text-white">{{ vuln.name }}</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        {% if vuln.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300
+                        {% elif vuln.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300
+                        {% elif vuln.severity == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                        {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                        {{ vuln.get_severity_display }}
+                    </span>
+                    <span class="ml-2">{{ vuln.category }}</span>
+                </p>
+            </div>
+            <div class="card-body flex-1 flex flex-col">
+                <p class="text-gray-600 dark:text-gray-400 flex-1">{{ vuln.description|truncatewords:20 }}</p>
+                <a href="{% url 'manipulator:vulnerability_detail' vuln.id %}" class="btn btn-primary btn-sm mt-4">
+                    View Payloads →
+                </a>
             </div>
         </div>
         {% empty %}
-        <div class="col-md-12">
+        <div class="col-span-full">
             <div class="alert alert-info">
-                No vulnerability types found. Run <code>python manage.py populate_manipulator_data</code> to load initial data.
+                No vulnerability types found. Run <code class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded font-mono">python manage.py populate_manipulator_data</code> to load initial data.
             </div>
         </div>
         {% endfor %}

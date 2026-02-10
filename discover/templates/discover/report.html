@@ -1,665 +1,334 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 
-{% block extra_style %}
-.report-container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-.report-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 10px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-.report-header h2 {
-    margin-bottom: 10px;
-}
-.report-header .meta {
-    opacity: 0.9;
-    font-size: 14px;
-}
-.section {
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 30px;
-}
-.section-header {
-    border-bottom: 3px solid #667eea;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-}
-.section-header h3 {
-    color: #667eea;
-    font-size: 24px;
-}
-.guidance-box {
-    background: #f0f4ff;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid #667eea;
-    white-space: pre-line;
-    line-height: 1.8;
-}
-.result-list {
-    list-style: none;
-    padding: 0;
-}
-.result-item {
-    padding: 15px;
-    margin-bottom: 10px;
-    background: #f9f9f9;
-    border-radius: 5px;
-    border-left: 3px solid #667eea;
-}
-.result-item strong {
-    color: #333;
-}
-.dork-category {
-    margin-bottom: 30px;
-}
-.dork-category h4 {
-    color: #667eea;
-    margin-bottom: 10px;
-    font-size: 18px;
-}
-.dork-item {
-    background: #f9f9f9;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    position: relative;
-}
-.dork-query {
-    font-family: 'Courier New', monospace;
-    background: #fff;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    margin: 10px 0;
-    word-break: break-all;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.dork-query:hover {
-    background: #e8f4ff;
-}
-.copy-btn {
-    background: #667eea;
-    color: white;
-    border: none;
-    padding: 5px 15px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    margin-top: 5px;
-}
-.copy-btn:hover {
-    background: #5568d3;
-}
-.copied {
-    color: #28a745;
-    font-size: 12px;
-    margin-left: 10px;
-    display: none;
-}
-.error-box {
-    background: #fee;
-    color: #c33;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 15px;
-}
-.no-data {
-    color: #999;
-    font-style: italic;
-    padding: 20px;
-    text-align: center;
-}
-.shodan-data {
-    font-family: 'Courier New', monospace;
-    background: #f5f5f5;
-    padding: 15px;
-    border-radius: 5px;
-    max-height: 400px;
-    overflow-y: auto;
-    font-size: 13px;
-}
-.email-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    background: #f9f9f9;
-    margin-bottom: 8px;
-    border-radius: 5px;
-}
-.email-address {
-    font-weight: bold;
-    color: #667eea;
-}
-.email-info {
-    font-size: 13px;
-    color: #666;
-}
-.confidence {
-    background: #28a745;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 12px;
-}
-.actions {
-    margin-top: 30px;
-    text-align: center;
-}
-.btn {
-    display: inline-block;
-    padding: 12px 30px;
-    background: #667eea;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background 0.3s;
-    margin: 0 10px;
-}
-.btn:hover {
-    background: #5568d3;
-}
-.severity-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-.severity-critical {
-    background: #dc3545;
-    color: white;
-}
-.severity-high {
-    background: #fd7e14;
-    color: white;
-}
-.severity-medium {
-    background: #ffc107;
-    color: #333;
-}
-.severity-low {
-    background: #28a745;
-    color: white;
-}
-.severity-info {
-    background: #17a2b8;
-    color: white;
-}
-.findings-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-.findings-summary-item {
-    text-align: center;
-    padding: 20px;
-    background: #f9f9f9;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
-}
-.findings-summary-item h4 {
-    font-size: 32px;
-    margin: 10px 0;
-    color: #667eea;
-}
-.findings-summary-item p {
-    font-size: 14px;
-    color: #666;
-}
-.finding-item {
-    background: #f9f9f9;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    border-left: 4px solid #667eea;
-}
-.finding-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-.finding-type {
-    font-weight: bold;
-    color: #333;
-    font-size: 16px;
-}
-.finding-url {
-    color: #666;
-    font-size: 13px;
-    margin-bottom: 8px;
-    word-break: break-all;
-}
-.finding-value {
-    background: #fff;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    margin-bottom: 8px;
-    word-break: break-all;
-}
-.finding-context {
-    background: #fffbea;
-    padding: 8px;
-    border-left: 3px solid #ffc107;
-    font-size: 13px;
-    color: #666;
-    font-family: 'Courier New', monospace;
-    word-break: break-all;
-}
-.status-in-progress {
-    background: #fff3cd;
-    color: #856404;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-    border-left: 4px solid #ffc107;
-}
-.status-completed {
-    background: #d4edda;
-    color: #155724;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-    border-left: 4px solid #28a745;
-}
-.warning-box {
-    background: #fff3cd;
-    color: #856404;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 20px;
-    border-left: 4px solid #ffc107;
-}
-.search-results-container {
-    margin-top: 15px;
-    border-top: 1px solid #e0e0e0;
-    padding-top: 15px;
-}
-.search-results-toggle {
-    background: #e8f4ff;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    transition: background 0.2s;
-}
-.search-results-toggle:hover {
-    background: #d4ebff;
-}
-.toggle-icon {
-    font-weight: bold;
-    color: #667eea;
-}
-.search-results-content {
-    display: none;
-    padding: 10px 0;
-}
-.search-results-content.expanded {
-    display: block;
-}
-.search-result-item {
-    background: #fff;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    border: 1px solid #e0e0e0;
-    transition: box-shadow 0.2s;
-}
-.search-result-item:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-.search-result-title {
-    font-weight: bold;
-    color: #1a0dab;
-    font-size: 16px;
-    margin-bottom: 5px;
-}
-.search-result-title a {
-    color: #1a0dab;
-    text-decoration: none;
-}
-.search-result-title a:hover {
-    text-decoration: underline;
-}
-.search-result-url {
-    color: #006621;
-    font-size: 13px;
-    margin-bottom: 5px;
-    word-break: break-all;
-}
-.search-result-snippet {
-    color: #545454;
-    font-size: 14px;
-    line-height: 1.5;
-}
-.no-results {
-    color: #999;
-    font-style: italic;
-    padding: 10px 0;
-}
-.api-not-configured {
-    background: #f0f4ff;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 10px;
-    border-left: 4px solid #667eea;
-}
-.results-count {
-    font-size: 13px;
-    color: #666;
-    font-weight: normal;
-}
-.error-text {
-    color: #c33;
-}
-{% endblock %}
-
 {% block content %}
-<div class="report-container">
+<div class="max-w-7xl mx-auto space-y-6">
     {% if error %}
-    <div class="error-box">
-        <h3>❌ Error</h3>
-        <p>{{ error }}</p>
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="/discover/" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Report</span>
+    </nav>
+
+    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg">
+        <h3 class="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">❌ Error</h3>
+        <p class="text-red-700 dark:text-red-400">{{ error }}</p>
     </div>
-    <div class="actions">
-        <a href="/discover/" class="btn">← Back to Discover</a>
+    <div class="flex justify-center gap-4 mt-8">
+        <a href="/discover/" class="btn btn-primary">← Back to Discover</a>
     </div>
     {% else %}
     
-    <div class="report-header">
-        <h2>📊 OSINT Scan Report</h2>
-        <div class="meta">
-            <strong>Target:</strong> {{ scan.target }}<br>
-            <strong>Scan Date:</strong> {{ scan.scan_date|date:"Y-m-d H:i" }}<br>
-            <strong>Results:</strong> {{ scan.total_urls }} URLs | {{ scan.total_emails }} Emails
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="/discover/" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Report</span>
+    </nav>
+    
+    <div class="bg-gradient-to-br from-primary-500 to-purple-600 text-white p-8 rounded-xl shadow-lg text-center">
+        <h2 class="text-3xl font-bold mb-4">📊 OSINT Scan Report</h2>
+        <div class="text-sm opacity-90 space-y-1">
+            <div><strong>Target:</strong> {{ scan.target }}</div>
+            <div><strong>Scan Date:</strong> {{ scan.scan_date|date:"Y-m-d H:i" }}</div>
+            <div><strong>Results:</strong> {{ scan.total_urls }} URLs | {{ scan.total_emails }} Emails</div>
         </div>
     </div>
 
     <!-- Wayback Machine Results -->
-    <div class="section">
-        <div class="section-header">
-            <h3>{{ results.wayback_machine.title }}</h3>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ results.wayback_machine.title }}</h3>
         </div>
-        
-        <div class="guidance-box">
-            {{ results.wayback_machine.guidance }}
-        </div>
-        
-        {% if results.wayback_machine.success %}
-            <p><strong>Found {{ results.wayback_machine.count }} historical URLs</strong></p>
-            <ul class="result-list">
-                {% for url in results.wayback_machine.data|slice:":20" %}
-                <li class="result-item">
-                    <strong>Original:</strong> {{ url.original }}<br>
-                    <strong>Archive:</strong> <a href="{{ url.url }}" target="_blank">{{ url.url }}</a><br>
-                    <small>Timestamp: {{ url.timestamp }}</small>
-                </li>
-                {% endfor %}
-            </ul>
-            {% if results.wayback_machine.count > 20 %}
-            <p class="no-data">Showing first 20 of {{ results.wayback_machine.count }} URLs</p>
-            {% endif %}
-        {% else %}
-            <div class="error-box">
-                {{ results.wayback_machine.error|default:"No URLs found" }}
+        <div class="card-body space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-5 rounded-lg whitespace-pre-line leading-relaxed text-gray-700 dark:text-gray-300">
+                {{ results.wayback_machine.guidance }}
             </div>
-        {% endif %}
+            
+            {% if results.wayback_machine.success %}
+                <p class="text-gray-900 dark:text-white font-semibold">Found {{ results.wayback_machine.count }} historical URLs</p>
+                <ul class="space-y-3">
+                    {% for url in results.wayback_machine.data|slice:":20" %}
+                    <li class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-primary-500">
+                        <div class="space-y-1">
+                            <div><strong class="text-gray-900 dark:text-white">Original:</strong> <span class="text-gray-700 dark:text-gray-300">{{ url.original }}</span></div>
+                            <div><strong class="text-gray-900 dark:text-white">Archive:</strong> <a href="{{ url.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">{{ url.url }}</a></div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Timestamp: {{ url.timestamp }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if results.wayback_machine.count > 20 %}
+                <p class="text-gray-500 dark:text-gray-400 italic text-center py-4">Showing first 20 of {{ results.wayback_machine.count }} URLs</p>
+                {% endif %}
+            {% else %}
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-lg">
+                    {{ results.wayback_machine.error|default:"No URLs found" }}
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Shodan Results -->
-    <div class="section">
-        <div class="section-header">
-            <h3>{{ results.shodan.title }}</h3>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ results.shodan.title }}</h3>
         </div>
-        
-        <div class="guidance-box">
-            {{ results.shodan.guidance }}
+        <div class="card-body space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-5 rounded-lg whitespace-pre-line leading-relaxed text-gray-700 dark:text-gray-300">
+                {{ results.shodan.guidance }}
+            </div>
+            
+            {% if results.shodan.success %}
+                <div class="font-mono bg-gray-100 dark:bg-gray-800 p-4 rounded-lg max-h-96 overflow-y-auto text-sm text-gray-900 dark:text-gray-100">
+                    <pre>{{ results.shodan.data }}</pre>
+                </div>
+            {% else %}
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-lg">
+                    {{ results.shodan.error|default:"No data available" }}
+                </div>
+            {% endif %}
         </div>
-        
-        {% if results.shodan.success %}
-            <div class="shodan-data">
-                <pre>{{ results.shodan.data }}</pre>
-            </div>
-        {% else %}
-            <div class="error-box">
-                {{ results.shodan.error|default:"No data available" }}
-            </div>
-        {% endif %}
     </div>
 
     <!-- Hunter.io Results -->
-    <div class="section">
-        <div class="section-header">
-            <h3>{{ results.hunter.title }}</h3>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ results.hunter.title }}</h3>
         </div>
-        
-        <div class="guidance-box">
-            {{ results.hunter.guidance }}
-        </div>
-        
-        {% if results.hunter.success %}
-            <p><strong>Found {{ results.hunter.count }} email addresses</strong></p>
-            {% for email in results.hunter.data %}
-            <div class="email-item">
-                <div>
-                    <div class="email-address">{{ email.email }}</div>
-                    <div class="email-info">
-                        {% if email.first_name %}{{ email.first_name }} {{ email.last_name }}{% endif %}
-                        {% if email.position %} - {{ email.position }}{% endif %}
-                    </div>
-                </div>
-                {% if email.confidence %}
-                <span class="confidence">{{ email.confidence }}% confidence</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="error-box">
-                {{ results.hunter.error|default:"No emails found" }}
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Google Dorks Results -->
-    <div class="section" id="sensitive-findings-section">
-        <div class="section-header">
-            <h3>🔐 Sensitive Information Scan</h3>
-        </div>
-        
-        {% if sensitive_scan_status.completed %}
-            <div class="status-completed">
-                ✓ Scan completed on {{ sensitive_scan_status.date|date:"Y-m-d H:i" }}
+        <div class="card-body space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-5 rounded-lg whitespace-pre-line leading-relaxed text-gray-700 dark:text-gray-300">
+                {{ results.hunter.guidance }}
             </div>
             
-            {% if sensitive_scan_status.total_findings > 0 %}
-                <div class="warning-box">
-                    ⚠️ <strong>Warning:</strong> This scan has discovered potentially sensitive information. 
-                    Handle this data responsibly and ensure proper security measures are in place.
+            {% if results.hunter.success %}
+                <p class="text-gray-900 dark:text-white font-semibold">Found {{ results.hunter.count }} email addresses</p>
+                <div class="space-y-2">
+                    {% for email in results.hunter.data %}
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <div>
+                            <div class="font-bold text-primary-600 dark:text-primary-400">{{ email.email }}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                {% if email.first_name %}{{ email.first_name }} {{ email.last_name }}{% endif %}
+                                {% if email.position %} - {{ email.position }}{% endif %}
+                            </div>
+                        </div>
+                        {% if email.confidence %}
+                        <span class="bg-green-500 text-white px-2 py-1 rounded text-xs font-semibold">{{ email.confidence }}% confidence</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
-                
-                <div class="findings-summary">
-                    <div class="findings-summary-item">
-                        <h4>{{ sensitive_scan_status.total_findings }}</h4>
-                        <p>Total Findings</p>
-                    </div>
-                    <div class="findings-summary-item">
-                        <h4>{{ sensitive_scan_status.high_risk_findings }}</h4>
-                        <p>High Risk</p>
-                    </div>
-                    <div class="findings-summary-item">
-                        <h4>{{ findings_by_severity.critical }}</h4>
-                        <p>Critical</p>
-                    </div>
-                    <div class="findings-summary-item">
-                        <h4>{{ findings_by_severity.high }}</h4>
-                        <p>High</p>
-                    </div>
-                    <div class="findings-summary-item">
-                        <h4>{{ findings_by_severity.medium }}</h4>
-                        <p>Medium</p>
-                    </div>
-                    <div class="findings-summary-item">
-                        <h4>{{ findings_by_severity.low }}</h4>
-                        <p>Low</p>
-                    </div>
-                </div>
-                
-                <h4 style="margin-top: 30px; margin-bottom: 15px;">Findings Details:</h4>
-                {% for finding in sensitive_findings %}
-                <div class="finding-item">
-                    <div class="finding-header">
-                        <span class="finding-type">{{ finding.finding_type }}</span>
-                        <span class="severity-badge severity-{{ finding.severity }}">{{ finding.severity }}</span>
-                    </div>
-                    <div class="finding-url">
-                        <strong>URL:</strong> {{ finding.url|truncatechars:100 }}
-                    </div>
-                    <div class="finding-value">
-                        <strong>Value:</strong> {{ finding.value|truncatechars:150 }}
-                    </div>
-                    {% if finding.context %}
-                    <div class="finding-context">
-                        <strong>Context:</strong> {{ finding.context|truncatechars:200 }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-                
-                {% if sensitive_scan_status.total_findings > 100 %}
-                <p class="no-data">Showing first 100 of {{ sensitive_scan_status.total_findings }} findings</p>
-                {% endif %}
             {% else %}
-                <div class="status-completed">
-                    ✓ No sensitive information found during the scan.
+                <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-lg">
+                    {{ results.hunter.error|default:"No emails found" }}
                 </div>
             {% endif %}
-        {% else %}
-            <div class="status-in-progress" id="scan-in-progress">
-                ⏳ Sensitive information scan is in progress... 
-                <span id="scan-status-text">Checking status...</span>
-            </div>
-            <div id="partial-results" style="display: none;">
-                <p>Results will appear here as the scan progresses.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 
     <!-- Google Dorks Results -->
-    <div class="section">
-        <div class="section-header">
-            <h3>{{ results.google_dorks.title }}</h3>
+    <div class="card" id="sensitive-findings-section">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🔐 Sensitive Information Scan</h3>
         </div>
-        
-        <div class="guidance-box">
-            {{ results.google_dorks.guidance }}
-        </div>
-        
-        {% if dork_results.api_configured %}
-            <div class="status-completed">
-                ✓ Automated search enabled. Search results are displayed below each dork query.
-            </div>
-        {% elif dork_results.search_enabled %}
-            <div class="warning-box">
-                ⚠️ Automated search was requested but API credentials are not configured. Please configure GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID in Django settings.
-            </div>
-        {% else %}
-            <div class="api-not-configured">
-                💡 <strong>Tip:</strong> Enable automated dork search when starting a scan and configure Google Custom Search API to see results automatically. Otherwise, copy and manually search each query on Google.
-            </div>
-        {% endif %}
-        
-        {% for category_key, category in results.google_dorks.data.items %}
-        <div class="dork-category">
-            <h4>📁 {{ category.name }}</h4>
-            <p style="color: #666; margin-bottom: 15px;">{{ category.description }}</p>
-            
-            {% for dork in category.dorks %}
-            <div class="dork-item">
-                <div>{{ dork.description }}</div>
-                <div class="dork-query" onclick="copyToClipboard(this)">
-                    {{ dork.query }}
+        <div class="card-body space-y-4">
+            {% if sensitive_scan_status.completed %}
+                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 text-green-700 dark:text-green-400 p-4 rounded-lg">
+                    ✓ Scan completed on {{ sensitive_scan_status.date|date:"Y-m-d H:i" }}
                 </div>
-                <button class="copy-btn" onclick="copyToClipboard(this.previousElementSibling)">📋 Copy Query</button>
-                <span class="copied">✓ Copied!</span>
                 
-                {% if dork_results.api_configured and dork_results.categories %}
-                    {% with dork_with_results=None %}
-                    {% for cat_key, cat_data in dork_results.categories.items %}
-                        {% if cat_key == category_key %}
-                            {% for dork_result in cat_data.dorks %}
-                                {% if dork_result.query == dork.query %}
-                                    <!-- Search Results -->
-                                    <div class="search-results-container">
-                                        <div class="search-results-toggle" onclick="toggleSearchResults(this)">
-                                            <span>
-                                                <strong>🔍 Search Results</strong>
-                                                {% if dork_result.error %}
-                                                    <span class="results-count error-text">(Error: {{ dork_result.error }})</span>
-                                                {% else %}
-                                                    <span class="results-count">({{ dork_result.result_count }} found)</span>
-                                                {% endif %}
-                                            </span>
-                                            <span class="toggle-icon">▼</span>
-                                        </div>
-                                        <div class="search-results-content">
-                                            {% if dork_result.error %}
-                                                <div class="error-box">
-                                                    Error: {{ dork_result.error }}
-                                                </div>
-                                            {% elif dork_result.results %}
-                                                {% for result in dork_result.results %}
-                                                <div class="search-result-item">
-                                                    <div class="search-result-title">
-                                                        <a href="{{ result.url }}" target="_blank" rel="noopener noreferrer">
-                                                            {{ result.title }}
-                                                        </a>
-                                                    </div>
-                                                    <div class="search-result-url">{{ result.url }}</div>
-                                                    <div class="search-result-snippet">{{ result.snippet }}</div>
-                                                </div>
-                                                {% endfor %}
-                                            {% else %}
-                                                <div class="no-results">No results found for this query</div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                    {% endfor %}
-                    {% endwith %}
+                {% if sensitive_scan_status.total_findings > 0 %}
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-400 p-4 rounded-lg">
+                        ⚠️ <strong>Warning:</strong> This scan has discovered potentially sensitive information. 
+                        Handle this data responsibly and ensure proper security measures are in place.
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ sensitive_scan_status.total_findings }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Total Findings</p>
+                        </div>
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ sensitive_scan_status.high_risk_findings }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">High Risk</p>
+                        </div>
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ findings_by_severity.critical }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Critical</p>
+                        </div>
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ findings_by_severity.high }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">High</p>
+                        </div>
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ findings_by_severity.medium }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Medium</p>
+                        </div>
+                        <div class="text-center bg-gray-50 dark:bg-gray-700 p-5 rounded-lg border-l-4 border-primary-500">
+                            <h4 class="text-3xl font-bold text-primary-600 dark:text-primary-400 my-2">{{ findings_by_severity.low }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Low</p>
+                        </div>
+                    </div>
+                    
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-4">Findings Details:</h4>
+                    <div class="space-y-4">
+                        {% for finding in sensitive_findings %}
+                        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-primary-500">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="font-bold text-gray-900 dark:text-white text-base">{{ finding.finding_type }}</span>
+                                <span class="inline-block px-3 py-1 rounded text-xs font-bold uppercase 
+                                    {% if finding.severity == 'critical' %}bg-red-600 text-white
+                                    {% elif finding.severity == 'high' %}bg-orange-500 text-white
+                                    {% elif finding.severity == 'medium' %}bg-yellow-400 text-gray-900
+                                    {% elif finding.severity == 'low' %}bg-green-500 text-white
+                                    {% else %}bg-blue-500 text-white{% endif %}">
+                                    {{ finding.severity }}
+                                </span>
+                            </div>
+                            <div class="text-gray-600 dark:text-gray-400 text-sm mb-2 break-all">
+                                <strong>URL:</strong> {{ finding.url|truncatechars:100 }}
+                            </div>
+                            <div class="bg-white dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 rounded font-mono text-sm mb-2 break-all">
+                                <strong>Value:</strong> {{ finding.value|truncatechars:150 }}
+                            </div>
+                            {% if finding.context %}
+                            <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-2 text-sm text-gray-600 dark:text-gray-400 font-mono break-all">
+                                <strong>Context:</strong> {{ finding.context|truncatechars:200 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if sensitive_scan_status.total_findings > 100 %}
+                    <p class="text-gray-500 dark:text-gray-400 italic text-center py-4">Showing first 100 of {{ sensitive_scan_status.total_findings }} findings</p>
+                    {% endif %}
+                {% else %}
+                    <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 text-green-700 dark:text-green-400 p-4 rounded-lg">
+                        ✓ No sensitive information found during the scan.
+                    </div>
                 {% endif %}
-            </div>
-            {% endfor %}
+            {% else %}
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-400 p-4 rounded-lg" id="scan-in-progress">
+                    ⏳ Sensitive information scan is in progress... 
+                    <span id="scan-status-text">Checking status...</span>
+                </div>
+                <div id="partial-results" class="hidden">
+                    <p class="text-gray-600 dark:text-gray-400">Results will appear here as the scan progresses.</p>
+                </div>
+            {% endif %}
         </div>
-        {% endfor %}
     </div>
 
-    <div class="actions">
-        <a href="/discover/" class="btn">← New Scan</a>
-        <a href="/discover/history/" class="btn">📚 Scan History</a>
+    <!-- Google Dorks Results -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ results.google_dorks.title }}</h3>
+        </div>
+        <div class="card-body space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-5 rounded-lg whitespace-pre-line leading-relaxed text-gray-700 dark:text-gray-300">
+                {{ results.google_dorks.guidance }}
+            </div>
+            
+            {% if dork_results.api_configured %}
+                <div class="bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 text-green-700 dark:text-green-400 p-4 rounded-lg">
+                    ✓ Automated search enabled. Search results are displayed below each dork query.
+                </div>
+            {% elif dork_results.search_enabled %}
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-400 p-4 rounded-lg">
+                    ⚠️ Automated search was requested but API credentials are not configured. Please configure GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID in Django settings.
+                </div>
+            {% else %}
+                <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary-500 p-4 rounded-lg text-gray-700 dark:text-gray-300">
+                    💡 <strong>Tip:</strong> Enable automated dork search when starting a scan and configure Google Custom Search API to see results automatically. Otherwise, copy and manually search each query on Google.
+                </div>
+            {% endif %}
+            
+            <div class="space-y-8">
+                {% for category_key, category in results.google_dorks.data.items %}
+                <div>
+                    <h4 class="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">📁 {{ category.name }}</h4>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">{{ category.description }}</p>
+                    
+                    <div class="space-y-3">
+                        {% for dork in category.dorks %}
+                        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                            <div class="text-gray-700 dark:text-gray-300 mb-2">{{ dork.description }}</div>
+                            <div class="font-mono bg-white dark:bg-gray-800 p-3 border border-gray-300 dark:border-gray-600 rounded my-2 break-all cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" onclick="copyToClipboard(this)">
+                                {{ dork.query }}
+                            </div>
+                            <button class="btn btn-secondary text-xs" onclick="copyToClipboard(this.previousElementSibling)">📋 Copy Query</button>
+                            <span class="text-green-600 dark:text-green-400 text-xs ml-3 hidden copied">✓ Copied!</span>
+                            
+                            {% if dork_results.api_configured and dork_results.categories %}
+                                {% with dork_with_results=None %}
+                                {% for cat_key, cat_data in dork_results.categories.items %}
+                                    {% if cat_key == category_key %}
+                                        {% for dork_result in cat_data.dorks %}
+                                            {% if dork_result.query == dork.query %}
+                                                <!-- Search Results -->
+                                                <div class="mt-4 border-t border-gray-300 dark:border-gray-600 pt-4">
+                                                    <div class="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg cursor-pointer select-none flex justify-between items-center hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors" onclick="toggleSearchResults(this)">
+                                                        <span>
+                                                            <strong class="text-gray-900 dark:text-white">🔍 Search Results</strong>
+                                                            {% if dork_result.error %}
+                                                                <span class="text-sm text-red-600 dark:text-red-400">(Error: {{ dork_result.error }})</span>
+                                                            {% else %}
+                                                                <span class="text-sm text-gray-600 dark:text-gray-400">({{ dork_result.result_count }} found)</span>
+                                                            {% endif %}
+                                                        </span>
+                                                        <span class="font-bold text-primary-600 dark:text-primary-400 toggle-icon">▼</span>
+                                                    </div>
+                                                    <div class="search-results-content hidden py-3">
+                                                        {% if dork_result.error %}
+                                                            <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-lg">
+                                                                Error: {{ dork_result.error }}
+                                                            </div>
+                                                        {% elif dork_result.results %}
+                                                            <div class="space-y-3">
+                                                                {% for result in dork_result.results %}
+                                                                <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow">
+                                                                    <div class="font-bold text-blue-700 dark:text-blue-400 text-base mb-1">
+                                                                        <a href="{{ result.url }}" target="_blank" rel="noopener noreferrer" class="hover:underline">
+                                                                            {{ result.title }}
+                                                                        </a>
+                                                                    </div>
+                                                                    <div class="text-green-700 dark:text-green-400 text-sm mb-1 break-all">{{ result.url }}</div>
+                                                                    <div class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{{ result.snippet }}</div>
+                                                                </div>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% else %}
+                                                            <div class="text-gray-500 dark:text-gray-400 italic py-2">No results found for this query</div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-center gap-4 mt-8">
+        <a href="/discover/" class="btn btn-primary">← New Scan</a>
+        <a href="/discover/history/" class="btn btn-secondary">📚 Scan History</a>
     </div>
     
     {% endif %}
@@ -669,12 +338,11 @@
 function copyToClipboard(element) {
     const text = element.textContent.trim();
     navigator.clipboard.writeText(text).then(function() {
-        // Show copied message
         const copiedMsg = element.parentElement.querySelector('.copied');
         if (copiedMsg) {
-            copiedMsg.style.display = 'inline';
+            copiedMsg.classList.remove('hidden');
             setTimeout(() => {
-                copiedMsg.style.display = 'none';
+                copiedMsg.classList.add('hidden');
             }, 2000);
         }
     }).catch(function(err) {
@@ -686,19 +354,19 @@ function toggleSearchResults(toggleElement) {
     const content = toggleElement.nextElementSibling;
     const icon = toggleElement.querySelector('.toggle-icon');
     
-    if (content.classList.contains('expanded')) {
-        content.classList.remove('expanded');
-        icon.textContent = '▼';
-    } else {
-        content.classList.add('expanded');
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
         icon.textContent = '▲';
+    } else {
+        content.classList.add('hidden');
+        icon.textContent = '▼';
     }
 }
 
 // Auto-refresh for sensitive scan status
 {% if not sensitive_scan_status.completed %}
 let pollAttempts = 0;
-const maxPollAttempts = 60; // Poll for up to 5 minutes (every 5 seconds)
+const maxPollAttempts = 60;
 
 function checkScanStatus() {
     if (pollAttempts >= maxPollAttempts) {
@@ -712,26 +380,21 @@ function checkScanStatus() {
         .then(response => response.json())
         .then(data => {
             if (data.success && data.scan_completed) {
-                // Scan completed, reload the page to show results
                 window.location.reload();
             } else {
-                // Update status text
                 if (data.total_findings > 0) {
                     document.getElementById('scan-status-text').textContent = 
                         `Found ${data.total_findings} items so far (${data.high_risk_findings} high risk)...`;
                 }
-                // Check again in 5 seconds
                 setTimeout(checkScanStatus, 5000);
             }
         })
         .catch(error => {
             console.error('Error checking scan status:', error);
-            // Try again in 10 seconds
             setTimeout(checkScanStatus, 10000);
         });
 }
 
-// Start polling after 5 seconds (give the background thread time to start)
 setTimeout(checkScanStatus, 5000);
 {% endif %}
 </script>

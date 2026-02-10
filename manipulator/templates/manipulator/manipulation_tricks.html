@@ -1,22 +1,27 @@
 {% extends 'base.html' %}
 
+{% block title %}Manipulation Tricks - Manipulator - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:home' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">Manipulator</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Manipulation Tricks</li>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'manipulator:home' %}">Manipulator</a></li>
-            <li class="breadcrumb-item active">Manipulation Tricks</li>
-        </ol>
-    </nav>
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Payload Manipulation Tricks</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">Browse bypass techniques and manipulation tricks for different vulnerability types.</p>
+    </div>
 
-    <h1>Payload Manipulation Tricks</h1>
-    <p class="lead">Browse bypass techniques and manipulation tricks for different vulnerability types.</p>
-
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <form method="get" class="form-inline">
-                <label class="mr-2">Filter by Vulnerability:</label>
-                <select name="vulnerability" class="form-control mr-2" onchange="this.form.submit()">
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="flex flex-wrap items-center gap-4">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Vulnerability:</label>
+                <select name="vulnerability" class="form-select flex-1 min-w-[200px]" onchange="this.form.submit()">
                     <option value="">All Vulnerabilities</option>
                     {% for vuln in vulnerabilities %}
                         <option value="{{ vuln.name }}" {% if selected_vuln == vuln.name %}selected{% endif %}>
@@ -24,59 +29,63 @@
                         </option>
                     {% endfor %}
                 </select>
-                <a href="{% url 'manipulator:manipulation_tricks' %}" class="btn btn-secondary ml-2">Clear</a>
+                <a href="{% url 'manipulator:manipulation_tricks' %}" class="btn btn-secondary">Clear</a>
             </form>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-12">
-            <p>Found {{ tricks.count }} manipulation trick(s)</p>
-            
-            {% if tricks %}
-                <div class="list-group">
-                    {% for trick in tricks %}
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h5>
-                                    {{ trick.name }}
-                                    <span class="badge 
-                                        {% if trick.effectiveness == 'high' %}badge-success
-                                        {% elif trick.effectiveness == 'medium' %}badge-warning
-                                        {% else %}badge-secondary{% endif %}">
-                                        {{ trick.get_effectiveness_display }}
-                                    </span>
-                                </h5>
-                                <p class="mb-1">{{ trick.description }}</p>
-                                <p class="mb-0">
-                                    <small>
-                                        <strong>Vulnerability:</strong> 
-                                        <a href="{% url 'manipulator:vulnerability_detail' trick.vulnerability.id %}">
-                                            {{ trick.vulnerability.name }}
-                                        </a> |
-                                        <strong>Bypasses:</strong> {{ trick.target_defense }}
-                                    </small>
-                                </p>
-                                {% if trick.example %}
-                                <div class="mt-2">
-                                    <strong>Example:</strong>
-                                    <pre class="p-2 bg-light border rounded"><code>{{ trick.example }}</code></pre>
-                                </div>
-                                {% endif %}
-                                <div class="mt-2">
-                                    <strong>Technique:</strong>
-                                    <pre class="p-2 bg-light border rounded"><code>{{ trick.technique }}</code></pre>
-                                </div>
-                            </div>
+    <div class="text-gray-600 dark:text-gray-400">
+        Found <span class="font-semibold text-gray-900 dark:text-white">{{ tricks.count }}</span> manipulation trick(s)
+    </div>
+    
+    {% if tricks %}
+        <div class="space-y-4">
+            {% for trick in tricks %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ trick.name }}</h3>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if trick.effectiveness == 'high' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300
+                            {% elif trick.effectiveness == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300
+                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ trick.get_effectiveness_display }}
+                        </span>
+                    </div>
+                    
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">{{ trick.description }}</p>
+                    
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <div>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">Vulnerability:</span>
+                            <a href="{% url 'manipulator:vulnerability_detail' trick.vulnerability.id %}" 
+                               class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 ml-1">
+                                {{ trick.vulnerability.name }}
+                            </a>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700 dark:text-gray-300">Bypasses:</span>
+                            <span class="ml-1">{{ trick.target_defense }}</span>
                         </div>
                     </div>
-                    {% endfor %}
+                    
+                    {% if trick.example %}
+                    <div class="mb-3">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Example:</h4>
+                        <pre class="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto"><code class="text-sm text-gray-900 dark:text-gray-100">{{ trick.example }}</code></pre>
+                    </div>
+                    {% endif %}
+                    
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Technique:</h4>
+                        <pre class="p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto"><code class="text-sm text-gray-900 dark:text-gray-100">{{ trick.technique }}</code></pre>
+                    </div>
                 </div>
-            {% else %}
-                <div class="alert alert-info">No manipulation tricks found matching your criteria.</div>
-            {% endif %}
+            </div>
+            {% endfor %}
         </div>
-    </div>
+    {% else %}
+        <div class="alert alert-info">No manipulation tricks found matching your criteria.</div>
+    {% endif %}
 </div>
 {% endblock %}
