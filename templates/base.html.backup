@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}Megido Security{% endblock %}</title>
+    
+    <!-- Security Headers via meta tags -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <!-- Tailwind CSS -->
+    <link rel="stylesheet" href="/static/css/tailwind.output.css">
+    
+    <!-- Heroicons (for modern icons) -->
+    <script src="https://cdn.jsdelivr.net/npm/@heroicons/react@2.1.1/24/outline/index.js" type="module"></script>
+    
+    <!-- Additional Stylesheets -->
+    {% block extra_css %}{% endblock %}
+    
+    <style>
+        {% block extra_style %}{% endblock %}
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-logo">🛡️</span>
+                <h1 class="sidebar-title">Megido Security</h1>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <!-- Core Tools Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Core Tools</div>
+                    <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
+                        <span class="sidebar-link-icon">🏠</span>
+                        <span class="sidebar-link-text">Dashboard</span>
+                    </a>
+                    <a href="/scanner/" class="sidebar-link {% if '/scanner/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🔍</span>
+                        <span class="sidebar-link-text">Scanner</span>
+                    </a>
+                    <a href="/discover/" class="sidebar-link {% if '/discover/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🎯</span>
+                        <span class="sidebar-link-text">Discover</span>
+                    </a>
+                    <a href="/manipulator/" class="sidebar-link {% if '/manipulator/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🔧</span>
+                        <span class="sidebar-link-text">Manipulator</span>
+                    </a>
+                </div>
+                
+                <!-- Attack Tools Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Attack Tools</div>
+                    <a href="/sql-attacker/" class="sidebar-link {% if '/sql-attacker/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">💉</span>
+                        <span class="sidebar-link-text">SQL Attacker</span>
+                    </a>
+                    <a href="/bypasser/" class="sidebar-link {% if '/bypasser/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🚧</span>
+                        <span class="sidebar-link-text">Bypasser</span>
+                    </a>
+                    <a href="/spider/" class="sidebar-link {% if '/spider/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🕷️</span>
+                        <span class="sidebar-link-text">Spider</span>
+                    </a>
+                </div>
+                
+                <!-- Proxy & Analysis Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Proxy & Analysis</div>
+                    <a href="/proxy/" class="sidebar-link {% if '/proxy/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🔄</span>
+                        <span class="sidebar-link-text">Proxy</span>
+                    </a>
+                    <a href="/interceptor/" class="sidebar-link {% if '/interceptor/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">✋</span>
+                        <span class="sidebar-link-text">Interceptor</span>
+                    </a>
+                    <a href="/repeater/" class="sidebar-link {% if '/repeater/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🔁</span>
+                        <span class="sidebar-link-text">Repeater</span>
+                    </a>
+                    <a href="/response-analyser/" class="sidebar-link {% if '/response-analyser/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">📊</span>
+                        <span class="sidebar-link-text">Response Analyser</span>
+                    </a>
+                </div>
+                
+                <!-- Advanced Tools Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Advanced Tools</div>
+                    <a href="/mapper/" class="sidebar-link {% if '/mapper/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🗺️</span>
+                        <span class="sidebar-link-text">Mapper</span>
+                    </a>
+                    <a href="/data-tracer/" class="sidebar-link {% if '/data-tracer/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">📡</span>
+                        <span class="sidebar-link-text">Data Tracer</span>
+                    </a>
+                    <a href="/collaborator/" class="sidebar-link {% if '/collaborator/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🤝</span>
+                        <span class="sidebar-link-text">Collaborator</span>
+                    </a>
+                    <a href="/malware-analyser/" class="sidebar-link {% if '/malware-analyser/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🦠</span>
+                        <span class="sidebar-link-text">Malware Analyser</span>
+                    </a>
+                    <a href="/decompiler/" class="sidebar-link {% if '/decompiler/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">📦</span>
+                        <span class="sidebar-link-text">Decompiler</span>
+                    </a>
+                </div>
+                
+                <!-- System Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">System</div>
+                    <a href="/browser/" class="sidebar-link {% if '/browser/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">🌐</span>
+                        <span class="sidebar-link-text">Browser</span>
+                    </a>
+                    <a href="/app-manager/" class="sidebar-link {% if '/app-manager/' in request.path %}active{% endif %}">
+                        <span class="sidebar-link-icon">⚙️</span>
+                        <span class="sidebar-link-text">App Manager</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Topbar Header -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="topbar-menu-btn" id="menu-toggle" aria-label="Toggle navigation menu">
+                        ☰
+                    </button>
+                    <nav class="topbar-breadcrumb" aria-label="Breadcrumb">
+                        {% block breadcrumb %}
+                        <span class="breadcrumb-item">Megido Security</span>
+                        {% endblock %}
+                    </nav>
+                </div>
+                
+                <div class="topbar-right">
+                    <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle dark mode">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                    
+                    {% if user.is_authenticated %}
+                    <button class="topbar-action-btn" title="Account" aria-label="Account settings">
+                        👤
+                    </button>
+                    {% endif %}
+                </div>
+            </header>
+            
+            <!-- Page Content -->
+            <div class="page-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    
+    <!-- Core JavaScript -->
+    <script src="/static/megido-error-handler.js"></script>
+    <script src="/static/js/megido-utils.js"></script>
+    <script src="/static/js/megido-toast.js"></script>
+    
+    <!-- Initialize application -->
+    <script>
+        (function() {
+            'use strict';
+            
+            // Pass Django debug mode to JavaScript securely
+            window.MEGIDO_DEBUG = {% if debug %}true{% else %}false{% endif %};
+            
+            // Initialize error handler
+            if (window.MegidoErrorHandler) {
+                window.MegidoErrorHandler.setDebugMode(window.MEGIDO_DEBUG);
+            }
+            
+            // Mobile menu toggle
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+            
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                });
+                
+                // Close sidebar when clicking outside on mobile
+                document.addEventListener('click', function(event) {
+                    if (window.innerWidth <= 768) {
+                        const isMenuClick = menuToggle.contains(event.target);
+                        const isSidebarClick = sidebar.contains(event.target);
+                        
+                        if (!isMenuClick && !isSidebarClick && sidebar.classList.contains('open')) {
+                            sidebar.classList.remove('open');
+                        }
+                    }
+                });
+            }
+            
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = document.getElementById('theme-icon');
+            
+            if (themeToggle && themeIcon && window.MegidoUtils) {
+                // Update icon based on theme
+                function updateThemeIcon() {
+                    const currentTheme = window.MegidoUtils.Theme.getTheme();
+                    themeIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+                }
+                
+                updateThemeIcon();
+                
+                themeToggle.addEventListener('click', function() {
+                    window.MegidoUtils.Theme.toggleTheme();
+                    updateThemeIcon();
+                });
+            }
+            
+            // Log initialization
+            console.log('✅ Megido Security Platform initialized');
+        })();
+    </script>
+    
+    <!-- Additional JavaScript -->
+    {% block extra_script %}{% endblock %}
+</body>
+</html>

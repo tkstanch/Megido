@@ -1,0 +1,23 @@
+{
+  "name": "megido-security",
+  "version": "2.0.0",
+  "description": "Megido Security Testing Platform - UI with Tailwind CSS",
+  "scripts": {
+    "build:css": "npx tailwindcss -i ./static/css/tailwind.input.css -o ./static/css/tailwind.output.css --minify",
+    "watch:css": "npx tailwindcss -i ./static/css/tailwind.input.css -o ./static/css/tailwind.output.css --watch",
+    "dev": "npm run watch:css"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35"
+  },
+  "keywords": [
+    "security",
+    "pentesting",
+    "django",
+    "tailwindcss"
+  ],
+  "author": "Megido Security Team",
+  "license": "MIT"
+}

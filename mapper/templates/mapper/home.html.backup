@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+        }
+        .security-feature {
+            background-color: #ecf0f1;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+        }
+        .security-feature h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .security-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .security-list li {
+            padding: 8px 0;
+        }
+        .security-list li:before {
+            content: "✓ ";
+            color: #27ae60;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+    
+    <div class="content">
+        <h2>Security Features Implemented</h2>
+        
+        <div class="security-feature">
+            <h3>1. Client-side Validation with Server-side Enforcement</h3>
+            <p>All client-side validation rules are replicated and enforced on the server to prevent bypass attempts.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>2. SQL Injection Prevention</h3>
+            <p>Uses Django ORM with parameterized queries to prevent SQL injection attacks.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>3. Secure File Handling</h3>
+            <p>Implements path traversal prevention, file type validation, and secure filename generation using UUIDs.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>4. XSS Prevention</h3>
+            <p>All user-supplied data is sanitized and properly escaped before display.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>5. Secure Redirects</h3>
+            <p>Validates redirect URLs against a whitelist to prevent open redirect and header injection vulnerabilities.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>6. Login Security</h3>
+            <ul class="security-list">
+                <li>Username enumeration prevention with generic error messages</li>
+                <li>Strong password policies enforcement</li>
+                <li>Brute force protection with rate limiting</li>
+                <li>Login attempt logging and monitoring</li>
+            </ul>
+        </div>
+        
+        <div class="security-feature">
+            <h3>7. Session Management</h3>
+            <p>Cryptographically secure token generation using the secrets module, with proper expiry and activity tracking.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>8. Access Control</h3>
+            <p>Comprehensive logging of access control decisions to detect and prevent privilege escalation attempts.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>9. Error Handling</h3>
+            <p>Detailed errors logged server-side with generic messages returned to users to prevent information leakage.</p>
+        </div>
+        
+        <div class="security-feature">
+            <h3>10. Dependency Auditing</h3>
+            <p>Tracks third-party dependencies and monitors for known vulnerabilities.</p>
+        </div>
+        
+        <h2>Additional Security Measures</h2>
+        <ul class="security-list">
+            <li>CSRF protection on all state-changing operations</li>
+            <li>Proper authentication and authorization checks</li>
+            <li>Secure HTTP headers (X-Content-Type-Options, Content-Disposition)</li>
+            <li>IP address and user agent tracking for security events</li>
+            <li>Database indexes for efficient security log queries</li>
+        </ul>
+    </div>
+</body>
+</html>
