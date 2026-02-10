@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Confirm Parameters - SQL Injection Attacker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:task_detail' task.id %}" class="hover:text-primary-600 dark:hover:text-primary-400">Task #{{ task.id }}</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Confirm Parameters</span>
+    </nav>
+
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">🔍 Parameter Discovery Complete</h1>
+    
+    <!-- Alert -->
+    <div class="card border-blue-500 dark:border-blue-600">
+        <div class="card-header bg-blue-500 text-white">
+            <h3 class="card-title text-white">⚠️ Action Required</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-lg text-gray-700 dark:text-gray-300 mb-4">
+                <strong>{{ param_count }}</strong> parameter(s) have been discovered from the target page.
+            </p>
+            <p class="text-gray-600 dark:text-gray-400">
+                Please choose how you would like to proceed:
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-1 text-gray-600 dark:text-gray-400">
+                <li><strong>Continue Automated:</strong> Test all discovered parameters automatically</li>
+                <li><strong>Manual Selection:</strong> Choose specific parameters to test</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Discovered Parameters -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">📋 Discovered Parameters</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" id="parameterForm">
+                {% csrf_token %}
+                
+                {% if discovered_params %}
+                <div class="mb-6">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="w-16">
+                                        <input type="checkbox" id="selectAll" 
+                                               class="form-checkbox-input"
+                                               checked>
+                                    </th>
+                                    <th>Parameter Name</th>
+                                    <th>Value</th>
+                                    <th>Source</th>
+                                    <th>Method</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for param in discovered_params %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" 
+                                               name="selected_params" 
+                                               value="{{ param.name }}"
+                                               class="form-checkbox-input param-checkbox"
+                                               checked>
+                                    </td>
+                                    <td><code class="text-sm font-semibold">{{ param.name }}</code></td>
+                                    <td>
+                                        {% if param.value %}
+                                        <code class="text-sm text-gray-600 dark:text-gray-400">{{ param.value|truncatechars:30 }}</code>
+                                        {% else %}
+                                        <span class="text-gray-400 dark:text-gray-600 text-sm">(empty)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if param.source == 'hidden' %}
+                                        <span class="badge badge-warning">🔒 Hidden</span>
+                                        {% elif param.source == 'form' %}
+                                        <span class="badge badge-info">📝 Form</span>
+                                        {% elif param.source == 'link' %}
+                                        <span class="badge badge-primary">🔗 Link</span>
+                                        {% elif param.source == 'js' %}
+                                        <span class="badge badge-secondary">📜 JS</span>
+                                        {% elif param.source == 'url' %}
+                                        <span class="badge badge-success">🌐 URL</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">{{ param.source }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge badge-info">{{ param.method }}</span></td>
+                                    <td class="text-sm text-gray-600 dark:text-gray-400">{{ param.field_type }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex gap-4">
+                    <button type="submit" name="action" value="continue_automated" 
+                            class="btn btn-primary flex-1">
+                        <svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        Continue Automated
+                        <span class="text-sm ml-2">(Test all {{ param_count }} parameters)</span>
+                    </button>
+                    
+                    <button type="submit" name="action" value="manual_selection" 
+                            class="btn btn-secondary flex-1"
+                            onclick="return confirmManualSelection()">
+                        <svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        Manual Selection
+                        <span class="text-sm ml-2" id="selectedCount">({{ param_count }} selected)</span>
+                    </button>
+                </div>
+                
+                {% else %}
+                <p class="text-gray-600 dark:text-gray-400">
+                    No parameters discovered. You can go back and add manual parameters.
+                </p>
+                <a href="{% url 'sql_attacker:task_detail' task.id %}" class="btn btn-secondary mt-4">
+                    ← Back to Task
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    
+    <!-- Target Information -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">🎯 Target Information</h3>
+        </div>
+        <div class="card-body">
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Target URL:</strong><br>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1 inline-block">{{ task.target_url }}</code>
+            </div>
+            <div class="mt-3">
+                <strong class="text-gray-700 dark:text-gray-300">HTTP Method:</strong>
+                <span class="badge badge-info ml-2">{{ task.http_method }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Select all checkbox functionality
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.param-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
+    updateSelectedCount();
+});
+
+// Update selected count
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.param-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = `(${checked} selected)`;
+}
+
+// Listen to individual checkbox changes
+document.querySelectorAll('.param-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Confirm manual selection
+function confirmManualSelection() {
+    const checked = document.querySelectorAll('.param-checkbox:checked').length;
+    if (checked === 0) {
+        alert('Please select at least one parameter to test.');
+        return false;
+    }
+    return confirm(`You have selected ${checked} parameter(s). The attack will only test these parameters. Continue?`);
+}
+</script>
+{% endblock %}

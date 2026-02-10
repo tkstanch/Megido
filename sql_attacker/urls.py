@@ -10,6 +10,7 @@ urlpatterns = [
     path('tasks/', views.task_list, name='task_list'),
     path('tasks/create/', views.task_create, name='task_create'),
     path('tasks/<int:pk>/', views.task_detail, name='task_detail'),
+    path('tasks/<int:task_id>/confirm/', views.confirm_parameters, name='confirm_parameters'),  # NEW
     path('results/<int:pk>/', views.result_detail, name='result_detail'),
     
     # REST API URLs

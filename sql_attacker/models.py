@@ -11,6 +11,7 @@ class SQLInjectionTask(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('running', 'Running'),
+        ('awaiting_confirmation', 'Awaiting Confirmation'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
     ]
@@ -57,12 +58,36 @@ class SQLInjectionTask(models.Model):
     use_payload_obfuscation = models.BooleanField(default=False,
                                                    help_text="Obfuscate payloads to evade WAF")
     
+    # Enhanced stealth configuration (NEW)
+    max_requests_per_minute = models.IntegerField(default=20,
+                                                   help_text="Maximum requests per minute (rate limiting)")
+    enable_jitter = models.BooleanField(default=True,
+                                       help_text="Add random jitter to timing delays")
+    randomize_headers = models.BooleanField(default=True,
+                                           help_text="Randomize HTTP headers (Referer, Accept-Language, etc.)")
+    max_retries = models.IntegerField(default=3,
+                                     help_text="Maximum retry attempts for failed requests")
+    
+    # Interactive mode configuration (NEW)
+    require_confirmation = models.BooleanField(default=False,
+                                              help_text="Require manual confirmation after parameter discovery")
+    awaiting_confirmation = models.BooleanField(default=False,
+                                               help_text="Task is waiting for confirmation to proceed")
+    selected_params = models.JSONField(blank=True, null=True,
+                                      help_text="Manually selected parameters to test")
+    
     # Status and tracking
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', 
                              db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Parameter discovery
+    discovered_params = models.JSONField(blank=True, null=True,
+                                        help_text="Parameters discovered during attack")
+    auto_discover_params = models.BooleanField(default=True,
+                                              help_text="Automatically discover parameters from target page")
     
     # Results summary
     vulnerabilities_found = models.IntegerField(default=0,
@@ -152,6 +177,20 @@ class SQLInjectionResult(models.Model):
                                        help_text="List of extracted table names")
     extracted_data = models.JSONField(blank=True, null=True,
                                      help_text="Sample extracted data")
+    
+    # Parameter discovery metadata
+    parameter_source = models.CharField(max_length=20, default='manual',
+                                       help_text="Source: manual, form, hidden, link, url, js")
+    
+    # Advanced detection metrics (NEW)
+    confidence_score = models.FloatField(default=0.7,
+                                        help_text="Confidence score (0.0-1.0) for detection accuracy")
+    risk_score = models.IntegerField(default=50,
+                                    help_text="Risk score (0-100) indicating severity and exploitability")
+    impact_analysis = models.JSONField(blank=True, null=True,
+                                      help_text="Detailed impact demonstration results")
+    proof_of_concept = models.JSONField(blank=True, null=True,
+                                       help_text="Proof-of-concept queries and findings")
     
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)

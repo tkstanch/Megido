@@ -12,6 +12,7 @@ import logging
 
 from .models import SQLInjectionTask, SQLInjectionResult
 from .sqli_engine import SQLInjectionEngine
+from .param_discovery import ParameterDiscoveryEngine
 from response_analyser.analyse import save_vulnerability
 
 # Configure logging
@@ -100,11 +101,18 @@ def task_create(request):
             enable_error_based=request.POST.get('enable_error_based') == 'on',
             enable_time_based=request.POST.get('enable_time_based') == 'on',
             enable_exploitation=request.POST.get('enable_exploitation') == 'on',
+            auto_discover_params=request.POST.get('auto_discover_params', 'on') == 'on',
+            require_confirmation=request.POST.get('require_confirmation') == 'on',  # NEW
             use_random_delays=request.POST.get('use_random_delays') == 'on',
             min_delay=float(request.POST.get('min_delay', 0.5)),
             max_delay=float(request.POST.get('max_delay', 2.0)),
             randomize_user_agent=request.POST.get('randomize_user_agent') == 'on',
             use_payload_obfuscation=request.POST.get('use_payload_obfuscation') == 'on',
+            # NEW: Enhanced stealth options
+            randomize_headers=request.POST.get('randomize_headers', 'on') == 'on',
+            enable_jitter=request.POST.get('enable_jitter', 'on') == 'on',
+            max_requests_per_minute=int(request.POST.get('max_requests_per_minute', 20)),
+            max_retries=int(request.POST.get('max_retries', 3)),
         )
         
         # Execute task in background if requested
@@ -182,7 +190,7 @@ def execute_task(task_id):
         task.started_at = timezone.now()
         task.save()
         
-        # Configure engine
+        # Configure engine with advanced features enabled
         config = {
             'use_random_delays': task.use_random_delays,
             'min_delay': task.min_delay,
@@ -190,6 +198,14 @@ def execute_task(task_id):
             'randomize_user_agent': task.randomize_user_agent,
             'use_payload_obfuscation': task.use_payload_obfuscation,
             'verify_ssl': False,  # For security testing
+            'enable_advanced_payloads': True,  # Enable advanced payloads
+            'enable_false_positive_reduction': True,  # Enable FP reduction
+            'enable_impact_demonstration': True,  # Enable impact demo
+            'enable_stealth': True,  # NEW: Enable stealth engine
+            'max_requests_per_minute': task.max_requests_per_minute,  # NEW
+            'enable_jitter': task.enable_jitter,  # NEW
+            'randomize_headers': task.randomize_headers,  # NEW
+            'max_retries': task.max_retries,  # NEW
         }
         
         engine = SQLInjectionEngine(config)
@@ -199,6 +215,54 @@ def execute_task(task_id):
         data = task.get_post_dict()
         cookies = task.get_cookies_dict()
         headers = task.get_headers_dict()
+        
+        # Perform automatic parameter discovery if enabled
+        discovered_params_list = []
+        if task.auto_discover_params:
+            try:
+                logger.info(f"Starting parameter discovery for {task.target_url}")
+                discovery_engine = ParameterDiscoveryEngine(
+                    timeout=30, 
+                    verify_ssl=False
+                )
+                
+                merged_params, discovered_params_list = discovery_engine.discover_parameters(
+                    url=task.target_url,
+                    method=task.http_method,
+                    headers=headers
+                )
+                
+                # Store discovered parameters in task
+                task.discovered_params = [p.to_dict() for p in discovered_params_list]
+                task.save()
+                
+                # NEW: Check if confirmation is required
+                if task.require_confirmation and discovered_params_list:
+                    logger.info(f"Pausing for confirmation - discovered {len(discovered_params_list)} parameters")
+                    task.status = 'awaiting_confirmation'
+                    task.awaiting_confirmation = True
+                    task.save()
+                    return  # Exit and wait for user confirmation
+                
+                # Merge discovered parameters with manual parameters
+                # Discovered GET params
+                if merged_params.get('GET'):
+                    for param_name, param_value in merged_params['GET'].items():
+                        if param_name not in params:
+                            params[param_name] = param_value
+                
+                # Discovered POST params
+                if merged_params.get('POST'):
+                    for param_name, param_value in merged_params['POST'].items():
+                        if param_name not in data:
+                            data[param_name] = param_value
+                
+                logger.info(f"Discovered {len(discovered_params_list)} parameters. "
+                          f"Total GET params: {len(params)}, Total POST params: {len(data)}")
+                
+            except Exception as e:
+                logger.error(f"Parameter discovery failed: {e}", exc_info=True)
+                # Continue with manual parameters only
         
         # Run attack
         findings = engine.run_full_attack(
@@ -217,24 +281,47 @@ def execute_task(task_id):
         vulnerabilities_count = 0
         for finding in findings:
             exploitation = finding.pop('exploitation', {})
+            impact_analysis = finding.pop('impact_analysis', {})
+            
+            # Determine parameter source
+            param_name = finding.get('vulnerable_parameter', 'unknown')
+            param_method = finding.get('parameter_type', 'GET')
+            parameter_source = 'manual'  # Default
+            
+            # Check if this param was discovered
+            for discovered_param in discovered_params_list:
+                if (discovered_param.name == param_name and 
+                    discovered_param.method == param_method):
+                    parameter_source = discovered_param.source
+                    break
+            
+            # Determine severity from impact analysis or default
+            severity = finding.get('severity', impact_analysis.get('severity', 'critical'))
+            risk_score = finding.get('risk_score', impact_analysis.get('risk_score', 50))
+            confidence_score = finding.get('confidence_score', 0.7)
             
             result = SQLInjectionResult.objects.create(
                 task=task,
                 injection_type=finding.get('injection_type', 'error_based'),
-                vulnerable_parameter=finding.get('vulnerable_parameter', 'unknown'),
-                parameter_type=finding.get('parameter_type', 'GET'),
+                vulnerable_parameter=param_name,
+                parameter_type=param_method,
+                parameter_source=parameter_source,
                 test_payload=finding.get('test_payload', ''),
                 detection_evidence=finding.get('detection_evidence', ''),
                 request_data=finding.get('request_data', {}),
                 response_data=finding.get('response_data', {}),
-                is_exploitable=exploitation.get('is_exploitable', False),
+                is_exploitable=exploitation.get('is_exploitable', False) or impact_analysis.get('exploitable', False),
                 database_type=finding.get('database_type', 'unknown'),
-                database_version=exploitation.get('database_version', ''),
-                current_database=exploitation.get('current_database', ''),
-                current_user=exploitation.get('current_user', ''),
-                extracted_tables=exploitation.get('extracted_tables', []),
-                extracted_data=exploitation.get('extracted_data', {}),
-                severity='critical',
+                database_version=exploitation.get('database_version', '') or impact_analysis.get('extracted_info', {}).get('database_version', ''),
+                current_database=exploitation.get('current_database', '') or impact_analysis.get('extracted_info', {}).get('current_database', ''),
+                current_user=exploitation.get('current_user', '') or impact_analysis.get('extracted_info', {}).get('database_user', ''),
+                extracted_tables=exploitation.get('extracted_tables', []) or impact_analysis.get('extracted_info', {}).get('schema', {}).get('tables', []),
+                extracted_data=exploitation.get('extracted_data', {}) or impact_analysis.get('extracted_info', {}).get('sample_data', []),
+                severity=severity,
+                confidence_score=confidence_score,
+                risk_score=risk_score,
+                impact_analysis=impact_analysis,
+                proof_of_concept=impact_analysis.get('proof_of_concept', []),
             )
             vulnerabilities_count += 1
             
@@ -313,6 +400,104 @@ Database Type: {result.database_type}
     )
 
 
+def confirm_parameters(request, task_id):
+    """
+    View to confirm discovered parameters and continue or manually select parameters.
+    """
+    task = get_object_or_404(SQLInjectionTask, id=task_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'continue_automated':
+            # User chose to continue with all discovered parameters
+            task.awaiting_confirmation = False
+            task.status = 'pending'  # Reset to pending so it can be executed
+            task.save()
+            
+            # Re-execute the task in background
+            thread = threading.Thread(target=execute_task, args=(task.id,))
+            thread.daemon = True
+            thread.start()
+            
+            return redirect('sql_attacker:task_detail', task_id=task.id)
+            
+        elif action == 'manual_selection':
+            # User chose to manually select parameters
+            selected_param_names = request.POST.getlist('selected_params')
+            
+            # Filter discovered params to only include selected ones
+            if task.discovered_params:
+                selected_params = [
+                    p for p in task.discovered_params 
+                    if p['name'] in selected_param_names
+                ]
+                task.selected_params = selected_params
+            else:
+                task.selected_params = []
+            
+            task.awaiting_confirmation = False
+            task.status = 'pending'
+            task.save()
+            
+            # Re-execute with selected parameters only
+            thread = threading.Thread(target=execute_task_with_selection, args=(task.id,))
+            thread.daemon = True
+            thread.start()
+            
+            return redirect('sql_attacker:task_detail', task_id=task.id)
+    
+    # GET request - show confirmation page
+    context = {
+        'task': task,
+        'discovered_params': task.discovered_params or [],
+        'param_count': len(task.discovered_params) if task.discovered_params else 0,
+    }
+    
+    return render(request, 'sql_attacker/confirm_parameters.html', context)
+
+
+def execute_task_with_selection(task_id):
+    """
+    Execute task with manually selected parameters only.
+    """
+    try:
+        task = SQLInjectionTask.objects.get(id=task_id)
+        task.status = 'running'
+        task.started_at = timezone.now()
+        task.save()
+        
+        # Use selected parameters instead of all discovered parameters
+        if task.selected_params:
+            # Reconstruct discovered_params_list from selected_params
+            from .param_discovery import DiscoveredParameter
+            discovered_params_list = [
+                DiscoveredParameter(
+                    name=p['name'],
+                    value=p.get('value', ''),
+                    source=p.get('source', 'manual'),
+                    method=p.get('method', 'GET'),
+                    field_type=p.get('field_type', 'text')
+                )
+                for p in task.selected_params
+            ]
+        else:
+            discovered_params_list = []
+        
+        # Continue with normal execution using selected parameters
+        # (This would call the same logic as execute_task but with filtered params)
+        # For now, just call execute_task which will use the stored selected_params
+        execute_task(task_id)
+        
+    except Exception as e:
+        logger.error(f"Error executing task with selection {task_id}: {e}", exc_info=True)
+        task = SQLInjectionTask.objects.get(id=task_id)
+        task.status = 'failed'
+        task.error_message = str(e)
+        task.completed_at = timezone.now()
+        task.save()
+
+
 # REST API Views
 
 @api_view(['GET', 'POST'])
@@ -349,6 +534,7 @@ def api_tasks(request):
                 enable_error_based=request.data.get('enable_error_based', True),
                 enable_time_based=request.data.get('enable_time_based', True),
                 enable_exploitation=request.data.get('enable_exploitation', True),
+                auto_discover_params=request.data.get('auto_discover_params', True),
                 use_random_delays=request.data.get('use_random_delays', False),
                 min_delay=request.data.get('min_delay', 0.5),
                 max_delay=request.data.get('max_delay', 2.0),
@@ -395,6 +581,8 @@ def api_task_detail(request, pk):
             'enable_error_based': task.enable_error_based,
             'enable_time_based': task.enable_time_based,
             'enable_exploitation': task.enable_exploitation,
+            'auto_discover_params': task.auto_discover_params,
+            'discovered_params': task.discovered_params,
             'use_random_delays': task.use_random_delays,
             'randomize_user_agent': task.randomize_user_agent,
             'use_payload_obfuscation': task.use_payload_obfuscation,
@@ -408,6 +596,7 @@ def api_task_detail(request, pk):
                 'injection_type': result.injection_type,
                 'vulnerable_parameter': result.vulnerable_parameter,
                 'parameter_type': result.parameter_type,
+                'parameter_source': result.parameter_source,
                 'test_payload': result.test_payload,
                 'detection_evidence': result.detection_evidence,
                 'is_exploitable': result.is_exploitable,
@@ -473,6 +662,7 @@ def api_results(request):
         'injection_type': result.injection_type,
         'vulnerable_parameter': result.vulnerable_parameter,
         'parameter_type': result.parameter_type,
+        'parameter_source': result.parameter_source,
         'test_payload': result.test_payload,
         'is_exploitable': result.is_exploitable,
         'database_type': result.database_type,

@@ -3,6 +3,13 @@ SQL Injection Detection and Exploitation Engine
 
 Pure Python implementation of SQL injection detection and exploitation techniques.
 Inspired by SQLMAP but implemented from scratch for educational and testing purposes.
+
+Enhanced with:
+- Advanced payload library
+- False positive reduction
+- Impact demonstration
+- Automated exploitation
+- Enhanced stealth features
 """
 
 import requests
@@ -13,6 +20,12 @@ from urllib.parse import urlencode, parse_qs, urlparse, urlunparse
 from typing import Dict, List, Optional, Tuple, Any
 import json
 import logging
+
+# Import new modules
+from .advanced_payloads import AdvancedPayloadLibrary
+from .false_positive_filter import FalsePositiveFilter
+from .impact_demonstrator import ImpactDemonstrator
+from .stealth_engine import StealthEngine
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -139,27 +152,63 @@ class SQLInjectionEngine:
                 - randomize_user_agent: bool
                 - use_payload_obfuscation: bool
                 - verify_ssl: bool (default: False)
+                - enable_advanced_payloads: bool (default: True)
+                - enable_false_positive_reduction: bool (default: True)
+                - enable_impact_demonstration: bool (default: True)
+                - enable_stealth: bool (default: True)
+                - max_requests_per_minute: int (default: 20)
+                - enable_jitter: bool (default: True)
+                - randomize_headers: bool (default: True)
+                - max_retries: int (default: 3)
         """
         self.config = config
         self.session = requests.Session()
         self.results = []
         
+        # Initialize new modules
+        self.fp_filter = FalsePositiveFilter()
+        self.impact_demo = ImpactDemonstrator(self)
+        self.advanced_payloads = AdvancedPayloadLibrary()
+        
+        # Initialize stealth engine (NEW)
+        self.stealth = StealthEngine(config) if config.get('enable_stealth', True) else None
+        
+        # Enable features based on config
+        self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
+        self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
+        self.use_impact_demo = config.get('enable_impact_demonstration', True)
+        
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
         headers = custom_headers.copy() if custom_headers else {}
         
-        if self.config.get('randomize_user_agent', True):
+        # Use stealth engine for header randomization if available
+        if self.stealth:
+            headers = self.stealth.get_randomized_headers(headers)
+        elif self.config.get('randomize_user_agent', True):
             headers['User-Agent'] = random.choice(self.USER_AGENTS)
         
         return headers
     
     def _apply_delay(self):
-        """Apply random delay if configured."""
+        """Apply random delay if configured, with stealth enhancements."""
+        # Use stealth engine for rate limiting and jitter
+        if self.stealth:
+            self.stealth.apply_rate_limiting()
+        
+        # Apply traditional random delays if configured
         if self.config.get('use_random_delays', False):
-            delay = random.uniform(
+            base_delay = random.uniform(
                 self.config.get('min_delay', 0.5),
                 self.config.get('max_delay', 2.0)
             )
+            
+            # Apply jitter if stealth engine is available
+            if self.stealth:
+                delay = self.stealth.get_timing_with_jitter(base_delay)
+            else:
+                delay = base_delay
+            
             time.sleep(delay)
     
     def _obfuscate_payload(self, payload: str) -> str:
@@ -191,53 +240,80 @@ class SQLInjectionEngine:
                      headers: Optional[Dict] = None,
                      timeout: int = 30) -> Optional[requests.Response]:
         """
-        Make HTTP request with error handling.
+        Make HTTP request with error handling and retry logic.
         """
-        try:
-            self._apply_delay()
-            request_headers = self._get_headers(headers)
-            
-            verify_ssl = self.config.get('verify_ssl', False)
-            
-            if method.upper() == 'GET':
-                response = self.session.get(
-                    url,
-                    params=params,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            elif method.upper() == 'POST':
-                response = self.session.post(
-                    url,
-                    params=params,
-                    data=data,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            else:
-                # Support other HTTP methods
-                response = self.session.request(
-                    method,
-                    url,
-                    params=params,
-                    data=data,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            
-            return response
-        except Exception as e:
-            logger.error(f"Request error: {e}")
-            return None
+        # Merge cookies with session cookies if stealth engine is available
+        if self.stealth:
+            merged_cookies = self.stealth.get_session_cookies()
+            if cookies:
+                merged_cookies.update(cookies)
+            cookies = merged_cookies
+        
+        attempt = 0
+        last_exception = None
+        
+        while attempt <= (self.stealth.max_retries if self.stealth else 0):
+            try:
+                self._apply_delay()
+                request_headers = self._get_headers(headers)
+                
+                verify_ssl = self.config.get('verify_ssl', False)
+                
+                if method.upper() == 'GET':
+                    response = self.session.get(
+                        url,
+                        params=params,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                elif method.upper() == 'POST':
+                    response = self.session.post(
+                        url,
+                        params=params,
+                        data=data,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                else:
+                    # Support other HTTP methods
+                    response = self.session.request(
+                        method,
+                        url,
+                        params=params,
+                        data=data,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                
+                # Update session cookies if stealth engine is available
+                if self.stealth:
+                    self.stealth.update_session_cookies(response)
+                
+                return response
+                
+            except Exception as e:
+                last_exception = e
+                logger.error(f"Request error (attempt {attempt + 1}): {e}")
+                
+                # Check if should retry
+                if self.stealth and self.stealth.should_retry(attempt, None, e):
+                    retry_delay = self.stealth.get_retry_delay(attempt)
+                    logger.info(f"Retrying after {retry_delay:.2f}s...")
+                    time.sleep(retry_delay)
+                    attempt += 1
+                else:
+                    break
+        
+        return None
     
     def _check_sql_errors(self, response: requests.Response) -> Optional[str]:
         """
@@ -279,21 +355,33 @@ class SQLInjectionEngine:
                               headers: Optional[Dict] = None) -> List[Dict]:
         """
         Test for error-based SQL injection vulnerabilities.
+        Enhanced with advanced payloads and false positive reduction.
         
         Returns:
             List of vulnerability findings
         """
         findings = []
         
-        # Get baseline response
+        # Get baseline response for false positive filtering
         baseline_response = self._make_request(url, method, params, data, cookies, headers)
         if not baseline_response:
             return findings
         
+        # Set baseline for false positive filter
+        if self.use_fp_reduction:
+            self.fp_filter.set_baseline(baseline_response)
+        
+        # Determine payloads to use
+        base_payloads = self.ERROR_BASED_PAYLOADS
+        if self.use_advanced_payloads:
+            base_payloads = base_payloads + self.advanced_payloads.WAF_BYPASS_PAYLOADS[:10]
+        
         # Test GET parameters
         if params:
             for param_name, param_value in params.items():
-                for payload in self.ERROR_BASED_PAYLOADS:
+                param_findings = []
+                
+                for payload in base_payloads:
                     obfuscated_payload = self._obfuscate_payload(payload)
                     test_params = params.copy()
                     test_params[param_name] = str(param_value) + obfuscated_payload
@@ -303,8 +391,13 @@ class SQLInjectionEngine:
                     if response:
                         error_pattern = self._check_sql_errors(response)
                         if error_pattern:
+                            # Check for false positive
+                            if self.use_fp_reduction and self.fp_filter.is_likely_false_positive(response, payload):
+                                logger.debug(f"Likely false positive detected for {param_name}, skipping")
+                                continue
+                            
                             db_type = self._detect_database_type(response.text)
-                            findings.append({
+                            finding = {
                                 'injection_type': 'error_based',
                                 'vulnerable_parameter': param_name,
                                 'parameter_type': 'GET',
@@ -319,15 +412,49 @@ class SQLInjectionEngine:
                                 'response_data': {
                                     'status_code': response.status_code,
                                     'body_snippet': response.text[:500],
-                                }
-                            })
-                            # Found vulnerability in this parameter, move to next
-                            break
+                                },
+                                'response': response,  # Store for confidence calc
+                            }
+                            param_findings.append(finding)
+                            
+                            # Found vulnerability, test a few more payloads for confirmation
+                            if len(param_findings) >= 2:
+                                break
+                
+                # If multiple payloads confirmed, calculate confidence
+                if param_findings:
+                    if self.use_fp_reduction and len(param_findings) >= 2:
+                        # Multiple confirmation increases confidence
+                        confidence = self.fp_filter.calculate_confidence_score(
+                            param_findings[0]['response'],
+                            param_findings[0]['test_payload'],
+                            param_findings[0]['detection_evidence'],
+                            multiple_payloads_confirmed=True
+                        )
+                    else:
+                        confidence = self.fp_filter.calculate_confidence_score(
+                            param_findings[0]['response'],
+                            param_findings[0]['test_payload'],
+                            param_findings[0]['detection_evidence'],
+                            multiple_payloads_confirmed=False
+                        ) if self.use_fp_reduction else 0.7
+                    
+                    # Add first finding with confidence
+                    finding = param_findings[0]
+                    finding['confidence_score'] = confidence
+                    finding.pop('response', None)  # Remove response object before storing
+                    
+                    # Only add if confidence is high enough
+                    if confidence >= 0.5:
+                        findings.append(finding)
+                        logger.info(f"Confirmed SQL injection in {param_name} (confidence: {confidence:.2f})")
         
-        # Test POST parameters
+        # Test POST parameters (similar logic)
         if data and method.upper() == 'POST':
             for param_name, param_value in data.items():
-                for payload in self.ERROR_BASED_PAYLOADS:
+                param_findings = []
+                
+                for payload in base_payloads:
                     obfuscated_payload = self._obfuscate_payload(payload)
                     test_data = data.copy()
                     test_data[param_name] = str(param_value) + obfuscated_payload
@@ -337,8 +464,11 @@ class SQLInjectionEngine:
                     if response:
                         error_pattern = self._check_sql_errors(response)
                         if error_pattern:
+                            if self.use_fp_reduction and self.fp_filter.is_likely_false_positive(response, payload):
+                                continue
+                            
                             db_type = self._detect_database_type(response.text)
-                            findings.append({
+                            finding = {
                                 'injection_type': 'error_based',
                                 'vulnerable_parameter': param_name,
                                 'parameter_type': 'POST',
@@ -353,9 +483,28 @@ class SQLInjectionEngine:
                                 'response_data': {
                                     'status_code': response.status_code,
                                     'body_snippet': response.text[:500],
-                                }
-                            })
-                            break
+                                },
+                                'response': response,
+                            }
+                            param_findings.append(finding)
+                            
+                            if len(param_findings) >= 2:
+                                break
+                
+                if param_findings:
+                    confidence = self.fp_filter.calculate_confidence_score(
+                        param_findings[0]['response'],
+                        param_findings[0]['test_payload'],
+                        param_findings[0]['detection_evidence'],
+                        multiple_payloads_confirmed=len(param_findings) >= 2
+                    ) if self.use_fp_reduction else 0.7
+                    
+                    finding = param_findings[0]
+                    finding['confidence_score'] = confidence
+                    finding.pop('response', None)
+                    
+                    if confidence >= 0.5:
+                        findings.append(finding)
         
         return findings
     
@@ -590,30 +739,40 @@ class SQLInjectionEngine:
                        enable_exploitation: bool = True) -> List[Dict]:
         """
         Run full SQL injection attack with all enabled techniques.
+        Enhanced with advanced payloads, false positive reduction, and impact demonstration.
         
         Returns:
-            List of all findings with exploitation results
+            List of all findings with exploitation results and impact analysis
         """
         all_findings = []
         
+        logger.info(f"Starting enhanced SQL injection scan on {url}")
+        logger.info(f"Advanced payloads: {self.use_advanced_payloads}, FP reduction: {self.use_fp_reduction}, Impact demo: {self.use_impact_demo}")
+        
         # Error-based detection
         if enable_error_based:
+            logger.info("Running error-based SQL injection tests...")
             error_findings = self.test_error_based_sqli(
                 url, method, params, data, cookies, headers
             )
             all_findings.extend(error_findings)
+            logger.info(f"Found {len(error_findings)} error-based vulnerabilities")
         
         # Time-based detection
         if enable_time_based:
+            logger.info("Running time-based SQL injection tests...")
             time_findings = self.test_time_based_sqli(
                 url, method, params, data, cookies, headers
             )
             all_findings.extend(time_findings)
+            logger.info(f"Found {len(time_findings)} time-based vulnerabilities")
         
-        # Exploitation phase
-        if enable_exploitation and all_findings:
+        # Enhanced exploitation and impact demonstration
+        if all_findings:
             for finding in all_findings:
-                if finding.get('database_type'):
+                # Basic exploitation
+                if enable_exploitation and finding.get('database_type'):
+                    logger.info(f"Attempting exploitation of {finding['vulnerable_parameter']}...")
                     exploitation_results = self.exploit_sqli(
                         url=url,
                         method=method,
@@ -626,5 +785,34 @@ class SQLInjectionEngine:
                         headers=headers
                     )
                     finding['exploitation'] = exploitation_results
+                
+                # Impact demonstration (NEW!)
+                if self.use_impact_demo and finding.get('database_type'):
+                    logger.info(f"Demonstrating impact for {finding['vulnerable_parameter']}...")
+                    try:
+                        impact_results = self.impact_demo.demonstrate_impact(
+                            url=url,
+                            method=method,
+                            vulnerable_param=finding['vulnerable_parameter'],
+                            param_type=finding['parameter_type'],
+                            db_type=finding['database_type'],
+                            params=params,
+                            data=data,
+                            cookies=cookies,
+                            headers=headers
+                        )
+                        finding['impact_analysis'] = impact_results
+                        finding['severity'] = impact_results['severity']
+                        finding['risk_score'] = impact_results['risk_score']
+                        
+                        logger.info(f"Impact analysis complete: severity={impact_results['severity']}, risk_score={impact_results['risk_score']}")
+                    except Exception as e:
+                        logger.error(f"Impact demonstration failed: {e}")
+                        finding['impact_analysis'] = {
+                            'error': str(e),
+                            'severity': 'medium',
+                            'risk_score': 50
+                        }
         
+        logger.info(f"Scan complete. Total findings: {len(all_findings)}")
         return all_findings
