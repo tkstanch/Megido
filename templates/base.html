@@ -264,43 +264,57 @@
         
         <!-- Main Content Area -->
         <main class="flex-1 lg:ml-64 flex flex-col min-h-screen">
-            <!-- Topbar Header -->
-            <header class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-                <div class="flex items-center justify-between px-4 py-4">
+            <!-- Topbar Header - Enhanced with glassmorphism -->
+            <header class="sticky top-0 z-40 glass-strong border-b border-gray-200/50 dark:border-gray-700/50 shadow-card backdrop-blur-xl">
+                <div class="flex items-center justify-between px-4 lg:px-8 py-4">
                     <div class="flex items-center gap-4">
-                        <!-- Mobile Menu Button -->
-                        <button id="menu-toggle" type="button" class="lg:hidden p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" aria-label="Toggle navigation menu">
+                        <!-- Mobile Menu Button - Enhanced -->
+                        <button id="menu-toggle" type="button" class="lg:hidden p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" aria-label="Toggle navigation menu">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                         </button>
                         
-                        <!-- Breadcrumb -->
-                        <nav class="flex" aria-label="Breadcrumb">
+                        <!-- Breadcrumb - Enhanced -->
+                        <nav class="flex items-center" aria-label="Breadcrumb">
                             <ol class="flex items-center space-x-2 text-sm">
                                 {% block breadcrumb %}
-                                <li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+                                <li class="flex items-center gap-2 text-gray-600 dark:text-gray-400 font-medium">
+                                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                    <span>Megido Security</span>
+                                </li>
                                 {% endblock %}
                             </ol>
                         </nav>
                     </div>
                     
-                    <div class="flex items-center gap-3">
-                        <!-- Dark Mode Toggle -->
-                        <button id="theme-toggle" type="button" class="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors" aria-label="Toggle dark mode">
-                            <svg id="theme-icon-light" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    <div class="flex items-center gap-2">
+                        <!-- Dark Mode Toggle - Enhanced with animation -->
+                        <button id="theme-toggle" type="button" class="relative p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group" aria-label="Toggle dark mode">
+                            <svg id="theme-icon-light" class="w-5 h-5 hidden dark:block transform group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                             </svg>
-                            <svg id="theme-icon-dark" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                            <svg id="theme-icon-dark" class="w-5 h-5 block dark:hidden transform group-hover:-rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                             </svg>
                         </button>
                         
-                        <!-- User Menu (if authenticated) -->
+                        <!-- User Menu (if authenticated) - Enhanced -->
                         {% if user.is_authenticated %}
-                        <button type="button" class="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors" title="Account" aria-label="Account settings">
+                        <button type="button" class="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" title="Account" aria-label="Account settings">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
                             </svg>
                         </button>
                         {% endif %}
@@ -308,8 +322,8 @@
                 </div>
             </header>
             
-            <!-- Page Content -->
-            <div class="flex-1 p-4 lg:p-8">
+            <!-- Page Content - Enhanced with better padding and animations -->
+            <div class="flex-1 p-4 lg:p-8 animate-fade-in">
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -320,7 +334,7 @@
     <script src="/static/js/megido-utils.js"></script>
     <script src="/static/js/megido-toast.js"></script>
     
-    <!-- Initialize application -->
+    <!-- Initialize application with enhanced animations -->
     <script>
         (function() {
             'use strict';
@@ -333,7 +347,7 @@
                 window.MegidoErrorHandler.setDebugMode(window.MEGIDO_DEBUG);
             }
             
-            // Mobile menu toggle
+            // Mobile menu toggle with smooth animations
             const menuToggle = document.getElementById('menu-toggle');
             const sidebar = document.getElementById('sidebar');
             
@@ -341,9 +355,12 @@
                 menuToggle.addEventListener('click', function(e) {
                     e.stopPropagation();
                     sidebar.classList.toggle('-translate-x-full');
+                    
+                    // Add animation class
+                    sidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
                 });
                 
-                // Close sidebar when clicking outside on mobile
+                // Close sidebar when clicking outside on mobile with smooth animation
                 document.addEventListener('click', function(event) {
                     if (window.innerWidth < 1024) {
                         const isMenuClick = menuToggle.contains(event.target);
@@ -354,9 +371,18 @@
                         }
                     }
                 });
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth >= 1024) {
+                        sidebar.classList.remove('-translate-x-full');
+                    } else {
+                        sidebar.classList.add('-translate-x-full');
+                    }
+                });
             }
             
-            // Dark mode toggle functionality
+            // Enhanced dark mode toggle with smooth transitions
             const themeToggle = document.getElementById('theme-toggle');
             const htmlElement = document.documentElement;
             
@@ -368,9 +394,18 @@
             
             if (themeToggle) {
                 themeToggle.addEventListener('click', function() {
+                    // Add transition effect
+                    document.body.style.transition = 'background-color 0.3s ease-in-out';
+                    
                     htmlElement.classList.toggle('dark');
                     const newTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
                     localStorage.setItem('theme', newTheme);
+                    
+                    // Add visual feedback
+                    themeToggle.classList.add('scale-90');
+                    setTimeout(() => {
+                        themeToggle.classList.remove('scale-90');
+                    }, 150);
                     
                     // Also update MegidoUtils if available
                     if (window.MegidoUtils && window.MegidoUtils.Theme) {
@@ -379,8 +414,42 @@
                 });
             }
             
-            // Log initialization
-            console.log('✅ Megido Security Platform initialized with Tailwind CSS');
+            // Add page load animation
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.3s ease-in-out';
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    document.body.style.opacity = '1';
+                }, 50);
+            });
+            
+            // Add smooth scroll behavior
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    const href = this.getAttribute('href');
+                    if (href !== '#') {
+                        e.preventDefault();
+                        const target = document.querySelector(href);
+                        if (target) {
+                            target.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'start'
+                            });
+                        }
+                    }
+                });
+            });
+            
+            // Log initialization with styled console message
+            console.log(
+                '%c✨ Megido Security Platform %cv2.0',
+                'color: #667eea; font-size: 16px; font-weight: bold;',
+                'color: #764ba2; font-size: 14px; font-weight: normal;'
+            );
+            console.log(
+                '%cUI Powered by Tailwind CSS & Enhanced Components',
+                'color: #10b981; font-size: 12px;'
+            );
         })();
     </script>
     
