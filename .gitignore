@@ -62,3 +62,10 @@ htmlcov/
 
 # Test files
 test_error_handler.html
+
+# Clickjacking plugin output
+clickjacking_reports/
+*_clickjacking_*.json
+*_clickjacking_*.html
+*_clickjacking_*.png
+clickjacking_demo_report.json
