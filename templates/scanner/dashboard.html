@@ -332,21 +332,58 @@ function displayVulnerabilities(vulnerabilities) {
                 <div class="flex items-start gap-3">
                     <input type="checkbox" class="vuln-checkbox mt-1" id="checkbox-${vuln.id}" value="${vuln.id}" style="display:none;">
                     <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-2">
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
                             <strong class="text-gray-900 dark:text-white">${escapeHtml(vuln.type)}</strong>
                             <span class="badge badge-${sanitizeSeverity(vuln.severity)}">${escapeHtml(vuln.severity.toUpperCase())}</span>
+                            ${vuln.verified ? 
+                                `<span class="badge badge-success" title="Verified through exploitation">
+                                    <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>VERIFIED
+                                </span>` : ''}
+                            ${vuln.risk_score ? 
+                                `<span class="badge ${getRiskBadgeClass(vuln.risk_score)}" title="Risk Score: ${vuln.risk_score.toFixed(1)}/100">
+                                    Risk: ${vuln.risk_level ? vuln.risk_level.toUpperCase() : 'N/A'}
+                                </span>` : ''}
                             ${vuln.exploit_status !== 'not_attempted' ? 
                                 `<span class="badge ${getExploitStatusClass(vuln.exploit_status)}">${formatExploitStatus(vuln.exploit_status)}</span>` : ''}
+                            ${vuln.confidence_score ? 
+                                `<span class="badge badge-gray" title="Confidence in finding">
+                                    Confidence: ${Math.round(vuln.confidence_score * 100)}%
+                                </span>` : ''}
                         </div>
                         <div class="space-y-2 text-sm">
                             <div><strong class="text-gray-700 dark:text-gray-300">URL:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.url)}</span></div>
                             <div><strong class="text-gray-700 dark:text-gray-300">Description:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.description)}</span></div>
                             ${vuln.evidence ? `<div><strong class="text-gray-700 dark:text-gray-300">Evidence:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.evidence)}</span></div>` : ''}
-                            ${vuln.remediation ? `<div><strong class="text-gray-700 dark:text-gray-300">Remediation:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.remediation)}</span></div>` : ''}
+                            ${vuln.verified && vuln.proof_of_impact ? `
+                                <div class="mt-3 p-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <strong class="text-green-800 dark:text-green-300">✓ Proof of Impact (Verified Vulnerability)</strong>
+                                            <pre class="mt-2 text-xs text-green-700 dark:text-green-400 whitespace-pre-wrap">${escapeHtml(vuln.proof_of_impact)}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
                             ${vuln.exploit_result ? `<div class="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
                                 <strong class="text-gray-900 dark:text-white">Exploit Results:</strong>
                                 <pre class="mt-2 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHtml(vuln.exploit_result)}</pre>
                             </div>` : ''}
+                            ${vuln.remediation ? `<div class="mt-3"><strong class="text-gray-700 dark:text-gray-300">Remediation:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.remediation)}</span></div>` : ''}
+                            ${vuln.compliance_violations && Object.keys(vuln.compliance_violations).length > 0 ? `
+                                <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
+                                    <strong class="text-blue-800 dark:text-blue-300">Compliance Violations:</strong>
+                                    <div class="mt-1 flex flex-wrap gap-1">
+                                        ${Object.keys(vuln.compliance_violations).map(framework => 
+                                            `<span class="badge badge-info text-xs">${escapeHtml(framework.toUpperCase())}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -364,6 +401,13 @@ function getExploitStatusClass(status) {
         'in_progress': 'badge-warning'
     };
     return statusClasses[status] || 'badge-gray';
+}
+
+function getRiskBadgeClass(riskScore) {
+    if (riskScore >= 80) return 'badge-danger';
+    if (riskScore >= 60) return 'badge-warning';
+    if (riskScore >= 40) return 'badge-info';
+    return 'badge-success';
 }
 
 function formatExploitStatus(status) {

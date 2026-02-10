@@ -133,6 +133,13 @@ def perform_basic_scan(scan, url):
                 evidence='URL scheme is http:// instead of https://',
                 remediation='Implement HTTPS with valid SSL/TLS certificate'
             )
+        
+        # Apply advanced features to all vulnerabilities after scanning
+        try:
+            from scanner.exploit_integration import apply_advanced_features_to_scan
+            apply_advanced_features_to_scan(scan.id)
+        except Exception as e:
+            print(f"Warning: Could not apply advanced features: {e}")
             
     except Exception as e:
         print(f"Error during scan: {e}")
@@ -145,6 +152,19 @@ def scan_results(request, scan_id):
     try:
         scan = Scan.objects.get(id=scan_id)
         vulnerabilities = scan.vulnerabilities.all()
+        
+        # Filter false positives by default unless explicitly requested
+        include_false_positives = request.GET.get('include_false_positives', 'false').lower() == 'true'
+        if not include_false_positives:
+            vulnerabilities = vulnerabilities.exclude(false_positive_status='false_positive')
+        
+        # Option to filter by verified status
+        verified_only = request.GET.get('verified_only', 'false').lower() == 'true'
+        if verified_only:
+            vulnerabilities = vulnerabilities.filter(verified=True)
+        
+        # Order by risk score descending by default
+        vulnerabilities = vulnerabilities.order_by('-risk_score', '-discovered_at')
         
         data = {
             'scan_id': scan.id,
@@ -163,6 +183,16 @@ def scan_results(request, scan_id):
                 'exploited': vuln.exploited,
                 'exploit_status': vuln.exploit_status,
                 'exploit_result': vuln.exploit_result,
+                # Advanced features
+                'verified': vuln.verified,
+                'proof_of_impact': vuln.proof_of_impact,
+                'risk_score': vuln.risk_score,
+                'risk_level': vuln.risk_level,
+                'confidence_score': vuln.confidence_score,
+                'false_positive_status': vuln.false_positive_status,
+                'compliance_violations': vuln.compliance_violations,
+                'remediation_priority': vuln.remediation_priority,
+                'remediation_effort': vuln.remediation_effort,
             } for vuln in vulnerabilities]
         }
         return Response(data)
@@ -286,6 +316,31 @@ def exploit_status(request, task_id):
         response_data['status'] = str(task_result.state)
     
     return Response(response_data)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def apply_advanced_features(request, scan_id):
+    """
+    Apply advanced scanner features to all vulnerabilities in a scan.
+    
+    This includes:
+    - Risk scoring
+    - False positive detection
+    - Compliance mapping
+    - Remediation suggestions
+    
+    Returns:
+    - Results of applying advanced features
+    """
+    from scanner.exploit_integration import apply_advanced_features_to_scan
+    
+    try:
+        results = apply_advanced_features_to_scan(scan_id)
+        return Response(results, status=200)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
 
 @login_required
