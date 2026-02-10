@@ -11,7 +11,7 @@ Implements various techniques to reduce false positives:
 
 import re
 import difflib
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
