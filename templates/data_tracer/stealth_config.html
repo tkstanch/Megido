@@ -1,114 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stealth Configuration - Data Tracer</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        h1, h2 {
-            color: #333;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #667eea;
-            text-decoration: none;
-        }
-        .config-card {
-            padding: 20px;
-            margin: 15px 0;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        .config-card h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .config-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        .form-section {
-            background: #f8f9fa;
-            padding: 30px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-weight: 600;
-        }
-        input[type="text"],
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-        button {
-            background: #667eea;
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        .timing-info {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="{% url 'data_tracer:home' %}" class="back-link">← Back to Data Tracer</a>
-        
-        <h1>Stealth Configuration</h1>
-        
-        <div class="form-section">
-            <h2>Create New Configuration</h2>
+{% extends 'base.html' %}
+
+{% block title %}Stealth Configuration - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400">Data Tracer</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Stealth Configuration</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-6">
+        <a href="{% url 'data_tracer:home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1">
+            ← Back to Data Tracer
+        </a>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Stealth Configuration</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">Configure stealth settings for your network scans.</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Create New Configuration</h3>
+        </div>
+        <div class="card-body">
             <form method="post">
                 {% csrf_token %}
                 
                 <div class="form-group">
-                    <label for="name">Configuration Name:</label>
-                    <input type="text" id="name" name="name" required>
+                    <label for="name" class="form-label">Configuration Name:</label>
+                    <input type="text" id="name" name="name" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="timing_template">Timing Template:</label>
-                    <select id="timing_template" name="timing_template">
+                    <label for="timing_template" class="form-label">Timing Template:</label>
+                    <select id="timing_template" name="timing_template" class="form-input">
                         <option value="0">0 - Paranoid (Extremely Slow)</option>
                         <option value="1">1 - Sneaky (Very Slow)</option>
                         <option value="2">2 - Polite (Slow)</option>
@@ -118,9 +48,9 @@
                     </select>
                 </div>
                 
-                <div class="timing-info">
-                    <strong>Timing Template Guide:</strong>
-                    <ul style="margin: 10px 0;">
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <p class="font-semibold text-gray-900 dark:text-white mb-2">Timing Template Guide:</p>
+                    <ul class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                         <li><strong>Paranoid (0):</strong> 5+ min delay between probes - Maximum stealth</li>
                         <li><strong>Sneaky (1):</strong> 15s delay between probes - Very stealthy</li>
                         <li><strong>Polite (2):</strong> 0.4s delay - Slower but less intrusive</li>
@@ -130,30 +60,60 @@
                     </ul>
                 </div>
                 
-                <button type="submit">Create Configuration</button>
+                <button type="submit" class="btn btn-primary mt-4">Create Configuration</button>
             </form>
         </div>
-        
-        <h2>Existing Configurations</h2>
-        
-        {% if configs %}
-            {% for config in configs %}
-            <div class="config-card">
-                <h3>{{ config.name }} {% if config.is_default %}(Default){% endif %}</h3>
-                <p>{{ config.description }}</p>
-                <div class="config-details">
-                    <div><strong>Timing Template:</strong> {{ config.timing_template }}</div>
-                    <div><strong>Scan Delay:</strong> {{ config.scan_delay }}s</div>
-                    <div><strong>Max Retries:</strong> {{ config.max_retries }}</div>
-                    <div><strong>Fragment Packets:</strong> {{ config.fragment_packets|yesno:"Yes,No" }}</div>
-                    <div><strong>Randomize Hosts:</strong> {{ config.randomize_hosts|yesno:"Yes,No" }}</div>
-                    <div><strong>Decoy Scanning:</strong> {{ config.decoy_scanning|yesno:"Yes,No" }}</div>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <p>No stealth configurations yet. Create one above!</p>
-        {% endif %}
     </div>
-</body>
-</html>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Existing Configurations</h3>
+        </div>
+        <div class="card-body">
+            {% if configs %}
+                <div class="space-y-4">
+                    {% for config in configs %}
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 border-l-4 border-l-primary-600">
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            {{ config.name }}
+                            {% if config.is_default %}
+                                <span class="badge badge-success ml-2">Default</span>
+                            {% endif %}
+                        </h4>
+                        <p class="text-gray-600 dark:text-gray-400 mb-3">{{ config.description }}</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Timing Template:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.timing_template }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Scan Delay:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.scan_delay }}s</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Max Retries:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.max_retries }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Fragment Packets:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.fragment_packets|yesno:"Yes,No" }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Randomize Hosts:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.randomize_hosts|yesno:"Yes,No" }}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Decoy Scanning:</span>
+                                <span class="font-medium text-gray-900 dark:text-white ml-1">{{ config.decoy_scanning|yesno:"Yes,No" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-600 dark:text-gray-400 text-center py-8">No stealth configurations yet. Create one above!</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

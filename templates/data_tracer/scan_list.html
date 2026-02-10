@@ -1,121 +1,85 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Scans - Data Tracer</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-        }
-        .scan-item {
-            padding: 20px;
-            margin-bottom: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        .scan-item h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .scan-meta {
-            color: #666;
-            font-size: 14px;
-        }
-        .status {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-        .status-pending { background: #ffc107; color: #000; }
-        .status-running { background: #2196f3; color: white; }
-        .status-completed { background: #4caf50; color: white; }
-        .status-failed { background: #f44336; color: white; }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #667eea;
-            text-decoration: none;
-        }
-        .btn {
-            display: inline-block;
-            padding: 8px 16px;
-            margin: 5px 5px 0 0;
-            border-radius: 5px;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        .btn-view {
-            background: #667eea;
-            color: white;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="{% url 'data_tracer:home' %}" class="back-link">← Back to Data Tracer</a>
-        <h1>My Scans</h1>
-        
-        {% if scans %}
+{% extends 'base.html' %}
+
+{% block title %}My Scans - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400">Data Tracer</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">My Scans</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-6">
+        <a href="{% url 'data_tracer:home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1">
+            ← Back to Data Tracer
+        </a>
+    </div>
+
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">My Scans</h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400">View and manage your network scans.</p>
+    </div>
+
+    {% if scans %}
+        <div class="space-y-4">
             {% for scan in scans %}
-            <div class="scan-item">
-                <h3>
-                    {{ scan.target }}
-                    <span class="status status-{{ scan.status }}">{{ scan.get_status_display }}</span>
-                </h3>
-                <div class="scan-meta">
-                    <strong>Type:</strong> {{ scan.scan_type }} |
-                    <strong>Created:</strong> {{ scan.created_at|date:"Y-m-d H:i" }} |
-                    <strong>Stealth:</strong> {{ scan.stealth_mode|yesno:"Yes,No" }}
-                </div>
-                {% if scan.notes %}
-                <div class="scan-meta" style="margin-top: 5px;">
-                    <strong>Notes:</strong> {{ scan.notes }}
-                </div>
-                {% endif %}
-                <div style="margin-top: 10px;">
-                    <a href="{% url 'data_tracer:scan_detail' scan.id %}" class="btn btn-view">View Details</a>
-                    {% if scan.status == 'pending' %}
-                    <form method="post" action="{% url 'data_tracer:execute_scan' scan.id %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-view">Execute Scan</button>
-                    </form>
-                    {% endif %}
+            <div class="card border-l-4 border-l-primary-600">
+                <div class="card-body">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                                {{ scan.target }}
+                                {% if scan.status == 'pending' %}
+                                    <span class="badge badge-warning ml-2">{{ scan.get_status_display }}</span>
+                                {% elif scan.status == 'running' %}
+                                    <span class="badge" style="background: #2196f3; color: white;">{{ scan.get_status_display }}</span>
+                                {% elif scan.status == 'completed' %}
+                                    <span class="badge badge-success ml-2">{{ scan.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-danger ml-2">{{ scan.get_status_display }}</span>
+                                {% endif %}
+                            </h3>
+                            <div class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                <p>
+                                    <strong>Type:</strong> {{ scan.scan_type }} |
+                                    <strong>Created:</strong> {{ scan.created_at|date:"Y-m-d H:i" }} |
+                                    <strong>Stealth:</strong> {{ scan.stealth_mode|yesno:"Yes,No" }}
+                                </p>
+                                {% if scan.notes %}
+                                <p><strong>Notes:</strong> {{ scan.notes }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <a href="{% url 'data_tracer:scan_detail' scan.id %}" class="btn btn-primary">
+                            View Details
+                        </a>
+                        {% if scan.status == 'pending' %}
+                        <form method="post" action="{% url 'data_tracer:execute_scan' scan.id %}" class="inline-block">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary">Execute Scan</button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <h2>No scans yet</h2>
-                <p>Create your first scan to get started!</p>
-                <a href="{% url 'data_tracer:create_scan' %}" class="btn btn-view">Create Scan</a>
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-12">
+                <div class="text-6xl mb-4">📡</div>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No scans yet</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">Create your first scan to get started!</p>
+                <a href="{% url 'data_tracer:create_scan' %}" class="btn btn-primary">
+                    Create Scan
+                </a>
             </div>
-        {% endif %}
-    </div>
-</body>
-</html>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

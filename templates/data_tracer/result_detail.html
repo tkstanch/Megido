@@ -1,164 +1,141 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Result Details - Data Tracer</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        h1, h2, h3 {
-            color: #333;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #667eea;
-            text-decoration: none;
-        }
-        .section {
-            margin: 30px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-        }
-        th {
-            background: #667eea;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        tr:hover {
-            background: #f5f5f5;
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .badge-open { background: #4caf50; color: white; }
-        .badge-closed { background: #f44336; color: white; }
-        .badge-filtered { background: #ff9800; color: white; }
-        .log-entry {
-            padding: 8px;
-            margin: 5px 0;
-            border-left: 3px solid #ccc;
-            background: white;
-            font-size: 14px;
-        }
-        .log-info { border-color: #2196f3; }
-        .log-warning { border-color: #ff9800; }
-        .log-error { border-color: #f44336; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="{% url 'data_tracer:scan_detail' scan_result.scan_target.id %}" class="back-link">← Back to Scan</a>
-        
-        <h1>Scan Result Details</h1>
-        <p><strong>Target:</strong> {{ scan_result.scan_target.target }}</p>
-        <p><strong>Started:</strong> {{ scan_result.started_at|date:"Y-m-d H:i:s" }}</p>
-        {% if scan_result.completed_at %}
-        <p><strong>Completed:</strong> {{ scan_result.completed_at|date:"Y-m-d H:i:s" }}</p>
-        <p><strong>Duration:</strong> {{ scan_result.duration_seconds|floatformat:2 }} seconds</p>
-        {% endif %}
-        
-        {% if scan_result.summary %}
-        <div class="section">
-            <h3>Summary</h3>
-            <p>{{ scan_result.summary }}</p>
-        </div>
-        {% endif %}
-        
-        {% if port_scans %}
-        <div class="section">
-            <h2>Port Scan Results ({{ port_scans|length }} ports found)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Port</th>
-                        <th>Protocol</th>
-                        <th>State</th>
-                        <th>Scan Type</th>
-                        <th>Service</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for port in port_scans %}
-                    <tr>
-                        <td>{{ port.port }}</td>
-                        <td>{{ port.protocol|upper }}</td>
-                        <td><span class="badge badge-{{ port.state }}">{{ port.state }}</span></td>
-                        <td>{{ port.scan_type }}</td>
-                        <td>{{ port.service_name|default:"Unknown" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-        
-        {% if os_fingerprints %}
-        <div class="section">
-            <h2>OS Fingerprinting Results</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>OS Name</th>
-                        <th>OS Family</th>
-                        <th>Accuracy</th>
-                        <th>Method</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for os in os_fingerprints %}
-                    <tr>
-                        <td><strong>{{ os.os_name }}</strong></td>
-                        <td>{{ os.os_family }}</td>
-                        <td>{{ os.accuracy }}%</td>
-                        <td>{{ os.fingerprint_method }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-        
-        {% if logs %}
-        <div class="section">
-            <h2>Scan Logs</h2>
-            {% for log in logs %}
-            <div class="log-entry log-{{ log.level }}">
-                <strong>[{{ log.level|upper }}]</strong> {{ log.message }} 
-                <span style="color: #999; font-size: 12px;">{{ log.logged_at|date:"H:i:s" }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+{% extends 'base.html' %}
+
+{% block title %}Result Details - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400">Data Tracer</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Result Details</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="mb-6">
+        <a href="{% url 'data_tracer:scan_detail' scan_result.scan_target.id %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1">
+            ← Back to Scan
+        </a>
     </div>
-</body>
-</html>
+
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Scan Result Details</h2>
+        <div class="space-y-1 text-gray-600 dark:text-gray-400">
+            <p><strong>Target:</strong> {{ scan_result.scan_target.target }}</p>
+            <p><strong>Started:</strong> {{ scan_result.started_at|date:"Y-m-d H:i:s" }}</p>
+            {% if scan_result.completed_at %}
+            <p><strong>Completed:</strong> {{ scan_result.completed_at|date:"Y-m-d H:i:s" }}</p>
+            <p><strong>Duration:</strong> {{ scan_result.duration_seconds|floatformat:2 }} seconds</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if scan_result.summary %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Summary</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-gray-700 dark:text-gray-300">{{ scan_result.summary }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if port_scans %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Port Scan Results ({{ port_scans|length }} ports found)</h3>
+        </div>
+        <div class="card-body">
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>State</th>
+                            <th>Scan Type</th>
+                            <th>Service</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for port in port_scans %}
+                        <tr>
+                            <td>{{ port.port }}</td>
+                            <td>{{ port.protocol|upper }}</td>
+                            <td>
+                                {% if port.state == 'open' %}
+                                    <span class="badge badge-success">{{ port.state }}</span>
+                                {% elif port.state == 'closed' %}
+                                    <span class="badge badge-danger">{{ port.state }}</span>
+                                {% else %}
+                                    <span class="badge badge-warning">{{ port.state }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ port.scan_type }}</td>
+                            <td>{{ port.service_name|default:"Unknown" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if os_fingerprints %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">OS Fingerprinting Results</h3>
+        </div>
+        <div class="card-body">
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>OS Name</th>
+                            <th>OS Family</th>
+                            <th>Accuracy</th>
+                            <th>Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for os in os_fingerprints %}
+                        <tr>
+                            <td class="font-semibold">{{ os.os_name }}</td>
+                            <td>{{ os.os_family }}</td>
+                            <td>{{ os.accuracy }}%</td>
+                            <td>{{ os.fingerprint_method }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if logs %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Scan Logs</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-2">
+                {% for log in logs %}
+                <div class="p-3 rounded border-l-4 bg-white dark:bg-gray-800 {% if log.level == 'error' %}border-red-500{% elif log.level == 'warning' %}border-yellow-500{% else %}border-blue-500{% endif %}">
+                    <div class="flex items-start justify-between">
+                        <div class="text-sm">
+                            <strong class="text-gray-900 dark:text-white">[{{ log.level|upper }}]</strong>
+                            <span class="text-gray-700 dark:text-gray-300 ml-2">{{ log.message }}</span>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-4 flex-shrink-0">{{ log.logged_at|date:"H:i:s" }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
