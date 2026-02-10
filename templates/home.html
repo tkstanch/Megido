@@ -3,256 +3,433 @@
 {% block title %}Home - Megido Security{% endblock %}
 
 {% block breadcrumb %}
-<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
-<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
-<li class="text-gray-900 dark:text-white font-medium">Dashboard</li>
+<li class="flex items-center gap-2 text-gray-600 dark:text-gray-400 font-medium">
+    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+    </svg>
+    <span>Megido Security</span>
+</li>
+<li class="text-gray-400 dark:text-gray-600 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-semibold">Dashboard</li>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
-    <!-- Hero Section -->
-    <div class="bg-gradient-primary rounded-xl p-8 lg:p-12 text-white shadow-lg text-center">
-        <h1 class="text-4xl lg:text-5xl font-bold mb-3">🛡️ Megido Security Platform</h1>
-        <p class="text-xl lg:text-2xl opacity-95">Professional Web Security Testing Suite</p>
-    </div>
-
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card hover:shadow-card-hover transition-all">
-            <div class="card-body">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-3xl font-bold text-gray-900 dark:text-white">17</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Security Tools</div>
-                    </div>
-                    <div class="text-4xl">🔧</div>
-                </div>
-            </div>
-        </div>
+<div class="max-w-7xl mx-auto space-y-8">
+    <!-- Hero Section - ULTRA EXTREME BEAUTY with Aurora, Particles, Light Rays -->
+    <div class="relative overflow-hidden rounded-3xl shadow-premium-lg transform-3d grain light-ray">
+        <!-- Animated Aurora Background -->
+        <div class="absolute inset-0 bg-aurora opacity-95"></div>
         
-        <div class="card hover:shadow-card-hover transition-all">
-            <div class="card-body">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-3xl font-bold text-success">Active</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">System Status</div>
-                    </div>
-                    <div class="text-4xl">✅</div>
-                </div>
-            </div>
-        </div>
+        <!-- Floating Blobs with Liquid Animation -->
+        <div class="absolute top-10 left-10 w-64 h-64 bg-primary-400/30 rounded-full blob liquid blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-80 h-80 bg-secondary-400/30 rounded-full blob liquid blur-3xl" style="animation-delay: -2s"></div>
+        <div class="absolute top-1/2 left-1/2 w-48 h-48 bg-pink-400/20 rounded-full blob liquid blur-3xl" style="animation-delay: -4s"></div>
         
-        <div class="card hover:shadow-card-hover transition-all">
-            <div class="card-body">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-3xl font-bold text-info">Pro</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Feature Set</div>
-                    </div>
-                    <div class="text-4xl">⭐</div>
-                </div>
-            </div>
-        </div>
+        <!-- Pattern Overlay -->
+        <div class="absolute inset-0 bg-pattern-dots opacity-10"></div>
         
-        <div class="card hover:shadow-card-hover transition-all">
-            <div class="card-body">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-3xl font-bold text-warning">Local</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Environment</div>
-                    </div>
-                    <div class="text-4xl">💻</div>
-                </div>
+        <!-- Vignette for depth -->
+        <div class="absolute inset-0 vignette"></div>
+        
+        <!-- Content with Enhanced Glassmorphism -->
+        <div class="relative p-8 lg:p-20 text-center backdrop-blur-sm">
+            <!-- Floating Shield Icon with Ambient Glow -->
+            <div class="inline-flex items-center justify-center w-28 h-28 mb-8 rounded-3xl glass-refract shadow-premium ambient-glow float-element breathe">
+                <svg class="w-16 h-16 text-white drop-shadow-2xl" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            
+            <!-- Animated Title with 3D Text and Shimmer -->
+            <h1 class="text-5xl lg:text-7xl font-bold mb-6 text-white drop-shadow-2xl animate-slide-in-down text-3d">
+                <span class="text-shimmer inline-block">Megido Security Platform</span>
+            </h1>
+            
+            <!-- Subtitle with Glow and Spring Animation -->
+            <p class="text-2xl lg:text-3xl text-white/95 font-semibold mb-4 text-glow animate-slide-in-up spring">
+                Professional Web Security Testing Suite
+            </p>
+            
+            <!-- Feature Badges with Ultra Effects -->
+            <div class="mt-10 flex flex-wrap gap-4 justify-center">
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium holographic ultra-smooth">
+                    🔒 17 Security Tools
+                </span>
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium prism ultra-smooth">
+                    ⚡ Advanced Features
+                </span>
+                <span class="stagger-item px-6 py-3 rounded-full glass-refract text-white text-sm font-bold border border-white/40 hover-premium metallic ultra-smooth">
+                    🛡️ Local & Secure
+                </span>
             </div>
         </div>
     </div>
 
-    <!-- Core Features -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <a href="/scanner/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+    <!-- Quick Stats - Enhanced with 3D Cards and Extreme Animations -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="card-premium card-3d group stagger-item border-gradient">
+            <div class="card-body">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="text-5xl font-bold text-shimmer mb-2 animate-scale-in">17</div>
+                        <div class="text-sm font-semibold text-gray-600 dark:text-gray-400">Security Tools</div>
+                    </div>
+                    <div class="p-4 rounded-xl iridescent group-hover:scale-125 transition-transform duration-500 float-element">
+                        <svg class="w-7 h-7 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-premium card-3d group stagger-item border-gradient">
+            <div class="card-body">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="text-5xl font-bold bg-gradient-success bg-clip-text text-transparent mb-2 animate-scale-in glow-success">Active</div>
+                        <div class="text-sm font-semibold text-gray-600 dark:text-gray-400">System Status</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 group-hover:scale-125 transition-transform duration-500 animate-pulse-slow">
+                        <svg class="w-7 h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-premium card-3d group stagger-item metallic">
+            <div class="card-body">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="text-5xl font-bold bg-gradient-info bg-clip-text text-transparent mb-2 animate-scale-in">Pro</div>
+                        <div class="text-sm font-semibold text-gray-600 dark:text-gray-400">Feature Set</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 group-hover:scale-125 transition-transform duration-500 animate-bounce-subtle">
+                        <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-premium card-3d group stagger-item border-gradient">
+            <div class="card-body">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="text-5xl font-bold bg-gradient-warning bg-clip-text text-transparent mb-2 animate-scale-in">Local</div>
+                        <div class="text-sm font-semibold text-gray-600 dark:text-gray-400">Environment</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/30 group-hover:scale-125 transition-transform duration-500 float-element" style="animation-delay: 0.5s">
+                        <svg class="w-7 h-7 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Features - EXTREME ENHANCEMENT with 3D Cards, Holographic Effects -->
+    <div>
+        <div class="mb-8 text-center">
+            <h2 class="text-3xl lg:text-4xl font-bold mb-3 animate-slide-in-up">
+                <span class="text-shimmer">Security Tools</span>
+            </h2>
+            <p class="text-lg text-gray-600 dark:text-gray-400 animate-slide-in-up" style="animation-delay: 0.1s">
+                Comprehensive suite of penetration testing and security analysis tools
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <a href="/scanner/" class="group card-3d ripple-container scroll-reveal border-gradient hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🔍</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl holographic float-element">
+                        <svg class="w-9 h-9 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-primary animate-bounce-subtle">Core Tool</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Vulnerability Scanner</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-shimmer transition-all">Vulnerability Scanner</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Automatically scan web applications for common security vulnerabilities with exploitation capabilities.</p>
                 </div>
-                <span class="badge badge-primary mt-auto self-start">Core Tool</span>
             </div>
         </a>
     
-        <a href="/discover/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/discover/" class="group card-3d ripple-container scroll-reveal metallic hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🎯</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl iridescent float-element" style="animation-delay: 0.2s">
+                        <svg class="w-9 h-9 text-info-600 dark:text-info-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-info animate-pulse-slow">Intelligence</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Discover (OSINT)</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-shimmer transition-all">Discover (OSINT)</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Automated OSINT gathering from Wayback Machine, Shodan, Hunter.io, and Google Dorks.</p>
                 </div>
-                <span class="badge badge-info mt-auto self-start">Intelligence</span>
             </div>
         </a>
     
-        <a href="/manipulator/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/manipulator/" class="group card-3d ripple-container scroll-reveal border-gradient hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🔧</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl holographic float-element" style="animation-delay: 0.4s">
+                        <svg class="w-9 h-9 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-primary animate-bounce-subtle">Core Tool</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Payload Manipulator</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-shimmer transition-all">Payload Manipulator</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Craft, encode, and manipulate payloads with 23+ encoding techniques and bypass methods.</p>
                 </div>
-                <span class="badge badge-primary mt-auto self-start">Core Tool</span>
             </div>
         </a>
     
-        <a href="/sql-attacker/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/sql-attacker/" class="group card-3d ripple-container scroll-reveal glow-success hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">💉</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-success group-hover:scale-125 transition-transform duration-500 animate-glow-pulse">
+                        <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-success animate-pulse-slow">Attack Tool</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">SQL Attacker</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-shimmer transition-all">SQL Attacker</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">SQL injection testing with error-based, time-based, and exploitation capabilities.</p>
                 </div>
-                <span class="badge badge-success mt-auto self-start">Attack Tool</span>
             </div>
         </a>
     
-        <a href="/proxy/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/proxy/" class="group card-3d ripple-container scroll-reveal border-gradient hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🔄</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl holographic float-element" style="animation-delay: 0.6s">
+                        <svg class="w-9 h-9 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-primary animate-bounce-subtle">Core Tool</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">HTTP Proxy</h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-shimmer transition-all">HTTP Proxy</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Intercept and analyze all HTTP/HTTPS traffic between your browser and target applications.</p>
                 </div>
-                <span class="badge badge-primary mt-auto self-start">Core Tool</span>
             </div>
         </a>
     
-        <a href="/interceptor/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/interceptor/" class="group card-3d ripple-container scroll-reveal metallic hover-premium">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">✋</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl iridescent float-element" style="animation-delay: 0.8s">
+                        <svg class="w-9 h-9 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-warning">Analysis</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Request Interceptor</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">Request Interceptor</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Capture and modify HTTP requests in real-time before they reach the server.</p>
                 </div>
-                <span class="badge badge-warning mt-auto self-start">Analysis</span>
             </div>
         </a>
     
-        <a href="/repeater/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/repeater/" class="group card-hover border-2 border-transparent hover:border-warning-200 dark:hover:border-warning-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🔁</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/30 dark:to-warning-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-warning">Analysis</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">HTTP Repeater</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">HTTP Repeater</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Manually test and replay HTTP requests with custom modifications.</p>
                 </div>
-                <span class="badge badge-warning mt-auto self-start">Analysis</span>
             </div>
         </a>
     
-        <a href="/spider/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/spider/" class="group card-hover border-2 border-transparent hover:border-success-200 dark:hover:border-success-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🕷️</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900/30 dark:to-success-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-success">Discovery</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Spider</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-success-600 dark:group-hover:text-success-400 transition-colors">Spider</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Automated web crawling and content discovery with DirBuster, Nikto, and Wikto integration.</p>
                 </div>
-                <span class="badge badge-success mt-auto self-start">Discovery</span>
             </div>
         </a>
     
-        <a href="/bypasser/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/bypasser/" class="group card-hover border-2 border-transparent hover:border-success-200 dark:hover:border-success-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🚧</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900/30 dark:to-success-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-success">Attack Tool</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">WAF Bypasser</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-success-600 dark:group-hover:text-success-400 transition-colors">WAF Bypasser</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">WAF and input filter bypass testing with character probing and encoding techniques.</p>
                 </div>
-                <span class="badge badge-success mt-auto self-start">Attack Tool</span>
             </div>
         </a>
     
-        <a href="/mapper/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/mapper/" class="group card-hover border-2 border-transparent hover:border-warning-200 dark:hover:border-warning-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🗺️</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/30 dark:to-warning-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-warning">Analysis</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Attack Surface Mapper</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">Attack Surface Mapper</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Map attack surfaces and secure development practices across 19 key security areas.</p>
                 </div>
-                <span class="badge badge-warning mt-auto self-start">Analysis</span>
             </div>
         </a>
     
-        <a href="/data-tracer/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/data-tracer/" class="group card-hover border-2 border-transparent hover:border-warning-200 dark:hover:border-warning-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">📡</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/30 dark:to-warning-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-warning">Network</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Data Tracer</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">Data Tracer</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Network traffic analysis and data tracing with port scanning and OS fingerprinting.</p>
                 </div>
-                <span class="badge badge-warning mt-auto self-start">Network</span>
             </div>
         </a>
     
-        <a href="/collaborator/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/collaborator/" class="group card-hover border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🤝</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-gray">Advanced</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Collaborator</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">Collaborator</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Track out-of-band interactions for detecting blind vulnerabilities like SSRF and XXE.</p>
                 </div>
-                <span class="badge badge-gray mt-auto self-start">Advanced</span>
             </div>
         </a>
     
-        <a href="/malware-analyser/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/malware-analyser/" class="group card-hover border-2 border-transparent hover:border-danger-200 dark:hover:border-danger-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🦠</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-danger-50 to-danger-100 dark:from-danger-900/30 dark:to-danger-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-danger-600 dark:text-danger-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-gray">Advanced</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Malware Analyser</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-danger-600 dark:group-hover:text-danger-400 transition-colors">Malware Analyser</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Malware scanning and analysis with signature-based and heuristic detection capabilities.</p>
                 </div>
-                <span class="badge badge-gray mt-auto self-start">Advanced</span>
             </div>
         </a>
     
-        <a href="/decompiler/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/decompiler/" class="group card-hover border-2 border-transparent hover:border-info-200 dark:hover:border-info-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">📦</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-info-50 to-info-100 dark:from-info-900/30 dark:to-info-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-info-600 dark:text-info-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-gray">Advanced</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Decompiler</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-info-600 dark:group-hover:text-info-400 transition-colors">Decompiler</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Browser extension decompilation and analysis for Java, Flash, and Silverlight packages.</p>
                 </div>
-                <span class="badge badge-gray mt-auto self-start">Advanced</span>
             </div>
         </a>
     
-        <a href="/response-analyser/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/response-analyser/" class="group card-hover border-2 border-transparent hover:border-warning-200 dark:hover:border-warning-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">📊</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/30 dark:to-warning-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-warning">Analysis</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Response Analyser</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">Response Analyser</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Automated HTTP response analysis and vulnerability detection with evidence collection.</p>
                 </div>
-                <span class="badge badge-warning mt-auto self-start">Analysis</span>
             </div>
         </a>
     
-        <a href="/browser/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/browser/" class="group card-hover border-2 border-transparent hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">🌐</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-info">System</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Integrated Browser</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Integrated Browser</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Browser interface that connects to all enabled Django apps with toolbar integration.</p>
                 </div>
-                <span class="badge badge-info mt-auto self-start">System</span>
             </div>
         </a>
     
-        <a href="/app-manager/" class="card hover:shadow-card-hover transition-all hover:-translate-y-1 group">
+        <a href="/app-manager/" class="group card-hover border-2 border-transparent hover:border-gray-200 dark:hover:border-gray-800 transition-all duration-300">
             <div class="card-body flex flex-col gap-4">
-                <div class="text-5xl">⚙️</div>
+                <div class="flex items-center justify-between">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/30 dark:to-gray-800/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                        <svg class="w-8 h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="badge badge-info">System</span>
+                </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">App Manager</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">App Manager</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">Control panel to enable/disable all Django apps with toggle switches and state persistence.</p>
                 </div>
-                <span class="badge badge-info mt-auto self-start">System</span>
             </div>
         </a>
     </div>
