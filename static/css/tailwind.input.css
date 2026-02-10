@@ -469,4 +469,277 @@
     white-space: nowrap;
     border-width: 0;
   }
+  
+  /* ============================================================================
+     EXTREME BEAUTY UTILITIES v2.2
+     ============================================================================ */
+  
+  /* 3D Transform Effects */
+  .transform-3d {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+  
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  .card-3d:hover {
+    transform: rotateY(5deg) rotateX(5deg) scale(1.02);
+  }
+  
+  /* Floating Animation */
+  .float-element {
+    @apply animate-float;
+  }
+  
+  /* Glow Effects */
+  .glow-primary {
+    @apply animate-glow-pulse;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+  }
+  
+  .glow-success {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  }
+  
+  .glow-neon {
+    box-shadow: 0 0 30px rgba(0, 245, 255, 0.6), 0 0 60px rgba(255, 0, 245, 0.4);
+  }
+  
+  /* Animated Gradients */
+  .gradient-animated {
+    background-size: 200% 200%;
+    @apply animate-gradient-shift;
+  }
+  
+  /* Aurora Background */
+  .bg-aurora {
+    @apply bg-gradient-aurora;
+    background-size: 400% 400%;
+    @apply animate-aurora;
+  }
+  
+  /* Holographic Effect */
+  .holographic {
+    @apply bg-gradient-holographic;
+    background-size: 200% 200%;
+    @apply animate-gradient-shift;
+    position: relative;
+  }
+  
+  .holographic::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  
+  .holographic:hover::before {
+    opacity: 1;
+    animation: shimmer 1.5s;
+  }
+  
+  /* Morphing Blob */
+  .blob {
+    @apply animate-blob;
+  }
+  
+  /* Text Effects */
+  .text-shimmer {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    @apply animate-text-shimmer;
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+  }
+  
+  .text-neon {
+    color: #00f5ff;
+    text-shadow: 
+      0 0 5px #00f5ff,
+      0 0 10px #00f5ff,
+      0 0 20px #00f5ff,
+      0 0 40px #00f5ff;
+  }
+  
+  /* Ripple Effect Container */
+  .ripple-container {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .ripple-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  .ripple-container:active::after {
+    width: 300px;
+    height: 300px;
+  }
+  
+  /* Magnetic Effect */
+  .magnetic {
+    transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  /* Parallax Container */
+  .parallax {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Depth Layers */
+  .depth-layer-1 {
+    transform: translateZ(10px);
+  }
+  
+  .depth-layer-2 {
+    transform: translateZ(20px);
+  }
+  
+  .depth-layer-3 {
+    transform: translateZ(30px);
+  }
+  
+  /* Skeleton Loader */
+  .skeleton {
+    @apply bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700;
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+    border-radius: 0.5rem;
+  }
+  
+  /* Premium Borders */
+  .border-gradient {
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  
+  /* Iridescent Effect */
+  .iridescent {
+    background: linear-gradient(
+      135deg,
+      rgba(255,255,255,0.1) 0%,
+      rgba(255,0,255,0.2) 25%,
+      rgba(0,255,255,0.2) 50%,
+      rgba(255,255,0,0.2) 75%,
+      rgba(255,255,255,0.1) 100%
+    );
+    background-size: 200% 200%;
+    @apply animate-gradient-shift;
+  }
+  
+  /* Metallic Surface */
+  .metallic {
+    @apply bg-gradient-metallic;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .metallic::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255,255,255,0.3) 50%,
+      transparent 70%
+    );
+    transform: rotate(45deg);
+    transition: transform 0.6s;
+  }
+  
+  .metallic:hover::after {
+    transform: rotate(45deg) translateX(50%);
+  }
+  
+  /* Confetti Effect (for success states) */
+  .confetti {
+    position: relative;
+  }
+  
+  /* Advanced Shadow Effects */
+  .shadow-neon {
+    box-shadow: 
+      0 0 10px rgba(0, 245, 255, 0.5),
+      0 0 20px rgba(0, 245, 255, 0.3),
+      0 0 30px rgba(255, 0, 245, 0.2);
+  }
+  
+  .shadow-glow-intense {
+    box-shadow: 
+      0 0 20px rgba(102, 126, 234, 0.6),
+      0 0 40px rgba(102, 126, 234, 0.4),
+      0 0 60px rgba(102, 126, 234, 0.2);
+  }
+  
+  /* Stagger Animation Helper */
+  .stagger-item {
+    opacity: 0;
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .stagger-item:nth-child(1) { animation-delay: 0.1s; }
+  .stagger-item:nth-child(2) { animation-delay: 0.2s; }
+  .stagger-item:nth-child(3) { animation-delay: 0.3s; }
+  .stagger-item:nth-child(4) { animation-delay: 0.4s; }
+  .stagger-item:nth-child(5) { animation-delay: 0.5s; }
+  .stagger-item:nth-child(6) { animation-delay: 0.6s; }
+  
+  /* Premium Hover States */
+  .hover-premium {
+    @apply transition-all duration-300;
+  }
+  
+  .hover-premium:hover {
+    @apply shadow-premium-lg transform -translate-y-2 scale-105;
+  }
+  
+  /* Scroll Reveal */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  
+  .scroll-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

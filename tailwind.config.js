@@ -153,6 +153,15 @@ module.exports = {
         'gradient-radial': 'radial-gradient(circle, var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         'mesh-gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        // New extreme gradients
+        'gradient-aurora': 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #667eea 75%, #764ba2 100%)',
+        'gradient-neon': 'linear-gradient(135deg, #00f5ff 0%, #ff00f5 50%, #00f5ff 100%)',
+        'gradient-metallic': 'linear-gradient(135deg, #b8c6db 0%, #f5f7fa 50%, #b8c6db 100%)',
+        'gradient-fire': 'linear-gradient(135deg, #ff6b6b 0%, #ffd93d 50%, #ff6b6b 100%)',
+        'gradient-ocean': 'linear-gradient(135deg, #667eea 0%, #2563eb 50%, #00d4ff 100%)',
+        'gradient-sunset': 'linear-gradient(135deg, #ff6b6b 0%, #ff8787 25%, #ffa94d 50%, #ff6b6b 75%, #ff8787 100%)',
+        'gradient-holographic': 'linear-gradient(45deg, #ff00ff 0%, #00ffff 25%, #ffff00 50%, #00ffff 75%, #ff00ff 100%)',
+        'gradient-rainbow': 'linear-gradient(90deg, #ff0000 0%, #ff7f00 16.666%, #ffff00 33.333%, #00ff00 50%, #0000ff 66.666%, #4b0082 83.333%, #9400d3 100%)',
       },
       backdropBlur: {
         xs: '2px',
@@ -169,6 +178,17 @@ module.exports = {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-slow': 'spin 3s linear infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        // New extreme animations
+        'float': 'float 3s ease-in-out infinite',
+        'glow-pulse': 'glowPulse 2s ease-in-out infinite',
+        'gradient-shift': 'gradientShift 3s ease-in-out infinite',
+        'tilt': 'tilt 10s ease-in-out infinite',
+        'morph': 'morph 8s ease-in-out infinite',
+        'text-shimmer': 'textShimmer 2s linear infinite',
+        'ripple': 'ripple 0.6s ease-out',
+        'aurora': 'aurora 20s ease-in-out infinite',
+        'blob': 'blob 7s ease-in-out infinite',
+        'rotate-3d': 'rotate3d 20s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -202,6 +222,64 @@ module.exports = {
         shimmer: {
           '0%': { backgroundPosition: '-1000px 0' },
           '100%': { backgroundPosition: '1000px 0' },
+        },
+        // New extreme keyframes
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-20px)' },
+        },
+        glowPulse: {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(102, 126, 234, 0.4)' },
+          '50%': { boxShadow: '0 0 40px rgba(102, 126, 234, 0.8)' },
+        },
+        gradientShift: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        tilt: {
+          '0%, 100%': { transform: 'rotateY(0deg)' },
+          '25%': { transform: 'rotateY(2deg)' },
+          '75%': { transform: 'rotateY(-2deg)' },
+        },
+        morph: {
+          '0%, 100%': { borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%' },
+          '50%': { borderRadius: '30% 60% 70% 40% / 50% 60% 30% 60%' },
+        },
+        textShimmer: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
+        ripple: {
+          '0%': { transform: 'scale(0)', opacity: '1' },
+          '100%': { transform: 'scale(4)', opacity: '0' },
+        },
+        aurora: {
+          '0%, 100%': { 
+            backgroundPosition: '0% 50%',
+            filter: 'hue-rotate(0deg)'
+          },
+          '50%': { 
+            backgroundPosition: '100% 50%',
+            filter: 'hue-rotate(45deg)'
+          },
+        },
+        blob: {
+          '0%, 100%': { 
+            transform: 'translate(0, 0) scale(1)',
+            borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%'
+          },
+          '33%': { 
+            transform: 'translate(30px, -50px) scale(1.1)',
+            borderRadius: '30% 60% 70% 40% / 50% 60% 30% 60%'
+          },
+          '66%': { 
+            transform: 'translate(-20px, 20px) scale(0.9)',
+            borderRadius: '50% 50% 50% 50% / 50% 50% 50% 50%'
+          },
+        },
+        rotate3d: {
+          '0%': { transform: 'rotateY(0deg)' },
+          '100%': { transform: 'rotateY(360deg)' },
         },
       },
       transitionDuration: {
