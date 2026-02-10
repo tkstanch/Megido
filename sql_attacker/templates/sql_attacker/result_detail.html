@@ -92,7 +92,7 @@
                     <strong class="text-gray-700 dark:text-gray-300">Confidence Score:</strong>
                     <div class="flex items-center ml-2 mt-1">
                         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
-                            <div class="bg-blue-600 h-4 rounded-full" style="width: {{ result.confidence_score|floatformat:0|default:'70' }}%"></div>
+                            <div class="bg-blue-600 h-4 rounded-full" style="width: {% widthratio result.confidence_score 1 100 %}%"></div>
                         </div>
                         <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-white">{{ result.confidence_score|floatformat:2|default:'0.70' }}</span>
                     </div>
@@ -200,9 +200,10 @@
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Risk Score</div>
                 </div>
-                <div class="text-center">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Confidence:</strong>
                     <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                        {{ result.impact_analysis.confidence|floatformat:0|default:'70' }}%
+                        {% widthratio result.impact_analysis.confidence 1 100 %}%
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Confidence</div>
                 </div>

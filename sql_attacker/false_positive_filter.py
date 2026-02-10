@@ -267,7 +267,7 @@ class FalsePositiveFilter:
     
     def analyze_content_length_variance(self,
                                        responses: List,
-                                       baseline_length: int = None) -> Dict[str, any]:
+                                       baseline_length: int = None) -> Dict[str, Any]:
         """
         Analyze content length variance across responses
         

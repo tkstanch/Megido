@@ -102,6 +102,7 @@ class AdvancedPayloadLibrary:
     ]
     
     # Out-of-band (OOB) injection payloads
+    # NOTE: Replace 'attacker.com' with your own DNS/HTTP server for actual OOB testing
     OOB_PAYLOADS = {
         'mysql': [
             # DNS exfiltration

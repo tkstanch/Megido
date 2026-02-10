@@ -455,31 +455,6 @@ class SQLInjectionEngine:
                         findings.append(finding)
         
         return findings
-                    
-                    if response:
-                        error_pattern = self._check_sql_errors(response)
-                        if error_pattern:
-                            db_type = self._detect_database_type(response.text)
-                            findings.append({
-                                'injection_type': 'error_based',
-                                'vulnerable_parameter': param_name,
-                                'parameter_type': 'POST',
-                                'test_payload': test_data[param_name],
-                                'detection_evidence': f'SQL error pattern matched: {error_pattern}',
-                                'database_type': db_type or 'unknown',
-                                'request_data': {
-                                    'url': url,
-                                    'method': method,
-                                    'data': test_data,
-                                },
-                                'response_data': {
-                                    'status_code': response.status_code,
-                                    'body_snippet': response.text[:500],
-                                }
-                            })
-                            break
-        
-        return findings
     
     def test_time_based_sqli(self, url: str, method: str,
                              params: Optional[Dict] = None,
