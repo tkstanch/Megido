@@ -162,8 +162,6 @@ class SQLInjectionResult(models.Model):
     # Parameter discovery metadata
     parameter_source = models.CharField(max_length=20, default='manual',
                                        help_text="Source: manual, form, hidden, link, url, js")
-    discovered_params = models.JSONField(blank=True, null=True,
-                                        help_text="All discovered parameters from target page")
     
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
