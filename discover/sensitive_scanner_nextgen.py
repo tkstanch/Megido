@@ -284,7 +284,9 @@ class DataFlowAnalyzer:
                                     'length': len(path),
                                     'risk': 'high' if len(path) > 2 else 'medium'
                                 })
-                    except:
+                    except (nx.NetworkXError, nx.NetworkXNoPath, Exception) as e:
+                        # Skip paths that can't be found
+                        logging.debug(f"Path finding error: {e}")
                         pass
         
         return flows
@@ -402,7 +404,7 @@ class ScanAPIInterface:
         Returns:
             Scan results
         """
-        scan_id = hashlib.md5(f"{files}{datetime.now()}".encode()).hexdigest()[:16]
+        scan_id = hashlib.sha256(f"{files}{datetime.now()}".encode()).hexdigest()[:16]
         
         self.active_scans[scan_id] = {
             'status': 'running',
