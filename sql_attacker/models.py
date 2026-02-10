@@ -163,6 +163,16 @@ class SQLInjectionResult(models.Model):
     parameter_source = models.CharField(max_length=20, default='manual',
                                        help_text="Source: manual, form, hidden, link, url, js")
     
+    # Advanced detection metrics (NEW)
+    confidence_score = models.FloatField(default=0.7,
+                                        help_text="Confidence score (0.0-1.0) for detection accuracy")
+    risk_score = models.IntegerField(default=50,
+                                    help_text="Risk score (0-100) indicating severity and exploitability")
+    impact_analysis = models.JSONField(blank=True, null=True,
+                                      help_text="Detailed impact demonstration results")
+    proof_of_concept = models.JSONField(blank=True, null=True,
+                                       help_text="Proof-of-concept queries and findings")
+    
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
     severity = models.CharField(max_length=20, default='critical',

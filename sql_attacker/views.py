@@ -184,7 +184,7 @@ def execute_task(task_id):
         task.started_at = timezone.now()
         task.save()
         
-        # Configure engine
+        # Configure engine with advanced features enabled
         config = {
             'use_random_delays': task.use_random_delays,
             'min_delay': task.min_delay,
@@ -192,6 +192,9 @@ def execute_task(task_id):
             'randomize_user_agent': task.randomize_user_agent,
             'use_payload_obfuscation': task.use_payload_obfuscation,
             'verify_ssl': False,  # For security testing
+            'enable_advanced_payloads': True,  # NEW: Enable advanced payloads
+            'enable_false_positive_reduction': True,  # NEW: Enable FP reduction
+            'enable_impact_demonstration': True,  # NEW: Enable impact demo
         }
         
         engine = SQLInjectionEngine(config)
@@ -259,6 +262,7 @@ def execute_task(task_id):
         vulnerabilities_count = 0
         for finding in findings:
             exploitation = finding.pop('exploitation', {})
+            impact_analysis = finding.pop('impact_analysis', {})
             
             # Determine parameter source
             param_name = finding.get('vulnerable_parameter', 'unknown')
@@ -272,6 +276,11 @@ def execute_task(task_id):
                     parameter_source = discovered_param.source
                     break
             
+            # Determine severity from impact analysis or default
+            severity = finding.get('severity', impact_analysis.get('severity', 'critical'))
+            risk_score = finding.get('risk_score', impact_analysis.get('risk_score', 50))
+            confidence_score = finding.get('confidence_score', 0.7)
+            
             result = SQLInjectionResult.objects.create(
                 task=task,
                 injection_type=finding.get('injection_type', 'error_based'),
@@ -282,14 +291,18 @@ def execute_task(task_id):
                 detection_evidence=finding.get('detection_evidence', ''),
                 request_data=finding.get('request_data', {}),
                 response_data=finding.get('response_data', {}),
-                is_exploitable=exploitation.get('is_exploitable', False),
+                is_exploitable=exploitation.get('is_exploitable', False) or impact_analysis.get('exploitable', False),
                 database_type=finding.get('database_type', 'unknown'),
-                database_version=exploitation.get('database_version', ''),
-                current_database=exploitation.get('current_database', ''),
-                current_user=exploitation.get('current_user', ''),
-                extracted_tables=exploitation.get('extracted_tables', []),
-                extracted_data=exploitation.get('extracted_data', {}),
-                severity='critical',
+                database_version=exploitation.get('database_version', '') or impact_analysis.get('extracted_info', {}).get('database_version', ''),
+                current_database=exploitation.get('current_database', '') or impact_analysis.get('extracted_info', {}).get('current_database', ''),
+                current_user=exploitation.get('current_user', '') or impact_analysis.get('extracted_info', {}).get('database_user', ''),
+                extracted_tables=exploitation.get('extracted_tables', []) or impact_analysis.get('extracted_info', {}).get('schema', {}).get('tables', []),
+                extracted_data=exploitation.get('extracted_data', {}) or impact_analysis.get('extracted_info', {}).get('sample_data', []),
+                severity=severity,
+                confidence_score=confidence_score,
+                risk_score=risk_score,
+                impact_analysis=impact_analysis,
+                proof_of_concept=impact_analysis.get('proof_of_concept', []),
             )
             vulnerabilities_count += 1
             
