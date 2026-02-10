@@ -1,126 +1,65 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 
-{% block extra_style %}
-.history-container {
-    max-width: 1000px;
-    margin: 0 auto;
-}
-.history-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 10px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-.scan-list {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.scan-item {
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-    transition: background 0.2s;
-}
-.scan-item:last-child {
-    border-bottom: none;
-}
-.scan-item:hover {
-    background: #f9f9f9;
-}
-.scan-target {
-    font-size: 18px;
-    font-weight: bold;
-    color: #667eea;
-    margin-bottom: 8px;
-}
-.scan-meta {
-    color: #666;
-    font-size: 14px;
-    margin-bottom: 10px;
-}
-.scan-stats {
-    display: flex;
-    gap: 20px;
-    margin-top: 10px;
-}
-.stat {
-    background: #f0f4ff;
-    padding: 8px 15px;
-    border-radius: 5px;
-    font-size: 13px;
-}
-.view-btn {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 8px 20px;
-    background: #667eea;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background 0.3s;
-}
-.view-btn:hover {
-    background: #5568d3;
-}
-.no-scans {
-    text-align: center;
-    padding: 40px;
-    color: #999;
-}
-.actions {
-    margin-top: 20px;
-    text-align: center;
-}
-.btn {
-    display: inline-block;
-    padding: 12px 30px;
-    background: #667eea;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background 0.3s;
-}
-.btn:hover {
-    background: #5568d3;
-}
-{% endblock %}
-
 {% block content %}
-<div class="history-container">
-    <div class="history-header">
-        <h2>📚 Scan History</h2>
-        <p>View your previous OSINT scans</p>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="/discover/" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">History</span>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+        <div class="card-body text-center">
+            <h1 class="text-3xl font-bold mb-2">📚 Scan History</h1>
+            <p class="text-primary-100">View your previous OSINT scans</p>
+        </div>
     </div>
 
-    <div class="scan-list">
-        {% if scans %}
-            {% for scan in scans %}
-            <div class="scan-item">
-                <div class="scan-target">{{ scan.target }}</div>
-                <div class="scan-meta">
-                    Scanned on {{ scan.scan_date|date:"F d, Y at H:i" }}
+    <!-- Scan List -->
+    <div class="card">
+        <div class="card-body">
+            {% if scans %}
+                <div class="space-y-4">
+                    {% for scan in scans %}
+                    <div class="p-5 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors">
+                        <div class="text-lg font-bold text-primary-600 dark:text-primary-400 mb-2">
+                            {{ scan.target }}
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            Scanned on {{ scan.scan_date|date:"F d, Y at H:i" }}
+                        </div>
+                        <div class="flex flex-wrap gap-3 mb-3">
+                            <span class="px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm font-medium">
+                                📚 {{ scan.total_urls }} URLs
+                            </span>
+                            <span class="px-4 py-2 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg text-sm font-medium">
+                                📧 {{ scan.total_emails }} Emails
+                            </span>
+                        </div>
+                        <a href="{% url 'discover:view_report' scan.id %}" class="btn btn-primary btn-sm">
+                            View Report →
+                        </a>
+                    </div>
+                    {% endfor %}
                 </div>
-                <div class="scan-stats">
-                    <span class="stat">📚 {{ scan.total_urls }} URLs</span>
-                    <span class="stat">📧 {{ scan.total_emails }} Emails</span>
+            {% else %}
+                <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <p class="text-lg">No scans found. Start your first scan!</p>
                 </div>
-                <a href="{% url 'discover:view_report' scan.id %}" class="view-btn">View Report →</a>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-scans">
-                <p>No scans found. Start your first scan!</p>
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
 
-    <div class="actions">
-        <a href="/discover/" class="btn">← New Scan</a>
+    <!-- Actions -->
+    <div class="text-center">
+        <a href="/discover/" class="btn btn-primary">← New Scan</a>
     </div>
 </div>
 {% endblock %}
