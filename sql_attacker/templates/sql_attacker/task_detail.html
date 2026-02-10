@@ -32,6 +32,8 @@
                     <span class="badge badge-success mt-1">{{ task.status|upper }}</span>
                     {% elif task.status == 'running' %}
                     <span class="badge badge-info mt-1">{{ task.status|upper }}</span>
+                    {% elif task.status == 'awaiting_confirmation' %}
+                    <span class="badge badge-warning mt-1">⏸️ AWAITING CONFIRMATION</span>
                     {% elif task.status == 'failed' %}
                     <span class="badge badge-danger mt-1">{{ task.status|upper }}</span>
                     {% else %}
@@ -64,6 +66,35 @@
             {% endif %}
         </div>
     </div>
+    
+    <!-- NEW: Awaiting Confirmation Alert -->
+    {% if task.awaiting_confirmation and task.status == 'awaiting_confirmation' %}
+    <div class="card border-orange-500 dark:border-orange-600">
+        <div class="card-header bg-orange-500 text-white">
+            <h3 class="card-title text-white">⏸️ Action Required - Parameter Confirmation</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-lg mb-4">
+                Parameter discovery has completed and found <strong>{{ task.discovered_params|length }}</strong> parameter(s).
+                The attack is paused waiting for your confirmation.
+            </p>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                You can choose to:
+            </p>
+            <ul class="list-disc list-inside mb-4 text-gray-600 dark:text-gray-400">
+                <li>Continue with automated testing of all discovered parameters</li>
+                <li>Manually select which parameters to test</li>
+            </ul>
+            <a href="{% url 'sql_attacker:confirm_parameters' task.id %}" 
+               class="btn btn-primary">
+                <svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Review & Confirm Parameters
+            </a>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Target Information -->
     <div class="card">

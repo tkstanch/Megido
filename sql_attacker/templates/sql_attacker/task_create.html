@@ -97,6 +97,19 @@
                     Discovers hidden fields, URL parameters, and JS variables.
                 </p>
                 
+                <!-- NEW: Interactive Mode -->
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="require_confirmation" 
+                           name="require_confirmation">
+                    <label class="form-checkbox-label" for="require_confirmation">
+                        🤝 Require Confirmation After Discovery (Interactive Mode)
+                    </label>
+                </div>
+                <p class="form-hint ml-6">
+                    Pause after parameter discovery and ask whether to continue with automation or manual selection.
+                    Gives you control over which parameters to test.
+                </p>
+                
                 <div class="form-checkbox">
                     <input class="form-checkbox-input" type="checkbox" id="enable_error_based" 
                            name="enable_error_based" checked>
@@ -125,7 +138,7 @@
         
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">🕵️ Stealth Configuration</h3>
+                <h3 class="card-title">🕵️ Enhanced Stealth Configuration</h3>
             </div>
             <div class="card-body space-y-4">
                 <div class="form-checkbox">
@@ -155,6 +168,40 @@
                     <label class="form-checkbox-label" for="randomize_user_agent">
                         Randomize User-Agent Headers
                     </label>
+                </div>
+                
+                <!-- NEW: Enhanced Stealth Options -->
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="randomize_headers" 
+                           name="randomize_headers" checked>
+                    <label class="form-checkbox-label" for="randomize_headers">
+                        Randomize All HTTP Headers (Referer, Accept-Language, etc.)
+                    </label>
+                </div>
+                
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="enable_jitter" 
+                           name="enable_jitter" checked>
+                    <label class="form-checkbox-label" for="enable_jitter">
+                        Enable Timing Jitter (Adds randomness to delays)
+                    </label>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="max_requests_per_minute" class="form-label">
+                            Max Requests Per Minute
+                        </label>
+                        <input type="number" class="form-input" id="max_requests_per_minute" 
+                               name="max_requests_per_minute" value="20" min="1" max="60">
+                        <p class="form-hint">Lower values are stealthier but slower</p>
+                    </div>
+                    <div>
+                        <label for="max_retries" class="form-label">Max Retry Attempts</label>
+                        <input type="number" class="form-input" id="max_retries" name="max_retries" 
+                               value="3" min="0" max="10">
+                        <p class="form-hint">Retry failed requests automatically</p>
+                    </div>
                 </div>
                 
                 <div class="form-checkbox">

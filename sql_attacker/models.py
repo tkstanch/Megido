@@ -11,6 +11,7 @@ class SQLInjectionTask(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('running', 'Running'),
+        ('awaiting_confirmation', 'Awaiting Confirmation'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
     ]
@@ -56,6 +57,24 @@ class SQLInjectionTask(models.Model):
                                                help_text="Use randomized User-Agent headers")
     use_payload_obfuscation = models.BooleanField(default=False,
                                                    help_text="Obfuscate payloads to evade WAF")
+    
+    # Enhanced stealth configuration (NEW)
+    max_requests_per_minute = models.IntegerField(default=20,
+                                                   help_text="Maximum requests per minute (rate limiting)")
+    enable_jitter = models.BooleanField(default=True,
+                                       help_text="Add random jitter to timing delays")
+    randomize_headers = models.BooleanField(default=True,
+                                           help_text="Randomize HTTP headers (Referer, Accept-Language, etc.)")
+    max_retries = models.IntegerField(default=3,
+                                     help_text="Maximum retry attempts for failed requests")
+    
+    # Interactive mode configuration (NEW)
+    require_confirmation = models.BooleanField(default=False,
+                                              help_text="Require manual confirmation after parameter discovery")
+    awaiting_confirmation = models.BooleanField(default=False,
+                                               help_text="Task is waiting for confirmation to proceed")
+    selected_params = models.JSONField(blank=True, null=True,
+                                      help_text="Manually selected parameters to test")
     
     # Status and tracking
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', 

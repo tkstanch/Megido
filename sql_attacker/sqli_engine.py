@@ -9,6 +9,7 @@ Enhanced with:
 - False positive reduction
 - Impact demonstration
 - Automated exploitation
+- Enhanced stealth features
 """
 
 import requests
@@ -24,6 +25,7 @@ import logging
 from .advanced_payloads import AdvancedPayloadLibrary
 from .false_positive_filter import FalsePositiveFilter
 from .impact_demonstrator import ImpactDemonstrator
+from .stealth_engine import StealthEngine
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -153,6 +155,11 @@ class SQLInjectionEngine:
                 - enable_advanced_payloads: bool (default: True)
                 - enable_false_positive_reduction: bool (default: True)
                 - enable_impact_demonstration: bool (default: True)
+                - enable_stealth: bool (default: True)
+                - max_requests_per_minute: int (default: 20)
+                - enable_jitter: bool (default: True)
+                - randomize_headers: bool (default: True)
+                - max_retries: int (default: 3)
         """
         self.config = config
         self.session = requests.Session()
@@ -163,6 +170,9 @@ class SQLInjectionEngine:
         self.impact_demo = ImpactDemonstrator(self)
         self.advanced_payloads = AdvancedPayloadLibrary()
         
+        # Initialize stealth engine (NEW)
+        self.stealth = StealthEngine(config) if config.get('enable_stealth', True) else None
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
@@ -172,18 +182,33 @@ class SQLInjectionEngine:
         """Get request headers with optional randomization."""
         headers = custom_headers.copy() if custom_headers else {}
         
-        if self.config.get('randomize_user_agent', True):
+        # Use stealth engine for header randomization if available
+        if self.stealth:
+            headers = self.stealth.get_randomized_headers(headers)
+        elif self.config.get('randomize_user_agent', True):
             headers['User-Agent'] = random.choice(self.USER_AGENTS)
         
         return headers
     
     def _apply_delay(self):
-        """Apply random delay if configured."""
+        """Apply random delay if configured, with stealth enhancements."""
+        # Use stealth engine for rate limiting and jitter
+        if self.stealth:
+            self.stealth.apply_rate_limiting()
+        
+        # Apply traditional random delays if configured
         if self.config.get('use_random_delays', False):
-            delay = random.uniform(
+            base_delay = random.uniform(
                 self.config.get('min_delay', 0.5),
                 self.config.get('max_delay', 2.0)
             )
+            
+            # Apply jitter if stealth engine is available
+            if self.stealth:
+                delay = self.stealth.get_timing_with_jitter(base_delay)
+            else:
+                delay = base_delay
+            
             time.sleep(delay)
     
     def _obfuscate_payload(self, payload: str) -> str:
@@ -215,53 +240,80 @@ class SQLInjectionEngine:
                      headers: Optional[Dict] = None,
                      timeout: int = 30) -> Optional[requests.Response]:
         """
-        Make HTTP request with error handling.
+        Make HTTP request with error handling and retry logic.
         """
-        try:
-            self._apply_delay()
-            request_headers = self._get_headers(headers)
-            
-            verify_ssl = self.config.get('verify_ssl', False)
-            
-            if method.upper() == 'GET':
-                response = self.session.get(
-                    url,
-                    params=params,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            elif method.upper() == 'POST':
-                response = self.session.post(
-                    url,
-                    params=params,
-                    data=data,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            else:
-                # Support other HTTP methods
-                response = self.session.request(
-                    method,
-                    url,
-                    params=params,
-                    data=data,
-                    cookies=cookies,
-                    headers=request_headers,
-                    timeout=timeout,
-                    verify=verify_ssl,
-                    allow_redirects=True
-                )
-            
-            return response
-        except Exception as e:
-            logger.error(f"Request error: {e}")
-            return None
+        # Merge cookies with session cookies if stealth engine is available
+        if self.stealth:
+            merged_cookies = self.stealth.get_session_cookies()
+            if cookies:
+                merged_cookies.update(cookies)
+            cookies = merged_cookies
+        
+        attempt = 0
+        last_exception = None
+        
+        while attempt <= (self.stealth.max_retries if self.stealth else 0):
+            try:
+                self._apply_delay()
+                request_headers = self._get_headers(headers)
+                
+                verify_ssl = self.config.get('verify_ssl', False)
+                
+                if method.upper() == 'GET':
+                    response = self.session.get(
+                        url,
+                        params=params,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                elif method.upper() == 'POST':
+                    response = self.session.post(
+                        url,
+                        params=params,
+                        data=data,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                else:
+                    # Support other HTTP methods
+                    response = self.session.request(
+                        method,
+                        url,
+                        params=params,
+                        data=data,
+                        cookies=cookies,
+                        headers=request_headers,
+                        timeout=timeout,
+                        verify=verify_ssl,
+                        allow_redirects=True
+                    )
+                
+                # Update session cookies if stealth engine is available
+                if self.stealth:
+                    self.stealth.update_session_cookies(response)
+                
+                return response
+                
+            except Exception as e:
+                last_exception = e
+                logger.error(f"Request error (attempt {attempt + 1}): {e}")
+                
+                # Check if should retry
+                if self.stealth and self.stealth.should_retry(attempt, None, e):
+                    retry_delay = self.stealth.get_retry_delay(attempt)
+                    logger.info(f"Retrying after {retry_delay:.2f}s...")
+                    time.sleep(retry_delay)
+                    attempt += 1
+                else:
+                    break
+        
+        return None
     
     def _check_sql_errors(self, response: requests.Response) -> Optional[str]:
         """
