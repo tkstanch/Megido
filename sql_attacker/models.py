@@ -77,7 +77,7 @@ class SQLInjectionTask(models.Model):
                                       help_text="Manually selected parameters to test")
     
     # Status and tracking
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', 
+    status = models.CharField(max_length=21, choices=STATUS_CHOICES, default='pending', 
                              db_index=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     started_at = models.DateTimeField(blank=True, null=True)
