@@ -388,3 +388,16 @@ def scan_discovered_urls(urls: List[str], max_urls: int = 50) -> Dict[str, Any]:
         'all_findings': all_findings,
         'scan_results': scan_results
     }
+
+
+# Enhanced scanner components are available via sensitive_scanner_enhanced module
+# Import enhanced functionality for access to advanced features:
+# from discover.sensitive_scanner_enhanced import (
+#     EnhancedSensitiveInfoScanner,
+#     PatternProvider,
+#     ExternalPatternProvider,
+#     HeuristicScanner,
+#     MLIntegrationTemplate,
+#     ContextAnalyzer,
+#     scan_discovered_urls_enhanced
+# )

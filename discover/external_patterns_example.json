@@ -1,0 +1,16 @@
+{
+  "patterns": {
+    "Custom API Key v1": "custom_key_[0-9a-f]{32}",
+    "Organization Token": "org_token_[A-Za-z0-9]{40}",
+    "Service Account Key": "service_[0-9]{10}_[a-f0-9]{64}",
+    "Internal Secret": "internal_secret_[A-Za-z0-9_-]{24}",
+    "Database Password": "db_pass_[A-Za-z0-9!@#$%]{16,32}"
+  },
+  "severity": {
+    "Custom API Key v1": "high",
+    "Organization Token": "critical",
+    "Service Account Key": "critical",
+    "Internal Secret": "high",
+    "Database Password": "critical"
+  }
+}
