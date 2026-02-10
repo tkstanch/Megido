@@ -1,0 +1,15 @@
+{
+  "plugin": {
+    "name": "Advanced Clickjacking Exploit",
+    "version": "1.0.0",
+    "type": "clickjacking"
+  },
+  "target": "http://example.com",
+  "test_result": {
+    "success": true,
+    "vulnerable": true,
+    "severity": "medium",
+    "evidence": "No X-Frame-Options header present; No CSP frame-ancestors directive present; Browser test confirmed page is frameable"
+  },
+  "payloads_generated": 6
+}
