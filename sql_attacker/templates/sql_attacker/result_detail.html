@@ -4,80 +4,84 @@
 {% block title %}Result #{{ result.id }} - SQL Injection Finding{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>SQL Injection Finding #{{ result.id }}</h1>
-        <div>
-            <a href="{% url 'sql_attacker:task_detail' result.task.id %}" class="btn btn-secondary">
-                Back to Task
-            </a>
-        </div>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Finding #{{ result.id }}</span>
+    </nav>
+
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">SQL Injection Finding #{{ result.id }}</h1>
+        <a href="{% url 'sql_attacker:task_detail' result.task.id %}" class="btn btn-secondary">
+            ← Back to Task
+        </a>
     </div>
     
     <!-- Vulnerability Summary -->
-    <div class="card mb-4 border-danger">
-        <div class="card-header bg-danger text-white">
-            <h5>Vulnerability Summary</h5>
+    <div class="card border-red-500 dark:border-red-600">
+        <div class="card-header bg-red-500 text-white">
+            <h3 class="card-title text-white">⚠️ Vulnerability Summary</h3>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <strong>Injection Type:</strong> 
-                    <span class="badge badge-danger badge-lg">{{ result.get_injection_type_display }}</span>
+        <div class="card-body space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Injection Type:</strong>
+                    <span class="badge badge-danger ml-2">{{ result.get_injection_type_display }}</span>
                 </div>
-                <div class="col-md-6">
-                    <strong>Severity:</strong> 
-                    <span class="badge badge-danger badge-lg">{{ result.severity|upper }}</span>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <strong>Vulnerable Parameter:</strong> <code>{{ result.vulnerable_parameter }}</code>
-                </div>
-                <div class="col-md-6">
-                    <strong>Parameter Type:</strong> 
-                    <span class="badge badge-info">{{ result.parameter_type }}</span>
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Severity:</strong>
+                    <span class="badge badge-danger ml-2">{{ result.severity|upper }}</span>
                 </div>
             </div>
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <strong>Database Type:</strong> {{ result.database_type|title }}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Vulnerable Parameter:</strong>
+                    <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">{{ result.vulnerable_parameter }}</code>
                 </div>
-                <div class="col-md-6">
-                    <strong>Exploitable:</strong>
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Parameter Type:</strong>
+                    <span class="badge badge-info ml-2">{{ result.parameter_type }}</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Database Type:</strong>
+                    <span class="text-gray-900 dark:text-white ml-2">{{ result.database_type|title }}</span>
+                </div>
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Exploitable:</strong>
                     {% if result.is_exploitable %}
-                    <span class="badge badge-danger">Yes</span>
+                    <span class="badge badge-danger ml-2">Yes</span>
                     {% else %}
-                    <span class="badge badge-secondary">No</span>
+                    <span class="badge badge-secondary ml-2">No</span>
                     {% endif %}
                 </div>
             </div>
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>Detected:</strong> {{ result.detected_at|date:"Y-m-d H:i:s" }}
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Detected:</strong>
+                <span class="text-gray-900 dark:text-white ml-2">{{ result.detected_at|date:"Y-m-d H:i:s" }}</span>
             </div>
         </div>
     </div>
     
     <!-- Detection Details -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Detection Details</h5>
+            <h3 class="card-title">🔍 Detection Details</h3>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-12">
-                    <strong>Test Payload:</strong>
-                    <pre><code>{{ result.test_payload }}</code></pre>
-                </div>
+        <div class="card-body space-y-4">
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Test Payload:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-2 overflow-x-auto"><code>{{ result.test_payload }}</code></pre>
             </div>
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <strong>Detection Evidence:</strong>
-                    <div class="alert alert-warning">
-                        {{ result.detection_evidence }}
-                    </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Detection Evidence:</strong>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg mt-2">
+                    {{ result.detection_evidence }}
                 </div>
             </div>
         </div>
@@ -85,57 +89,47 @@
     
     <!-- Exploitation Results -->
     {% if result.is_exploitable %}
-    <div class="card mb-4 border-danger">
-        <div class="card-header bg-danger text-white">
-            <h5>Exploitation Results</h5>
+    <div class="card border-red-500 dark:border-red-600">
+        <div class="card-header bg-red-500 text-white">
+            <h3 class="card-title text-white">💣 Exploitation Results</h3>
         </div>
-        <div class="card-body">
+        <div class="card-body space-y-4">
             {% if result.database_version %}
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <strong>Database Version:</strong> 
-                    <code>{{ result.database_version }}</code>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Database Version:</strong>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">{{ result.database_version }}</code>
             </div>
             {% endif %}
             
             {% if result.current_database %}
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <strong>Current Database:</strong> 
-                    <code>{{ result.current_database }}</code>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Current Database:</strong>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">{{ result.current_database }}</code>
             </div>
             {% endif %}
             
             {% if result.current_user %}
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <strong>Current User:</strong> 
-                    <code>{{ result.current_user }}</code>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Current User:</strong>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">{{ result.current_user }}</code>
             </div>
             {% endif %}
             
             {% if result.extracted_tables %}
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <strong>Extracted Tables:</strong>
-                    <ul>
-                        {% for table in result.extracted_tables %}
-                        <li><code>{{ table }}</code></li>
-                        {% endfor %}
-                    </ul>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Extracted Tables:</strong>
+                <ul class="list-disc list-inside mt-2 text-gray-700 dark:text-gray-300">
+                    {% for table in result.extracted_tables %}
+                    <li><code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{{ table }}</code></li>
+                    {% endfor %}
+                </ul>
             </div>
             {% endif %}
             
             {% if result.extracted_data %}
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <strong>Extracted Data:</strong>
-                    <pre><code>{{ result.extracted_data|safe }}</code></pre>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Extracted Data:</strong>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-2 overflow-x-auto"><code>{{ result.extracted_data|safe }}</code></pre>
             </div>
             {% endif %}
         </div>
@@ -143,58 +137,53 @@
     {% endif %}
     
     <!-- Request Details -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Request Details</h5>
+            <h3 class="card-title">📤 Request Details</h3>
         </div>
         <div class="card-body">
             {% if result.request_data %}
-            <pre><code>{{ result.request_data|safe }}</code></pre>
+            <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto"><code>{{ result.request_data|safe }}</code></pre>
             {% else %}
-            <p class="text-muted">No request data available</p>
+            <p class="text-gray-600 dark:text-gray-400">No request data available</p>
             {% endif %}
         </div>
     </div>
     
     <!-- Response Details -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Response Details</h5>
+            <h3 class="card-title">📥 Response Details</h3>
         </div>
         <div class="card-body">
             {% if result.response_data %}
-            <pre><code>{{ result.response_data|safe }}</code></pre>
+            <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto"><code>{{ result.response_data|safe }}</code></pre>
             {% else %}
-            <p class="text-muted">No response data available</p>
+            <p class="text-gray-600 dark:text-gray-400">No response data available</p>
             {% endif %}
         </div>
     </div>
     
     <!-- Related Task Info -->
-    <div class="card mb-4">
+    <div class="card">
         <div class="card-header">
-            <h5>Related Task</h5>
+            <h3 class="card-title">🔗 Related Task</h3>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-12">
-                    <strong>Task ID:</strong> 
-                    <a href="{% url 'sql_attacker:task_detail' result.task.id %}">
-                        Task #{{ result.task.id }}
-                    </a>
-                </div>
+        <div class="card-body space-y-3">
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Task ID:</strong>
+                <a href="{% url 'sql_attacker:task_detail' result.task.id %}" 
+                   class="text-primary-600 dark:text-primary-400 hover:underline ml-2">
+                    Task #{{ result.task.id }}
+                </a>
             </div>
-            <div class="row mt-2">
-                <div class="col-md-12">
-                    <strong>Target URL:</strong> 
-                    <code>{{ result.task.target_url }}</code>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">Target URL:</strong>
+                <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">{{ result.task.target_url }}</code>
             </div>
-            <div class="row mt-2">
-                <div class="col-md-12">
-                    <strong>HTTP Method:</strong> 
-                    <span class="badge badge-info">{{ result.task.http_method }}</span>
-                </div>
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300">HTTP Method:</strong>
+                <span class="badge badge-info ml-2">{{ result.task.http_method }}</span>
             </div>
         </div>
     </div>

@@ -4,167 +4,174 @@
 {% block title %}Create SQL Injection Attack Task{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Create SQL Injection Attack Task</h1>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Create Task</span>
+    </nav>
+
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Create SQL Injection Attack Task</h1>
     
     {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg">
+        {{ error }}
+    </div>
     {% endif %}
     
-    <form method="post">
+    <form method="post" class="space-y-6">
         {% csrf_token %}
         
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <h5>Target Information</h5>
+                <h3 class="card-title">🎯 Target Information</h3>
             </div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label for="target_url">Target URL *</label>
-                    <input type="url" class="form-control" id="target_url" name="target_url" required
+            <div class="card-body space-y-4">
+                <div>
+                    <label for="target_url" class="form-label">Target URL *</label>
+                    <input type="url" class="form-input" id="target_url" name="target_url" required
                            placeholder="https://example.com/page?id=1">
-                    <small class="form-text text-muted">The URL to test for SQL injection vulnerabilities</small>
+                    <p class="form-hint">The URL to test for SQL injection vulnerabilities</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="http_method">HTTP Method *</label>
-                    <select class="form-control" id="http_method" name="http_method">
+                <div>
+                    <label for="http_method" class="form-label">HTTP Method *</label>
+                    <select class="form-select" id="http_method" name="http_method">
                         {% for value, label in method_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label for="get_params">GET Parameters (JSON)</label>
-                    <textarea class="form-control" id="get_params" name="get_params" rows="3"
+                <div>
+                    <label for="get_params" class="form-label">GET Parameters (JSON)</label>
+                    <textarea class="form-textarea" id="get_params" name="get_params" rows="3"
                               placeholder='{"id": "1", "page": "home"}'></textarea>
-                    <small class="form-text text-muted">JSON object of GET parameters</small>
+                    <p class="form-hint">JSON object of GET parameters</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="post_params">POST Parameters (JSON)</label>
-                    <textarea class="form-control" id="post_params" name="post_params" rows="3"
+                <div>
+                    <label for="post_params" class="form-label">POST Parameters (JSON)</label>
+                    <textarea class="form-textarea" id="post_params" name="post_params" rows="3"
                               placeholder='{"username": "admin", "password": "pass"}'></textarea>
-                    <small class="form-text text-muted">JSON object of POST parameters</small>
+                    <p class="form-hint">JSON object of POST parameters</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="cookies">Cookies (JSON)</label>
-                    <textarea class="form-control" id="cookies" name="cookies" rows="2"
+                <div>
+                    <label for="cookies" class="form-label">Cookies (JSON)</label>
+                    <textarea class="form-textarea" id="cookies" name="cookies" rows="2"
                               placeholder='{"session": "abc123"}'></textarea>
-                    <small class="form-text text-muted">JSON object of cookies</small>
+                    <p class="form-hint">JSON object of cookies</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="headers">Custom Headers (JSON)</label>
-                    <textarea class="form-control" id="headers" name="headers" rows="2"
+                <div>
+                    <label for="headers" class="form-label">Custom Headers (JSON)</label>
+                    <textarea class="form-textarea" id="headers" name="headers" rows="2"
                               placeholder='{"Authorization": "Bearer token"}'></textarea>
-                    <small class="form-text text-muted">JSON object of custom headers</small>
+                    <p class="form-hint">JSON object of custom headers</p>
                 </div>
             </div>
         </div>
         
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <h5>Attack Configuration</h5>
+                <h3 class="card-title">⚔️ Attack Configuration</h3>
             </div>
-            <div class="card-body">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="enable_error_based" 
+            <div class="card-body space-y-3">
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="enable_error_based" 
                            name="enable_error_based" checked>
-                    <label class="form-check-label" for="enable_error_based">
+                    <label class="form-checkbox-label" for="enable_error_based">
                         Enable Error-Based SQL Injection Detection
                     </label>
                 </div>
                 
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="enable_time_based" 
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="enable_time_based" 
                            name="enable_time_based" checked>
-                    <label class="form-check-label" for="enable_time_based">
+                    <label class="form-checkbox-label" for="enable_time_based">
                         Enable Time-Based (Blind) SQL Injection Detection
                     </label>
                 </div>
                 
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="enable_exploitation" 
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="enable_exploitation" 
                            name="enable_exploitation" checked>
-                    <label class="form-check-label" for="enable_exploitation">
+                    <label class="form-checkbox-label" for="enable_exploitation">
                         Enable Exploitation (Extract Database Information)
                     </label>
                 </div>
             </div>
         </div>
         
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <h5>Stealth Configuration</h5>
+                <h3 class="card-title">🕵️ Stealth Configuration</h3>
             </div>
-            <div class="card-body">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="use_random_delays" 
+            <div class="card-body space-y-4">
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="use_random_delays" 
                            name="use_random_delays">
-                    <label class="form-check-label" for="use_random_delays">
+                    <label class="form-checkbox-label" for="use_random_delays">
                         Use Random Delays Between Requests
                     </label>
                 </div>
                 
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="min_delay">Minimum Delay (seconds)</label>
-                            <input type="number" class="form-control" id="min_delay" name="min_delay" 
-                                   value="0.5" min="0" step="0.1">
-                        </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="min_delay" class="form-label">Minimum Delay (seconds)</label>
+                        <input type="number" class="form-input" id="min_delay" name="min_delay" 
+                               value="0.5" min="0" step="0.1">
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="max_delay">Maximum Delay (seconds)</label>
-                            <input type="number" class="form-control" id="max_delay" name="max_delay" 
-                                   value="2.0" min="0" step="0.1">
-                        </div>
+                    <div>
+                        <label for="max_delay" class="form-label">Maximum Delay (seconds)</label>
+                        <input type="number" class="form-input" id="max_delay" name="max_delay" 
+                               value="2.0" min="0" step="0.1">
                     </div>
                 </div>
                 
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="randomize_user_agent" 
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="randomize_user_agent" 
                            name="randomize_user_agent" checked>
-                    <label class="form-check-label" for="randomize_user_agent">
+                    <label class="form-checkbox-label" for="randomize_user_agent">
                         Randomize User-Agent Headers
                     </label>
                 </div>
                 
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="use_payload_obfuscation" 
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="use_payload_obfuscation" 
                            name="use_payload_obfuscation">
-                    <label class="form-check-label" for="use_payload_obfuscation">
+                    <label class="form-checkbox-label" for="use_payload_obfuscation">
                         Use Payload Obfuscation (WAF Evasion)
                     </label>
                 </div>
             </div>
         </div>
         
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <h5>Execution</h5>
+                <h3 class="card-title">▶️ Execution</h3>
             </div>
             <div class="card-body">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="execute_now" 
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="execute_now" 
                            name="execute_now" checked>
-                    <label class="form-check-label" for="execute_now">
+                    <label class="form-checkbox-label" for="execute_now">
                         Execute Task Immediately
                     </label>
-                    <small class="form-text text-muted">
-                        If unchecked, task will be created but not executed
-                    </small>
                 </div>
+                <p class="form-hint mt-2">
+                    If unchecked, task will be created but not executed
+                </p>
             </div>
         </div>
         
-        <div class="mb-4">
-            <button type="submit" class="btn btn-primary btn-lg">Create Task</button>
-            <a href="{% url 'sql_attacker:dashboard' %}" class="btn btn-secondary btn-lg">Cancel</a>
+        <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary">✓ Create Task</button>
+            <a href="{% url 'sql_attacker:dashboard' %}" class="btn btn-secondary">✗ Cancel</a>
         </div>
     </form>
 </div>
