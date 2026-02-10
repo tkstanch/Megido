@@ -85,6 +85,36 @@
                     <span class="text-gray-900 dark:text-white ml-2">{{ result.detected_at|date:"Y-m-d H:i:s" }}</span>
                 </div>
             </div>
+            
+            <!-- NEW: Advanced Detection Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Confidence Score:</strong>
+                    <div class="flex items-center ml-2 mt-1">
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                            <div class="bg-blue-600 h-4 rounded-full" style="width: {{ result.confidence_score|floatformat:0|default:'70' }}%"></div>
+                        </div>
+                        <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-white">{{ result.confidence_score|floatformat:2|default:'0.70' }}</span>
+                    </div>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Detection accuracy and certainty level</p>
+                </div>
+                <div>
+                    <strong class="text-gray-700 dark:text-gray-300">Risk Score:</strong>
+                    <div class="flex items-center ml-2 mt-1">
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                            {% if result.risk_score >= 75 %}
+                            <div class="bg-red-600 h-4 rounded-full" style="width: {{ result.risk_score|default:'50' }}%"></div>
+                            {% elif result.risk_score >= 50 %}
+                            <div class="bg-orange-500 h-4 rounded-full" style="width: {{ result.risk_score|default:'50' }}%"></div>
+                            {% else %}
+                            <div class="bg-yellow-500 h-4 rounded-full" style="width: {{ result.risk_score|default:'50' }}%"></div>
+                            {% endif %}
+                        </div>
+                        <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-white">{{ result.risk_score|default:'50' }}/100</span>
+                    </div>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Overall risk based on exploitability and impact</p>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -152,6 +182,140 @@
                 <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mt-2 overflow-x-auto"><code>{{ result.extracted_data|safe }}</code></pre>
             </div>
             {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- NEW: Impact Analysis -->
+    {% if result.impact_analysis %}
+    <div class="card border-purple-500 dark:border-purple-600">
+        <div class="card-header bg-purple-500 text-white">
+            <h3 class="card-title text-white">📊 Impact Analysis</h3>
+        </div>
+        <div class="card-body space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                        {{ result.impact_analysis.risk_score|default:'50' }}
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Risk Score</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {{ result.impact_analysis.confidence|floatformat:0|default:'70' }}%
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Confidence</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold 
+                        {% if result.impact_analysis.severity == 'critical' %}text-red-600 dark:text-red-400
+                        {% elif result.impact_analysis.severity == 'high' %}text-orange-600 dark:text-orange-400
+                        {% elif result.impact_analysis.severity == 'medium' %}text-yellow-600 dark:text-yellow-400
+                        {% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                        {{ result.impact_analysis.severity|upper|default:'MEDIUM' }}
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Severity</div>
+                </div>
+            </div>
+            
+            {% if result.impact_analysis.extracted_info %}
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <strong class="text-gray-700 dark:text-gray-300">Extracted Information:</strong>
+                
+                {% if result.impact_analysis.extracted_info.database_version %}
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Version:</span>
+                    <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">
+                        {{ result.impact_analysis.extracted_info.database_version|truncatechars:100 }}
+                    </code>
+                </div>
+                {% endif %}
+                
+                {% if result.impact_analysis.extracted_info.database_user %}
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">User:</span>
+                    <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">
+                        {{ result.impact_analysis.extracted_info.database_user }}
+                    </code>
+                </div>
+                {% endif %}
+                
+                {% if result.impact_analysis.extracted_info.current_database %}
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Database:</span>
+                    <code class="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded ml-2">
+                        {{ result.impact_analysis.extracted_info.current_database }}
+                    </code>
+                </div>
+                {% endif %}
+                
+                {% if result.impact_analysis.extracted_info.schema.tables %}
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Tables Found:</span>
+                    <span class="badge badge-info ml-2">{{ result.impact_analysis.extracted_info.schema.tables|length }}</span>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {% for table in result.impact_analysis.extracted_info.schema.tables|slice:":10" %}
+                        <code class="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">{{ table }}</code>
+                        {% endfor %}
+                        {% if result.impact_analysis.extracted_info.schema.tables|length > 10 %}
+                        <span class="text-xs text-gray-600 dark:text-gray-400">
+                            +{{ result.impact_analysis.extracted_info.schema.tables|length|add:"-10" }} more
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if result.impact_analysis.extracted_info.sample_data %}
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Sample Data Extracted:</span>
+                    <span class="badge badge-warning ml-2">{{ result.impact_analysis.extracted_info.sample_data|length }} table(s)</span>
+                    {% for data_item in result.impact_analysis.extracted_info.sample_data|slice:":3" %}
+                    <div class="mt-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded">
+                        <strong class="text-yellow-800 dark:text-yellow-200">Table: {{ data_item.table }}</strong>
+                        <div class="text-xs text-gray-700 dark:text-gray-300 mt-1">
+                            {% for row in data_item.rows|slice:":3" %}
+                            <code class="block bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded mt-1">{{ row }}</code>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if result.impact_analysis.recommendations %}
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <strong class="text-gray-700 dark:text-gray-300">Security Recommendations:</strong>
+                <ul class="list-disc list-inside mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                    {% for recommendation in result.impact_analysis.recommendations|slice:":5" %}
+                    <li>{{ recommendation }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- NEW: Proof of Concept -->
+    {% if result.proof_of_concept %}
+    <div class="card border-blue-500 dark:border-blue-600">
+        <div class="card-header bg-blue-500 text-white">
+            <h3 class="card-title text-white">🔬 Proof of Concept</h3>
+        </div>
+        <div class="card-body">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded">
+                <p class="text-sm text-blue-900 dark:text-blue-100 mb-3">
+                    This section demonstrates the actual exploitability of the vulnerability with concrete examples.
+                </p>
+                <div class="space-y-2">
+                    {% for poc_line in result.proof_of_concept %}
+                    <div class="text-sm font-mono bg-gray-900 text-green-400 p-2 rounded">{{ poc_line }}</div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}
