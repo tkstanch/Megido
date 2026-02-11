@@ -84,3 +84,4 @@ static/css/tailwind.output.css
 .vuln_scan_state.pkl
 .vuln_scan_allowlist.json
 scan_results/
+=*
