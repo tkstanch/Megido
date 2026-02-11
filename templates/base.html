@@ -40,35 +40,35 @@
 <body class="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 bg-pattern-dots particles-enabled">
     <div class="flex h-full texture-noise">
         <!-- Sidebar Navigation - Enhanced with glassmorphism -->
-        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 glass-strong border-r border-gray-200/50 dark:border-gray-700/50 transform -translate-x-full lg:translate-x-0 transition-all duration-300 ease-in-out overflow-y-auto scrollbar-thin shadow-premium">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 xl:w-72 glass-strong border-r border-gray-200/50 dark:border-gray-700/50 transform -translate-x-full lg:translate-x-0 transition-all duration-300 ease-in-out overflow-y-auto scrollbar-thin shadow-premium" aria-label="Main navigation" role="navigation">
             <!-- Sidebar Header with gradient -->
-            <div class="sticky top-0 z-10 flex items-center gap-3 px-4 py-6 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-primary-500 to-secondary-500 backdrop-blur-xl">
-                <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm shadow-lg">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="sticky top-0 z-10 flex items-center gap-3 px-4 py-5 lg:py-6 border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-primary-500 to-secondary-500 backdrop-blur-xl">
+                <div class="flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-white/20 backdrop-blur-sm shadow-lg">
+                    <svg class="icon-responsive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-white">Megido Security</h1>
-                    <p class="text-xs text-white/80">Penetration Testing</p>
+                    <h1 class="text-base lg:text-lg font-bold text-white">Megido Security</h1>
+                    <p class="text-xs lg:text-sm text-white/80">Penetration Testing</p>
                 </div>
             </div>
             
             <!-- Sidebar Navigation with enhanced styling -->
-            <nav class="py-6 space-y-6 px-3" aria-label="Main navigation">
+            <nav class="py-4 lg:py-6 space-y-4 lg:space-y-6 px-3" aria-label="Main navigation">
                 <!-- Core Tools Section -->
                 <div>
-                    <div class="px-3 mb-3">
-                        <h2 class="text-2xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Core Tools</h2>
+                    <div class="px-3 mb-2 lg:mb-3">
+                        <h2 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Core Tools</h2>
                     </div>
                     <div class="space-y-1">
-                        <a href="/" class="group flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 {% if request.path == '/' %}bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30{% else %}text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md{% endif %}" aria-label="Dashboard">
-                            <svg class="w-5 h-5 {% if request.path == '/' %}{% else %}group-hover:scale-110 transition-transform{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <a href="/" class="group flex items-center gap-2 lg:gap-3 px-3 py-3 lg:py-3 text-sm lg:text-sm font-medium rounded-xl transition-all duration-200 touch-target {% if request.path == '/' %}bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30{% else %}text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md{% endif %}" aria-label="Dashboard">
+                            <svg class="w-5 h-5 flex-shrink-0 {% if request.path == '/' %}{% else %}group-hover:scale-110 transition-transform{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                                 <polyline points="9 22 9 12 15 12 15 22"></polyline>
                             </svg>
-                            <span>Dashboard</span>
-                            {% if request.path == '/' %}<span class="ml-auto w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>{% endif %}
+                            <span class="truncate">Dashboard</span>
+                            {% if request.path == '/' %}<span class="ml-auto w-1.5 h-1.5 bg-white rounded-full animate-pulse flex-shrink-0"></span>{% endif %}
                         </a>
                         <a href="/scanner/" class="group flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 {% if '/scanner/' in request.path %}bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30{% else %}text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md{% endif %}" aria-label="Scanner">
                             <svg class="w-5 h-5 {% if '/scanner/' in request.path %}{% else %}group-hover:scale-110 transition-transform{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,13 +263,13 @@
         </aside>
         
         <!-- Main Content Area -->
-        <main class="flex-1 lg:ml-64 flex flex-col min-h-screen">
+        <main class="flex-1 lg:ml-64 xl:ml-72 flex flex-col min-h-screen">
             <!-- Topbar Header - Enhanced with glassmorphism -->
             <header class="sticky top-0 z-40 glass-strong border-b border-gray-200/50 dark:border-gray-700/50 shadow-card backdrop-blur-xl">
-                <div class="flex items-center justify-between px-4 lg:px-8 py-4">
-                    <div class="flex items-center gap-4">
+                <div class="flex items-center justify-between px-4 md:px-6 lg:px-8 py-3 lg:py-4">
+                    <div class="flex items-center gap-3 lg:gap-4">
                         <!-- Mobile Menu Button - Enhanced -->
-                        <button id="menu-toggle" type="button" class="lg:hidden p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" aria-label="Toggle navigation menu">
+                        <button id="menu-toggle" type="button" class="lg:hidden p-2.5 touch-target text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" aria-label="Toggle navigation menu" aria-expanded="false">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
@@ -277,22 +277,23 @@
                         
                         <!-- Breadcrumb - Enhanced -->
                         <nav class="flex items-center" aria-label="Breadcrumb">
-                            <ol class="flex items-center space-x-2 text-sm">
+                            <ol class="flex items-center space-x-2 text-xs lg:text-sm">
                                 {% block breadcrumb %}
-                                <li class="flex items-center gap-2 text-gray-600 dark:text-gray-400 font-medium">
-                                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <li class="flex items-center gap-1.5 lg:gap-2 text-gray-600 dark:text-gray-400 font-medium">
+                                    <svg class="w-4 h-4 flex-shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                                     </svg>
-                                    <span>Megido Security</span>
+                                    <span class="hidden sm:inline">Megido Security</span>
+                                    <span class="sm:hidden">Megido</span>
                                 </li>
                                 {% endblock %}
                             </ol>
                         </nav>
                     </div>
                     
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 lg:gap-2">
                         <!-- Dark Mode Toggle - Enhanced with animation -->
-                        <button id="theme-toggle" type="button" class="relative p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group" aria-label="Toggle dark mode">
+                        <button id="theme-toggle" type="button" class="relative p-2.5 touch-target text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group" aria-label="Toggle dark mode">
                             <svg id="theme-icon-light" class="w-5 h-5 hidden dark:block transform group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="5"></circle>
                                 <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -311,7 +312,7 @@
                         
                         <!-- User Menu (if authenticated) - Enhanced -->
                         {% if user.is_authenticated %}
-                        <button type="button" class="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" title="Account" aria-label="Account settings">
+                        <button type="button" class="p-2.5 touch-target text-gray-600 dark:text-gray-400 hover:bg-gradient-to-br hover:from-primary-50 hover:to-primary-100 dark:hover:from-gray-700 dark:hover:to-gray-800 rounded-xl transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" title="Account" aria-label="Account settings">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="12" cy="7" r="4"></circle>
@@ -322,8 +323,8 @@
                 </div>
             </header>
             
-            <!-- Page Content - Enhanced with better padding and animations -->
-            <div class="flex-1 p-4 lg:p-8 animate-fade-in">
+            <!-- Page Content - Enhanced with better responsive padding and animations -->
+            <div class="flex-1 padding-responsive animate-fade-in container-responsive">
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -332,6 +333,7 @@
     <!-- Core JavaScript -->
     <script src="/static/megido-error-handler.js"></script>
     <script src="/static/js/megido-utils.js"></script>
+    <script src="/static/js/megido-responsive.js"></script>
     <script src="/static/js/megido-toast.js"></script>
     <script src="/static/js/megido-extreme-ui.js"></script>
     <script src="/static/js/megido-particles.js"></script>
