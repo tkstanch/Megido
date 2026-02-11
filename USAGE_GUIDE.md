@@ -117,7 +117,14 @@ The Repeater lets you craft and send custom HTTP requests.
 
 ### 4. Vulnerability Scanner
 
-The Scanner automatically checks for common security vulnerabilities.
+The Scanner now uses a **modern plugin-based architecture** for vulnerability detection.
+
+**New in Phase 1:**
+- ✨ **Modular Plugin System**: Extensible architecture for adding new vulnerability checks
+- 🔌 **Auto-Discovery**: Plugins are automatically detected and loaded
+- 🏗️ **Separation of Concerns**: Detection plugins separate from exploitation plugins
+- 📊 **Consistent Reporting**: Standardized vulnerability findings format
+- 🚀 **Future-Ready**: Scaffolded for async scanning with Celery/asyncio
 
 **How to use:**
 1. Navigate to the **Scanner** section
@@ -128,18 +135,31 @@ The Scanner automatically checks for common security vulnerabilities.
 6. Review discovered vulnerabilities
 
 **What it scans for:**
-- Cross-Site Scripting (XSS)
-- SQL Injection potential
-- CSRF vulnerabilities
-- Missing security headers
-- SSL/TLS issues
-- Information disclosure
+- Cross-Site Scripting (XSS) - via plugin
+- Missing Security Headers - via plugin
+- SSL/TLS Issues - via plugin
+- SQL Injection potential (coming in Phase 2)
+- CSRF vulnerabilities (coming in Phase 2)
+- Information disclosure (coming in Phase 2)
+
+**Architecture:**
+The scanner now uses:
+- **Scan Engine** (`scanner/scan_engine.py`) - Orchestrates plugin execution
+- **Scan Plugins** (`scanner/scan_plugins/detectors/`) - Individual vulnerability detectors
+- **Plugin Registry** - Automatic plugin discovery and management
 
 **Understanding Results:**
 - **Critical**: Requires immediate attention
 - **High**: Important security issue
 - **Medium**: Should be addressed
 - **Low**: Best practice recommendation
+
+**For Plugin Developers:**
+See [SCANNER_PLUGIN_GUIDE.md](SCANNER_PLUGIN_GUIDE.md) for:
+- How to create new scan plugins
+- Plugin architecture details
+- Best practices and examples
+- Integration with the scan engine
 
 ## Advanced Usage
 
