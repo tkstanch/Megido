@@ -394,7 +394,7 @@ class ReadyMadePayloads:
             'risk_level': 'critical'
         },
         'cmd_slash_separation': {
-            'payload': '/usr/b\in/wh\oami',
+            'payload': r'/usr/b\in/wh\oami',
             'description': 'Backslash separation',
             'category': PayloadCategory.COMMAND_INJECTION,
             'bypass_target': BypassTarget.IDS,
