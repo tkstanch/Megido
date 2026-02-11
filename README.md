@@ -304,6 +304,47 @@ python manage.py runserver
 python launch.py
 ```
 
+### Static File Serving with WhiteNoise
+
+Megido uses **WhiteNoise** for efficient static file serving in production. WhiteNoise allows Django to serve static files directly without requiring a separate web server like Nginx for static content.
+
+#### Collecting Static Files
+
+After any changes to static files (CSS, JavaScript, images), you must run the `collectstatic` command to gather all static files into the `staticfiles` directory:
+
+```bash
+python manage.py collectstatic --noinput
+```
+
+This command:
+- Collects all static files from your apps and `STATICFILES_DIRS`
+- Copies them to the `STATIC_ROOT` directory (`staticfiles/`)
+- Prepares them for serving in production
+
+**When to run collectstatic:**
+- Before deploying to production
+- After updating CSS, JavaScript, or image files
+- After pulling changes that modify static files
+- After installing or updating Django apps with static files
+
+#### WhiteNoise Configuration
+
+WhiteNoise is configured in `settings.py` with:
+- Middleware placed immediately after `SecurityMiddleware`
+- `STATIC_ROOT` set to `staticfiles/` directory
+- `STATICFILES_DIRS` pointing to the `static/` directory
+
+For enhanced performance, you can enable compression and caching by uncommenting the following line in `settings.py`:
+
+```python
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+```
+
+This will:
+- Compress static files with gzip and Brotli
+- Add unique hash to filenames for cache-busting
+- Enable far-future cache headers
+
 ### Scalable Production Architecture with Celery
 
 Megido now includes **Celery** integration for asynchronous exploit operations, preventing Gunicorn worker timeouts and improving scalability.
