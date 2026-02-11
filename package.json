@@ -8,9 +8,9 @@
     "dev": "npm run watch:css"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.17",
-    "postcss": "^8.4.35"
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.19"
   },
   "keywords": [
     "security",
@@ -19,5 +19,17 @@
     "tailwindcss"
   ],
   "author": "Megido Security Team",
-  "license": "MIT"
+  "license": "MIT",
+  "main": "postcss.config.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tkstanch/Megido.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tkstanch/Megido/issues"
+  },
+  "homepage": "https://github.com/tkstanch/Megido#readme"
 }
