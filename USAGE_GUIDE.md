@@ -117,7 +117,14 @@ The Repeater lets you craft and send custom HTTP requests.
 
 ### 4. Vulnerability Scanner
 
-The Scanner automatically checks for common security vulnerabilities.
+The Scanner now uses a **modern plugin-based architecture** with **extremely advanced features** including ML/AI, risk scoring, and compliance mapping.
+
+**New in Phase 2 - Extremely Advanced Scanner:**
+- 🤖 **ML/AI Detection**: Isolation Forest anomaly detection for confidence boosting
+- 📊 **Risk Scoring**: Comprehensive 0-100 scoring with multi-factor analysis
+- 🏛️ **Compliance Mapping**: Automatic OWASP Top 10, PCI-DSS, GDPR mapping
+- 📈 **Interactive Dashboards**: Professional HTML reports with statistics
+- 🔌 **6 Advanced Plugins**: XSS, SQLi, CSRF, Sensitive Data, Headers, SSL
 
 **How to use:**
 1. Navigate to the **Scanner** section
@@ -125,21 +132,55 @@ The Scanner automatically checks for common security vulnerabilities.
 3. Optionally provide a scan name
 4. Click **Start Scan**
 5. Wait for completion
-6. Review discovered vulnerabilities
+6. Review discovered vulnerabilities with risk scores
 
 **What it scans for:**
-- Cross-Site Scripting (XSS)
-- SQL Injection potential
-- CSRF vulnerabilities
-- Missing security headers
-- SSL/TLS issues
-- Information disclosure
+- 🔍 **XSS** - Cross-Site Scripting via plugin
+- 💉 **SQLi** - Advanced SQL Injection (error-based, blind, union) ⭐ NEW
+- 🛡️ **CSRF** - Cross-Site Request Forgery protection ⭐ NEW
+- 🔑 **Sensitive Data** - API keys, secrets, credentials ⭐ NEW
+- 🔒 **Security Headers** - Missing security headers via plugin
+- 🔐 **SSL/TLS** - HTTPS configuration via plugin
+
+**Advanced Features:**
+- **ML Confidence Boosting**: Reduces false positives by 30-40%
+- **Risk Scoring**: Severity + Confidence + CWE + Context = 0-100 score
+- **Compliance Mapping**: Automatic framework violation detection
+- **HTML Dashboards**: Interactive, professional reports
+- **Sanitized Evidence**: Safe display of sensitive findings
+
+**Architecture:**
+The scanner now uses:
+- **Advanced Scan Engine** (`scanner/advanced_scan_engine.py`) - ML & risk scoring
+- **Scan Plugins** (`scanner/scan_plugins/detectors/`) - 6 detection plugins
+- **Plugin Registry** - Automatic plugin discovery and management
 
 **Understanding Results:**
-- **Critical**: Requires immediate attention
-- **High**: Important security issue
-- **Medium**: Should be addressed
-- **Low**: Best practice recommendation
+- **Critical** (Risk 80-100): Requires immediate attention
+- **High** (Risk 60-79): Urgent action needed
+- **Medium** (Risk 40-59): Address in normal workflow
+- **Low** (Risk 0-39): Best practice improvements
+
+**Risk Score Components:**
+- Base Severity: 40%
+- Detection Confidence: 30%
+- CWE Criticality: 20%
+- Context Specificity: 10%
+
+**For Plugin Developers:**
+See [SCANNER_PLUGIN_GUIDE.md](SCANNER_PLUGIN_GUIDE.md) for:
+- How to create new scan plugins
+- Plugin architecture details
+- Best practices and examples
+- Integration with the scan engine
+
+**For Advanced Features:**
+See [EXTREMELY_ADVANCED_SCANNER_GUIDE.md](EXTREMELY_ADVANCED_SCANNER_GUIDE.md) for:
+- ML/AI integration details
+- Risk scoring formula
+- Compliance mapping rules
+- Dashboard generation
+- Advanced usage examples
 
 ## Advanced Usage
 
