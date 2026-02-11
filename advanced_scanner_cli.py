@@ -434,3 +434,96 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+def generate_dashboard(args):
+    """Generate interactive dashboard"""
+    print_banner()
+    
+    scan_id = args.scan_id
+    output_file = args.output
+    
+    print(f"\n{Colors.YELLOW}Generating interactive dashboard for scan {scan_id}...{Colors.ENDC}")
+    
+    service = EngineService()
+    
+    # Get scan data
+    summary = service.get_scan_summary(scan_id)
+    if 'error' in summary:
+        print(f"{Colors.RED}Error: {summary['error']}{Colors.ENDC}")
+        return 1
+    
+    findings = service.get_scan_findings(scan_id, exclude_duplicates=True)
+    
+    # Get historical data if requested
+    historical = None
+    if args.include_trends:
+        historical = service.get_scan_history(limit=10)
+    
+    # Generate dashboard
+    from scanner.engine_plugins.dashboard_generator import DashboardGenerator
+    
+    generator = DashboardGenerator()
+    html = generator.generate_dashboard(summary, findings, historical)
+    
+    # Write to file
+    with open(output_file, 'w') as f:
+        f.write(html)
+    
+    print(f"{Colors.GREEN}✓ Interactive dashboard generated: {output_file}{Colors.ENDC}")
+    print(f"\n{Colors.CYAN}Open in browser to view interactive charts and visualizations!{Colors.ENDC}")
+    
+    return 0
+
+
+def prioritize_findings(args):
+    """Prioritize findings using ML"""
+    print_banner()
+    
+    scan_id = args.scan_id
+    
+    print(f"\n{Colors.YELLOW}Prioritizing findings for scan {scan_id} using ML...{Colors.ENDC}")
+    
+    service = EngineService()
+    findings = service.get_scan_findings(scan_id, exclude_duplicates=True)
+    
+    if not findings:
+        print("No findings to prioritize.")
+        return 0
+    
+    # Apply ML prioritization
+    from scanner.engine_plugins.ml_prioritizer import VulnerabilityPrioritizer
+    
+    prioritizer = VulnerabilityPrioritizer()
+    prioritized = prioritizer.prioritize_batch(findings)
+    
+    print(f"\n{Colors.HEADER}Prioritized Findings (Top 20){Colors.ENDC}\n")
+    
+    for i, finding in enumerate(prioritized[:20], 1):
+        priority_level = finding['priority_level']
+        priority_score = finding['priority_score']
+        
+        # Color based on priority
+        if priority_level == 'critical':
+            color = Colors.RED
+        elif priority_level == 'high':
+            color = Colors.YELLOW
+        else:
+            color = Colors.BLUE
+        
+        print(f"{i}. {color}[{priority_level.upper()} - {priority_score:.0f}]{Colors.ENDC} {finding['title']}")
+        print(f"   Engine: {finding['engine_name']}")
+        print(f"   Reasoning: {finding.get('priority_reasoning', 'N/A')}")
+        print()
+    
+    # Save to file if requested
+    if args.output:
+        with open(args.output, 'w') as f:
+            json.dump(prioritized, f, indent=2, default=str)
+        print(f"{Colors.GREEN}✓ Prioritized findings saved to: {args.output}{Colors.ENDC}")
+    
+    return 0
+
+
+# Add the new commands to the parser in main()
+# Modify the existing main() function to add these commands
+
