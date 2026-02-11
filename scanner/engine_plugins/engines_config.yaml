@@ -1,0 +1,69 @@
+# Megido Multi-Engine Scanner Configuration
+#
+# This file controls which scanner engines are enabled and their settings.
+# Engines can be: SAST, DAST, SCA, secrets scanners, and custom analyzers.
+
+# Global settings that apply to all engines
+global:
+  # Maximum parallel workers for concurrent scanning
+  max_workers: 4
+  
+  # Default timeout for each engine (in seconds)
+  default_timeout: 300
+  
+  # Minimum severity level to report (info, low, medium, high, critical)
+  severity_threshold: low
+  
+  # Output format (json, yaml, text)
+  output_format: json
+
+# Engine-specific configuration
+engines:
+  # SAST: Bandit - Python security linter
+  bandit:
+    enabled: true
+    config:
+      severity_threshold: medium
+      confidence_threshold: medium
+      exclude_patterns:
+        - "*/tests/*"
+        - "*/venv/*"
+        - "*/.venv/*"
+      timeout: 180
+
+  # Secrets: GitLeaks - Find hardcoded secrets
+  gitleaks:
+    enabled: true
+    config:
+      timeout: 300
+      exclude_patterns:
+        - "*/node_modules/*"
+        - "*/.git/*"
+
+  # SCA: Trivy - Vulnerability scanner for dependencies and containers
+  trivy:
+    enabled: false  # Disabled by default (requires trivy binary)
+    config:
+      scan_types:
+        - vuln
+        - config
+        - secret
+      severity_levels:
+        - CRITICAL
+        - HIGH
+      timeout: 300
+
+  # DAST: Example dynamic scanner (custom implementation)
+  dast_scanner:
+    enabled: false  # Disabled by default
+    config:
+      max_depth: 3
+      timeout: 600
+      verify_ssl: false
+
+  # Custom: Dummy scanner for testing
+  dummy_scanner:
+    enabled: true
+    config:
+      # This is just for demonstration purposes
+      generate_sample_findings: true
