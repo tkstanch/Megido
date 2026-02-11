@@ -1,8 +1,12 @@
 """
-URL configuration for megido_security project.
+URL configuration for Megido Security project.
+
+This is the main URL configuration that routes to all security testing apps.
+Compatible with Django 6.0+.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/6.0/topics/http/urls/
+
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -20,7 +24,17 @@ from django.shortcuts import render
 
 
 def home(request):
-    """Home page"""
+    """
+    Home page view for the Megido Security Platform.
+    
+    Displays the main dashboard with access to all security testing tools.
+    
+    Args:
+        request: HttpRequest object
+        
+    Returns:
+        HttpResponse with rendered home.html template
+    """
     return render(request, 'home.html')
 
 
