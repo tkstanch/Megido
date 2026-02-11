@@ -29,6 +29,8 @@ from .stealth_engine import StealthEngine
 from .tamper_scripts import TamperEngine
 from .polyglot_payloads import PolyglotEngine
 from .adaptive_waf_bypass import WAFDetector, AdaptiveBypassEngine
+from .database_fingerprinting import AdvancedDatabaseFingerprinter, DatabaseType
+from .privilege_escalation import AdvancedPrivilegeEscalation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -182,12 +184,18 @@ class SQLInjectionEngine:
         self.waf_detector = WAFDetector()
         self.adaptive_bypass = AdaptiveBypassEngine(self.tamper_engine, self.polyglot_engine)
         
+        # Initialize REDESIGN modules
+        self.db_fingerprinter = AdvancedDatabaseFingerprinter()
+        self.priv_escalation = AdvancedPrivilegeEscalation()
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
         self.use_impact_demo = config.get('enable_impact_demonstration', True)
         self.use_adaptive_bypass = config.get('enable_adaptive_bypass', True)
         self.use_polyglot_payloads = config.get('enable_polyglot_payloads', True)
+        self.use_fingerprinting = config.get('enable_fingerprinting', True)
+        self.use_priv_escalation = config.get('enable_privilege_escalation', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
@@ -891,6 +899,136 @@ class SQLInjectionEngine:
         
         return exploitation_results
     
+    def perform_comprehensive_analysis(self, url: str, method: str,
+                                      vulnerable_param: str, param_type: str,
+                                      db_type: str, response_text: str = None,
+                                      params: Optional[Dict] = None,
+                                      data: Optional[Dict] = None,
+                                      cookies: Optional[Dict] = None,
+                                      headers: Optional[Dict] = None) -> Dict[str, Any]:
+        """
+        Perform comprehensive database analysis including fingerprinting and privilege escalation.
+        
+        Args:
+            url: Target URL
+            method: HTTP method
+            vulnerable_param: Vulnerable parameter
+            param_type: Parameter type (GET/POST)
+            db_type: Detected database type
+            response_text: Response text for fingerprinting
+            params, data, cookies, headers: Request parameters
+        
+        Returns:
+            Dictionary with comprehensive analysis results
+        """
+        analysis = {
+            'fingerprint': None,
+            'privileges': None,
+            'capabilities': None,
+            'escalation_paths': None,
+            'attack_profile': None,
+        }
+        
+        logger.info("Performing comprehensive database analysis...")
+        
+        # Step 1: Advanced fingerprinting
+        if self.use_fingerprinting and response_text:
+            try:
+                logger.info("Running advanced database fingerprinting...")
+                fingerprint = self.db_fingerprinter.fingerprint(
+                    response_text=response_text,
+                    error_text=response_text,
+                    test_function=None,  # Would pass a test function in full implementation
+                    vulnerable_param=vulnerable_param,
+                    param_type=param_type
+                )
+                
+                analysis['fingerprint'] = {
+                    'db_type': fingerprint.db_type.value,
+                    'version': fingerprint.version,
+                    'edition': fingerprint.edition,
+                    'features': fingerprint.features,
+                    'privileges': fingerprint.privileges,
+                    'confidence': fingerprint.confidence,
+                }
+                
+                # Generate attack profile
+                attack_profile = self.db_fingerprinter.generate_attack_profile(fingerprint)
+                analysis['attack_profile'] = attack_profile
+                
+                logger.info(f"Fingerprinting complete: {fingerprint.db_type.value} {fingerprint.version or 'unknown'}")
+                logger.info(f"Estimated success rate: {attack_profile['estimated_success_rate']:.1%}")
+                
+            except Exception as e:
+                logger.error(f"Fingerprinting failed: {e}")
+        
+        # Step 2: Privilege escalation analysis
+        if self.use_priv_escalation:
+            try:
+                logger.info("Analyzing privilege escalation opportunities...")
+                
+                # Detect current privileges
+                privileges = self.priv_escalation.detect_current_privileges(
+                    engine=self,
+                    url=url,
+                    method=method,
+                    vulnerable_param=vulnerable_param,
+                    param_type=param_type,
+                    db_type=db_type,
+                    params=params,
+                    data=data,
+                    cookies=cookies,
+                    headers=headers
+                )
+                
+                analysis['privileges'] = privileges
+                logger.info(f"Detected privilege level: {privileges.get('privilege_level')}")
+                
+                # Detect dangerous capabilities
+                capabilities = self.priv_escalation.detect_dangerous_capabilities(
+                    engine=self,
+                    url=url,
+                    method=method,
+                    vulnerable_param=vulnerable_param,
+                    param_type=param_type,
+                    db_type=db_type,
+                    params=params,
+                    data=data,
+                    cookies=cookies,
+                    headers=headers
+                )
+                
+                analysis['capabilities'] = {cap.value: avail for cap, avail in capabilities.items()}
+                dangerous_count = sum(1 for avail in capabilities.values() if avail)
+                if dangerous_count > 0:
+                    logger.warning(f"Found {dangerous_count} dangerous capabilities!")
+                
+                # Find escalation paths
+                escalation_paths = self.priv_escalation.find_escalation_paths(
+                    db_type=db_type,
+                    privileges=privileges,
+                    capabilities=capabilities
+                )
+                
+                if escalation_paths:
+                    analysis['escalation_paths'] = [
+                        {
+                            'name': path.name,
+                            'description': path.description,
+                            'risk_level': path.risk_level,
+                            'exploitability': path.exploitability,
+                            'steps': path.steps,
+                            'payloads': path.payloads
+                        }
+                        for path in escalation_paths
+                    ]
+                    logger.warning(f"Found {len(escalation_paths)} privilege escalation paths!")
+                
+            except Exception as e:
+                logger.error(f"Privilege escalation analysis failed: {e}")
+        
+        return analysis
+    
     def run_full_attack(self, url: str, method: str = 'GET',
                        params: Optional[Dict] = None,
                        data: Optional[Dict] = None,
@@ -932,6 +1070,37 @@ class SQLInjectionEngine:
         # Enhanced exploitation and impact demonstration
         if all_findings:
             for finding in all_findings:
+                # Comprehensive analysis (fingerprinting + privilege escalation)
+                if self.use_fingerprinting or self.use_priv_escalation:
+                    logger.info(f"Running comprehensive analysis for {finding['vulnerable_parameter']}...")
+                    try:
+                        comprehensive_analysis = self.perform_comprehensive_analysis(
+                            url=url,
+                            method=method,
+                            vulnerable_param=finding['vulnerable_parameter'],
+                            param_type=finding['parameter_type'],
+                            db_type=finding.get('database_type', 'mysql'),
+                            response_text=finding.get('response', ''),
+                            params=params,
+                            data=data,
+                            cookies=cookies,
+                            headers=headers
+                        )
+                        finding['comprehensive_analysis'] = comprehensive_analysis
+                        
+                        # Enhance risk score based on analysis
+                        if comprehensive_analysis.get('escalation_paths'):
+                            # Increase risk if privilege escalation is possible
+                            max_exploitability = max(
+                                [p['exploitability'] for p in comprehensive_analysis['escalation_paths']],
+                                default=0.0
+                            )
+                            finding['escalation_risk'] = max_exploitability
+                            logger.warning(f"Privilege escalation possible (exploitability: {max_exploitability:.1%})")
+                        
+                    except Exception as e:
+                        logger.error(f"Comprehensive analysis failed: {e}")
+                
                 # Basic exploitation
                 if enable_exploitation and finding.get('database_type'):
                     logger.info(f"Attempting exploitation of {finding['vulnerable_parameter']}...")
