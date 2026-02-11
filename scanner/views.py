@@ -6,10 +6,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from .models import ScanTarget, Scan, Vulnerability
 from django.utils import timezone
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
-import re
 import os
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
@@ -64,75 +60,34 @@ def start_scan(request, target_id):
 
 
 def perform_basic_scan(scan, url):
-    """Perform basic vulnerability scanning"""
+    """
+    Perform basic vulnerability scanning using the plugin-based scan engine.
+    
+    This function has been refactored to use the modular plugin architecture.
+    The old hardcoded checks have been moved into individual scan plugins.
+    
+    Note: This maintains backward compatibility with existing scan API and UI.
+    """
     # Get SSL verification setting from environment (default to False for security testing)
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
     
     try:
-        # Test for common XSS payloads
-        xss_payloads = [
-            '<script>alert(1)</script>',
-            '"><script>alert(1)</script>',
-            "'><script>alert(1)</script>",
-        ]
+        # Use the new plugin-based scan engine
+        from scanner.scan_engine import get_scan_engine
         
-        response = requests.get(url, timeout=10, verify=verify_ssl)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        engine = get_scan_engine()
         
-        # Check for forms (potential XSS/SQLI targets)
-        forms = soup.find_all('form')
-        for form in forms:
-            action = form.get('action', '')
-            target_url = urljoin(url, action)
-            
-            # Test for XSS in form
-            inputs = form.find_all('input')
-            if inputs:
-                Vulnerability.objects.create(
-                    scan=scan,
-                    vulnerability_type='xss',
-                    severity='medium',
-                    url=target_url,
-                    description=f'Form found with {len(inputs)} input fields - potential XSS target',
-                    evidence=f'Form action: {action}',
-                    remediation='Implement input validation and output encoding'
-                )
+        # Configure the scan
+        config = {
+            'verify_ssl': verify_ssl,
+            'timeout': 10,
+        }
         
-        # Check for insecure headers
-        headers = response.headers
-        if 'X-Frame-Options' not in headers:
-            Vulnerability.objects.create(
-                scan=scan,
-                vulnerability_type='other',
-                severity='low',
-                url=url,
-                description='Missing X-Frame-Options header',
-                evidence='X-Frame-Options header not found',
-                remediation='Add X-Frame-Options: DENY or SAMEORIGIN header'
-            )
+        # Run the scan using all available plugins
+        findings = engine.scan(url, config)
         
-        if 'X-Content-Type-Options' not in headers:
-            Vulnerability.objects.create(
-                scan=scan,
-                vulnerability_type='other',
-                severity='low',
-                url=url,
-                description='Missing X-Content-Type-Options header',
-                evidence='X-Content-Type-Options header not found',
-                remediation='Add X-Content-Type-Options: nosniff header'
-            )
-        
-        # Check for SSL/TLS
-        if urlparse(url).scheme == 'http':
-            Vulnerability.objects.create(
-                scan=scan,
-                vulnerability_type='info_disclosure',
-                severity='medium',
-                url=url,
-                description='Site uses insecure HTTP protocol',
-                evidence='URL scheme is http:// instead of https://',
-                remediation='Implement HTTPS with valid SSL/TLS certificate'
-            )
+        # Save findings to database
+        engine.save_findings_to_db(scan, findings)
         
         # Apply advanced features to all vulnerabilities after scanning
         try:
@@ -143,6 +98,8 @@ def perform_basic_scan(scan, url):
             
     except Exception as e:
         print(f"Error during scan: {e}")
+        # Fallback to basic error handling
+        raise
 
 
 @api_view(['GET'])
