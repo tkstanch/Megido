@@ -16,6 +16,15 @@ global:
   
   # Output format (json, yaml, text)
   output_format: json
+  
+  # Enable ML-based prioritization
+  enable_ml_prioritization: true
+  
+  # Enable smart deduplication
+  enable_smart_deduplication: true
+  
+  # Enable false positive prediction
+  enable_fp_prediction: true
 
 # Engine-specific configuration
 engines:
@@ -67,6 +76,24 @@ engines:
         - MEDIUM
       skip_db_update: false
       timeout: 300
+
+  # SCA: Safety - Python dependency checker ⭐ NEW
+  safety:
+    enabled: true
+    config:
+      timeout: 180
+      check_dependencies:
+        - requirements.txt
+        - Pipfile
+        - pyproject.toml
+
+  # SCA: NPM Audit - Node.js dependency checker ⭐ NEW
+  npm_audit:
+    enabled: true
+    config:
+      timeout: 180
+      audit_level: low  # Report all severities
+      production_only: false
 
   # DAST: Example dynamic scanner (custom implementation)
   dast_scanner:
