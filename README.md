@@ -2,40 +2,104 @@
 
 [...]existing intro sections...]
 
-## 🔬 Multi-Engine Scanner Architecture ⭐ NEW
+## 🔬 Advanced Multi-Engine Scanner Architecture 🚀 ⭐ LATEST
 
-Megido now features a **powerful multi-engine plugin architecture** that enables running multiple analysis modules side by side:
+Megido features an **enterprise-grade multi-engine plugin architecture** with **5 production-ready scanner engines**, Django integration, REST API, and advanced CLI:
 
-- **🔍 SAST (Static Application Security Testing)** - Analyze source code (e.g., Bandit for Python)
-- **⚡ DAST (Dynamic Application Security Testing)** - Test running applications
-- **📦 SCA (Software Composition Analysis)** - Check dependencies for vulnerabilities (e.g., Trivy)
-- **🔐 Secrets Detection** - Find hardcoded credentials (e.g., GitLeaks)
-- **🎯 Custom Scanners** - Easily add your own analysis engines
+### 🎯 Scanner Engines (5 Total)
 
-### Key Features
+- **🔍 SAST** - Static Application Security Testing
+  - **Bandit** - Python security linter with CWE mapping
+  - **Semgrep** - Multi-language analysis (Python, JS, Java, Go, C, Ruby, PHP, etc.) ⭐ NEW
+- **📦 SCA** - Software Composition Analysis  
+  - **Trivy** - CVE detection in dependencies, containers, and IaC ⭐ NEW
+- **🔐 Secrets** - Credential Detection
+  - **GitLeaks** - Find hardcoded API keys, passwords, tokens
+- **🎯 Custom** - Extensible framework for any analyzer
 
-- ✅ **Pluggable Architecture** - Add new engines by dropping a Python file
-- ✅ **Parallel Execution** - Run multiple engines concurrently for speed
-- ✅ **Config-Based Management** - Enable/disable engines via YAML/JSON
-- ✅ **Unified Results** - Standardized output format across all engines
-- ✅ **Comprehensive Logging** - Track what runs and what's found
-- ✅ **Future-Proof** - Designed to scale to any scan type
+### 💎 Enterprise Features ⭐ LATEST ENHANCEMENTS
 
-### Quick Start
+- ✅ **Django Integration** - Complete database persistence with 3 new models
+- ✅ **RESTful API** - Full CRUD operations via Django REST Framework
+- ✅ **Advanced CLI** - Professional command-line tool with colored output
+- ✅ **Multiple Report Formats** - JSON, HTML, CSV exports
+- ✅ **Deduplication** - Automatic finding deduplication with SHA-256 hashing
+- ✅ **Review Workflow** - Mark findings as confirmed/false positive/fixed
+- ✅ **Historical Tracking** - Complete scan history with execution details
+- ✅ **Parallel Execution** - Run multiple engines concurrently (4 workers default)
+- ✅ **Smart Filtering** - By severity, engine, category, duplicates
+- ✅ **Config Management** - YAML/JSON configuration with hot-reload
 
+### 🚀 Quick Start
+
+**CLI (Recommended):**
 ```bash
-# Run the demo
-python demo_multi_engine_scanner.py /path/to/scan
+# List available engines
+python advanced_scanner_cli.py list-engines
 
-# Or use programmatically
-from scanner.engine_plugins import EngineOrchestrator
+# Run comprehensive scan
+python advanced_scanner_cli.py scan /path/to/code
 
-orchestrator = EngineOrchestrator()
-results = orchestrator.run_scan('/path/to/code')
-print(f"Found {results['summary'].total_findings} issues")
+# Run specific engines
+python advanced_scanner_cli.py scan /path/to/code --engines bandit semgrep trivy
+
+# Run by category
+python advanced_scanner_cli.py scan /path/to/code --categories sast secrets
+
+# View results
+python advanced_scanner_cli.py show-scan 1 --severity high --verbose
+
+# Export HTML report
+python advanced_scanner_cli.py export-report 1 --format html --output report.html
 ```
 
-**Documentation:** See [MULTI_ENGINE_PLUGIN_GUIDE.md](MULTI_ENGINE_PLUGIN_GUIDE.md) for complete guide on using and extending the architecture.
+**Python API:**
+```python
+from scanner.engine_plugins.engine_service import EngineService
+
+service = EngineService()
+
+# Create and execute scan
+scan = service.create_scan(target_path='/path/to/code', categories=['sast', 'sca'])
+result = service.execute_scan(scan)
+
+# Get findings
+findings = service.get_scan_findings(scan_id=scan.id, severity='high')
+```
+
+**REST API:**
+```bash
+# Create and execute scan
+curl -X POST http://localhost:8000/api/engine-scans/ \
+  -H "Content-Type: application/json" \
+  -d '{"target_path": "/path/to/code", "execute_immediately": true}'
+
+# Get findings
+curl http://localhost:8000/api/engine-scans/1/findings/?severity=high
+
+# List scan history
+curl http://localhost:8000/api/engine-scans/history/
+```
+
+### 📚 Documentation
+
+- **[ADVANCED_ENHANCEMENTS_SUMMARY.md](ADVANCED_ENHANCEMENTS_SUMMARY.md)** - Complete implementation guide ⭐ NEW
+- **[MULTI_ENGINE_PLUGIN_GUIDE.md](MULTI_ENGINE_PLUGIN_GUIDE.md)** - User guide for plugin architecture
+- **[MULTI_ENGINE_ARCHITECTURE_SUMMARY.md](MULTI_ENGINE_ARCHITECTURE_SUMMARY.md)** - Technical architecture
+
+### 🎯 API Endpoints
+
+```
+GET    /api/engines/                       # List all engines
+GET    /api/engines/categories/            # Get categories
+POST   /api/engine-scans/                  # Create scan
+POST   /api/engine-scans/{id}/execute/     # Execute scan
+GET    /api/engine-scans/{id}/summary/     # Get summary
+GET    /api/engine-scans/{id}/findings/    # Get findings with filters
+GET    /api/engine-scans/history/          # Scan history
+GET    /api/engine-findings/               # List all findings
+POST   /api/engine-findings/{id}/mark_status/ # Update finding status
+```
 
 ## ⚡ Automated Setup (All Platforms)
 
