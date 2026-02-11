@@ -31,6 +31,19 @@ engines:
         - "*/.venv/*"
       timeout: 180
 
+  # SAST: Semgrep - Multi-language static analysis
+  semgrep:
+    enabled: true
+    config:
+      config_name: "auto"  # or p/security-audit, p/owasp-top-ten
+      severity: null  # null = all severities
+      max_memory: 8000
+      exclude_patterns:
+        - "*/tests/*"
+        - "*/node_modules/*"
+        - "*/.venv/*"
+      timeout: 300
+
   # Secrets: GitLeaks - Find hardcoded secrets
   gitleaks:
     enabled: true
@@ -42,15 +55,17 @@ engines:
 
   # SCA: Trivy - Vulnerability scanner for dependencies and containers
   trivy:
-    enabled: false  # Disabled by default (requires trivy binary)
+    enabled: true
     config:
       scan_types:
         - vuln
-        - config
         - secret
+        - config
       severity_levels:
         - CRITICAL
         - HIGH
+        - MEDIUM
+      skip_db_update: false
       timeout: 300
 
   # DAST: Example dynamic scanner (custom implementation)
@@ -67,3 +82,4 @@ engines:
     config:
       # This is just for demonstration purposes
       generate_sample_findings: true
+      num_findings: 3
