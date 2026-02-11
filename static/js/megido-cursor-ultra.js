@@ -184,12 +184,12 @@
                 lastY = e.clientY;
             });
             
-            // Enhanced interactions for different elements
+            // Expand on interactive elements
             document.addEventListener('mouseover', (e) => {
                 const target = e.target;
                 
                 // Expand on interactive elements
-                if (target.matches('a, button, input, [role="button"], .card-3d, .hover-premium, .btn, [onclick]')) {
+                if (target.matches('a, button, input, [role="button"], .card-3d, .card-kinetic, .hover-premium, .btn, [onclick]')) {
                     this.cursor.style.width = `${this.options.cursorSize * 2.5}px`;
                     this.cursor.style.height = `${this.options.cursorSize * 2.5}px`;
                     this.cursorGlow.style.width = `${this.options.glowSize * 1.8}px`;
@@ -201,7 +201,7 @@
             document.addEventListener('mouseout', (e) => {
                 const target = e.target;
                 
-                if (target.matches('a, button, input, [role="button"], .card-3d, .hover-premium, .btn, [onclick]')) {
+                if (target.matches('a, button, input, [role="button"], .card-3d, .card-kinetic, .hover-premium, .btn, [onclick]')) {
                     this.cursor.style.width = `${this.options.cursorSize}px`;
                     this.cursor.style.height = `${this.options.cursorSize}px`;
                     this.cursorGlow.style.width = `${this.options.glowSize}px`;
