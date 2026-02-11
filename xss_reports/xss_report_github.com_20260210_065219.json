@@ -1,0 +1,67 @@
+{
+  "scan_info": {
+    "target_url": "https://github.com/search/feedback",
+    "timestamp": "2026-02-10T06:52:19.525698",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 2,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 2,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/assets/primer-primitives-2c5f58bae956fa96.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-b97936554294d7a3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/error-139bacf9a95d2ff1.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/site-64056219e1c2ee7f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/github-294399c8d5b652c5.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/global-5d300701a37a830a.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/marketing-navigation.6981f452ada322e1.module.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/keyboard-shortcuts-dialog.124a139fc586638e.module.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-react.7bdab33cf4d9c38d.module.css - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T06:42:34.803826"
+    },
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "</script><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/assets/light-7a548c73f231168f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/light_high_contrast-6d5205ba83e64657.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark-a037c5198a3956d3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark_high_contrast-c4cd957551b6a79f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-primitives-2c5f58bae956fa96.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-b97936554294d7a3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/global-5d300701a37a830a.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/github-294399c8d5b652c5.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/site-64056219e1c2ee7f.css - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T06:45:37.941631"
+    }
+  ]
+}

@@ -1,0 +1,351 @@
+{
+  "scan_info": {
+    "target_url": "https://www.justeattakeaway.com/default.aspx",
+    "timestamp": "2026-02-09T18:40:19.415742",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 15,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 15,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://cdn.icomoon.io/50912/Q4studioclassic2018na1/q4-icons.woff2?5j2dpc - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/icon-flags/ca.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 14019:66 Uncaught DOMException: Failed to read a named property 'href' from 'Locat\u2026akeaway.com\" from accessing a cross-origin frame.",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:28:35.142927"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "'><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 14019:66 Uncaught DOMException: Failed to read a named property 'href' from 'Locat\u2026akeaway.com\" from accessing a cross-origin frame."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:29:13.160285"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<svg/onload=alert(1)>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://s205.q4cdn.com/266311280/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/Banner-images.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/grocery.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/pharma.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/beauty.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/jquery.waypoints.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/jquery.counterup.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:30:04.833008"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<iframe src=\"javascript:alert(1)\">",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/grocery.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/pharma.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/beauty.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.icomoon.io/50912/Q4studioclassic2018na1/q4-icons.woff2?5j2dpc - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/Banner-images.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/js/anti-csrf.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/jquery.waypoints.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:30:31.161626"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<body onload=alert(1)>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.datepicker.1.0.0.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/q4.api.1.13.5.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/dependencies/q4.app.1.1.9.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/dependencies/q4.core.1.1.9.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 136:0 Uncaught TypeError: $ is not a function",
+        "https://www.justeattakeaway.com/home/default.aspx 4058:0 Uncaught TypeError: $ is not a function",
+        "https://www.justeattakeaway.com/home/default.aspx 4194:4 Uncaught TypeError: Cannot read properties of undefined (reading 'ajax')",
+        "https://www.justeattakeaway.com/home/default.aspx 4427:14 Uncaught TypeError: Cannot read properties of undefined (reading 'extend')"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:31:08.648299"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664",
+        "https://s205.q4cdn.com/266311280/files/fonts/jetsans/JETSans-Regular.otf - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/fonts/jetsans/JETSans-Bold.otf - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/fonts/jetsans/JETSans-ExtraBold.otf - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 14019:66 Uncaught DOMException: Failed to read a named property 'href' from 'Locat\u2026akeaway.com\" from accessing a cross-origin frame."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:31:30.468728"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<select onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664",
+        "https://www.justeattakeaway.com/home/default.aspx 14019:66 Uncaught DOMException: Failed to read a named property 'href' from 'Locat\u2026akeaway.com\" from accessing a cross-origin frame."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:31:55.477892"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<textarea onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.justeattakeaway.com/js/anti-csrf.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.icomoon.io/50912/Q4studioclassic2018na1/q4-icons.woff2?5j2dpc - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-ExtraBold-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-Regular-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-Bold-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/grocery.png - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:32:19.778282"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\"-alert(1)-\"",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/grocery.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/pharma.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/beauty.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/jquery.counterup.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 5057:22 Uncaught TypeError: $(...).counterUp is not a function",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\""
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:34:14.629948"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\"><img src=x onerror=alert(1)//",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://s205.q4cdn.com/266311280/files/images/icon-flags/ca.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/icons/our-markets/place-order-icon.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/icons/our-markets/sign-up-icon.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/icons/our-markets/apply-courier-icon.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/icons/our-markets/careers-page-icon.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/email-mini2svg.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/instagram-icon-takeaway.svg - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:34:57.785795"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\" onmouseover=\"alert(1)",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/pharma.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/beauty.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-ExtraBold-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-Bold-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://d30v2pzvrfyzpo.cloudfront.net/fonts/JETSansDigital-Regular-optimised.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:35:24.042760"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "</script><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:36:19.080132"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "#\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/files/images/what-we-do-decor-2-resized.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/feed/ContentAsset.svc/GetContentAssetYearList?LanguageId=1&assetType=&tagList= - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/pharma.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/beauty.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.icomoon.io/50912/Q4studioclassic2018na1/q4-icons.woff2?5j2dpc - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/Banner-images.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/images/banner-slides/grocery.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/jquery.waypoints.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:36:55.103214"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "javascript:alert(1)",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://s205.q4cdn.com/266311280/files/css/global.css?v=51836 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/css/client.css?v=50827 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://s205.q4cdn.com/266311280/files/design/svg/Brand-Logo-mobile.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/design/svg/JET-Logo-Orange-Primary-Hor-RGB-2.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://s205.q4cdn.com/266311280/files/js/polyfills/findIndex_polyfill.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/dependencies/q4.core.1.1.9.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/dependencies/q4.app.1.1.9.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/q4.api.1.13.5.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://widgets.q4app.com/widgets/q4.datepicker.1.0.0.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:37:19.909736"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.justeattakeaway.com/default.aspx",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<marquee onstart=alert(1)>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.justeattakeaway.com/js/module/widgets/dist/dependencies/evergreen.core.1.0.0.min.js 0:749529 \"Studio jQuery 3.7.1 is now $tudio\"",
+        "https://widgets.q4app.com/widgets/q4.nav.1.0.0.min.js 0:30673 \"Navigation search has been disabled\"",
+        "https://www.justeattakeaway.com/home/default.aspx 6064:35 \"Could not find #australia\"",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:10559 undefined",
+        "https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q 0:19015 \"[AUTH] Unauthenticated\" Error: Cannot initialize BugHerd\n    at https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:10569\n    at async https://www.bugherd.com/sidebarv2.js?apikey=83cfxtrprtwr5xyox3xd0q:1:18664",
+        "https://newsroom-api.pr.co/v1/pressrooms/jet/press_releases?country=WW&language=en&includes=featured_images%2Ctags&limit=4 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.justeattakeaway.com/home/default.aspx 14019:66 Uncaught DOMException: Failed to read a named property 'href' from 'Locat\u2026akeaway.com\" from accessing a cross-origin frame.",
+        "https://s205.q4cdn.com/266311280/files/favicon.ico - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T18:37:55.536869"
+    }
+  ]
+}

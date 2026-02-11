@@ -1,0 +1,110 @@
+{
+  "scan_info": {
+    "target_url": "https://github.com/search/feedback",
+    "timestamp": "2026-02-10T05:24:58.061472",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 4,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 4,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/assets/light-7a548c73f231168f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/light_high_contrast-6d5205ba83e64657.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark-a037c5198a3956d3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-primitives-2c5f58bae956fa96.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark_high_contrast-c4cd957551b6a79f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-b97936554294d7a3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/site-64056219e1c2ee7f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/github-294399c8d5b652c5.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/global-5d300701a37a830a.css - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T05:13:59.983723"
+    },
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<textarea onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/assets/apple-touch-icon-144x144-b882e354c005.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/favicons/favicon-dark.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.com/search/feedback - Error while trying to use the following icon from the Manifest: https://github.githubassets.com/assets/apple-touch-icon-144x144-b882e354c005.png (Download error or resource isn't a valid image)",
+        "https://api.github.com/_private/browser/stats - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://collector.github.com/github/collect - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://collector.github.com/github/collect - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.com/search/feedback - The resource https://github.githubassets.com/assets/mona-sans-14595085164a.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+        "https://github.com/search/feedback - The resource https://github.githubassets.com/assets/global-banner-disable-e20dfdd68b9b271b.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T05:15:29.093001"
+    },
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\"><img src=x onerror=alert(1)//",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/assets/light-7a548c73f231168f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/light_high_contrast-6d5205ba83e64657.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark-a037c5198a3956d3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/dark_high_contrast-c4cd957551b6a79f.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-primitives-2c5f58bae956fa96.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/global-5d300701a37a830a.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-b97936554294d7a3.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/primer-react.7bdab33cf4d9c38d.module.css - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/error-139bacf9a95d2ff1.css - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T05:16:38.484752"
+    },
+    {
+      "type": "dom",
+      "url": "https://github.com/search/feedback",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "});alert(1);//",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://github.com/search/feedback - Failed to load resource: the server responded with a status of 404 ()",
+        "https://github.githubassets.com/favicons/favicon-dark.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.githubassets.com/assets/apple-touch-icon-144x144-b882e354c005.png - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.com/search/feedback - Error while trying to use the following icon from the Manifest: https://github.githubassets.com/assets/apple-touch-icon-144x144-b882e354c005.png (Download error or resource isn't a valid image)",
+        "https://collector.github.com/github/collect - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://collector.github.com/github/collect - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://github.com/search/feedback - The resource https://github.githubassets.com/assets/mona-sans-14595085164a.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.",
+        "https://github.com/search/feedback - The resource https://github.githubassets.com/assets/global-banner-disable-e20dfdd68b9b271b.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-10T05:17:22.102454"
+    }
+  ]
+}
