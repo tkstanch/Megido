@@ -1,5 +1,22 @@
 """
-Django settings for megido_security project.
+Django settings for Megido Security project.
+
+This is a Django 6.0+ compatible settings file for the Megido Security Platform,
+a comprehensive web application security testing suite.
+
+For production deployment:
+- Set DEBUG = False
+- Use environment variables for SECRET_KEY and sensitive settings
+- Configure ALLOWED_HOSTS appropriately
+- Enable security middleware settings (SSL, HSTS, etc.)
+- Use PostgreSQL instead of SQLite
+- Configure proper logging and monitoring
+
+For more information on Django settings:
+https://docs.djangoproject.com/en/6.0/topics/settings/
+
+For deployment checklist:
+https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 """
 import os
 from pathlib import Path
