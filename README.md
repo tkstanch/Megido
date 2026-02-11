@@ -2,6 +2,41 @@
 
 [...]existing intro sections...]
 
+## 🔬 Multi-Engine Scanner Architecture ⭐ NEW
+
+Megido now features a **powerful multi-engine plugin architecture** that enables running multiple analysis modules side by side:
+
+- **🔍 SAST (Static Application Security Testing)** - Analyze source code (e.g., Bandit for Python)
+- **⚡ DAST (Dynamic Application Security Testing)** - Test running applications
+- **📦 SCA (Software Composition Analysis)** - Check dependencies for vulnerabilities (e.g., Trivy)
+- **🔐 Secrets Detection** - Find hardcoded credentials (e.g., GitLeaks)
+- **🎯 Custom Scanners** - Easily add your own analysis engines
+
+### Key Features
+
+- ✅ **Pluggable Architecture** - Add new engines by dropping a Python file
+- ✅ **Parallel Execution** - Run multiple engines concurrently for speed
+- ✅ **Config-Based Management** - Enable/disable engines via YAML/JSON
+- ✅ **Unified Results** - Standardized output format across all engines
+- ✅ **Comprehensive Logging** - Track what runs and what's found
+- ✅ **Future-Proof** - Designed to scale to any scan type
+
+### Quick Start
+
+```bash
+# Run the demo
+python demo_multi_engine_scanner.py /path/to/scan
+
+# Or use programmatically
+from scanner.engine_plugins import EngineOrchestrator
+
+orchestrator = EngineOrchestrator()
+results = orchestrator.run_scan('/path/to/code')
+print(f"Found {results['summary'].total_findings} issues")
+```
+
+**Documentation:** See [MULTI_ENGINE_PLUGIN_GUIDE.md](MULTI_ENGINE_PLUGIN_GUIDE.md) for complete guide on using and extending the architecture.
+
 ## ⚡ Automated Setup (All Platforms)
 
 Megido provides a **universal, automated setup experience** for Windows, macOS, and Linux users. You can download, install, and run the app with a single command using the provided scripts:

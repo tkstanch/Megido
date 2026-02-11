@@ -17,9 +17,9 @@
     "findings_by_engine": {
       "dummy_scanner": 3
     },
-    "execution_time": 0.001581,
-    "start_time": "2026-02-11T19:53:03.023061",
-    "end_time": "2026-02-11T19:53:03.024642"
+    "execution_time": 0.001585,
+    "start_time": "2026-02-11T19:54:10.530140",
+    "end_time": "2026-02-11T19:54:10.531725"
   },
   "findings": [
     {
@@ -29,7 +29,7 @@
       "description": "Unsanitized user input is used in SQL query construction",
       "severity": "high",
       "confidence": 0.85,
-      "file_path": "/tmp/sample_file.py",
+      "file_path": "/home/runner/work/Megido/Megido/scanner/sample_file.py",
       "line_number": 42,
       "url": null,
       "category": "injection",
@@ -42,7 +42,7 @@
         "https://owasp.org/www-community/attacks/SQL_Injection",
         "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
       ],
-      "timestamp": "2026-02-11T19:53:03.024397",
+      "timestamp": "2026-02-11T19:54:10.531410",
       "raw_output": null
     },
     {
@@ -52,7 +52,7 @@
       "description": "User input is rendered without proper encoding",
       "severity": "medium",
       "confidence": 0.75,
-      "file_path": "/tmp/template.html",
+      "file_path": "/home/runner/work/Megido/Megido/scanner/template.html",
       "line_number": 15,
       "url": null,
       "category": "xss",
@@ -65,7 +65,7 @@
         "https://owasp.org/www-community/attacks/xss/",
         "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
       ],
-      "timestamp": "2026-02-11T19:53:03.024416",
+      "timestamp": "2026-02-11T19:54:10.531432",
       "raw_output": null
     },
     {
@@ -75,7 +75,7 @@
       "description": "MD5 hash function is cryptographically broken",
       "severity": "low",
       "confidence": 1.0,
-      "file_path": "/tmp/crypto.py",
+      "file_path": "/home/runner/work/Megido/Megido/scanner/crypto.py",
       "line_number": 28,
       "url": null,
       "category": "crypto",
@@ -87,7 +87,7 @@
       "references": [
         "https://owasp.org/www-community/vulnerabilities/Using_a_broken_or_risky_cryptographic_algorithm"
       ],
-      "timestamp": "2026-02-11T19:53:03.024429",
+      "timestamp": "2026-02-11T19:54:10.531456",
       "raw_output": null
     }
   ],
@@ -98,7 +98,7 @@
       "success": true,
       "findings_count": 3,
       "error": null,
-      "execution_time": 0.00019478797912597656
+      "execution_time": 0.00023126602172851562
     }
   ]
 }
