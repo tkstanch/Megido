@@ -76,7 +76,7 @@ Successfully integrated ClamAV antivirus engine into the Malware Analyser Django
 ### Modified Files
 
 1. **requirements.txt**
-   - Added: `pyclamd>=0.4.0`
+   - Updated: `clamd>=1.0.2` (upgraded from `pyclamd>=0.4.0`)
 
 2. **megido_security/settings.py**
    - Added MEDIA_URL and MEDIA_ROOT configuration

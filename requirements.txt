@@ -6,7 +6,7 @@ mitmproxy>=10.0.0
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
 waybackpy>=3.0.6
-pyclamd>=0.4.0
+clamd>=1.0.2
 psycopg2-binary>=2.8
 PyQt6==6.7.0
 PyQt6-WebEngine==6.7.0
