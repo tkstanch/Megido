@@ -140,3 +140,250 @@ class Vulnerability(models.Model):
     
     def __str__(self):
         return f"{self.severity.upper()} - {self.get_vulnerability_type_display()} at {self.url}"
+
+
+class EngineScan(models.Model):
+    """Model to store multi-engine vulnerability scans"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    target_path = models.CharField(max_length=2048, help_text='Path or URL to scan')
+    target_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('path', 'File Path'),
+            ('url', 'URL'),
+            ('git', 'Git Repository'),
+        ],
+        default='path'
+    )
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Execution details
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    execution_time = models.FloatField(default=0.0, help_text='Total execution time in seconds')
+    
+    # Engine configuration
+    enabled_engines = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of engine IDs that were enabled for this scan'
+    )
+    engine_categories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Engine categories used (sast, dast, sca, secrets, etc.)'
+    )
+    parallel_execution = models.BooleanField(default=True)
+    max_workers = models.IntegerField(default=4)
+    
+    # Results summary
+    total_engines_run = models.IntegerField(default=0)
+    successful_engines = models.IntegerField(default=0)
+    failed_engines = models.IntegerField(default=0)
+    total_findings = models.IntegerField(default=0)
+    
+    findings_by_severity = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Count of findings by severity level'
+    )
+    
+    # Metadata
+    created_by = models.CharField(max_length=255, blank=True, null=True)
+    config_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Configuration used for this scan'
+    )
+    
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['started_at']),
+            models.Index(fields=['target_type']),
+        ]
+    
+    def __str__(self):
+        return f"EngineScan {self.id} - {self.target_path} ({self.status})"
+
+
+class EngineExecution(models.Model):
+    """Model to store individual engine execution results"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+    
+    engine_scan = models.ForeignKey(
+        EngineScan,
+        on_delete=models.CASCADE,
+        related_name='engine_executions'
+    )
+    
+    engine_id = models.CharField(max_length=100, help_text='Engine identifier')
+    engine_name = models.CharField(max_length=255, help_text='Human-readable engine name')
+    engine_category = models.CharField(
+        max_length=50,
+        choices=[
+            ('sast', 'SAST'),
+            ('dast', 'DAST'),
+            ('sca', 'SCA'),
+            ('secrets', 'Secrets'),
+            ('container', 'Container'),
+            ('cloud', 'Cloud'),
+            ('custom', 'Custom'),
+        ]
+    )
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Execution details
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    execution_time = models.FloatField(default=0.0, help_text='Execution time in seconds')
+    
+    # Results
+    findings_count = models.IntegerField(default=0)
+    error_message = models.TextField(blank=True, null=True)
+    
+    # Configuration used
+    engine_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Configuration used for this engine'
+    )
+    
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['engine_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['engine_category']),
+        ]
+    
+    def __str__(self):
+        return f"{self.engine_name} - {self.status}"
+
+
+class EngineFinding(models.Model):
+    """Model to store findings from engine scans"""
+    SEVERITY_CHOICES = [
+        ('info', 'Info'),
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+    
+    engine_execution = models.ForeignKey(
+        EngineExecution,
+        on_delete=models.CASCADE,
+        related_name='findings'
+    )
+    
+    engine_scan = models.ForeignKey(
+        EngineScan,
+        on_delete=models.CASCADE,
+        related_name='findings'
+    )
+    
+    # Core identification
+    engine_id = models.CharField(max_length=100)
+    engine_name = models.CharField(max_length=255)
+    
+    # Finding details
+    title = models.CharField(max_length=500)
+    description = models.TextField()
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    confidence = models.FloatField(default=1.0, help_text='Confidence level 0.0-1.0')
+    
+    # Location information
+    file_path = models.CharField(max_length=2048, blank=True, null=True)
+    line_number = models.IntegerField(blank=True, null=True)
+    url = models.URLField(max_length=2048, blank=True, null=True)
+    
+    # Classification
+    category = models.CharField(max_length=100, blank=True, null=True)
+    cwe_id = models.CharField(max_length=20, blank=True, null=True, help_text='CWE ID')
+    cve_id = models.CharField(max_length=50, blank=True, null=True, help_text='CVE ID')
+    owasp_category = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Evidence and remediation
+    evidence = models.TextField(blank=True, null=True)
+    remediation = models.TextField(blank=True, null=True)
+    references = models.JSONField(default=list, blank=True)
+    
+    # Metadata
+    discovered_at = models.DateTimeField(auto_now_add=True)
+    raw_output = models.JSONField(default=dict, blank=True)
+    
+    # Deduplication
+    finding_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        help_text='Hash for deduplication'
+    )
+    is_duplicate = models.BooleanField(default=False)
+    duplicate_of = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='duplicates'
+    )
+    
+    # Review status
+    reviewed = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('new', 'New'),
+            ('confirmed', 'Confirmed'),
+            ('false_positive', 'False Positive'),
+            ('fixed', 'Fixed'),
+            ('accepted', 'Accepted Risk'),
+        ],
+        default='new'
+    )
+    
+    class Meta:
+        ordering = ['-discovered_at']
+        indexes = [
+            models.Index(fields=['severity']),
+            models.Index(fields=['finding_hash']),
+            models.Index(fields=['status']),
+            models.Index(fields=['engine_id']),
+            models.Index(fields=['cwe_id']),
+        ]
+    
+    def __str__(self):
+        return f"[{self.severity.upper()}] {self.title}"
+    
+    def generate_hash(self):
+        """Generate a hash for deduplication based on key attributes"""
+        import hashlib
+        
+        # Create a string from key attributes
+        hash_string = f"{self.file_path}:{self.line_number}:{self.title}:{self.category}"
+        
+        # Generate SHA-256 hash
+        return hashlib.sha256(hash_string.encode()).hexdigest()
+    
+    def save(self, *args, **kwargs):
+        # Auto-generate hash if not set
+        if not self.finding_hash:
+            self.finding_hash = self.generate_hash()
+        
+        super().save(*args, **kwargs)
