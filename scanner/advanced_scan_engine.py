@@ -16,9 +16,8 @@ from pathlib import Path
 import json
 from datetime import datetime
 
-from scanner.scan_engine import ScanEngine, get_scan_engine
+from scanner.scan_engine import ScanEngine
 from scanner.scan_plugins import VulnerabilityFinding
-from scanner.models import Scan, Vulnerability
 
 logger = logging.getLogger(__name__)
 

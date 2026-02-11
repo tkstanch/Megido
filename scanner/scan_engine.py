@@ -15,7 +15,14 @@ import logging
 from typing import Dict, List, Any, Optional
 
 from scanner.scan_plugins import get_scan_registry, VulnerabilityFinding
-from scanner.models import Scan, Vulnerability
+
+# Import models only when needed to avoid dependency issues
+try:
+    from scanner.models import Scan, Vulnerability
+    HAS_MODELS = True
+except ImportError:
+    HAS_MODELS = False
+    logging.debug("Django models not available, database operations disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +113,9 @@ class ScanEngine:
     
     def save_findings_to_db(
         self, 
-        scan: Scan, 
+        scan: 'Scan', 
         findings: List[VulnerabilityFinding]
-    ) -> List[Vulnerability]:
+    ) -> List['Vulnerability']:
         """
         Save vulnerability findings to the database.
         
@@ -119,6 +126,10 @@ class ScanEngine:
         Returns:
             List[Vulnerability]: Created vulnerability model instances
         """
+        if not HAS_MODELS:
+            logger.warning("Django models not available, skipping database save")
+            return []
+        
         vulnerabilities = []
         
         for finding in findings:
