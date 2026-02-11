@@ -1700,4 +1700,475 @@
       box-shadow: 0 0 55px rgba(102, 126, 234, 0.55);
     }
   }
+
+  /* ============================================================================
+     PROFESSIONAL CLASSIC BEAUTIFUL UI v2.4
+     Refined, timeless, and elegant design system
+     ============================================================================ */
+
+  /* Professional Typography */
+  .text-professional {
+    letter-spacing: -0.01em;
+    font-weight: 500;
+  }
+
+  .text-classic-heading {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .text-classic-subtitle {
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.6;
+    color: rgba(107, 114, 128, 1);
+  }
+
+  .dark .text-classic-subtitle {
+    color: rgba(156, 163, 175, 1);
+  }
+
+  .text-lead {
+    font-size: 1.125rem;
+    line-height: 1.75;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+  }
+
+  /* Classic Card Styles */
+  .card-classic {
+    @apply bg-white dark:bg-gray-800;
+    border: 1px solid rgba(229, 231, 235, 1);
+    border-radius: 12px;
+    box-shadow: 
+      0 1px 3px rgba(0, 0, 0, 0.05),
+      0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark .card-classic {
+    border-color: rgba(55, 65, 81, 1);
+    box-shadow: 
+      0 1px 3px rgba(0, 0, 0, 0.2),
+      0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-classic:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      0 2px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .card-classic:hover {
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .card-elevated {
+    @apply card-classic;
+    box-shadow: 
+      0 4px 6px rgba(0, 0, 0, 0.07),
+      0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-elevated:hover {
+    box-shadow: 
+      0 10px 20px rgba(0, 0, 0, 0.1),
+      0 4px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .card-bordered {
+    @apply card-classic;
+    border-width: 2px;
+  }
+
+  .card-inset {
+    @apply bg-white dark:bg-gray-800;
+    border: 1px solid rgba(229, 231, 235, 1);
+    border-radius: 12px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+  }
+
+  .dark .card-inset {
+    border-color: rgba(55, 65, 81, 1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Professional Buttons */
+  .btn-professional {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-professional:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .btn-professional:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-solid {
+    @apply btn-professional;
+    background: linear-gradient(180deg, #667eea 0%, #5568d3 100%);
+    color: white;
+  }
+
+  .btn-solid:hover {
+    background: linear-gradient(180deg, #5568d3 0%, #4553b8 100%);
+  }
+
+  .btn-outline-professional {
+    @apply btn-professional;
+    background: transparent;
+    border: 1.5px solid rgba(102, 126, 234, 1);
+    color: rgba(102, 126, 234, 1);
+  }
+
+  .btn-outline-professional:hover {
+    background: rgba(102, 126, 234, 0.05);
+  }
+
+  .btn-text {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: rgba(102, 126, 234, 1);
+    transition: all 0.2s ease;
+  }
+
+  .btn-text:hover {
+    background: rgba(102, 126, 234, 0.08);
+    border-radius: 6px;
+  }
+
+  /* Classic Shadows */
+  .shadow-classic {
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .shadow-classic-lg {
+    box-shadow: 
+      0 8px 16px rgba(0, 0, 0, 0.08),
+      0 4px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-subtle {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Professional Hover States */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .hover-brighten {
+    transition: filter 0.2s ease;
+  }
+
+  .hover-brighten:hover {
+    filter: brightness(1.05);
+  }
+
+  /* Classic Borders */
+  .border-classic {
+    border: 1px solid rgba(229, 231, 235, 1);
+  }
+
+  .dark .border-classic {
+    border-color: rgba(55, 65, 81, 1);
+  }
+
+  .border-classic-thick {
+    border: 2px solid rgba(229, 231, 235, 1);
+  }
+
+  .dark .border-classic-thick {
+    border-color: rgba(55, 65, 81, 1);
+  }
+
+  /* Professional Gradients */
+  .gradient-professional {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .gradient-refined {
+    background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+  }
+
+  .dark .gradient-refined {
+    background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  }
+
+  .gradient-subtle {
+    background: linear-gradient(135deg, 
+      rgba(102, 126, 234, 0.05) 0%, 
+      rgba(118, 75, 162, 0.05) 100%);
+  }
+
+  /* Classic Form Controls */
+  .input-classic {
+    @apply w-full;
+    padding: 0.625rem 1rem;
+    font-size: 0.9375rem;
+    background: white;
+    border: 1.5px solid rgba(229, 231, 235, 1);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .dark .input-classic {
+    background: rgba(31, 41, 55, 1);
+    border-color: rgba(55, 65, 81, 1);
+  }
+
+  .input-classic:focus {
+    outline: none;
+    border-color: rgba(102, 126, 234, 1);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .input-classic:hover:not(:focus) {
+    border-color: rgba(156, 163, 175, 1);
+  }
+
+  /* Professional Spacing */
+  .section-classic {
+    padding: 3rem 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .section-classic {
+      padding: 4rem 2rem;
+    }
+  }
+
+  .container-classic {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  /* Classic Hero Styles */
+  .hero-classic {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, 
+      rgba(102, 126, 234, 0.03) 0%, 
+      rgba(255, 255, 255, 0) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(229, 231, 235, 0.5);
+  }
+
+  .dark .hero-classic {
+    background: linear-gradient(135deg, 
+      rgba(102, 126, 234, 0.08) 0%, 
+      rgba(31, 41, 55, 1) 100%);
+    border-color: rgba(55, 65, 81, 0.5);
+  }
+
+  /* Professional Badge Styles */
+  .badge-classic {
+    @apply inline-flex items-center gap-1.5;
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: 6px;
+    background: rgba(243, 244, 246, 1);
+    color: rgba(55, 65, 81, 1);
+    border: 1px solid rgba(229, 231, 235, 1);
+  }
+
+  .dark .badge-classic {
+    background: rgba(55, 65, 81, 1);
+    color: rgba(229, 231, 235, 1);
+    border-color: rgba(75, 85, 99, 1);
+  }
+
+  .badge-professional {
+    @apply badge-classic;
+    background: linear-gradient(135deg, 
+      rgba(102, 126, 234, 0.1) 0%, 
+      rgba(118, 75, 162, 0.1) 100%);
+    color: rgba(102, 126, 234, 1);
+    border-color: rgba(102, 126, 234, 0.2);
+  }
+
+  /* Refined Animations */
+  .animate-gentle-fade {
+    animation: gentleFade 0.4s ease-out;
+  }
+
+  @keyframes gentleFade {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-professional-slide {
+    animation: professionalSlide 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes professionalSlide {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Classic Data Display */
+  .table-classic {
+    @apply w-full;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .table-classic thead {
+    background: linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%);
+  }
+
+  .dark .table-classic thead {
+    background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  }
+
+  .table-classic th {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(75, 85, 99, 1);
+    text-align: left;
+    border-bottom: 2px solid rgba(229, 231, 235, 1);
+  }
+
+  .dark .table-classic th {
+    color: rgba(156, 163, 175, 1);
+    border-bottom-color: rgba(55, 65, 81, 1);
+  }
+
+  .table-classic td {
+    padding: 1rem 1.25rem;
+    font-size: 0.9375rem;
+    border-bottom: 1px solid rgba(243, 244, 246, 1);
+  }
+
+  .dark .table-classic td {
+    border-bottom-color: rgba(31, 41, 55, 1);
+  }
+
+  .table-classic tbody tr:hover {
+    background: rgba(249, 250, 251, 1);
+  }
+
+  .dark .table-classic tbody tr:hover {
+    background: rgba(31, 41, 55, 0.5);
+  }
+
+  /* Professional Status Indicators */
+  .status-dot {
+    @apply inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: statusPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes statusPulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .status-dot-success {
+    @apply status-dot;
+    background: rgba(16, 185, 129, 1);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  }
+
+  .status-dot-warning {
+    @apply status-dot;
+    background: rgba(245, 158, 11, 1);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  }
+
+  .status-dot-danger {
+    @apply status-dot;
+    background: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+  }
+
+  /* Professional Icon Styles */
+  .icon-professional {
+    width: 1.25rem;
+    height: 1.25rem;
+    stroke-width: 1.75;
+  }
+
+  .icon-classic-lg {
+    width: 2rem;
+    height: 2rem;
+    stroke-width: 1.5;
+  }
+
+  /* Elegant Dividers */
+  .divider-classic {
+    height: 1px;
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(229, 231, 235, 1) 50%, 
+      transparent 100%);
+  }
+
+  .dark .divider-classic {
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(55, 65, 81, 1) 50%, 
+      transparent 100%);
+  }
+
+  /* Professional Print Styles */
+  @media print {
+    .card-classic,
+    .card-elevated {
+      box-shadow: none !important;
+      border: 1px solid #e5e7eb !important;
+    }
+
+    .btn-professional {
+      box-shadow: none !important;
+    }
+  }
 }
