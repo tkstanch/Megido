@@ -177,7 +177,7 @@ class GitLeaksEngine(BaseEngine):
             # Clean up temporary report file
             try:
                 os.unlink(report_file)
-            except:
+            except (OSError, FileNotFoundError):
                 pass
     
     def _parse_gitleaks_output(self, report_file: str) -> List[EngineResult]:

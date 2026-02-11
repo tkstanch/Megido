@@ -212,13 +212,12 @@ engines:
         """Test default config when no file exists"""
         manager = ConfigManager('/nonexistent/config.yaml')
         
-        # All engines enabled by default
+        # All engines enabled by default when no config file is found
         self.assertTrue(manager.is_engine_enabled('any_engine'))
         
+        # get_enabled_engines returns a list of explicitly enabled engines
+        # An empty list means all engines are enabled by default
         enabled = manager.get_enabled_engines()
-        # When no config file exists, get_enabled_engines returns empty list
-        # which means all engines are enabled by default
-        # But if a default config was found, it returns the enabled engines from that config
         self.assertIsInstance(enabled, list)
     
     def test_update_engine_config(self):

@@ -124,17 +124,24 @@ class BanditEngine(BaseEngine):
         logger.info(f"Starting Bandit scan on: {target}")
         
         # Build bandit command
-        cmd = ['bandit', '-r' if target_path.is_dir() else '', target, '-f', 'json']
+        cmd = ['bandit']
+        if target_path.is_dir():
+            cmd.append('-r')
+        cmd.extend([target, '-f', 'json'])
         
         # Add severity filter
         severity_threshold = config.get('severity_threshold', 'low')
-        if severity_threshold in ['medium', 'high']:
-            cmd.extend(['-l' if severity_threshold == 'medium' else '-ll'])
+        if severity_threshold == 'medium':
+            cmd.append('-l')
+        elif severity_threshold == 'high':
+            cmd.append('-ll')
         
         # Add confidence filter
         confidence_threshold = config.get('confidence_threshold', 'low')
-        if confidence_threshold in ['medium', 'high']:
-            cmd.extend(['-i' if confidence_threshold == 'medium' else '-ii'])
+        if confidence_threshold == 'medium':
+            cmd.append('-i')
+        elif confidence_threshold == 'high':
+            cmd.append('-ii')
         
         # Add exclusions
         exclude_patterns = config.get('exclude_patterns', [])
@@ -144,7 +151,7 @@ class BanditEngine(BaseEngine):
         # Run Bandit
         try:
             result = subprocess.run(
-                [arg for arg in cmd if arg],  # Filter out empty strings
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout
