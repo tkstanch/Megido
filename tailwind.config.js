@@ -8,6 +8,32 @@ module.exports = {
   darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
+      screens: {
+        'xs': '375px',    // Mobile small
+        'sm': '640px',    // Mobile large
+        'md': '768px',    // Tablet
+        'lg': '1024px',   // Laptop
+        'xl': '1280px',   // Desktop
+        '2xl': '1536px',  // Large desktop
+        '3xl': '1920px',  // Full HD
+        '4xl': '2560px',  // 4K
+        'ultra': '3840px', // Ultra-wide/4K
+      },
+      spacing: {
+        '128': '32rem',
+        '144': '36rem',
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
+        'fluid-xs': 'clamp(0.75rem, 1vw + 0.5rem, 0.875rem)',
+        'fluid-sm': 'clamp(0.875rem, 1vw + 0.6rem, 1rem)',
+        'fluid-base': 'clamp(1rem, 1.2vw + 0.7rem, 1.125rem)',
+        'fluid-lg': 'clamp(1.125rem, 1.5vw + 0.8rem, 1.25rem)',
+        'fluid-xl': 'clamp(1.25rem, 2vw + 0.9rem, 1.5rem)',
+        'fluid-2xl': 'clamp(1.5rem, 2.5vw + 1rem, 2rem)',
+        'fluid-3xl': 'clamp(1.875rem, 3vw + 1.2rem, 2.5rem)',
+        'fluid-4xl': 'clamp(2.25rem, 4vw + 1.5rem, 3rem)',
+      },
       colors: {
         // Enhanced primary purple/blue gradient theme
         primary: {
