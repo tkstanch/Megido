@@ -131,5 +131,5 @@ class XSSScannerPlugin(BaseScanPlugin):
         return {
             'verify_ssl': False,
             'timeout': 10,
-            'check_reflection': True,  # TODO: Implement reflection checking in future
+            # TODO: Add check_reflection option when reflection testing is implemented
         }

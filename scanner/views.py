@@ -98,7 +98,7 @@ def perform_basic_scan(scan, url):
             
     except Exception as e:
         print(f"Error during scan: {e}")
-        # Fallback to basic error handling
+        # Re-raise exception for upstream handling
         raise
 
 

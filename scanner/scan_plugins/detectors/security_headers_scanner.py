@@ -25,7 +25,6 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
     Checks for missing or misconfigured security headers:
     - X-Frame-Options
     - X-Content-Type-Options
-    - X-XSS-Protection
     - Strict-Transport-Security
     - Content-Security-Policy
     """
