@@ -220,7 +220,7 @@
                     <span class="text-gray-700 dark:text-gray-300">{{ activity.action|title }}</span>
                     <div class="flex items-center gap-4">
                         <div class="w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div class="bg-primary-600 h-2 rounded-full" style="width: {{ activity.count|default:0 }}%"></div>
+                            <div class="bg-primary-600 h-2 rounded-full" style="width: {{ activity.percentage|default:0 }}%"></div>
                         </div>
                         <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">{{ activity.count }}</span>
                     </div>

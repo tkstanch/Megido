@@ -85,9 +85,14 @@ def get_user_stats(user, days=30):
     ).order_by('-count')[:5]
     
     # Activity breakdown
-    activity_breakdown = activities.values('action').annotate(
+    activity_breakdown = list(activities.values('action').annotate(
         count=Count('id')
-    ).order_by('-count')
+    ).order_by('-count'))
+    
+    # Calculate percentages for activity breakdown
+    max_count = max([a['count'] for a in activity_breakdown], default=1)
+    for activity in activity_breakdown:
+        activity['percentage'] = int((activity['count'] / max_count) * 100) if max_count > 0 else 0
     
     # Average scan duration
     avg_duration = scans.aggregate(avg=Avg('scan_duration_seconds'))['avg'] or 0
