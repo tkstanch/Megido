@@ -31,6 +31,9 @@ from .polyglot_payloads import PolyglotEngine
 from .adaptive_waf_bypass import WAFDetector, AdaptiveBypassEngine
 from .database_fingerprinting import AdvancedDatabaseFingerprinter, DatabaseType
 from .privilege_escalation import AdvancedPrivilegeEscalation
+from .boolean_blind_detector import BooleanBlindDetector
+from .payload_optimizer import PayloadOptimizer
+from .report_generator import ReportGenerator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -188,6 +191,11 @@ class SQLInjectionEngine:
         self.db_fingerprinter = AdvancedDatabaseFingerprinter()
         self.priv_escalation = AdvancedPrivilegeEscalation()
         
+        # Initialize ENHANCEMENT modules (extremely super good!)
+        self.boolean_detector = BooleanBlindDetector()
+        self.payload_optimizer = PayloadOptimizer()
+        self.report_generator = ReportGenerator()
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
@@ -196,6 +204,8 @@ class SQLInjectionEngine:
         self.use_polyglot_payloads = config.get('enable_polyglot_payloads', True)
         self.use_fingerprinting = config.get('enable_fingerprinting', True)
         self.use_priv_escalation = config.get('enable_privilege_escalation', True)
+        self.use_boolean_blind = config.get('enable_boolean_blind', True)
+        self.use_payload_optimization = config.get('enable_payload_optimization', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
