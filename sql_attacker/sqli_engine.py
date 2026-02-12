@@ -34,6 +34,9 @@ from .privilege_escalation import AdvancedPrivilegeEscalation
 from .boolean_blind_detector import BooleanBlindDetector
 from .payload_optimizer import PayloadOptimizer
 from .report_generator import ReportGenerator
+from .cognitive_attack_planner import CognitiveAttackPlanner, AttackObjective
+from .smart_context_analyzer import SmartContextAnalyzer
+from .advanced_learning_system import AdvancedLearningSystem
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -196,6 +199,11 @@ class SQLInjectionEngine:
         self.payload_optimizer = PayloadOptimizer()
         self.report_generator = ReportGenerator()
         
+        # Initialize SUPER INTELLIGENT modules (extra much more super intelligent!)
+        self.cognitive_planner = CognitiveAttackPlanner()
+        self.context_analyzer = SmartContextAnalyzer()
+        self.learning_system = AdvancedLearningSystem()
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
@@ -206,6 +214,9 @@ class SQLInjectionEngine:
         self.use_priv_escalation = config.get('enable_privilege_escalation', True)
         self.use_boolean_blind = config.get('enable_boolean_blind', True)
         self.use_payload_optimization = config.get('enable_payload_optimization', True)
+        self.use_cognitive_planning = config.get('enable_cognitive_planning', True)
+        self.use_context_analysis = config.get('enable_context_analysis', True)
+        self.use_advanced_learning = config.get('enable_advanced_learning', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
