@@ -20,6 +20,9 @@ jobs:
   update-payloads:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write  # Needed to push changes
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
