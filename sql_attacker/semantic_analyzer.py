@@ -273,7 +273,7 @@ class SemanticAnalyzer:
     
     def _contains_quote_escape(self, input_value: str) -> bool:
         """Check for quote escape attempts"""
-        escape_patterns = [r"\\['\""]", r"''", r'""', r"['\"]\\"]
+        escape_patterns = [r"\\['\"']", r"''", r'""', r"['\"]\\"]
         return any(re.search(pattern, input_value) for pattern in escape_patterns)
     
     def add_whitelist_pattern(self, pattern: str):
