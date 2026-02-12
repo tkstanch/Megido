@@ -1,0 +1,65 @@
+name: Update SQL Injection Payloads
+
+on:
+  schedule:
+    # Run weekly on Sunday at midnight UTC
+    - cron: '0 0 * * 0'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+  
+  # Run on push to main if payload files change
+  push:
+    branches:
+      - main
+    paths:
+      - 'sql_attacker/payload_integration.py'
+      - '.github/workflows/update-payloads.yml'
+
+jobs:
+  update-payloads:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Needed to push changes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 lxml
+      
+      - name: Update payloads from public sources
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from sql_attacker.payload_integration import PayloadIntegration
+          
+          integrator = PayloadIntegration(storage_path='sql_attacker/payloads')
+          results = integrator.update_all_payloads()
+          print(f'Updated payloads: {results}')
+          
+          integrator.export_payloads('sql_attacker/payloads/latest.json', format='json')
+          stats = integrator.get_statistics()
+          print(f'Total: {stats[\"total_payloads\"]} payloads')
+          "
+      
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add sql_attacker/payloads/ || true
+          git commit -m "🤖 Auto-update SQL injection payloads [skip ci]" || echo "No changes"
+          git push || echo "Push failed or no changes"
