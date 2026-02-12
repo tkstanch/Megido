@@ -21,10 +21,6 @@ redis>=5.0.0
 channels>=4.0.0
 channels-redis>=4.1.0
 daphne>=4.0.0
-<<<<<<< HEAD
-daphne==4.0.0
-channels==4.0.0
-whitenoise==6.11.0
-=======
 PyYAML>=6.0
->>>>>>> a57c018eb7e349c162aad7a83aa20f1c43fe338b
+PyYAML>=6.0
+main
