@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 aioquic==1.2.0
 amqp==5.3.1
 argon2-cffi==25.1.0
@@ -118,3 +119,31 @@ wsproto==1.2.0
 zipp==3.23.0
 zope.interface==8.2
 zstandard==0.25.0
+=======
+Django>=6.0.0
+djangorestframework>=3.14.0
+PySide6>=6.6.0
+requests>=2.31.0
+mitmproxy>=10.0.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+waybackpy>=3.0.6
+clamd>=1.0.2
+psycopg2-binary>=2.8
+PyQt6==6.7.0
+PyQt6-WebEngine==6.7.0
+selenium>=4.15.0
+webdriver-manager>=4.0.1
+fake-useragent>=1.4.0
+Pillow>=10.0.0
+gunicorn>=21.2.0
+whitenoise>=6.6.0
+celery>=5.3.0
+redis>=5.0.0
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
+PyYAML>=6.0
+PyYAML>=6.0
+main
+>>>>>>> 118e509391f4e7f82f4f3f480b730a580bf3d605
