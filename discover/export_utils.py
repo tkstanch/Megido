@@ -78,15 +78,21 @@ def export_scans_to_json_file(scans, filename='scans_export.json'):
     Export multiple scans to a JSON file response.
     
     Args:
-        scans: QuerySet of Scan objects
+        scans: QuerySet or list of Scan objects
         filename: Output filename
         
     Returns:
         HttpResponse with JSON file
     """
+    # Handle both QuerySet and list
+    if isinstance(scans, list):
+        total_scans = len(scans)
+    else:
+        total_scans = scans.count()
+    
     export_data = {
         'export_date': datetime.now().isoformat(),
-        'total_scans': scans.count(),
+        'total_scans': total_scans,
         'scans': [export_scan_to_json(scan) for scan in scans]
     }
     
@@ -104,7 +110,7 @@ def export_findings_to_csv(findings, filename='findings_export.csv'):
     Export findings to CSV format.
     
     Args:
-        findings: QuerySet of SensitiveFinding objects
+        findings: QuerySet or list of SensitiveFinding objects
         filename: Output filename
         
     Returns:
@@ -146,15 +152,21 @@ def export_findings_to_json(findings, filename='findings_export.json'):
     Export findings to JSON format.
     
     Args:
-        findings: QuerySet of SensitiveFinding objects
+        findings: QuerySet or list of SensitiveFinding objects
         filename: Output filename
         
     Returns:
         HttpResponse with JSON file
     """
+    # Handle both QuerySet and list
+    if isinstance(findings, list):
+        total_findings = len(findings)
+    else:
+        total_findings = findings.count()
+    
     export_data = {
         'export_date': datetime.now().isoformat(),
-        'total_findings': findings.count(),
+        'total_findings': total_findings,
         'findings': []
     }
     

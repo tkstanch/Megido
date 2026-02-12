@@ -241,7 +241,7 @@ class ScanViewSet(viewsets.ModelViewSet):
             'findings_by_severity': severity_stats,
         })
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='export')
     def export(self, request):
         """
         Export scans to JSON format.
@@ -358,7 +358,7 @@ class SensitiveFindingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(finding)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='export')
     def export(self, request):
         """
         Export findings to various formats.
@@ -371,13 +371,13 @@ class SensitiveFindingViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         
         # Limit to prevent memory issues
-        findings = queryset[:1000]
+        findings = list(queryset[:1000])
         
         # Log export
         audit_logger.log_data_export(
             request.user if request.user.is_authenticated else None,
             f'findings_{export_format}',
-            findings.count(),
+            len(findings),
             request
         )
         
