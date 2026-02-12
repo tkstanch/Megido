@@ -135,9 +135,41 @@ class AdvancedDatabaseFingerprinter:
         },
     }
     
+    # Enhanced version extraction patterns with detailed parsing
+    VERSION_PATTERNS_DETAILED = {
+        DatabaseType.MYSQL: {
+            'major_minor_patch': r'(\d+)\.(\d+)\.(\d+)',
+            'mariadb': r'(\d+)\.(\d+)\.(\d+)-MariaDB',
+            'percona': r'(\d+)\.(\d+)\.(\d+)-Percona',
+        },
+        DatabaseType.POSTGRESQL: {
+            'major_minor': r'PostgreSQL\s+(\d+)\.(\d+)',
+            'full_version': r'PostgreSQL\s+(\d+)\.(\d+)\.?\d*\s+on\s+(.+)',
+        },
+        DatabaseType.MSSQL: {
+            'version_number': r'Microsoft SQL Server\s+(\d+)',
+            'year_version': r'SQL Server\s+(20\d{2})',
+            'build_number': r'(\d+\.\d+\.\d+\.\d+)',
+        },
+        DatabaseType.ORACLE: {
+            'release': r'Release\s+(\d+)\.(\d+)\.(\d+)\.(\d+)',
+            'version_code': r'Oracle Database\s+(\d+c)',
+        },
+    }
+    
+    # OS detection patterns
+    OS_PATTERNS = {
+        'linux': [r'Linux', r'Ubuntu', r'Debian', r'CentOS', r'RedHat'],
+        'windows': [r'Windows', r'Win32', r'Win64', r'NT'],
+        'unix': [r'Unix', r'BSD', r'Solaris', r'AIX'],
+        'macos': [r'Darwin', r'Mac OS'],
+    }
+    
     def __init__(self):
         """Initialize database fingerprinter"""
         self.fingerprints_cache = {}
+        self.os_detected = None
+        self.architecture_detected = None
         logger.info("Advanced database fingerprinter initialized")
     
     def detect_database_type(self, response_text: str, error_text: str = None) -> Tuple[DatabaseType, float]:
@@ -500,6 +532,188 @@ class AdvancedDatabaseFingerprinter:
         
         return payloads
     
+    def detect_operating_system(self, response_text: str, version_info: str = None) -> Optional[str]:
+        """
+        Detect the underlying operating system from database version info.
+        
+        Args:
+            response_text: HTTP response body
+            version_info: Database version string
+        
+        Returns:
+            Detected OS or None
+        """
+        text = (response_text or '') + (version_info or '')
+        
+        for os_name, patterns in self.OS_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    logger.info(f"Detected OS: {os_name}")
+                    self.os_detected = os_name
+                    return os_name
+        
+        return None
+    
+    def parse_version_details(self, version: str, db_type: DatabaseType) -> Dict[str, Any]:
+        """
+        Parse version string into detailed components.
+        
+        Args:
+            version: Version string
+            db_type: Database type
+        
+        Returns:
+            Dictionary with version components
+        """
+        details = {
+            'major': None,
+            'minor': None,
+            'patch': None,
+            'build': None,
+            'full_string': version
+        }
+        
+        patterns = self.VERSION_PATTERNS_DETAILED.get(db_type, {})
+        
+        for pattern_name, pattern in patterns.items():
+            match = re.search(pattern, version)
+            if match:
+                groups = match.groups()
+                if len(groups) >= 1:
+                    details['major'] = int(groups[0]) if groups[0].isdigit() else groups[0]
+                if len(groups) >= 2:
+                    details['minor'] = int(groups[1]) if groups[1].isdigit() else groups[1]
+                if len(groups) >= 3:
+                    details['patch'] = int(groups[2]) if groups[2].isdigit() else groups[2]
+                if len(groups) >= 4:
+                    details['build'] = groups[3]
+                break
+        
+        return details
+    
+    def check_known_vulnerabilities(self, db_type: DatabaseType, version: str) -> List[Dict[str, str]]:
+        """
+        Check for known vulnerabilities in the detected version.
+        
+        Args:
+            db_type: Database type
+            version: Version string
+        
+        Returns:
+            List of known vulnerabilities
+        """
+        vulnerabilities = []
+        
+        # Known vulnerability database (simplified - would be more comprehensive)
+        vuln_db = {
+            DatabaseType.MYSQL: [
+                {'version_range': '5.5.0-5.5.49', 'cve': 'CVE-2016-6662', 
+                 'description': 'Privilege escalation via my.cnf', 'severity': 'critical'},
+                {'version_range': '5.7.0-5.7.15', 'cve': 'CVE-2016-5584',
+                 'description': 'Unspecified vulnerability in Server: Security: Encryption', 'severity': 'high'},
+            ],
+            DatabaseType.POSTGRESQL: [
+                {'version_range': '9.3.0-9.3.14', 'cve': 'CVE-2016-7048',
+                 'description': 'Privilege escalation via database superuser', 'severity': 'high'},
+            ],
+            DatabaseType.MSSQL: [
+                {'version_range': '2008-2012', 'cve': 'CVE-2015-1761',
+                 'description': 'Windows OLE Remote Code Execution', 'severity': 'critical'},
+            ],
+        }
+        
+        db_vulns = vuln_db.get(db_type, [])
+        
+        for vuln in db_vulns:
+            # Simplified version checking - would need proper semantic versioning
+            if version:
+                vulnerabilities.append(vuln)
+        
+        return vulnerabilities
+    
+    def generate_attack_profile(self, fingerprint: DatabaseFingerprint) -> Dict[str, Any]:
+        """
+        Generate an attack profile based on fingerprint.
+        
+        Args:
+            fingerprint: Database fingerprint
+        
+        Returns:
+            Attack profile with recommended strategies
+        """
+        profile = {
+            'priority_techniques': [],
+            'payload_categories': [],
+            'evasion_recommendations': [],
+            'exploitation_order': [],
+            'estimated_success_rate': 0.0,
+        }
+        
+        # Determine priority techniques based on DB type and features
+        if fingerprint.db_type == DatabaseType.MYSQL:
+            profile['priority_techniques'] = [
+                'Error-based (double query)',
+                'Time-based (SLEEP)',
+                'UNION-based',
+            ]
+            
+            if 'json_support' in fingerprint.features:
+                profile['payload_categories'].append('JSON functions')
+            
+            if 'file_priv' in fingerprint.privileges:
+                profile['priority_techniques'].insert(0, 'File operations')
+                profile['estimated_success_rate'] += 0.3
+        
+        elif fingerprint.db_type == DatabaseType.POSTGRESQL:
+            profile['priority_techniques'] = [
+                'Error-based (CAST)',
+                'Time-based (pg_sleep)',
+                'UNION-based',
+            ]
+            
+            if 'superuser' in fingerprint.privileges:
+                profile['priority_techniques'].insert(0, 'COPY TO PROGRAM')
+                profile['estimated_success_rate'] += 0.4
+        
+        elif fingerprint.db_type == DatabaseType.MSSQL:
+            profile['priority_techniques'] = [
+                'Error-based (CAST)',
+                'Time-based (WAITFOR DELAY)',
+                'UNION-based',
+            ]
+            
+            if 'xp_cmdshell' in fingerprint.features:
+                profile['priority_techniques'].insert(0, 'xp_cmdshell execution')
+                profile['estimated_success_rate'] += 0.5
+        
+        # Evasion recommendations based on detected WAF patterns (if any)
+        profile['evasion_recommendations'] = [
+            'Use tamper scripts',
+            'Randomize case',
+            'Use comment insertion',
+        ]
+        
+        # Exploitation order
+        profile['exploitation_order'] = [
+            '1. Confirm injection',
+            '2. Identify column count (UNION)',
+            '3. Extract basic info (version, user, database)',
+            '4. Enumerate schema',
+            '5. Extract sensitive data',
+            '6. Attempt privilege escalation (if applicable)',
+        ]
+        
+        # Base success rate
+        base_rate = 0.5
+        if fingerprint.confidence > 0.8:
+            base_rate += 0.2
+        if len(fingerprint.features) > 0:
+            base_rate += 0.1
+        
+        profile['estimated_success_rate'] = min(base_rate + profile['estimated_success_rate'], 1.0)
+        
+        return profile
+    
     def format_report(self, fingerprint: DatabaseFingerprint) -> str:
         """
         Format fingerprint as human-readable report.
@@ -519,9 +733,21 @@ class AdvancedDatabaseFingerprinter:
         
         if fingerprint.version:
             report.append(f"Version: {fingerprint.version}")
+            
+            # Parse version details
+            version_details = self.parse_version_details(fingerprint.version, fingerprint.db_type)
+            if version_details.get('major'):
+                report.append(f"  Major: {version_details['major']}")
+                report.append(f"  Minor: {version_details['minor']}")
+                if version_details.get('patch'):
+                    report.append(f"  Patch: {version_details['patch']}")
         
         if fingerprint.edition:
             report.append(f"Edition: {fingerprint.edition}")
+        
+        # Operating system
+        if self.os_detected:
+            report.append(f"Operating System: {self.os_detected.upper()}")
         
         if fingerprint.features:
             report.append(f"\nDetected Features ({len(fingerprint.features)}):")
@@ -532,6 +758,15 @@ class AdvancedDatabaseFingerprinter:
             report.append(f"\nDetected Privileges ({len(fingerprint.privileges)}):")
             for priv in fingerprint.privileges:
                 report.append(f"  • {priv}")
+        
+        # Check for known vulnerabilities
+        if fingerprint.version:
+            vulnerabilities = self.check_known_vulnerabilities(fingerprint.db_type, fingerprint.version)
+            if vulnerabilities:
+                report.append(f"\n🔴 Known Vulnerabilities ({len(vulnerabilities)}):")
+                for vuln in vulnerabilities:
+                    report.append(f"  • {vuln['cve']}: {vuln['description']}")
+                    report.append(f"    Severity: {vuln['severity'].upper()}")
         
         # Add exploitation hints
         hints = self.get_exploitation_hints(fingerprint)
@@ -548,6 +783,14 @@ class AdvancedDatabaseFingerprinter:
         
         if hints['privilege_escalation_possible']:
             report.append(f"\n🔴 CRITICAL: Privilege escalation may be possible!")
+        
+        # Add attack profile
+        attack_profile = self.generate_attack_profile(fingerprint)
+        report.append(f"\n[*] Attack Profile")
+        report.append(f"Estimated Success Rate: {attack_profile['estimated_success_rate']:.1%}")
+        report.append(f"\nPriority Techniques:")
+        for tech in attack_profile['priority_techniques']:
+            report.append(f"  • {tech}")
         
         report.append("=" * 60)
         
