@@ -420,7 +420,7 @@ def confirm_parameters(request, task_id):
             thread.daemon = True
             thread.start()
             
-            return redirect('sql_attacker:task_detail', task_id=task.id)
+            return redirect('sql_attacker:task_detail', pk=task.id)
             
         elif action == 'manual_selection':
             # User chose to manually select parameters
@@ -445,7 +445,7 @@ def confirm_parameters(request, task_id):
             thread.daemon = True
             thread.start()
             
-            return redirect('sql_attacker:task_detail', task_id=task.id)
+            return redirect('sql_attacker:task_detail', pk=task.id)
     
     # GET request - show confirmation page
     context = {
