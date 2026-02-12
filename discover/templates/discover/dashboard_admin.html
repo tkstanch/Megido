@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard - Discover{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'discover:home' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Admin Dashboard</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="card bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div class="card-body">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">🛡️ Admin Dashboard</h1>
+                    <p class="text-blue-100">Global analytics and system insights</p>
+                </div>
+                <div>
+                    <select id="timeRange" class="px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white backdrop-blur">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Scans -->
+        <div class="card border-l-4 border-blue-500">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Scans</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.total_scans }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">Last {{ stats.period_days }} days</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">🔍</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Findings -->
+        <div class="card border-l-4 border-green-500">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Findings</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.total_findings }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">All severity levels</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">📋</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Findings -->
+        <div class="card border-l-4 border-red-500">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Critical</p>
+                        <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">{{ stats.findings_by_severity.critical }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">Requires immediate attention</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">🚨</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- High Risk Findings -->
+        <div class="card border-l-4 border-orange-500">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">High Risk</p>
+                        <p class="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{{ stats.findings_by_severity.high }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">High priority</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">⚠️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Findings by Severity Chart -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">📊 Findings Distribution</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-4">
+                <!-- Critical -->
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm font-medium text-gray-700 dark:text-gray-300">Critical</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-8">
+                        <div class="bg-red-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                             style="width: {% widthratio stats.findings_by_severity.critical stats.total_findings 100 %}%">
+                            {{ stats.findings_by_severity.critical }}
+                        </div>
+                    </div>
+                </div>
+                <!-- High -->
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm font-medium text-gray-700 dark:text-gray-300">High</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-8">
+                        <div class="bg-orange-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                             style="width: {% widthratio stats.findings_by_severity.high stats.total_findings 100 %}%">
+                            {{ stats.findings_by_severity.high }}
+                        </div>
+                    </div>
+                </div>
+                <!-- Medium -->
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm font-medium text-gray-700 dark:text-gray-300">Medium</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-8">
+                        <div class="bg-yellow-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                             style="width: {% widthratio stats.findings_by_severity.medium stats.total_findings 100 %}%">
+                            {{ stats.findings_by_severity.medium }}
+                        </div>
+                    </div>
+                </div>
+                <!-- Low -->
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm font-medium text-gray-700 dark:text-gray-300">Low</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-8">
+                        <div class="bg-blue-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                             style="width: {% widthratio stats.findings_by_severity.low stats.total_findings 100 %}%">
+                            {{ stats.findings_by_severity.low }}
+                        </div>
+                    </div>
+                </div>
+                <!-- Info -->
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm font-medium text-gray-700 dark:text-gray-300">Info</span>
+                    <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-8">
+                        <div class="bg-gray-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" 
+                             style="width: {% widthratio stats.findings_by_severity.info stats.total_findings 100 %}%">
+                            {{ stats.findings_by_severity.info }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trending Targets -->
+    {% if trending %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🔥 Trending Targets</h3>
+        </div>
+        <div class="card-body">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rank</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Target</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Scans</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">High Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for item in trending %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                #{{ forloop.counter }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                {{ item.target }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {{ item.scan_count }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if item.high_risk_count > 0 %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
+                                    {{ item.high_risk_count }} scan{{ item.high_risk_count|pluralize }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-500 dark:text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top Finding Types -->
+    {% if stats.top_finding_types %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🎯 Top Finding Types</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for finding_type in stats.top_finding_types %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span class="font-medium text-gray-900 dark:text-white">{{ finding_type.finding_type }}</span>
+                    <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-semibold">
+                        {{ finding_type.count }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent High-Risk Findings -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">⚠️ Recent High-Risk Findings</h3>
+        </div>
+        <div class="card-body">
+            {% if recent_high_risk %}
+            <div class="space-y-4">
+                {% for finding in recent_high_risk %}
+                <div class="p-4 border-l-4 {% if finding.severity == 'critical' %}border-red-500 bg-red-50 dark:bg-red-900/20{% else %}border-orange-500 bg-orange-50 dark:bg-orange-900/20{% endif %} rounded">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full {% if finding.severity == 'critical' %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200{% else %}bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200{% endif %}">
+                                    {{ finding.severity|upper }}
+                                </span>
+                                <h4 class="font-semibold text-gray-900 dark:text-white">{{ finding.finding_type }}</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">{{ finding.url|truncatechars:80 }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Found: {{ finding.discovered_at|timesince }} ago</p>
+                        </div>
+                        <a href="{% url 'discover:view_report' finding.scan.id %}" class="text-primary-600 dark:text-primary-400 hover:underline text-sm">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-center text-gray-500 dark:text-gray-400 py-8">No high-risk findings in the selected period</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Top Active Users -->
+    {% if stats.top_users %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">👥 Most Active Users</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-3">
+                {% for user in stats.top_users %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span class="font-medium text-gray-900 dark:text-white">{{ user.user__username|default:"Anonymous" }}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ user.scan_count }} scan{{ user.scan_count|pluralize }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Handle time range selection
+document.getElementById('timeRange').addEventListener('change', function() {
+    const days = this.value;
+    window.location.href = `?days=${days}`;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "total_engines": 1,
+    "successful_engines": 1,
+    "failed_engines": 0,
+    "total_findings": 3,
+    "findings_by_severity": {
+      "high": 1,
+      "medium": 1,
+      "low": 1
+    },
+    "findings_by_category": {
+      "injection": 1,
+      "xss": 1,
+      "crypto": 1
+    },
+    "findings_by_engine": {
+      "dummy_scanner": 3
+    },
+    "execution_time": 0.001585,
+    "start_time": "2026-02-11T19:54:10.530140",
+    "end_time": "2026-02-11T19:54:10.531725"
+  },
+  "findings": [
+    {
+      "engine_id": "dummy_scanner",
+      "engine_name": "Dummy Scanner (Demo)",
+      "title": "Potential SQL Injection Vulnerability",
+      "description": "Unsanitized user input is used in SQL query construction",
+      "severity": "high",
+      "confidence": 0.85,
+      "file_path": "/home/runner/work/Megido/Megido/scanner/sample_file.py",
+      "line_number": 42,
+      "url": null,
+      "category": "injection",
+      "cwe_id": "CWE-89",
+      "cve_id": null,
+      "owasp_category": "A03:2021-Injection",
+      "evidence": "query = \"SELECT * FROM users WHERE id = \" + user_input",
+      "remediation": "Use parameterized queries or an ORM to prevent SQL injection",
+      "references": [
+        "https://owasp.org/www-community/attacks/SQL_Injection",
+        "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+      ],
+      "timestamp": "2026-02-11T19:54:10.531410",
+      "raw_output": null
+    },
+    {
+      "engine_id": "dummy_scanner",
+      "engine_name": "Dummy Scanner (Demo)",
+      "title": "Cross-Site Scripting (XSS) Vulnerability",
+      "description": "User input is rendered without proper encoding",
+      "severity": "medium",
+      "confidence": 0.75,
+      "file_path": "/home/runner/work/Megido/Megido/scanner/template.html",
+      "line_number": 15,
+      "url": null,
+      "category": "xss",
+      "cwe_id": "CWE-79",
+      "cve_id": null,
+      "owasp_category": "A03:2021-Injection",
+      "evidence": "<div>{{ user_comment }}</div>",
+      "remediation": "Use proper output encoding/escaping for user-controlled data",
+      "references": [
+        "https://owasp.org/www-community/attacks/xss/",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+      ],
+      "timestamp": "2026-02-11T19:54:10.531432",
+      "raw_output": null
+    },
+    {
+      "engine_id": "dummy_scanner",
+      "engine_name": "Dummy Scanner (Demo)",
+      "title": "Use of Weak Cryptographic Algorithm",
+      "description": "MD5 hash function is cryptographically broken",
+      "severity": "low",
+      "confidence": 1.0,
+      "file_path": "/home/runner/work/Megido/Megido/scanner/crypto.py",
+      "line_number": 28,
+      "url": null,
+      "category": "crypto",
+      "cwe_id": "CWE-327",
+      "cve_id": null,
+      "owasp_category": "A02:2021-Cryptographic Failures",
+      "evidence": "import hashlib; hash = hashlib.md5(data)",
+      "remediation": "Use SHA-256 or SHA-3 instead of MD5 for cryptographic purposes",
+      "references": [
+        "https://owasp.org/www-community/vulnerabilities/Using_a_broken_or_risky_cryptographic_algorithm"
+      ],
+      "timestamp": "2026-02-11T19:54:10.531456",
+      "raw_output": null
+    }
+  ],
+  "engine_results": [
+    {
+      "engine_id": "dummy_scanner",
+      "engine_name": "Dummy Scanner (Demo)",
+      "success": true,
+      "findings_count": 3,
+      "error": null,
+      "execution_time": 0.00023126602172851562
+    }
+  ]
+}
