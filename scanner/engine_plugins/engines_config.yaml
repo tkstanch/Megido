@@ -1,0 +1,112 @@
+# Megido Multi-Engine Scanner Configuration
+#
+# This file controls which scanner engines are enabled and their settings.
+# Engines can be: SAST, DAST, SCA, secrets scanners, and custom analyzers.
+
+# Global settings that apply to all engines
+global:
+  # Maximum parallel workers for concurrent scanning
+  max_workers: 4
+  
+  # Default timeout for each engine (in seconds)
+  default_timeout: 300
+  
+  # Minimum severity level to report (info, low, medium, high, critical)
+  severity_threshold: low
+  
+  # Output format (json, yaml, text)
+  output_format: json
+  
+  # Enable ML-based prioritization
+  enable_ml_prioritization: true
+  
+  # Enable smart deduplication
+  enable_smart_deduplication: true
+  
+  # Enable false positive prediction
+  enable_fp_prediction: true
+
+# Engine-specific configuration
+engines:
+  # SAST: Bandit - Python security linter
+  bandit:
+    enabled: true
+    config:
+      severity_threshold: medium
+      confidence_threshold: medium
+      exclude_patterns:
+        - "*/tests/*"
+        - "*/venv/*"
+        - "*/.venv/*"
+      timeout: 180
+
+  # SAST: Semgrep - Multi-language static analysis
+  semgrep:
+    enabled: true
+    config:
+      config_name: "auto"  # or p/security-audit, p/owasp-top-ten
+      severity: null  # null = all severities
+      max_memory: 8000
+      exclude_patterns:
+        - "*/tests/*"
+        - "*/node_modules/*"
+        - "*/.venv/*"
+      timeout: 300
+
+  # Secrets: GitLeaks - Find hardcoded secrets
+  gitleaks:
+    enabled: true
+    config:
+      timeout: 300
+      exclude_patterns:
+        - "*/node_modules/*"
+        - "*/.git/*"
+
+  # SCA: Trivy - Vulnerability scanner for dependencies and containers
+  trivy:
+    enabled: true
+    config:
+      scan_types:
+        - vuln
+        - secret
+        - config
+      severity_levels:
+        - CRITICAL
+        - HIGH
+        - MEDIUM
+      skip_db_update: false
+      timeout: 300
+
+  # SCA: Safety - Python dependency checker ⭐ NEW
+  safety:
+    enabled: true
+    config:
+      timeout: 180
+      check_dependencies:
+        - requirements.txt
+        - Pipfile
+        - pyproject.toml
+
+  # SCA: NPM Audit - Node.js dependency checker ⭐ NEW
+  npm_audit:
+    enabled: true
+    config:
+      timeout: 180
+      audit_level: low  # Report all severities
+      production_only: false
+
+  # DAST: Example dynamic scanner (custom implementation)
+  dast_scanner:
+    enabled: false  # Disabled by default
+    config:
+      max_depth: 3
+      timeout: 600
+      verify_ssl: false
+
+  # Custom: Dummy scanner for testing
+  dummy_scanner:
+    enabled: true
+    config:
+      # This is just for demonstration purposes
+      generate_sample_findings: true
+      num_findings: 3

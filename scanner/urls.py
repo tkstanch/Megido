@@ -1,8 +1,22 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+from .engine_api_views import (
+    EngineViewSet,
+    EngineScanViewSet,
+    EngineExecutionViewSet,
+    EngineFindingViewSet
+)
 from browser.views import launch_pyqt_browser
 
 app_name = 'scanner'
+
+# Create router for engine API
+router = DefaultRouter()
+router.register(r'engines', EngineViewSet, basename='engine')
+router.register(r'engine-scans', EngineScanViewSet, basename='engine-scan')
+router.register(r'engine-executions', EngineExecutionViewSet, basename='engine-execution')
+router.register(r'engine-findings', EngineFindingViewSet, basename='engine-finding')
 
 urlpatterns = [
     path('', views.scanner_dashboard, name='dashboard'),
@@ -13,4 +27,7 @@ urlpatterns = [
     path('api/scans/<int:scan_id>/apply_advanced_features/', views.apply_advanced_features, name='apply_advanced_features'),
     path('api/exploit_status/<str:task_id>/', views.exploit_status, name='exploit_status'),
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
+    
+    # Engine API routes
+    path('api/', include(router.urls)),
 ]
