@@ -376,6 +376,9 @@ def demo_comparison():
     """Demonstrate before/after comparison"""
     print_section("Demo 5: Before vs After Comparison")
     
+    # Constants for readability
+    MINUTES_PER_FINDING_REVIEW = 6  # Average time to manually review one finding
+    
     print("Simulating scan of 50 findings...\n")
     
     # Simulate findings
@@ -393,7 +396,8 @@ def demo_comparison():
     print(f"  Total Findings: {len(findings)}")
     print(f"  All treated equally - no prioritization")
     print(f"  Manual review required: {len(findings)} findings")
-    print(f"  Estimated review time: {len(findings) * 6} minutes ({len(findings) * 6 / 60:.1f} hours)")
+    review_time_before = len(findings) * MINUTES_PER_FINDING_REVIEW
+    print(f"  Estimated review time: {review_time_before} minutes ({review_time_before / 60:.1f} hours)")
     print(f"  False positive rate: ~15-20%")
     print(f"  False positives to review: ~{int(len(findings) * 0.175)}")
     
@@ -426,15 +430,18 @@ def demo_comparison():
     print(f"  ✓ Verified: {len(verified)} ({len(verified)/len(findings)*100:.1f}%)")
     print(f"  ✗ Rejected: {len(rejected)} ({len(rejected)/len(findings)*100:.1f}%)")
     print(f"  ? Uncertain: {len(uncertain)} ({len(uncertain)/len(findings)*100:.1f}%)")
-    print(f"  Manual review required: {len(verified) + len(uncertain)} findings")
-    print(f"  Estimated review time: {(len(verified) + len(uncertain)) * 6} minutes ({(len(verified) + len(uncertain)) * 6 / 60:.1f} hours)")
+    findings_to_review = len(verified) + len(uncertain)
+    review_time_after = findings_to_review * MINUTES_PER_FINDING_REVIEW
+    print(f"  Manual review required: {findings_to_review} findings")
+    print(f"  Estimated review time: {review_time_after} minutes ({review_time_after / 60:.1f} hours)")
     print(f"  False positive reduction: {len(rejected)/len(findings)*100:.1f}%")
-    print(f"  Time saved: {(len(rejected) * 6) / 60:.1f} hours")
+    time_saved = (len(rejected) * MINUTES_PER_FINDING_REVIEW) / 60
+    print(f"  Time saved: {time_saved:.1f} hours")
     
     print(f"\nImprovements:")
     print(f"  ✓ {len(rejected)} false positives automatically filtered")
     print(f"  ✓ {len(rejected)/len(findings)*100:.1f}% reduction in false positives")
-    print(f"  ✓ {(len(rejected) * 6) / 60:.1f} hours saved")
+    print(f"  ✓ {time_saved:.1f} hours saved")
     print(f"  ✓ {len(rejected)/len(findings)*100:.0f}% less manual review")
     print(f"  ✓ Clear prioritization: Verified > Uncertain > Rejected")
     print(f"  ✓ Statistical confidence for every finding")
