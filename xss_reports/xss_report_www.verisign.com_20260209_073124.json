@@ -1,0 +1,72 @@
+{
+  "scan_info": {
+    "target_url": "https://www.verisign.com/search/",
+    "timestamp": "2026-02-09T07:31:24.650994",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 3,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 3,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.verisign.com/fonts/Roboto-Semibold-latin.135066818a7fbbfc4d964f1f2f93dca0ddb3503456a9df038c20a4b29d131860.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/fonts/Inter-Semibold-latin.52fefe04bda9e5814d3f1b232247a714676a6f7820c01cc1be303f4ca72f49ad.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/fonts/Inter-Regular-latin.2961762d625bd3a73fa9bdf3f1c897ec4a0ad5cf3e53490c69bc1c15ebf34087.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/img/general/verisign_logo.min.e2353926dddcdf1d30390ecc21110351f6d9378b32501c3cb94fc7cbeedd4bb6.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/sprites-general.min.663b3fd019d703f3c9af671cd0bc5cf5c3097d726c2616914d8a6fba0f76519b.svg#chevron_right - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/ 0:0 Uncaught DOMException: A network error occurred."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T07:22:24.484838"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "<details open ontoggle=alert(1)>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.verisign.com/fonts/Inter-Semibold-latin.52fefe04bda9e5814d3f1b232247a714676a6f7820c01cc1be303f4ca72f49ad.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/fonts/Inter-Regular-latin.2961762d625bd3a73fa9bdf3f1c897ec4a0ad5cf3e53490c69bc1c15ebf34087.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/ 0:0 Uncaught DOMException: A network error occurred."
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T07:24:40.600283"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/",
+      "parameter": "unknown",
+      "method": "GET",
+      "payload": "#\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js 0:10175 Uncaught TypeError: Cannot read properties of undefined (reading 'Domain')",
+        "https://cdn.cookielaw.org/consent/51830805-5d0b-4714-b341-130e1ef96d80/51830805-5d0b-4714-b341-130e1ef96d80.json - Failed to load resource: net::ERR_NETWORK_CHANGED"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-09T07:26:30.879598"
+    }
+  ]
+}
