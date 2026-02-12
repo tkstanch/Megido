@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Dashboard - Discover{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'discover:home' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Discover</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">Dashboard</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="card">
+        <div class="card-body flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 My Dashboard</h1>
+                <p class="text-gray-600 dark:text-gray-400">Analytics and insights for your OSINT scans</p>
+            </div>
+            <div>
+                <select id="timeRange" class="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                    <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                    <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Scans -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Scans</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.total_scans }}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">🔍</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Findings -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Findings</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.total_findings }}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">📋</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- High Risk Findings -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">High Risk</p>
+                        <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">{{ stats.high_risk_findings }}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">⚠️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Scan Duration -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Duration</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.avg_scan_duration_seconds|floatformat:0 }}s</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+                        <span class="text-2xl">⏱️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    {% if recommendations %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🎯 Recommended Scans</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-4">
+                {% for rec in recommendations %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900 dark:text-white">{{ rec.target }}</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ rec.reason }}</p>
+                        <div class="mt-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-500">Confidence: {{ rec.confidence_score|floatformat:0 }}%</span>
+                        </div>
+                    </div>
+                    <a href="{% url 'discover:home' %}?target={{ rec.target }}" class="btn btn-primary">
+                        Scan Now
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top Targets -->
+    {% if stats.top_targets %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🏆 Most Scanned Targets</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-3">
+                {% for target in stats.top_targets %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="flex-1">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ target.target }}</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ target.count }} scan{{ target.count|pluralize }}</span>
+                        <a href="{% url 'discover:home' %}?target={{ target.target }}" class="text-primary-600 dark:text-primary-400 hover:underline">
+                            Scan Again
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Scans -->
+    <div class="card">
+        <div class="card-header flex justify-between items-center">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">📜 Recent Scans</h3>
+            <a href="{% url 'discover:history' %}" class="text-primary-600 dark:text-primary-400 hover:underline">View All</a>
+        </div>
+        <div class="card-body">
+            {% if recent_scans %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Findings</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for scan in recent_scans %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                {{ scan.target }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {{ scan.scan_date|date:"Y-m-d H:i" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                <span class="{% if scan.high_risk_findings > 0 %}text-red-600 dark:text-red-400{% endif %}">
+                                    {{ scan.total_findings }} ({{ scan.high_risk_findings }} high-risk)
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if scan.sensitive_scan_completed %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                    Complete
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                    In Progress
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <a href="{% url 'discover:view_report' scan.id %}" class="text-primary-600 dark:text-primary-400 hover:underline">
+                                    View Report
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-center text-gray-500 dark:text-gray-400 py-8">No scans yet. <a href="{% url 'discover:home' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Start your first scan</a></p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Activity Breakdown -->
+    {% if stats.activity_breakdown %}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">📈 Activity Breakdown</h3>
+        </div>
+        <div class="card-body">
+            <div class="space-y-4">
+                {% for activity in stats.activity_breakdown %}
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-700 dark:text-gray-300">{{ activity.action|title }}</span>
+                    <div class="flex items-center gap-4">
+                        <div class="w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-primary-600 h-2 rounded-full" style="width: {{ activity.count|default:0 }}%"></div>
+                        </div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">{{ activity.count }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Handle time range selection
+document.getElementById('timeRange').addEventListener('change', function() {
+    const days = this.value;
+    window.location.href = `?days=${days}`;
+});
+</script>
+{% endblock %}

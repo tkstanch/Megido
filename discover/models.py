@@ -1,14 +1,13 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.contrib.postgres.fields import JSONField
 
 
 class Scan(models.Model):
     """Model to store scan history and results"""
     target = models.CharField(max_length=500, help_text="Target domain or URL")
     scan_date = models.DateTimeField(default=timezone.now)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='scans')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='discover_scans')
     
     # Results stored as JSON text fields
     wayback_urls = models.TextField(blank=True, help_text="JSON array of Wayback Machine URLs")
