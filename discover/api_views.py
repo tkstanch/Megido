@@ -27,6 +27,14 @@ from .utils import (
 )
 from .dorks import generate_dorks_for_target
 from .views import run_sensitive_scan_async
+from .export_utils import (
+    export_scans_to_json_file,
+    export_findings_to_csv,
+    export_findings_to_json,
+    export_to_sarif,
+    import_scan_from_json,
+)
+from .audit import audit_logger
 
 
 logger = logging.getLogger(__name__)
@@ -232,6 +240,48 @@ class ScanViewSet(viewsets.ModelViewSet):
             'scans_with_high_risk_findings': high_risk_scans,
             'findings_by_severity': severity_stats,
         })
+    
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """
+        Export scans to JSON format.
+        
+        GET /api/scans/export/?format=json
+        """
+        scan_ids = request.query_params.get('scan_ids', '').split(',')
+        if scan_ids and scan_ids[0]:
+            scans = Scan.objects.filter(id__in=scan_ids)
+        else:
+            scans = Scan.objects.all()[:100]  # Limit to 100 scans
+        
+        # Log export
+        audit_logger.log_data_export(
+            request.user if request.user.is_authenticated else None,
+            'scans',
+            scans.count(),
+            request
+        )
+        
+        return export_scans_to_json_file(scans)
+    
+    @action(detail=True, methods=['get'])
+    def export_single(self, request, pk=None):
+        """
+        Export a single scan to JSON format.
+        
+        GET /api/scans/{id}/export_single/
+        """
+        scan = self.get_object()
+        
+        # Log export
+        audit_logger.log_data_export(
+            request.user if request.user.is_authenticated else None,
+            'scan',
+            1,
+            request
+        )
+        
+        return export_scans_to_json_file([scan], filename=f'scan_{scan.id}.json')
 
 
 class SensitiveFindingViewSet(viewsets.ModelViewSet):
@@ -307,6 +357,36 @@ class SensitiveFindingViewSet(viewsets.ModelViewSet):
         finding.save()
         serializer = self.get_serializer(finding)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """
+        Export findings to various formats.
+        
+        GET /api/findings/export/?format=csv|json|sarif
+        """
+        export_format = request.query_params.get('format', 'json')
+        
+        # Apply filters
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Limit to prevent memory issues
+        findings = queryset[:1000]
+        
+        # Log export
+        audit_logger.log_data_export(
+            request.user if request.user.is_authenticated else None,
+            f'findings_{export_format}',
+            findings.count(),
+            request
+        )
+        
+        if export_format == 'csv':
+            return export_findings_to_csv(findings)
+        elif export_format == 'sarif':
+            return export_to_sarif(findings)
+        else:  # json
+            return export_findings_to_json(findings)
 
 
 @api_view(['GET'])
