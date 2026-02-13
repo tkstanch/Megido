@@ -48,18 +48,14 @@ class Migration0005TestCase(TransactionTestCase):
         Since this migration does nothing, it should always succeed regardless
         of the database state.
         """
-        try:
-            # Apply the migration
-            self.executor.migrate(self.migrate_to)
-            
-            # Get the new state
-            new_apps = self.executor.loader.project_state(self.migrate_to).apps
-            
-            # If we get here without exceptions, the migration succeeded
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 failed: {str(e)}")
+        # Apply the migration
+        self.executor.migrate(self.migrate_to)
+        
+        # Get the new state
+        new_apps = self.executor.loader.project_state(self.migrate_to).apps
+        
+        # If we get here without exceptions, the migration succeeded
+        self.assertTrue(True, 'Migration succeeded')
     
     def test_migration_reverse_succeeds(self):
         """
@@ -68,18 +64,14 @@ class Migration0005TestCase(TransactionTestCase):
         Since this migration does nothing, reversing it should also do nothing
         and should always succeed.
         """
-        try:
-            # First apply the migration forward
-            self.executor.migrate(self.migrate_to)
-            
-            # Then reverse it
-            self.executor.migrate(self.migrate_from)
-            
-            # If we get here without exceptions, the reverse migration succeeded
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 reverse failed: {str(e)}")
+        # First apply the migration forward
+        self.executor.migrate(self.migrate_to)
+        
+        # Then reverse it
+        self.executor.migrate(self.migrate_from)
+        
+        # If we get here without exceptions, the reverse migration succeeded
+        self.assertTrue(True, 'Reverse migration succeeded')
     
     def test_migration_is_idempotent(self):
         """
@@ -88,21 +80,17 @@ class Migration0005TestCase(TransactionTestCase):
         This verifies the idempotent behavior - since the migration does nothing,
         it can be applied and reversed repeatedly without any errors.
         """
-        try:
-            # Apply the migration forward
-            self.executor.migrate(self.migrate_to)
-            
-            # Reverse it
-            self.executor.migrate(self.migrate_from)
-            
-            # Apply it forward again
-            self.executor.migrate(self.migrate_to)
-            
-            # If we get here without exceptions, the migration is idempotent
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 idempotency test failed: {str(e)}")
+        # Apply the migration forward
+        self.executor.migrate(self.migrate_to)
+        
+        # Reverse it
+        self.executor.migrate(self.migrate_from)
+        
+        # Apply it forward again
+        self.executor.migrate(self.migrate_to)
+        
+        # If we get here without exceptions, the migration is idempotent
+        self.assertTrue(True, 'Migration is idempotent')
     
     def test_migration_with_missing_index(self):
         """
@@ -112,15 +100,11 @@ class Migration0005TestCase(TransactionTestCase):
         of whether any indexes exist or not. This test verifies the migration
         doesn't attempt any index operations.
         """
-        try:
-            # Apply migration 0005 - it should succeed as a no-op
-            self.executor.migrate(self.migrate_to)
-            
-            # If we get here, the migration succeeded (as expected for no-op)
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 failed (should be no-op): {str(e)}")
+        # Apply migration 0005 - it should succeed as a no-op
+        self.executor.migrate(self.migrate_to)
+        
+        # If we get here, the migration succeeded (as expected for no-op)
+        self.assertTrue(True, 'Migration succeeded as no-op')
     
     def test_migration_preserves_data(self):
         """
