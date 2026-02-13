@@ -1,5 +1,15 @@
 # XSS Callback Verification System
 
+## Visual Proof of Concept
+
+🎬 **[View Animated Walkthrough](docs/xss_callback_poc/xss_callback_verification_poc.gif)** - See the complete process in action!
+
+📊 **[View Flow Diagram](docs/xss_callback_poc/xss_callback_flow_diagram.png)** - Visual summary of the verification flow
+
+📁 **[All POC Images](docs/xss_callback_poc/)** - Step-by-step visual guide
+
+---
+
 ## Overview
 
 The Megido XSS scanner now includes **callback-based verification** to reduce false positives and provide proof of actual JavaScript execution in the target's browser context. This feature is essential for:

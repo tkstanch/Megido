@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS Callback Verification - Proof of Concept</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #e94560;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a1b2;
+            margin-bottom: 40px;
+        }
+        .gif-container {
+            text-align: center;
+            margin: 40px 0;
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #2d3748;
+        }
+        .gif-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        .flow-diagram {
+            text-align: center;
+            margin: 40px 0;
+        }
+        .flow-diagram img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            border: 2px solid #2d3748;
+        }
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        .step-card {
+            background: #16213e;
+            border: 2px solid #2d3748;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .step-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        .step-title {
+            margin-top: 10px;
+            color: #e94560;
+            font-weight: bold;
+        }
+        .download-section {
+            text-align: center;
+            margin: 40px 0;
+            padding: 30px;
+            background: #0f3460;
+            border-radius: 10px;
+        }
+        .download-button {
+            display: inline-block;
+            background: #2ecc71;
+            color: #ffffff;
+            padding: 15px 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        .download-button:hover {
+            background: #27ae60;
+        }
+        .info-box {
+            background: #16213e;
+            border-left: 4px solid #2ecc71;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #2ecc71;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>XSS Callback Verification System</h1>
+        <p class="subtitle">Step-by-Step Proof of Concept</p>
+
+        <div class="info-box">
+            <h3>What is Callback-Based Verification?</h3>
+            <p>Instead of relying on alert() dialogs or console errors, our system injects payloads that make HTTP callbacks. Only when we receive the callback do we mark the XSS as VERIFIED. This provides concrete proof of exploitation suitable for bug bounty submissions.</p>
+        </div>
+
+        <div class="gif-container">
+            <h2>Animated Walkthrough</h2>
+            <img src="docs/xss_callback_poc/xss_callback_verification_poc.gif" alt="XSS Callback Verification Animated Walkthrough">
+        </div>
+
+        <div class="flow-diagram">
+            <h2>Complete Flow Diagram</h2>
+            <img src="docs/xss_callback_poc/xss_callback_flow_diagram.png" alt="XSS Callback Verification Flow Diagram">
+        </div>
+
+        <h2>Step-by-Step Breakdown</h2>
+        <div class="steps-grid">
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_01.png" alt="Step 1">
+                <div class="step-title">Step 1: Configure Endpoint</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_02.png" alt="Step 2">
+                <div class="step-title">Step 2: Initialize Plugin</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_03.png" alt="Step 3">
+                <div class="step-title">Step 3: Generate Payload</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_04.png" alt="Step 4">
+                <div class="step-title">Step 4: Inject Payload</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_05.png" alt="Step 5">
+                <div class="step-title">Step 5: JavaScript Executes</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_06.png" alt="Step 6">
+                <div class="step-title">Step 6: Verify Callback</div>
+            </div>
+            <div class="step-card">
+                <img src="docs/xss_callback_poc/step_07.png" alt="Step 7">
+                <div class="step-title">Step 7: Generate Report</div>
+            </div>
+        </div>
+
+        <div class="download-section">
+            <h2>Download Resources</h2>
+            <p>All generated images and GIF are available in the repository</p>
+            <a href="docs/xss_callback_poc/xss_callback_verification_poc.gif" class="download-button">Download GIF</a>
+            <a href="docs/xss_callback_poc/xss_callback_flow_diagram.png" class="download-button">Download Flow Diagram</a>
+        </div>
+
+        <div class="info-box">
+            <h3>Benefits of Callback Verification</h3>
+            <ul>
+                <li><strong>Reduced False Positives:</strong> Only report XSS that actually executes</li>
+                <li><strong>Proof of Exploitation:</strong> HTTP callback provides concrete evidence</li>
+                <li><strong>Bug Bounty Ready:</strong> Reports include all necessary verification details</li>
+                <li><strong>Professional Reports:</strong> Timestamps, IPs, and interaction logs included</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
