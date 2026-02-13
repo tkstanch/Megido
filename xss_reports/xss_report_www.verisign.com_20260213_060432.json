@@ -1,0 +1,85 @@
+{
+  "scan_info": {
+    "target_url": "https://www.verisign.com/search/",
+    "timestamp": "2026-02-13T06:04:32.368938",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 4,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 4,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://assets.adobedtm.com/extensions/EP31dbb9c60e404ba1aa6e746d49be6f29/AppMeasurement.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://dpm.demdex.net/id?d_visid_ver=5.5.0&d_fieldgroup=MC&d_rtbd=json&d_ver=2&d_verify=1&d_orgid=5CD56BB15B4E63710A495CB6%40AdobeOrg&d_nsid=0&d_coppa=true&ts=1770962085522 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%3Cscript%3Ealert%281%29%3C%2Fscript%3E 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T05:54:49.069903"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Cinput+onfocus%3Dalert%281%29+autofocus%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://dpm.demdex.net/id?d_visid_ver=5.5.0&d_fieldgroup=MC&d_rtbd=json&d_ver=2&d_verify=1&d_orgid=5CD56BB15B4E63710A495CB6%40AdobeOrg&d_nsid=0&d_coppa=true&ts=1770962182230 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%3Cinput+onfocus%3Dalert%281%29+autofocus%3E 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T05:56:26.649267"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%22+onmouseover%3D%22alert%281%29",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "\" onmouseover=\"alert(1)",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T05:58:42.426095"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%23%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "#\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://dpm.demdex.net/id?d_visid_ver=5.5.0&d_fieldgroup=MC&d_rtbd=json&d_ver=2&d_verify=1&d_orgid=5CD56BB15B4E63710A495CB6%40AdobeOrg&d_nsid=0&d_coppa=true&ts=1770962372534 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%23%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T05:59:37.006666"
+    }
+  ]
+}

