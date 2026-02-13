@@ -101,7 +101,7 @@ class Migration0005TestCase(TransactionTestCase):
         Since this migration does nothing, all data should be completely unchanged.
         This is a sanity check to ensure no unintended side effects.
         """
-        # First, create a test vulnerability (using the old apps state)
+        # Create test data before applying the no-op migration
         Vulnerability = self.old_apps.get_model('scanner', 'Vulnerability')
         ScanTarget = self.old_apps.get_model('scanner', 'ScanTarget')
         Scan = self.old_apps.get_model('scanner', 'Scan')
@@ -128,14 +128,14 @@ class Migration0005TestCase(TransactionTestCase):
         vuln_id = vuln.id
         original_risk_score = vuln.risk_score
         
-        # Apply the migration
+        # Apply the no-op migration
         self.executor.migrate(self.migrate_to)
         
-        # Get the new apps state
+        # Verify the data is unchanged after the no-op migration
         new_apps = self.executor.loader.project_state(self.migrate_to).apps
         NewVulnerability = new_apps.get_model('scanner', 'Vulnerability')
         
-        # Verify the data is unchanged
+        # Data should be completely unchanged since migration does nothing
         vuln_after = NewVulnerability.objects.get(id=vuln_id)
         self.assertEqual(vuln_after.risk_score, original_risk_score)
         self.assertEqual(vuln_after.description, 'Test vulnerability for migration')
