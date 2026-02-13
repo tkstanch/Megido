@@ -176,7 +176,9 @@ class LFIDetectorPlugin(BaseScanPlugin):
                 for target_file in self.TEST_FILES['linux'][:3]:  # Test first 3
                     # Build traversal payload
                     for depth in range(1, 6):  # Try different depths
-                        payload = '../' * depth + target_file.lstrip('/')
+                        # Remove leading slash for traversal (only first one if present)
+                        file_path = target_file[1:] if target_file.startswith('/') else target_file
+                        payload = '../' * depth + file_path
                         
                         test_params = params.copy()
                         test_params[param_name] = [payload]

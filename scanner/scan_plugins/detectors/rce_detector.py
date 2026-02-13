@@ -42,6 +42,9 @@ class RCEDetectorPlugin(BaseScanPlugin):
     - Code execution pattern analysis
     """
     
+    # Timing threshold for detecting time-based attacks (seconds)
+    TIMING_THRESHOLD_SECONDS = 4.0  # Allow 1 second margin for 5-second sleep
+    
     # Command injection payloads with time delays
     TIME_BASED_PAYLOADS = [
         "; sleep 5",
@@ -212,7 +215,8 @@ class RCEDetectorPlugin(BaseScanPlugin):
                         response_time = time.time() - start_time
                         
                         # Check if response was delayed (indicating command executed)
-                        if response_time > baseline_time + 4:  # Allow 1 second margin
+                        # Using TIMING_THRESHOLD_SECONDS to allow for network latency
+                        if response_time > baseline_time + self.TIMING_THRESHOLD_SECONDS:
                             finding = VulnerabilityFinding(
                                 vulnerability_type='rce',
                                 severity='critical',
@@ -357,8 +361,10 @@ class RCEDetectorPlugin(BaseScanPlugin):
                             verify=verify_ssl
                         )
                         
-                        # Check for EL evaluation (49 from 7*7, or applicationScope content)
-                        if "49" in test_response.text or "applicationScope" in test_response.text:
+                        # Check for EL evaluation (49 from 7*7)
+                        # Use regex to avoid false positives from status codes, etc.
+                        if (re.search(r'\b49\b', test_response.text) or 
+                            'applicationScope' in test_response.text):
                             finding = VulnerabilityFinding(
                                 vulnerability_type='rce',
                                 severity='high',

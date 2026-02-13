@@ -32,6 +32,9 @@ class SSRFDetectorPlugin(BaseScanPlugin):
     - Port scanning via SSRF
     """
     
+    # Response timing threshold for SSRF detection (seconds)
+    TIMING_THRESHOLD_SECONDS = 2.0
+    
     # Internal/private network targets
     INTERNAL_TARGETS = [
         'localhost',
@@ -160,7 +163,7 @@ class SSRFDetectorPlugin(BaseScanPlugin):
                         
                         # Check response for signs of SSRF
                         # Different response or timing might indicate internal access
-                        if (response_time > baseline_time + 2 or 
+                        if (response_time > baseline_time + self.TIMING_THRESHOLD_SECONDS or 
                             len(test_response.text) != len(baseline_response.text)):
                             
                             # Additional checks for metadata or internal content
