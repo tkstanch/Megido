@@ -52,7 +52,7 @@ class Migration0005TestCase(TransactionTestCase):
             new_apps = self.executor.loader.project_state(self.migrate_to).apps
             
             # If we get here without exceptions, the migration succeeded
-            self.assertTrue(True, "Migration 0005 applied successfully")
+            pass
             
         except Exception as e:
             self.fail(f"Migration 0005 failed: {str(e)}")
@@ -71,7 +71,7 @@ class Migration0005TestCase(TransactionTestCase):
             self.executor.migrate(self.migrate_from)
             
             # If we get here without exceptions, the reverse migration succeeded
-            self.assertTrue(True, "Migration 0005 reversed successfully")
+            pass
             
         except Exception as e:
             self.fail(f"Migration 0005 reverse failed: {str(e)}")
@@ -94,7 +94,7 @@ class Migration0005TestCase(TransactionTestCase):
             self.executor.migrate(self.migrate_to)
             
             # If we get here without exceptions, the migration is idempotent
-            self.assertTrue(True, "Migration 0005 is idempotent")
+            pass
             
         except Exception as e:
             self.fail(f"Migration 0005 idempotency test failed: {str(e)}")
@@ -127,7 +127,7 @@ class Migration0005TestCase(TransactionTestCase):
             self.executor.migrate(self.migrate_to)
             
             # If we get here, the migration succeeded without the index
-            self.assertTrue(True, "Migration 0005 succeeded with missing index")
+            pass
             
         except Exception as e:
             self.fail(f"Migration 0005 failed with missing index: {str(e)}")

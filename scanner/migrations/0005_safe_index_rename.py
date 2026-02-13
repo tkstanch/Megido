@@ -75,9 +75,6 @@ class SafeRenameIndex(migrations.RunSQL):
             END $$;
         """
         
-        # SQLite no-op (SQLite doesn't support DO blocks and handles indexes differently)
-        sqlite_noop = "SELECT 1;"
-        
         super().__init__(
             sql=postgresql_forward,
             reverse_sql=postgresql_reverse,
