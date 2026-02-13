@@ -349,17 +349,96 @@ if result['vulnerable']:
 ### Other Available Plugins
 
 - **SQL Injection Plugin** - Multi-database support with error-based, time-based, and union-based detection
-- **XSS Plugin** - Advanced cross-site scripting testing with **callback-based verification** ⭐ NEW
+- **XSS Plugin** - Advanced cross-site scripting testing with **callback-based verification** and **visual proof (GIF) generation** ⭐ NEW
   - Reduces false positives by verifying actual JavaScript execution
   - Supports Burp Collaborator, Interactsh, internal collaborator, or custom webhooks
   - Provides proof of exploitability for bug bounty submissions
   - Only reports XSS as SUCCESS when callback is confirmed
+  - **Automatic GIF recording** of XSS exploitation for visual proof ⭐ NEW
 
 **Documentation:**
 - [CLICKJACKING_PLUGIN_GUIDE.md](CLICKJACKING_PLUGIN_GUIDE.md) - Comprehensive clickjacking plugin guide
 - [EXPLOIT_PLUGINS_GUIDE.md](EXPLOIT_PLUGINS_GUIDE.md) - Plugin system overview and all available plugins
 - [XSS_PLUGIN_GUIDE.md](XSS_PLUGIN_GUIDE.md) - Detailed XSS plugin documentation
 - [XSS_CALLBACK_VERIFICATION_GUIDE.md](XSS_CALLBACK_VERIFICATION_GUIDE.md) - Callback verification system guide ⭐ NEW
+
+## 🎥 XSS Visual Proof Generation ⭐ NEW FEATURE
+
+Megido now automatically generates **animated GIF proofs** for verified XSS vulnerabilities! When an XSS exploit is confirmed:
+
+1. **Automatic Browser Launch**: Opens the exploited URL in headless Playwright/Selenium
+2. **Screenshot Recording**: Captures 2-3 seconds of the exploitation (alert boxes, DOM effects)
+3. **GIF Generation**: Converts screenshots to an animated GIF using Pillow
+4. **Report Integration**: GIF is embedded in HTML reports and linked in Markdown/JSON reports
+5. **Media Storage**: Saved in `media/xss_gif_proofs/` directory
+
+### Features
+
+- ✅ **Zero Configuration** - Works out of the box when Playwright is installed
+- ✅ **Security Focused** - URL sanitization, resource limits, timeout protection
+- ✅ **Non-Blocking** - GIF capture errors don't interrupt scanning
+- ✅ **Automatic Cleanup** - Old GIFs auto-deleted after 7 days
+- ✅ **Multiple Reports** - GIF embedded in HTML, linked in Markdown/JSON
+- ✅ **Download Support** - Direct download links in reports
+
+### Requirements
+
+```bash
+# Install Playwright (preferred)
+pip install playwright
+playwright install chromium
+
+# Or use existing Selenium (fallback)
+pip install selenium
+```
+
+### Usage
+
+GIF generation is automatic for all **VERIFIED** XSS findings:
+
+```python
+from scanner.plugins import get_registry
+
+# Get XSS plugin
+plugin = get_registry().get_plugin('xss')
+
+# Run scan - GIFs are automatically generated for verified XSS
+result = plugin.execute_attack(
+    target_url='http://vulnerable-site.com',
+    config={'callback_verification_enabled': True}
+)
+
+# Check findings for GIF proofs
+for finding in result['findings']:
+    if finding.get('verified') and finding.get('proof_gif'):
+        print(f"Visual proof: {finding['proof_gif']}")
+```
+
+### Configuration
+
+GIF capture can be customized via the `XSSGifCapture` class:
+
+```python
+from scanner.xss_gif_capture import XSSGifCapture
+
+capture = XSSGifCapture(output_dir='custom/path')
+
+# Capture GIF manually
+gif_path = capture.capture_xss_proof(
+    url='http://target.com/vuln?xss=<script>alert(1)</script>',
+    payload='<script>alert(1)</script>',
+    duration=3.0  # Max: 5 seconds
+)
+```
+
+**Security Limits:**
+- Max duration: 5 seconds
+- Max file size: 10 MB
+- Max screenshots: 10 per capture
+- URL validation and sanitization
+- Automatic cleanup of old files
+
+
 
 ## ⚙️ Production Deployment Notes
 
