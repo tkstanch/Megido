@@ -41,13 +41,21 @@ class SSLScannerPlugin(BaseScanPlugin):
     - Self-signed certificate detection
     """
     
-    # Weak/deprecated TLS versions
-    WEAK_PROTOCOLS = {
-        ssl.PROTOCOL_SSLv2: 'SSLv2',
-        ssl.PROTOCOL_SSLv3: 'SSLv3',
-        ssl.PROTOCOL_TLSv1: 'TLSv1.0',
-        ssl.PROTOCOL_TLSv1_1: 'TLSv1.1',
-    }
+    # Weak/deprecated TLS versions (only use protocols that exist in current Python)
+    @staticmethod
+    def get_weak_protocols():
+        """Get weak protocols that are available in current Python version."""
+        weak_protos = {}
+        # Only add protocols that exist in this Python version
+        if hasattr(ssl, 'PROTOCOL_SSLv2'):
+            weak_protos[ssl.PROTOCOL_SSLv2] = 'SSLv2'
+        if hasattr(ssl, 'PROTOCOL_SSLv3'):
+            weak_protos[ssl.PROTOCOL_SSLv3] = 'SSLv3'
+        if hasattr(ssl, 'PROTOCOL_TLSv1'):
+            weak_protos[ssl.PROTOCOL_TLSv1] = 'TLSv1.0'
+        if hasattr(ssl, 'PROTOCOL_TLSv1_1'):
+            weak_protos[ssl.PROTOCOL_TLSv1_1] = 'TLSv1.1'
+        return weak_protos
     
     # Weak cipher patterns
     WEAK_CIPHER_PATTERNS = [
@@ -247,11 +255,12 @@ class SSLScannerPlugin(BaseScanPlugin):
         """Check for weak/deprecated SSL/TLS protocols."""
         findings = []
         
-        # Test for deprecated protocols
-        deprecated_protocols = [
-            (ssl.PROTOCOL_TLSv1, 'TLSv1.0', 'high'),
-            (ssl.PROTOCOL_TLSv1_1, 'TLSv1.1', 'medium'),
-        ]
+        # Test for deprecated protocols (only those available in Python version)
+        deprecated_protocols = []
+        if hasattr(ssl, 'PROTOCOL_TLSv1'):
+            deprecated_protocols.append((ssl.PROTOCOL_TLSv1, 'TLSv1.0', 'high'))
+        if hasattr(ssl, 'PROTOCOL_TLSv1_1'):
+            deprecated_protocols.append((ssl.PROTOCOL_TLSv1_1, 'TLSv1.1', 'medium'))
         
         for protocol_const, protocol_name, severity in deprecated_protocols:
             try:
