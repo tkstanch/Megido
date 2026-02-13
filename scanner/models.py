@@ -96,6 +96,30 @@ class Vulnerability(models.Model):
     verified = models.BooleanField(default=False, help_text='Verified through successful exploitation')
     proof_of_impact = models.TextField(blank=True, null=True, help_text='Evidence of real-world impact')
     
+    # Visual proof of exploitation (screenshots/GIFs)
+    visual_proof_path = models.CharField(
+        max_length=512, 
+        blank=True, 
+        null=True, 
+        help_text='Path to screenshot or GIF showing exploitation impact'
+    )
+    visual_proof_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('screenshot', 'Screenshot'),
+            ('gif', 'Animated GIF'),
+            ('video', 'Video'),
+        ],
+        blank=True,
+        null=True,
+        help_text='Type of visual proof'
+    )
+    visual_proof_size = models.IntegerField(
+        blank=True, 
+        null=True, 
+        help_text='File size in bytes'
+    )
+    
     # False positive management
     false_positive_status = models.CharField(
         max_length=20,
