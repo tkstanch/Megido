@@ -279,6 +279,65 @@ All Tailwind configuration is in `tailwind.config.js`. Custom components are def
 - **Alert System**: 4 alert variants with border accents
 - **Background Patterns**: Dot and grid patterns for visual depth
 
+## 🔄 Enhanced Intercepting Proxy ⭐ NEW
+
+Megido includes a comprehensive **HTTP/HTTPS/WebSocket intercepting proxy** with advanced features for traffic analysis, request replay, and security testing:
+
+### Key Features
+- ✅ **Full Protocol Support** - HTTP, HTTPS, and WebSocket (WS/WSS)
+- ✅ **Request Replay** - Replay captured requests to original or test endpoints
+- ✅ **Authentication** - Optional proxy auth with token or credentials
+- ✅ **Advanced Logging** - Database + file-based structured logs
+- ✅ **WebSocket Capture** - Complete bidirectional message logging
+- ✅ **IP Filtering** - Whitelist/blacklist support
+- ✅ **Error Tracking** - Comprehensive error logging with recovery
+- ✅ **CLI Tools** - Full-featured command-line interface
+- ✅ **REST API** - Complete API for programmatic access
+- ✅ **Django Admin** - Web-based management interface
+
+### Quick Start
+```bash
+# 1. Apply migrations
+python manage.py migrate proxy
+
+# 2. Start Django server
+python manage.py runserver
+
+# 3. Start enhanced proxy (in another terminal)
+mitmdump -s proxy_addon_enhanced.py --set api_url=http://localhost:8000
+
+# 4. Use the proxy
+export HTTP_PROXY=http://localhost:8080
+export HTTPS_PROXY=http://localhost:8080
+curl https://api.example.com
+```
+
+### Request Replay
+```bash
+# List captured requests
+python proxy_replay_cli.py list
+
+# Show request details
+python proxy_replay_cli.py show 123
+
+# Replay to original URL
+python proxy_replay_cli.py replay 123
+
+# Replay to test server
+python proxy_replay_cli.py replay 123 --target-url http://localhost:3000
+
+# Replay multiple requests
+python proxy_replay_cli.py replay-range 100 110 --delay 1.0
+```
+
+### Features Highlights
+- **Structured Logs**: Organized by date and type (requests/responses/websockets/errors/auth)
+- **Performance Controls**: Configurable timeouts, body size limits, concurrent connections
+- **Security**: Authentication tracking, IP filtering, audit trails
+- **Reliability**: Graceful error handling, automatic retry, non-blocking logging
+
+📖 **Complete Documentation**: See [PROXY_README.md](PROXY_README.md) for comprehensive usage guide and API reference.
+
 ## 🌐 Desktop Browser with Traffic Interception
 
 Megido now includes a **PyQt6 Desktop Browser** with integrated **mitmproxy** for powerful HTTP/HTTPS traffic interception:

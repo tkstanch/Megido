@@ -30,6 +30,9 @@ staticfiles/
 secure_uploads/
 malware_analyser_uploads/
 
+# Proxy logs
+logs/proxy/
+
 # Environment variables
 .env
 .env.*
