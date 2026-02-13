@@ -349,12 +349,17 @@ if result['vulnerable']:
 ### Other Available Plugins
 
 - **SQL Injection Plugin** - Multi-database support with error-based, time-based, and union-based detection
-- **XSS Plugin** - Advanced cross-site scripting testing with DOM simulation and smart crawling
+- **XSS Plugin** - Advanced cross-site scripting testing with **callback-based verification** ⭐ NEW
+  - Reduces false positives by verifying actual JavaScript execution
+  - Supports Burp Collaborator, Interactsh, internal collaborator, or custom webhooks
+  - Provides proof of exploitability for bug bounty submissions
+  - Only reports XSS as SUCCESS when callback is confirmed
 
 **Documentation:**
 - [CLICKJACKING_PLUGIN_GUIDE.md](CLICKJACKING_PLUGIN_GUIDE.md) - Comprehensive clickjacking plugin guide
 - [EXPLOIT_PLUGINS_GUIDE.md](EXPLOIT_PLUGINS_GUIDE.md) - Plugin system overview and all available plugins
 - [XSS_PLUGIN_GUIDE.md](XSS_PLUGIN_GUIDE.md) - Detailed XSS plugin documentation
+- [XSS_CALLBACK_VERIFICATION_GUIDE.md](XSS_CALLBACK_VERIFICATION_GUIDE.md) - Callback verification system guide ⭐ NEW
 
 ## ⚙️ Production Deployment Notes
 
