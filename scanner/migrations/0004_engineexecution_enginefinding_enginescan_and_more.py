@@ -87,21 +87,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-started_at'],
             },
         ),
-        migrations.RenameIndex(
-            model_name='vulnerability',
-            new_name='scanner_vul_risk_sc_b879c5_idx',
-            old_name='scanner_vul_risk_sc_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='vulnerability',
-            new_name='scanner_vul_verifie_aab60f_idx',
-            old_name='scanner_vul_verifie_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='vulnerability',
-            new_name='scanner_vul_false_p_3e73b7_idx',
-            old_name='scanner_vul_false_p_idx',
-        ),
         migrations.AddField(
             model_name='enginefinding',
             name='duplicate_of',
