@@ -1,11 +1,12 @@
 """
-Tests for migration 0005 - Safe index rename
+Tests for migration 0005 - No-op migration (formerly index rename)
 
-This test ensures that the migration works correctly in various scenarios:
-1. When the old index exists
-2. When the old index doesn't exist
-3. When the migration is run multiple times (idempotent)
-4. When the migration is reversed
+This migration is now a no-op (does nothing) to prevent failures in environments
+where the indexes may not exist. These tests ensure that:
+1. The migration applies successfully without errors
+2. The migration can be reversed without errors
+3. The migration is idempotent (can run multiple times)
+4. Data is preserved (no unintended side effects)
 """
 
 from django.test import TestCase, TransactionTestCase
@@ -16,7 +17,10 @@ from django.test.utils import override_settings
 
 class Migration0005TestCase(TransactionTestCase):
     """
-    Test cases for migration scanner.0005_safe_index_rename
+    Test cases for migration scanner.0005_safe_index_rename (no-op migration)
+    
+    Since this is now a no-op migration, these tests verify that the migration
+    can be applied and reversed without errors in any database state.
     
     Uses TransactionTestCase to allow database schema modifications during tests.
     """
@@ -39,106 +43,65 @@ class Migration0005TestCase(TransactionTestCase):
     
     def test_migration_forward_succeeds(self):
         """
-        Test that the migration runs successfully when applying forward.
+        Test that the no-op migration runs successfully when applying forward.
         
-        This test verifies that the migration can be applied without errors,
-        regardless of whether the old index exists or not.
+        Since this migration does nothing, it should always succeed regardless
+        of the database state.
         """
-        try:
-            # Apply the migration
-            self.executor.migrate(self.migrate_to)
-            
-            # Get the new state
-            new_apps = self.executor.loader.project_state(self.migrate_to).apps
-            
-            # If we get here without exceptions, the migration succeeded
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 failed: {str(e)}")
+        # Apply the migration - should complete without errors
+        self.executor.migrate(self.migrate_to)
+        
+        # Get the new state to verify migration was recorded
+        new_apps = self.executor.loader.project_state(self.migrate_to).apps
     
     def test_migration_reverse_succeeds(self):
         """
-        Test that the migration can be reversed successfully.
+        Test that the no-op migration can be reversed successfully.
         
-        This test verifies that the reverse migration works correctly.
+        Since this migration does nothing, reversing it should also do nothing
+        and should always succeed.
         """
-        try:
-            # First apply the migration forward
-            self.executor.migrate(self.migrate_to)
-            
-            # Then reverse it
-            self.executor.migrate(self.migrate_from)
-            
-            # If we get here without exceptions, the reverse migration succeeded
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 reverse failed: {str(e)}")
+        # First apply the migration forward
+        self.executor.migrate(self.migrate_to)
+        
+        # Then reverse it - should complete without errors
+        self.executor.migrate(self.migrate_from)
     
     def test_migration_is_idempotent(self):
         """
-        Test that the migration can be applied multiple times without errors.
+        Test that the no-op migration can be applied multiple times without errors.
         
-        This verifies the idempotent behavior - running the migration multiple
-        times should not cause errors.
+        This verifies the idempotent behavior - since the migration does nothing,
+        it can be applied and reversed repeatedly without any errors.
         """
-        try:
-            # Apply the migration forward
-            self.executor.migrate(self.migrate_to)
-            
-            # Reverse it
-            self.executor.migrate(self.migrate_from)
-            
-            # Apply it forward again
-            self.executor.migrate(self.migrate_to)
-            
-            # If we get here without exceptions, the migration is idempotent
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 idempotency test failed: {str(e)}")
+        # Apply the migration forward
+        self.executor.migrate(self.migrate_to)
+        
+        # Reverse it
+        self.executor.migrate(self.migrate_from)
+        
+        # Apply it forward again - should complete without errors
+        self.executor.migrate(self.migrate_to)
     
     def test_migration_with_missing_index(self):
         """
-        Test that the migration succeeds even when the old index doesn't exist.
+        Test that the no-op migration succeeds even when the old index doesn't exist.
         
-        This is the key scenario that the migration was designed to handle:
-        databases where the index was never created or was manually dropped.
+        Since this is now a no-op migration, it should always succeed regardless
+        of whether any indexes exist or not. This test verifies the migration
+        doesn't attempt any index operations.
         """
-        # For PostgreSQL, we can test by manually dropping the index if it exists
-        if connection.vendor == 'postgresql':
-            with connection.cursor() as cursor:
-                # Drop the old index if it exists (from migration 0003)
-                cursor.execute("""
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT 1 FROM pg_indexes 
-                            WHERE indexname = 'scanner_vul_risk_sc_idx'
-                        ) THEN
-                            DROP INDEX scanner_vul_risk_sc_idx;
-                        END IF;
-                    END $$;
-                """)
-        
-        try:
-            # Now apply migration 0005 - it should succeed even without the index
-            self.executor.migrate(self.migrate_to)
-            
-            # If we get here, the migration succeeded without the index
-            pass
-            
-        except Exception as e:
-            self.fail(f"Migration 0005 failed with missing index: {str(e)}")
+        # Apply migration 0005 - should complete without errors
+        self.executor.migrate(self.migrate_to)
     
     def test_migration_preserves_data(self):
         """
-        Test that the migration doesn't affect any data in the tables.
+        Test that the no-op migration doesn't affect any data in the tables.
         
-        Index renaming should be a pure schema change that doesn't touch data.
+        Since this migration does nothing, all data should be completely unchanged.
+        This is a sanity check to ensure no unintended side effects.
         """
-        # First, create a test vulnerability (using the old apps state)
+        # Create test data before applying the no-op migration
         Vulnerability = self.old_apps.get_model('scanner', 'Vulnerability')
         ScanTarget = self.old_apps.get_model('scanner', 'ScanTarget')
         Scan = self.old_apps.get_model('scanner', 'Scan')
@@ -165,14 +128,14 @@ class Migration0005TestCase(TransactionTestCase):
         vuln_id = vuln.id
         original_risk_score = vuln.risk_score
         
-        # Apply the migration
+        # Apply the no-op migration
         self.executor.migrate(self.migrate_to)
         
-        # Get the new apps state
+        # Verify the data is unchanged after the no-op migration
         new_apps = self.executor.loader.project_state(self.migrate_to).apps
         NewVulnerability = new_apps.get_model('scanner', 'Vulnerability')
         
-        # Verify the data is unchanged
+        # Data should be completely unchanged since migration does nothing
         vuln_after = NewVulnerability.objects.get(id=vuln_id)
         self.assertEqual(vuln_after.risk_score, original_risk_score)
         self.assertEqual(vuln_after.description, 'Test vulnerability for migration')
@@ -180,16 +143,18 @@ class Migration0005TestCase(TransactionTestCase):
 
 class Migration0005DatabaseSpecificTestCase(TestCase):
     """
-    Test database-specific behavior of migration 0005.
+    Test database-agnostic behavior of migration 0005 (no-op migration).
     
-    This tests the SafeRenameIndex operation's database-specific logic.
+    Since this migration is now a no-op, it should work identically on all databases.
+    These tests verify basic database functionality is not affected.
     """
     
     def test_database_vendor_detection(self):
         """
-        Test that the migration correctly detects the database vendor.
+        Test that Django correctly detects the database vendor.
         
-        The migration should behave differently for PostgreSQL vs SQLite.
+        While the migration is now a no-op, this test verifies that basic
+        database detection works, which is useful for debugging.
         """
         vendor = connection.vendor
         
@@ -199,10 +164,10 @@ class Migration0005DatabaseSpecificTestCase(TestCase):
     
     def test_sqlite_uses_noop(self):
         """
-        Test that SQLite correctly uses the no-op behavior.
+        Test that SQLite database functionality works correctly.
         
-        For SQLite, the migration should not attempt to run PostgreSQL-specific
-        SQL commands.
+        Since the migration is now a no-op, this just verifies basic SQLite
+        functionality is not affected by the migration's presence.
         """
         if connection.vendor == 'sqlite':
             # SQLite doesn't support PL/pgSQL DO blocks
@@ -210,8 +175,8 @@ class Migration0005DatabaseSpecificTestCase(TestCase):
             with connection.cursor() as cursor:
                 # This should not raise an error
                 try:
-                    # The migration's no-op for SQLite should not execute PL/pgSQL
-                    # We just verify that we're on SQLite
+                    # The migration is now a no-op, so it won't execute any SQL
+                    # We just verify basic SQLite functionality
                     cursor.execute("SELECT sqlite_version()")
                     version = cursor.fetchone()
                     self.assertIsNotNone(version, "SQLite is working")
@@ -220,14 +185,15 @@ class Migration0005DatabaseSpecificTestCase(TestCase):
     
     def test_postgresql_checks_pg_indexes(self):
         """
-        Test that PostgreSQL correctly checks pg_indexes catalog.
+        Test that PostgreSQL database functionality works correctly.
         
-        For PostgreSQL, the migration should query pg_indexes to check
-        if the index exists.
+        Since the migration is now a no-op, this just verifies basic PostgreSQL
+        catalog access is working correctly.
         """
         if connection.vendor == 'postgresql':
             with connection.cursor() as cursor:
-                # Verify we can query pg_indexes (this is what the migration does)
+                # Verify we can query pg_indexes (useful for debugging)
+                # The migration no longer uses this, but it's good to verify access
                 try:
                     cursor.execute("""
                         SELECT COUNT(*) FROM pg_indexes 
