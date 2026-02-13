@@ -336,3 +336,29 @@ CHANNEL_LAYERS = {
 #         'BACKEND': 'channels.layers.InMemoryChannelLayer'
 #     }
 # }
+
+# ============================================================================
+# XSS Callback Verification Configuration
+# ============================================================================
+# Configuration for callback-based XSS verification to reduce false positives
+# and provide proof of actual JavaScript execution in target's browser context
+
+# Callback endpoint URL for XSS verification
+# Examples: 'https://burpcollaborator.net', 'https://interact.sh', 'https://your-webhook.com'
+# If not set, scanner falls back to traditional alert-based detection
+XSS_CALLBACK_ENDPOINT = os.environ.get('XSS_CALLBACK_ENDPOINT', '')
+
+# Timeout for waiting for callback verification (in seconds)
+XSS_CALLBACK_TIMEOUT = int(os.environ.get('XSS_CALLBACK_TIMEOUT', '30'))
+
+# Enable/disable callback verification
+# If disabled, uses traditional alert-based detection
+XSS_CALLBACK_VERIFICATION_ENABLED = os.environ.get('XSS_CALLBACK_VERIFICATION_ENABLED', 'true').lower() == 'true'
+
+# Poll interval for checking callback interactions (in seconds)
+XSS_CALLBACK_POLL_INTERVAL = int(os.environ.get('XSS_CALLBACK_POLL_INTERVAL', '2'))
+
+# Use internal collaborator server for callback verification
+# If true and XSS_CALLBACK_ENDPOINT is not set, uses the internal collaborator
+XSS_USE_INTERNAL_COLLABORATOR = os.environ.get('XSS_USE_INTERNAL_COLLABORATOR', 'true').lower() == 'true'
+# }
