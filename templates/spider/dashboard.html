@@ -3,125 +3,7 @@
 {% block title %}Web Spider - Megido Security{% endblock %}
 
 {% block extra_style %}
-.spider-form {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 5px;
-    margin: 20px 0;
-}
-.spider-config {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin: 15px 0;
-}
-.config-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.spider-results {
-    margin-top: 30px;
-}
-.result-section {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin: 15px 0;
-}
-.result-section h4 {
-    margin-bottom: 15px;
-    color: #667eea;
-    border-bottom: 2px solid #667eea;
-    padding-bottom: 5px;
-}
-.url-item, .content-item {
-    border-left: 3px solid #007bff;
-    padding: 10px;
-    margin: 8px 0;
-    background: #f8f9fa;
-    border-radius: 3px;
-}
-.url-item.hidden {
-    border-left-color: #ffc107;
-}
-.url-item.interesting {
-    border-left-color: #dc3545;
-}
-.risk-critical { border-left: 4px solid #dc3545; }
-.risk-high { border-left: 4px solid #fd7e14; }
-.risk-medium { border-left: 4px solid #ffc107; }
-.risk-low { border-left: 4px solid #28a745; }
-.risk-info { border-left: 4px solid #17a2b8; }
-.badge {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 0.85em;
-    font-weight: bold;
-    margin-right: 5px;
-}
-.badge-crawl { background: #007bff; color: white; }
-.badge-dirbuster { background: #28a745; color: white; }
-.badge-nikto { background: #dc3545; color: white; }
-.badge-wikto { background: #fd7e14; color: white; }
-.badge-brute_force { background: #6c757d; color: white; }
-.badge-inference { background: #6f42c1; color: white; }
-.badge-GET { background: #17a2b8; color: white; }
-.badge-POST { background: #e83e8c; color: white; }
-.stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin: 20px 0;
-}
-.stat-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-}
-.stat-card .number {
-    font-size: 2em;
-    font-weight: bold;
-}
-.stat-card .label {
-    font-size: 0.9em;
-    opacity: 0.9;
-}
-input[type="text"], input[type="number"] {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
-}
-input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-}
-label {
-    font-weight: 500;
-}
-button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-}
-button:hover {
-    opacity: 0.9;
-}
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+/* Minimal override styles - most styling now uses Tailwind and premium classes */
 .spinner {
     border: 3px solid #f3f3f3;
     border-top: 3px solid #667eea;
@@ -135,14 +17,6 @@ button:disabled {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-.info {
-    background: #d1ecf1;
-    border: 1px solid #bee5eb;
-    border-radius: 5px;
-    padding: 15px;
-    margin: 15px 0;
-    color: #0c5460;
 }
 .tabs {
     display: flex;
@@ -273,103 +147,201 @@ button:disabled {
 {% endblock %}
 
 {% block content %}
-<h2>🕷️ Web Spider & Content Discovery</h2>
-<p>Automated web spidering with DirBuster, Nikto, Wikto integration, brute force, and content inference.</p>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Ultra Cinema Hero Section -->
+    <div class="relative overflow-hidden rounded-3xl mb-8 shadow-ultra-deep mesh-gradient-cinema grain">
+        <!-- Aurora Background -->
+        <div class="absolute inset-0 bg-aurora opacity-95"></div>
+        
+        <!-- Animated Liquid Blobs -->
+        <div class="absolute top-10 left-10 w-72 h-72 liquid-glow blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-96 h-96 bg-success-400/30 liquid blob blur-3xl" style="animation-delay: -2s"></div>
+        
+        <!-- Vignette -->
+        <div class="absolute inset-0 vignette"></div>
+        
+        <!-- Content -->
+        <div class="relative glass-ethereal p-8 lg:p-12 text-center backdrop-blur-sm">
+            <!-- Hyper-Glow Icon -->
+            <div class="inline-flex items-center justify-center w-24 h-24 mb-6 rounded-2xl glass-multi-glow icon-hyper-glow diamond-sparkle float-element breathe">
+                <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path>
+                </svg>
+            </div>
+            
+            <!-- Title -->
+            <h2 class="text-4xl lg:text-6xl font-bold text-white text-3d mb-4">
+                <span class="text-shimmer text-reveal">🕷️ Web Spider</span>
+            </h2>
+            
+            <!-- Subtitle -->
+            <p class="text-lg lg:text-xl text-white/90 font-light mb-6 underline-burst">
+                Automated web spidering with DirBuster, Nikto, Wikto integration, brute force, and content inference
+            </p>
+            
+            <!-- Feature Badges -->
+            <div class="flex flex-wrap gap-3 justify-center">
+                <span class="px-5 py-2.5 rounded-full glass-layered border-aurora-glow text-white text-sm font-bold hover-premium ultra-smooth">
+                    🔍 Deep Discovery
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-multi-glow prism text-white text-sm font-bold hover-premium ultra-smooth">
+                    ⚡ Fast Crawling
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-refract holographic text-white text-sm font-bold hover-premium ultra-smooth">
+                    🎯 Multi-Engine
+                </span>
+            </div>
+        </div>
+    </div>
 
-<div class="result-section" style="margin-bottom: 30px;">
-    <h3>📊 Spider Analytics</h3>
-    <button onclick="loadAnalytics()" style="margin-bottom: 15px;">
-        🔄 Refresh Analytics
-    </button>
-    <div id="analytics-content">
-        <div style="text-align: center; padding: 20px;">
-            <span class="spinner"></span> Loading analytics...
+    <!-- Analytics Stats Section -->
+    <div class="card-kinetic border-living scroll-reveal">
+        <div class="card-header glass-split-depth">
+            <h3 class="text-xl font-bold flex items-center gap-3">
+                <div class="p-2 rounded-lg icon-holographic-shift">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                📊 Spider Analytics
+            </h3>
+        </div>
+        <div class="card-body">
+            <button class="btn btn-primary ripple-container mb-4" id="refresh-analytics-btn" onclick="loadAnalytics()">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh Analytics
+            </button>
+            <div id="analytics-content">
+                <div class="flex items-center justify-center p-8">
+                    <span class="spinner"></span>
+                    <span class="ml-3 text-gray-600 dark:text-gray-400">Loading analytics...</span>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<hr style="border: none; border-top: 2px solid #ddd; margin: 30px 0;">
-
-<div class="spider-form">
-    <h3>Configure Spider Target</h3>
-    <div style="margin-top: 15px;">
-        <label>Target URL:</label>
-        <input type="text" id="target-url" placeholder="https://example.com" value="https://example.com">
-    </div>
-    <div style="margin-top: 10px;">
-        <label>Target Name (optional):</label>
-        <input type="text" id="target-name" placeholder="My Target">
-    </div>
-    <div style="margin-top: 10px;">
-        <label>Maximum Crawl Depth:</label>
-        <input type="number" id="max-depth" value="3" min="1" max="10">
-    </div>
+    <!-- Spider Configuration Card -->
+    <div class="card-kinetic border-living scroll-reveal">
+        <div class="card-header glass-split-depth">
+            <h3 class="text-xl font-bold flex items-center gap-3">
+                <div class="p-2 rounded-lg icon-holographic-shift">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                Configure Spider Target
+            </h3>
+        </div>
+        <div class="card-body space-y-4">
+            <div class="form-group">
+                <label class="form-label flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    Target URL:
+                </label>
+                <input type="text" id="target-url" class="form-input glass-refract focus:border-living" placeholder="https://example.com" value="https://example.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    Target Name (optional):
+                </label>
+                <input type="text" id="target-name" class="form-input glass-refract focus:border-living" placeholder="My Target">
+            </div>
+            <div class="form-group">
+                <label class="form-label flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    Maximum Crawl Depth:
+                </label>
+                <input type="number" id="max-depth" class="form-input glass-refract focus:border-living" value="3" min="1" max="10">
+            </div>
+            
+            <!-- Configuration Options Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="use-dirbuster" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Use DirBuster Discovery</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="use-nikto" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Use Nikto Scanning</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="use-wikto" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Use Wikto Scanning</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="enable-brute" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Enable Brute Force</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="enable-inference" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Enable Content Inference</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="enable-param-discovery" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Enable Parameter Discovery</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-lg glass-refract hover:border-living transition-all cursor-pointer">
+                    <input type="checkbox" id="follow-external" class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                    <span class="font-medium">Follow External Links</span>
+                </label>
+            </div>
+            
+            <!-- Stealth Options -->
+            <div class="mt-6 p-4 rounded-xl glass-multi-glow">
+                <h4 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    🔒 Stealth Options
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer">
+                        <input type="checkbox" id="enable-stealth" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                        <span class="font-medium">Enable Stealth Mode</span>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer">
+                        <input type="checkbox" id="use-random-ua" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                        <span class="font-medium">Use Random User Agents</span>
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label class="form-label text-sm">Min Delay (seconds):</label>
+                        <input type="number" id="delay-min" value="1.0" step="0.1" min="0.1" max="10" class="form-input glass-refract">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Max Delay (seconds):</label>
+                        <input type="number" id="delay-max" value="3.0" step="0.1" min="0.1" max="10" class="form-input glass-refract">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Request Timeout (seconds):</label>
+                        <input type="number" id="request-timeout" value="30" step="1" min="5" max="120" class="form-input glass-refract">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Max Retries:</label>
+                        <input type="number" id="max-retries" value="3" step="1" min="0" max="10" class="form-input glass-refract">
+                    </div>
+                </div>
+            </div>
+        </div>
     
-    <div class="spider-config">
-        <div class="config-option">
-            <input type="checkbox" id="use-dirbuster" checked>
-            <label for="use-dirbuster">Use DirBuster Discovery</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="use-nikto" checked>
-            <label for="use-nikto">Use Nikto Scanning</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="use-wikto" checked>
-            <label for="use-wikto">Use Wikto Scanning</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="enable-brute" checked>
-            <label for="enable-brute">Enable Brute Force</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="enable-inference" checked>
-            <label for="enable-inference">Enable Content Inference</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="enable-param-discovery" checked>
-            <label for="enable-param-discovery">Enable Parameter Discovery</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="follow-external">
-            <label for="follow-external">Follow External Links</label>
-        </div>
+        <button onclick="startSpider()" id="start-btn" class="btn btn-primary btn-ultra-premium ripple-container mt-6 w-full">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            🕷️ Start Spider
+        </button>
     </div>
-    
-    <h4 style="margin-top: 20px;">🔒 Stealth Options</h4>
-    <div class="spider-config">
-        <div class="config-option">
-            <input type="checkbox" id="enable-stealth" checked>
-            <label for="enable-stealth">Enable Stealth Mode</label>
-        </div>
-        <div class="config-option">
-            <input type="checkbox" id="use-random-ua" checked>
-            <label for="use-random-ua">Use Random User Agents</label>
-        </div>
-    </div>
-    <div class="spider-config">
-        <div style="grid-column: span 1;">
-            <label for="delay-min" style="display: block; margin-bottom: 5px;">Min Delay (seconds):</label>
-            <input type="number" id="delay-min" value="1.0" step="0.1" min="0.1" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-        </div>
-        <div style="grid-column: span 1;">
-            <label for="delay-max" style="display: block; margin-bottom: 5px;">Max Delay (seconds):</label>
-            <input type="number" id="delay-max" value="3.0" step="0.1" min="0.1" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-        </div>
-        <div style="grid-column: span 1;">
-            <label for="request-timeout" style="display: block; margin-bottom: 5px;">Request Timeout (seconds):</label>
-            <input type="number" id="request-timeout" value="30" step="1" min="5" max="120" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-        </div>
-        <div style="grid-column: span 1;">
-            <label for="max-retries" style="display: block; margin-bottom: 5px;">Max Retries:</label>
-            <input type="number" id="max-retries" value="3" step="1" min="0" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-        </div>
-    </div>
-    
-    <button onclick="startSpider()" id="start-btn" style="margin-top: 15px;">
-        🕷️ Start Spider
-    </button>
-</div>
 
 <div id="spider-status" style="margin: 20px 0;"></div>
 

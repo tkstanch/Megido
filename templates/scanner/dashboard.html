@@ -12,26 +12,89 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto space-y-6">
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Vulnerability Scanner</h2>
-        <p class="text-lg text-gray-600 dark:text-gray-400">Automatically scan web applications for common security vulnerabilities.</p>
+    <!-- Ultra Extreme Hero Section with Cinema Effects -->
+    <div class="relative overflow-hidden rounded-3xl mb-8 shadow-ultra-deep grain light-ray">
+        <!-- Animated Aurora Background -->
+        <div class="absolute inset-0 bg-aurora opacity-95"></div>
+        
+        <!-- Liquid Glow Blobs -->
+        <div class="absolute top-10 left-10 w-64 h-64 liquid-glow blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-80 h-80 bg-secondary-400/30 liquid blob blur-3xl"></div>
+        
+        <!-- Vignette Overlay -->
+        <div class="absolute inset-0 vignette"></div>
+        
+        <!-- Content with Multi-Layered Glassmorphism -->
+        <div class="relative glass-frosted-film p-8 lg:p-12 text-center backdrop-blur-sm">
+            <!-- Hyper-Glow Icon with Diamond Sparkle -->
+            <div class="inline-flex items-center justify-center w-20 h-20 lg:w-24 lg:h-24 mb-6 rounded-2xl glass-multi-glow icon-hyper-glow diamond-sparkle float-element breathe">
+                <svg class="w-12 h-12 lg:w-14 lg:h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </div>
+            
+            <!-- Title with 3D Text and Reveal Animation -->
+            <h2 class="text-3xl lg:text-5xl font-bold text-white text-3d mb-3">
+                <span class="text-shimmer text-reveal">Vulnerability Scanner</span>
+            </h2>
+            
+            <!-- Subtitle with Underline Burst -->
+            <p class="text-lg lg:text-xl text-white/90 font-light underline-burst">
+                Automatically scan web applications for common security vulnerabilities.
+            </p>
+            
+            <!-- Ultra Feature Badges with Living Borders -->
+            <div class="mt-6 flex flex-wrap gap-3 justify-center">
+                <span class="px-5 py-2.5 rounded-full glass-layered border-aurora-glow text-white text-sm font-bold hover-premium ultra-smooth">
+                    🔍 Advanced Detection
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-multi-glow prism text-white text-sm font-bold hover-premium ultra-smooth">
+                    ⚡ Real-time Results
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-refract holographic text-white text-sm font-bold hover-premium ultra-smooth">
+                    🛡️ Deep Analysis
+                </span>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Start New Scan</h3>
+    <!-- Scan Form Card with Kinetic 3D Effects -->
+    <div class="card-kinetic border-living ripple-container scroll-reveal">
+        <div class="card-header glass-split-depth">
+            <h3 class="card-title flex items-center gap-3">
+                <div class="p-2 rounded-lg icon-holographic-shift">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+                Start New Scan
+            </h3>
         </div>
         <div class="card-body">
             <div class="form-group">
-                <label class="form-label">Target URL:</label>
-                <input type="url" id="target-url" class="form-input" placeholder="https://example.com" required>
+                <label class="form-label flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    Target URL:
+                </label>
+                <input type="url" id="target-url" class="form-input glass-refract focus:border-living" placeholder="https://example.com" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Scan Name (optional):</label>
-                <input type="text" id="scan-name" class="form-input" placeholder="My Security Scan">
+                <label class="form-label flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                    </svg>
+                    Scan Name (optional):
+                </label>
+                <input type="text" id="scan-name" class="form-input glass-refract focus:border-living" placeholder="My Security Scan">
             </div>
-            <button class="btn btn-primary" id="start-scan-btn">
-                🚀 Start Scan
+            <button class="btn btn-primary btn-ultra-premium ripple-container" id="start-scan-btn">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Start Scan
             </button>
         </div>
     </div>

@@ -9,67 +9,121 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">{{ app_name }}</h2>
-        <p class="text-lg text-gray-600 dark:text-gray-400">{{ description }}</p>
+<div class="max-w-7xl mx-auto space-y-8">
+    <!-- Ultra Extreme Hero Section -->
+    <div class="relative overflow-hidden rounded-3xl shadow-ultra-deep mesh-gradient-cinema grain light-ray">
+        <!-- Aurora Background -->
+        <div class="absolute inset-0 bg-aurora opacity-95"></div>
+        
+        <!-- Liquid Glow Blobs -->
+        <div class="absolute top-10 left-10 w-80 h-80 liquid-glow blur-3xl"></div>
+        <div class="absolute bottom-10 right-10 w-96 h-96 bg-info-400/30 liquid blob blur-3xl" style="animation-delay: -3s"></div>
+        
+        <!-- Vignette -->
+        <div class="absolute inset-0 vignette"></div>
+        
+        <!-- Content -->
+        <div class="relative glass-frosted-film p-8 lg:p-16 text-center backdrop-blur-sm">
+            <!-- Icon with Hyper Glow -->
+            <div class="inline-flex items-center justify-center w-24 h-24 lg:w-28 lg:h-28 mb-6 rounded-2xl glass-multi-glow icon-hyper-glow diamond-sparkle float-element breathe">
+                <svg class="w-14 h-14 lg:w-16 lg:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+            </div>
+            
+            <!-- Title -->
+            <h2 class="text-4xl lg:text-6xl font-bold text-white text-3d mb-4">
+                <span class="text-shimmer text-reveal">{{ app_name }}</span>
+            </h2>
+            
+            <!-- Description -->
+            <p class="text-lg lg:text-2xl text-white/90 font-light mb-8 underline-burst">
+                {{ description }}
+            </p>
+            
+            <!-- Feature Badges -->
+            <div class="flex flex-wrap gap-3 justify-center">
+                <span class="px-5 py-2.5 rounded-full glass-layered border-aurora-glow text-white text-sm font-bold hover-premium ultra-smooth">
+                    📡 Network Analysis
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-multi-glow prism text-white text-sm font-bold hover-premium ultra-smooth">
+                    🥷 Stealth Mode
+                </span>
+                <span class="px-5 py-2.5 rounded-full glass-refract holographic text-white text-sm font-bold hover-premium ultra-smooth">
+                    ⚡ Advanced Scanning
+                </span>
+            </div>
+        </div>
     </div>
 
+    <!-- Feature Cards Grid with 3D Effects -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item">
             <div class="card-body">
-                <div class="text-4xl mb-3">🔍</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Host Discovery</h3>
+                <div class="p-4 rounded-xl holographic liquid float-element mb-4 inline-flex">
+                    <div class="text-4xl">🔍</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">Host Discovery</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Identify active hosts on networks using multiple discovery techniques including ICMP, ARP, TCP, and UDP probes.
                 </p>
             </div>
         </div>
         
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item" style="animation-delay: 0.1s">
             <div class="card-body">
-                <div class="text-4xl mb-3">🚪</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Port Scanning</h3>
+                <div class="p-4 rounded-xl iridescent float-element mb-4 inline-flex">
+                    <div class="text-4xl">🚪</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">Port Scanning</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Comprehensive port scanning with support for TCP SYN, Connect, ACK, FIN, XMAS, NULL, and UDP scan types.
                 </p>
             </div>
         </div>
         
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item" style="animation-delay: 0.2s">
             <div class="card-body">
-                <div class="text-4xl mb-3">🔬</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Service Detection</h3>
+                <div class="p-4 rounded-xl metallic float-element mb-4 inline-flex">
+                    <div class="text-4xl">🔬</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">Service Detection</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Identify services and versions running on open ports through banner grabbing and signature matching.
                 </p>
             </div>
         </div>
         
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item" style="animation-delay: 0.3s">
             <div class="card-body">
-                <div class="text-4xl mb-3">💻</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">OS Fingerprinting</h3>
+                <div class="p-4 rounded-xl holographic liquid float-element mb-4 inline-flex">
+                    <div class="text-4xl">💻</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">OS Fingerprinting</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Detect target operating systems using TCP/IP stack analysis and service-based fingerprinting.
                 </p>
             </div>
         </div>
         
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item" style="animation-delay: 0.4s">
             <div class="card-body">
-                <div class="text-4xl mb-3">📡</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Packet Analysis</h3>
+                <div class="p-4 rounded-xl iridescent float-element mb-4 inline-flex">
+                    <div class="text-4xl">📡</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">Packet Analysis</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Capture and analyze network packets to extract relevant data and identify patterns.
                 </p>
             </div>
         </div>
         
-        <div class="card">
+        <div class="card-3d card-kinetic border-living ripple-container scroll-reveal stagger-item" style="animation-delay: 0.5s">
             <div class="card-body">
-                <div class="text-4xl mb-3">🥷</div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Stealth Operations</h3>
+                <div class="p-4 rounded-xl metallic float-element mb-4 inline-flex">
+                    <div class="text-4xl">🥷</div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-shimmer">Stealth Operations</h3>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     Minimize detection with timing randomization, slow scanning, packet fragmentation, and decoy techniques.
                 </p>
@@ -77,16 +131,26 @@
         </div>
     </div>
 
-    <div class="card">
+    <!-- Action Buttons Card -->
+    <div class="card-holographic card-kinetic shadow-aurora-deep scroll-reveal">
         <div class="card-body">
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'data_tracer:create_scan' %}" class="btn btn-primary">
+            <div class="flex flex-wrap gap-4 justify-center">
+                <a href="{% url 'data_tracer:create_scan' %}" class="btn btn-primary btn-ultra-premium ripple-container hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
                     Create New Scan
                 </a>
-                <a href="{% url 'data_tracer:scan_list' %}" class="btn btn-secondary">
+                <a href="{% url 'data_tracer:scan_list' %}" class="btn btn-secondary ripple-container glass-refract hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                    </svg>
                     View My Scans
                 </a>
-                <a href="{% url 'data_tracer:stealth_config' %}" class="btn btn-secondary">
+                <a href="{% url 'data_tracer:stealth_config' %}" class="btn btn-secondary ripple-container glass-refract hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
                     Stealth Configuration
                 </a>
             </div>
