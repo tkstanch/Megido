@@ -1,4 +1,4 @@
-# Generated migration for safe index rename
+# Manually created migration for safe index rename
 # 
 # RATIONALE FOR THIS MIGRATION:
 # -----------------------------
