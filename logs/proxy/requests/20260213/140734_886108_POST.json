@@ -1,9 +1,0 @@
-{
-  "timestamp": "2026-02-13T14:07:34.886108",
-  "type": "request",
-  "id": 6,
-  "url": "https://test.example.com/api",
-  "method": "POST",
-  "source_ip": "192.168.1.100",
-  "protocol": "HTTPS"
-}
