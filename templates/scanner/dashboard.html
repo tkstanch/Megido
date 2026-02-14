@@ -314,6 +314,7 @@ function handleScanProgress(data) {
     const statusDiv = document.getElementById('scan-status');
     if (!statusDiv) return;
     
+    const vulnCount = data.vulnerabilities ? data.vulnerabilities.length : 0;
     statusDiv.innerHTML = `
         <div class="card border-l-4 border-info">
             <div class="card-body">
@@ -321,7 +322,7 @@ function handleScanProgress(data) {
                     <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-info"></div>
                     <div>
                         <strong>Scan Status:</strong> ${escapeHtml(data.status)} | 
-                        <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities ? data.vulnerabilities.length : 0}
+                        <strong>Vulnerabilities Found:</strong> ${escapeHtml(String(vulnCount))}
                     </div>
                 </div>
             </div>
@@ -334,12 +335,14 @@ function handleScanComplete(data) {
     currentVulnerabilities = data.vulnerabilities;
     
     const statusDiv = document.getElementById('scan-status');
+    const vulnCount = data.vulnerabilities ? data.vulnerabilities.length : 0;
+    
     if (statusDiv) {
         statusDiv.innerHTML = `
             <div class="card border-l-4 border-success">
                 <div class="card-body">
                     <strong>✓ Scan Completed!</strong> | 
-                    <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities.length}
+                    <strong>Vulnerabilities Found:</strong> ${escapeHtml(String(vulnCount))}
                 </div>
             </div>
         `;
@@ -347,15 +350,16 @@ function handleScanComplete(data) {
     
     // Show success toast
     if (window.MegidoToast) {
-        window.MegidoToast.success(`Scan completed! Found ${data.vulnerabilities.length} vulnerabilities.`);
+        window.MegidoToast.success(`Scan completed! Found ${escapeHtml(String(vulnCount))} vulnerabilities.`);
     }
     
     // Show exploit actions if vulnerabilities found
-    if (data.vulnerabilities.length > 0) {
+    if (vulnCount > 0) {
         showExploitActions();
     }
     
     displayVulnerabilities(data.vulnerabilities);
+}
 }
 
 // Handle scan errors

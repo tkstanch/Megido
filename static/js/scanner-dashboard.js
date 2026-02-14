@@ -10,6 +10,7 @@
     // Configuration
     const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
     const MAX_POLL_ATTEMPTS = 150; // 5 minutes worth of attempts (150 * 2 seconds)
+    const MAX_CONSECUTIVE_FAILURES = 5; // Show error after 5 consecutive failures
     const INITIAL_DELAY_MS = 2000; // Initial delay before first poll
     
     // State
@@ -129,7 +130,7 @@
             consecutiveFailures++;
             
             // Only show error to user after multiple consecutive failures
-            if (consecutiveFailures >= 5) {
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
                 if (onError) {
                     onError(`Network error: ${error.message}`);
                 }
