@@ -109,6 +109,7 @@
 {% endblock %}
 
 {% block extra_script %}
+<script src="/static/js/scanner-dashboard.js"></script>
 <script>
 (function() {
     'use strict';
@@ -290,14 +291,79 @@ async function startScan() {
         const scan = await scanResponse.json();
         currentScanId = scan.id;
         
-        // Wait a moment then load results
-        setTimeout(() => loadResults(scan.id), 2000);
+        // Start polling for scan results using the ScannerDashboard API
+        if (window.ScannerDashboard) {
+            window.ScannerDashboard.startPolling(
+                scan.id,
+                handleScanProgress,
+                handleScanComplete,
+                handleScanError
+            );
+        } else {
+            // Fallback if polling API not loaded
+            setTimeout(() => loadResults(scan.id), 2000);
+        }
         
     } catch (error) {
         displayError(error.message);
     }
 }
 
+// Handle scan progress updates
+function handleScanProgress(data) {
+    const statusDiv = document.getElementById('scan-status');
+    if (!statusDiv) return;
+    
+    statusDiv.innerHTML = `
+        <div class="card border-l-4 border-info">
+            <div class="card-body">
+                <div class="flex items-center gap-3">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-info"></div>
+                    <div>
+                        <strong>Scan Status:</strong> ${escapeHtml(data.status)} | 
+                        <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities ? data.vulnerabilities.length : 0}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Handle scan completion
+function handleScanComplete(data) {
+    currentVulnerabilities = data.vulnerabilities;
+    
+    const statusDiv = document.getElementById('scan-status');
+    if (statusDiv) {
+        statusDiv.innerHTML = `
+            <div class="card border-l-4 border-success">
+                <div class="card-body">
+                    <strong>✓ Scan Completed!</strong> | 
+                    <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities.length}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Show success toast
+    if (window.MegidoToast) {
+        window.MegidoToast.success(`Scan completed! Found ${data.vulnerabilities.length} vulnerabilities.`);
+    }
+    
+    // Show exploit actions if vulnerabilities found
+    if (data.vulnerabilities.length > 0) {
+        showExploitActions();
+    }
+    
+    displayVulnerabilities(data.vulnerabilities);
+}
+
+// Handle scan errors
+function handleScanError(message) {
+    displayError(message);
+}
+
+// Fallback function for backward compatibility
 async function loadResults(scanId) {
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/results/`);
@@ -309,23 +375,17 @@ async function loadResults(scanId) {
         }
         
         const data = await response.json();
-        currentVulnerabilities = data.vulnerabilities;
         
-        document.getElementById('scan-status').innerHTML = `
-            <div class="card border-l-4 border-info">
-                <div class="card-body">
-                    <strong>Scan Status:</strong> ${data.status} | 
-                    <strong>Vulnerabilities Found:</strong> ${data.vulnerabilities.length}
-                </div>
-            </div>
-        `;
-        
-        // Show exploit actions if vulnerabilities found
-        if (data.vulnerabilities.length > 0) {
-            showExploitActions();
+        // Check if scan is complete
+        if (data.status === 'completed') {
+            handleScanComplete(data);
+        } else if (data.status === 'failed') {
+            handleScanError('Scan failed. Please try again.');
+        } else {
+            // Still running, poll again
+            setTimeout(() => loadResults(scanId), 2000);
+            handleScanProgress(data);
         }
-        
-        displayVulnerabilities(data.vulnerabilities);
         
     } catch (error) {
         displayError(error.message);

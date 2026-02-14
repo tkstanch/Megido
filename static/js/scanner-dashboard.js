@@ -1,0 +1,171 @@
+/**
+ * Megido Security - Scanner Dashboard Polling
+ * Handles scan status polling and result updates
+ * Version: 1.0
+ */
+
+(function(window) {
+    'use strict';
+    
+    // Configuration
+    const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
+    const MAX_POLL_RETRIES = 150; // 5 minutes worth of retries (150 * 2 seconds)
+    const INITIAL_DELAY_MS = 2000; // Initial delay before first poll
+    
+    // State
+    let pollIntervalId = null;
+    let pollRetryCount = 0;
+    let currentScanId = null;
+    let scanCompleted = false;
+    
+    /**
+     * Start polling for scan results
+     * @param {number} scanId - The scan ID to poll for
+     * @param {Function} onProgress - Callback for progress updates
+     * @param {Function} onComplete - Callback when scan completes
+     * @param {Function} onError - Callback for errors
+     */
+    function startPolling(scanId, onProgress, onComplete, onError) {
+        // Validate parameters
+        if (!scanId) {
+            console.error('Scanner Dashboard: scanId is required');
+            if (onError) onError('Invalid scan ID');
+            return;
+        }
+        
+        // Reset state
+        stopPolling();
+        currentScanId = scanId;
+        pollRetryCount = 0;
+        scanCompleted = false;
+        
+        // Log polling start
+        console.log(`Scanner Dashboard: Starting polling for scan ${scanId}`);
+        
+        // Start polling with initial delay
+        setTimeout(() => {
+            pollScanStatus(onProgress, onComplete, onError);
+            
+            // Set up interval for subsequent polls
+            pollIntervalId = setInterval(() => {
+                if (!scanCompleted) {
+                    pollScanStatus(onProgress, onComplete, onError);
+                } else {
+                    stopPolling();
+                }
+            }, POLL_INTERVAL_MS);
+        }, INITIAL_DELAY_MS);
+    }
+    
+    /**
+     * Poll scan status once
+     * @param {Function} onProgress - Callback for progress updates
+     * @param {Function} onComplete - Callback when scan completes
+     * @param {Function} onError - Callback for errors
+     */
+    async function pollScanStatus(onProgress, onComplete, onError) {
+        try {
+            // Check retry limit
+            if (pollRetryCount >= MAX_POLL_RETRIES) {
+                console.warn('Scanner Dashboard: Max poll retries reached');
+                stopPolling();
+                if (onError) {
+                    onError('Scan is taking longer than expected. Please refresh the page to check status.');
+                }
+                return;
+            }
+            
+            pollRetryCount++;
+            
+            // Fetch scan results
+            const response = await fetch(`/scanner/api/scans/${currentScanId}/results/`);
+            
+            // Check response status
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            // Reset retry count on successful fetch
+            pollRetryCount = 0;
+            
+            // Log status
+            console.log(`Scanner Dashboard: Scan ${currentScanId} status: ${data.status}`);
+            
+            // Check scan status
+            if (data.status === 'completed') {
+                scanCompleted = true;
+                stopPolling();
+                
+                console.log(`Scanner Dashboard: Scan ${currentScanId} completed with ${data.vulnerabilities.length} vulnerabilities`);
+                
+                if (onComplete) {
+                    onComplete(data);
+                }
+            } else if (data.status === 'failed') {
+                scanCompleted = true;
+                stopPolling();
+                
+                console.error(`Scanner Dashboard: Scan ${currentScanId} failed`);
+                
+                if (onError) {
+                    onError('Scan failed. Please try again.');
+                }
+            } else if (data.status === 'running' || data.status === 'pending') {
+                // Scan is still in progress
+                if (onProgress) {
+                    onProgress(data);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Scanner Dashboard: Poll error:', error);
+            
+            // Only show error to user after multiple consecutive failures
+            if (pollRetryCount >= 5) {
+                if (onError) {
+                    onError(`Network error: ${error.message}`);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop polling
+     */
+    function stopPolling() {
+        if (pollIntervalId) {
+            clearInterval(pollIntervalId);
+            pollIntervalId = null;
+            console.log('Scanner Dashboard: Polling stopped');
+        }
+    }
+    
+    /**
+     * Check if polling is active
+     * @returns {boolean} True if polling is active
+     */
+    function isPolling() {
+        return pollIntervalId !== null;
+    }
+    
+    /**
+     * Get current scan ID
+     * @returns {number|null} Current scan ID or null
+     */
+    function getCurrentScanId() {
+        return currentScanId;
+    }
+    
+    // Expose public API
+    window.ScannerDashboard = {
+        startPolling: startPolling,
+        stopPolling: stopPolling,
+        isPolling: isPolling,
+        getCurrentScanId: getCurrentScanId
+    };
+    
+    console.log('✅ Scanner Dashboard Polling System initialized');
+    
+})(window);
