@@ -4,8 +4,9 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .models import ScanTarget, Scan, Vulnerability
+from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
 from django.utils import timezone
+from django.conf import settings
 import os
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
@@ -150,11 +151,47 @@ def scan_results(request, scan_id):
                 'compliance_violations': vuln.compliance_violations,
                 'remediation_priority': vuln.remediation_priority,
                 'remediation_effort': vuln.remediation_effort,
+                # Visual proof media
+                'visual_proof_path': vuln.visual_proof_path,
+                'visual_proof_type': vuln.visual_proof_type,
+                'exploit_media': _serialize_exploit_media(vuln.exploit_media.all()),
             } for vuln in vulnerabilities]
         }
         return Response(data)
     except Scan.DoesNotExist:
         return Response({'error': 'Scan not found'}, status=404)
+
+
+def _serialize_exploit_media(media_queryset):
+    """
+    Serialize ExploitMedia queryset to dictionary format.
+    
+    Args:
+        media_queryset: QuerySet of ExploitMedia objects
+        
+    Returns:
+        List of dictionaries with media information
+    """
+    media_url_base = getattr(settings, 'MEDIA_URL', '/media/')
+    
+    return [{
+        'id': media.id,
+        'media_type': media.media_type,
+        'title': media.title,
+        'description': media.description,
+        'file_url': f"{media_url_base}{media.file_path}",  # file_path already includes exploit_proofs/
+        'file_name': media.file_name,
+        'file_size': media.file_size,
+        'mime_type': media.mime_type,
+        'width': media.width,
+        'height': media.height,
+        'duration_seconds': media.duration_seconds,
+        'frame_count': media.frame_count,
+        'exploit_step': media.exploit_step,
+        'payload_used': media.payload_used,
+        'capture_timestamp': media.capture_timestamp.isoformat(),
+        'sequence_order': media.sequence_order,
+    } for media in media_queryset]
 
 
 @api_view(['POST'])
@@ -273,6 +310,66 @@ def exploit_status(request, task_id):
         response_data['status'] = str(task_result.state)
     
     return Response(response_data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def vulnerability_detail(request, vuln_id):
+    """
+    Get detailed information about a specific vulnerability including all exploit media.
+    
+    Args:
+        vuln_id: Vulnerability ID
+        
+    Returns:
+        Detailed vulnerability information with all exploit media
+    """
+    try:
+        vuln = Vulnerability.objects.get(id=vuln_id)
+        
+        # Get all exploit media ordered by sequence
+        exploit_media = vuln.exploit_media.all().order_by('sequence_order', 'capture_timestamp')
+        
+        data = {
+            'id': vuln.id,
+            'type': vuln.get_vulnerability_type_display(),
+            'vulnerability_type': vuln.vulnerability_type,
+            'severity': vuln.severity,
+            'url': vuln.url,
+            'parameter': vuln.parameter,
+            'description': vuln.description,
+            'evidence': vuln.evidence,
+            'remediation': vuln.remediation,
+            'discovered_at': vuln.discovered_at.isoformat(),
+            # Exploit information
+            'exploited': vuln.exploited,
+            'exploit_status': vuln.exploit_status,
+            'exploit_result': vuln.exploit_result,
+            'exploit_attempted_at': vuln.exploit_attempted_at.isoformat() if vuln.exploit_attempted_at else None,
+            # Advanced features
+            'verified': vuln.verified,
+            'proof_of_impact': vuln.proof_of_impact,
+            'risk_score': vuln.risk_score,
+            'risk_level': vuln.risk_level,
+            'confidence_score': vuln.confidence_score,
+            'false_positive_status': vuln.false_positive_status,
+            'false_positive_reason': vuln.false_positive_reason,
+            'reviewed_by': vuln.reviewed_by,
+            'reviewed_at': vuln.reviewed_at.isoformat() if vuln.reviewed_at else None,
+            'compliance_violations': vuln.compliance_violations,
+            'remediation_priority': vuln.remediation_priority,
+            'remediation_effort': vuln.remediation_effort,
+            # Legacy visual proof (single file)
+            'visual_proof_path': vuln.visual_proof_path,
+            'visual_proof_type': vuln.visual_proof_type,
+            'visual_proof_size': vuln.visual_proof_size,
+            # New multiple media support
+            'exploit_media': _serialize_exploit_media(exploit_media),
+            'exploit_media_count': exploit_media.count(),
+        }
+        return Response(data)
+    except Vulnerability.DoesNotExist:
+        return Response({'error': 'Vulnerability not found'}, status=404)
 
 
 @api_view(['POST'])

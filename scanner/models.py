@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import FileExtensionValidator
 
 
 class ScanTarget(models.Model):
@@ -164,6 +165,86 @@ class Vulnerability(models.Model):
     
     def __str__(self):
         return f"{self.severity.upper()} - {self.get_vulnerability_type_display()} at {self.url}"
+
+
+class ExploitMedia(models.Model):
+    """Model to store visual proof media files (screenshots, GIFs, videos) for exploits"""
+    MEDIA_TYPE_CHOICES = [
+        ('screenshot', 'Screenshot'),
+        ('gif', 'Animated GIF'),
+        ('video', 'Video'),
+    ]
+    
+    vulnerability = models.ForeignKey(
+        Vulnerability,
+        on_delete=models.CASCADE,
+        related_name='exploit_media'
+    )
+    
+    # Media file information
+    media_type = models.CharField(max_length=20, choices=MEDIA_TYPE_CHOICES)
+    file_path = models.CharField(
+        max_length=512,
+        help_text='Relative path to the media file from media root'
+    )
+    file_name = models.CharField(max_length=255, help_text='Original file name')
+    file_size = models.IntegerField(help_text='File size in bytes')
+    mime_type = models.CharField(max_length=100, default='image/png')
+    
+    # Metadata
+    title = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text='Descriptive title for the media'
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Description of what this media shows'
+    )
+    capture_timestamp = models.DateTimeField(auto_now_add=True)
+    sequence_order = models.IntegerField(
+        default=0,
+        help_text='Order in which media should be displayed (0 = first)'
+    )
+    
+    # Technical details
+    duration_seconds = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='Duration for GIFs/videos'
+    )
+    width = models.IntegerField(blank=True, null=True, help_text='Image width in pixels')
+    height = models.IntegerField(blank=True, null=True, help_text='Image height in pixels')
+    frame_count = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text='Number of frames (for GIFs)'
+    )
+    
+    # Exploit context
+    exploit_step = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text='Which step of the exploit this media represents'
+    )
+    payload_used = models.TextField(
+        blank=True,
+        null=True,
+        help_text='The payload that was executed for this capture'
+    )
+    
+    class Meta:
+        ordering = ['vulnerability', 'sequence_order', 'capture_timestamp']
+        indexes = [
+            models.Index(fields=['vulnerability', 'sequence_order']),
+            models.Index(fields=['media_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_media_type_display()} for {self.vulnerability.vulnerability_type} - {self.file_name}"
 
 
 class EngineScan(models.Model):
