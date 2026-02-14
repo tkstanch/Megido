@@ -80,8 +80,13 @@ class RFIDetectorPlugin(BaseScanPlugin):
             timeout = config.get('timeout', 10)
             test_server = config.get('test_server')
             
+            # Warning: If no test server is configured, log and return empty findings
+            # This allows the scan to continue without hard-failing
             if not test_server:
-                logger.warning("No test server configured for RFI detection")
+                logger.warning(
+                    f"RFI scan of {url} skipped: No test server configured. "
+                    "Configure 'test_server' in plugin config to enable RFI detection."
+                )
                 return findings
             
             # Test for RFI

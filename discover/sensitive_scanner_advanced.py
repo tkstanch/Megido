@@ -583,6 +583,19 @@ class ComplianceMapper:
         
         return applicable_mappings
     
+    def map_finding_to_compliance(self, finding: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Map finding to compliance frameworks (alias for get_compliance_mappings).
+        
+        Args:
+            finding: Finding dictionary
+            
+        Returns:
+            List of compliance mappings as dictionaries
+        """
+        mappings = self.get_compliance_mappings(finding)
+        return [asdict(mapping) for mapping in mappings]
+    
     def generate_compliance_report(self, findings: List[Dict[str, Any]],
                                    framework: Optional[ComplianceFramework] = None) -> Dict[str, Any]:
         """
@@ -837,6 +850,19 @@ token = jwt.encode({'exp': exp, 'user': 'id'}, secret)''',
                 'https://cheatsheetseries.owasp.org/'
             ]
         )
+    
+    def generate_remediation(self, finding: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Generate remediation suggestion for a finding (alias for get_remediation).
+        
+        Args:
+            finding: Finding dictionary
+            
+        Returns:
+            Remediation suggestion as dictionary or None
+        """
+        suggestion = self.get_remediation(finding)
+        return asdict(suggestion) if suggestion else None
     
     def generate_remediation_report(self, findings: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
