@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  # Redis for Celery broker and result backend
+  redis:
+    image: redis:7-alpine
+    container_name: megido-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - megido-network
+
   # ClamAV antivirus daemon
   clamav:
     image: clamav/clamav:latest
@@ -27,6 +42,7 @@ services:
     volumes:
       - .:/app
       - media-files:/app/media
+      - static-files:/app/staticfiles
     ports:
       - "8000:8000"
     environment:
@@ -34,8 +50,34 @@ services:
       - CLAMAV_PORT=3310
       - CLAMAV_TIMEOUT=60
       - DJANGO_SETTINGS_MODULE=megido_security.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
+      redis:
+        condition: service_healthy
       clamav:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - megido-network
+
+  # Celery worker for background tasks
+  celery:
+    build: .
+    container_name: megido-celery
+    command: celery -A megido_security worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+      - media-files:/app/media
+    environment:
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - CLAMAV_TIMEOUT=60
+      - DJANGO_SETTINGS_MODULE=megido_security.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -45,6 +87,8 @@ volumes:
   clamav-data:
     driver: local
   media-files:
+    driver: local
+  static-files:
     driver: local
 
 networks:

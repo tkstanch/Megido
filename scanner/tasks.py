@@ -1,10 +1,13 @@
 """
 Celery tasks for scanner application
 
-This module contains background tasks for long-running exploit operations.
+This module contains background tasks for long-running operations including:
+- Scan execution (async_scan_task) 
+- Exploit operations (async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities)
 """
 
 import logging
+import os
 from typing import Dict, Any, Optional, List
 
 from celery import shared_task
@@ -23,6 +26,98 @@ from scanner.websocket_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(bind=True, name='scanner.async_scan_task', time_limit=600, soft_time_limit=570)
+def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
+    """
+    Celery task to perform vulnerability scan asynchronously.
+    
+    This task runs the scan in the background, allowing Gunicorn to respond immediately
+    and preventing worker blocking during long-running scans.
+    
+    Args:
+        scan_id: The scan ID to execute
+    
+    Returns:
+        Dictionary containing:
+        - scan_id: The scan ID
+        - status: Final status ('completed' or 'failed')
+        - message: Status message
+        - vulnerabilities_found: Number of vulnerabilities discovered
+        - task_id: The Celery task ID for tracking
+    """
+    task_id = self.request.id if self.request.id else 'eager-mode'
+    logger.info(f"Starting async scan task for scan {scan_id} (task_id: {task_id})")
+    
+    try:
+        scan = Scan.objects.get(id=scan_id)
+    except Scan.DoesNotExist:
+        error_result = {
+            'scan_id': scan_id,
+            'status': 'failed',
+            'error': f'Scan {scan_id} not found',
+            'task_id': task_id,
+        }
+        logger.error(f"Scan {scan_id} not found")
+        return error_result
+    
+    # Update scan status to 'running'
+    scan.status = 'running'
+    scan.save()
+    
+    try:
+        # Import here to avoid circular imports
+        from scanner.views import perform_basic_scan
+        
+        # Get SSL verification setting from environment
+        verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
+        
+        # Perform the scan
+        logger.info(f"Executing scan for target: {scan.target.url}")
+        perform_basic_scan(scan, scan.target.url)
+        
+        # Update scan status to completed
+        scan.status = 'completed'
+        scan.completed_at = timezone.now()
+        scan.save()
+        
+        vulnerabilities_count = scan.vulnerabilities.count()
+        logger.info(f"Scan {scan_id} completed successfully. Found {vulnerabilities_count} vulnerabilities.")
+        
+        return {
+            'scan_id': scan_id,
+            'status': 'completed',
+            'message': 'Scan completed successfully',
+            'vulnerabilities_found': vulnerabilities_count,
+            'task_id': task_id,
+        }
+        
+    except SoftTimeLimitExceeded:
+        logger.warning(f"Soft time limit reached for scan {scan_id}. Marking as failed.")
+        scan.status = 'failed'
+        scan.completed_at = timezone.now()
+        scan.save()
+        
+        return {
+            'scan_id': scan_id,
+            'status': 'failed',
+            'error': 'Scan exceeded time limit',
+            'task_id': task_id,
+        }
+        
+    except Exception as e:
+        logger.error(f"Error during scan {scan_id}: {str(e)}", exc_info=True)
+        scan.status = 'failed'
+        scan.completed_at = timezone.now()
+        scan.save()
+        
+        return {
+            'scan_id': scan_id,
+            'status': 'failed',
+            'error': str(e),
+            'task_id': task_id,
+        }
 
 
 # Time limit increased from 30 minutes to 1 hour to handle large numbers of vulnerabilities
