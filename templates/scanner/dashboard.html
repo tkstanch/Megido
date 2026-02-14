@@ -119,6 +119,10 @@ let currentTaskId = null;
 let ws = null;
 let wsConnected = false;
 let pollingInterval = null;
+let pollingRetries = 0;
+let unknownStateRetries = 0;
+const MAX_POLLING_RETRIES = 30; // Stop after 30 failed attempts (60 seconds)
+const MAX_UNKNOWN_STATE_RETRIES = 5; // Stop after 5 consecutive unknown states
 let useWebSocket = true;
 
 // Attach event listener securely
@@ -654,6 +658,10 @@ function fallbackToPolling(taskId) {
 function startPolling(taskId) {
     console.log('Starting polling for task:', taskId);
     
+    // Reset retry counters when starting a new polling session
+    pollingRetries = 0;
+    unknownStateRetries = 0;
+    
     // Clear any existing interval
     if (pollingInterval) {
         clearInterval(pollingInterval);
@@ -688,7 +696,12 @@ async function pollTaskStatus(taskId) {
         
         const data = await response.json();
         
+        // Reset network error counter on successful response
+        pollingRetries = 0;
+        
         if (data.state === 'PROGRESS') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             updateProgressDisplay({
                 current: data.current || 0,
                 total: data.total || 0,
@@ -696,21 +709,52 @@ async function pollTaskStatus(taskId) {
                 status: data.status
             });
         } else if (data.state === 'SUCCESS') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             if (pollingInterval) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
             }
             handleExploitationComplete(data.result);
         } else if (data.state === 'FAILURE') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             if (pollingInterval) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
             }
             displayError(data.error || 'Exploitation failed');
             enableExploitButtons();
+        } else if (data.state === 'PENDING') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
+            console.log('Task is pending...');
+        } else {
+            // Unknown state - stop polling after consecutive unknown states
+            console.warn('Unknown task state:', data.state);
+            unknownStateRetries++;
+            if (unknownStateRetries >= MAX_UNKNOWN_STATE_RETRIES) {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+                displayError('Task entered unknown state. Please check the results manually.');
+                enableExploitButtons();
+            }
         }
     } catch (error) {
         console.error('Error polling task status:', error);
+        pollingRetries++;
+        
+        // Stop polling after max retries to prevent infinite requests
+        if (pollingRetries >= MAX_POLLING_RETRIES) {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            displayError('Unable to fetch task status after multiple attempts. Please refresh the page to check if the task completed.');
+            enableExploitButtons();
+        }
     }
 }
 
