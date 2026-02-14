@@ -10,7 +10,7 @@ from django.conf import settings
 import os
 import logging
 from celery.result import AsyncResult
-from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
+from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,6 @@ def start_scan(request, target_id):
         
         # Create scan with 'pending' status
         scan = Scan.objects.create(target=target, status='pending')
-        
-        # Import the async scan task
-        from scanner.tasks import async_scan_task
         
         # Trigger Celery task to run scan in background
         task = async_scan_task.delay(scan.id)

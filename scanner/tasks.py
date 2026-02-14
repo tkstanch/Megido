@@ -70,9 +70,6 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         # Import here to avoid circular imports
         from scanner.views import perform_basic_scan
         
-        # Get SSL verification setting from environment
-        verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
-        
         # Perform the scan
         logger.info(f"Executing scan for target: {scan.target.url}")
         perform_basic_scan(scan, scan.target.url)
