@@ -119,6 +119,8 @@ let currentTaskId = null;
 let ws = null;
 let wsConnected = false;
 let pollingInterval = null;
+let pollingRetries = 0;
+const MAX_POLLING_RETRIES = 30; // Stop after 30 failed attempts (60 seconds)
 let useWebSocket = true;
 
 // Attach event listener securely
@@ -654,6 +656,9 @@ function fallbackToPolling(taskId) {
 function startPolling(taskId) {
     console.log('Starting polling for task:', taskId);
     
+    // Reset retry counter when starting a new polling session
+    pollingRetries = 0;
+    
     // Clear any existing interval
     if (pollingInterval) {
         clearInterval(pollingInterval);
@@ -688,6 +693,9 @@ async function pollTaskStatus(taskId) {
         
         const data = await response.json();
         
+        // Reset retry counter on successful response
+        pollingRetries = 0;
+        
         if (data.state === 'PROGRESS') {
             updateProgressDisplay({
                 current: data.current || 0,
@@ -708,9 +716,35 @@ async function pollTaskStatus(taskId) {
             }
             displayError(data.error || 'Exploitation failed');
             enableExploitButtons();
+        } else if (data.state === 'PENDING') {
+            // Task is still pending, keep polling
+            console.log('Task is pending...');
+        } else {
+            // Unknown state - stop polling after a few retries
+            console.warn('Unknown task state:', data.state);
+            pollingRetries++;
+            if (pollingRetries >= 5) {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+                displayError('Task entered unknown state. Please check the results manually.');
+                enableExploitButtons();
+            }
         }
     } catch (error) {
         console.error('Error polling task status:', error);
+        pollingRetries++;
+        
+        // Stop polling after max retries to prevent infinite requests
+        if (pollingRetries >= MAX_POLLING_RETRIES) {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            displayError('Unable to fetch task status after multiple attempts. The task may still be running in the background.');
+            enableExploitButtons();
+        }
     }
 }
 
