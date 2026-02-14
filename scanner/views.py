@@ -8,8 +8,11 @@ from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
 from django.utils import timezone
 from django.conf import settings
 import os
+import logging
 from celery.result import AsyncResult
-from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities
+from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET', 'POST'])
@@ -39,25 +42,39 @@ def scan_targets(request):
 @authentication_classes([TokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def start_scan(request, target_id):
-    """Start a vulnerability scan on a target"""
+    """
+    Start a vulnerability scan on a target.
+    
+    This endpoint creates a scan and triggers an async Celery task to execute it.
+    The scan runs in the background, allowing Gunicorn to respond immediately
+    without blocking workers during long-running scans.
+    
+    Returns immediately with scan ID and 'pending' status.
+    Clients should poll /api/scans/<scan_id>/results/ for progress and results.
+    """
     try:
         target = ScanTarget.objects.get(id=target_id)
-        scan = Scan.objects.create(target=target, status='running')
         
-        # Run basic vulnerability checks
-        try:
-            perform_basic_scan(scan, target.url)
-            scan.status = 'completed'
-            scan.completed_at = timezone.now()
-            scan.save()
-            return Response({'id': scan.id, 'message': 'Scan completed', 'status': 'completed'}, status=201)
-        except Exception as e:
-            scan.status = 'failed'
-            scan.save()
-            return Response({'error': str(e)}, status=500)
+        # Create scan with 'pending' status
+        scan = Scan.objects.create(target=target, status='pending')
+        
+        # Trigger Celery task to run scan in background
+        task = async_scan_task.delay(scan.id)
+        
+        # Return immediately with scan ID and task ID
+        return Response({
+            'id': scan.id,
+            'status': 'pending',
+            'message': 'Scan started. Poll /api/scans/{}/results/ for progress.'.format(scan.id),
+            'task_id': task.id
+        }, status=201)
             
     except ScanTarget.DoesNotExist:
         return Response({'error': 'Target not found'}, status=404)
+    except Exception as e:
+        # If Celery task fails to start, log and return error
+        logger.error(f"Failed to start scan: {str(e)}", exc_info=True)
+        return Response({'error': f'Failed to start scan: {str(e)}'}, status=500)
 
 
 def perform_basic_scan(scan, url):

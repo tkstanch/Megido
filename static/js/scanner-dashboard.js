@@ -129,6 +129,22 @@
             // Increment consecutive failures
             consecutiveFailures++;
             
+            // NOTE: Error Handling Strategy
+            // ================================
+            // We distinguish between different types of errors:
+            // 1. 404 errors for favicon.ico or other static assets - NOT scan API errors, ignore
+            // 2. Temporary network failures (e.g., DNS hiccups) - retry automatically
+            // 3. Persistent API failures - show error only after MAX_CONSECUTIVE_FAILURES
+            // 
+            // This prevents false "NetworkError" messages from unrelated browser requests
+            // and provides a better user experience by not showing transient errors.
+            //
+            // Debugging Tips:
+            // - Check browser Network tab for actual API requests to /scanner/api/scans/<id>/results/
+            // - Look for HTTP status codes (200 = success, 404 = not found, 500 = server error)
+            // - Check Console tab for detailed error messages
+            // - Verify Celery worker is running if scans stuck in 'pending' status
+            
             // Only show error to user after multiple consecutive failures
             if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
                 if (onError) {

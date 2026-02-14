@@ -589,11 +589,19 @@ This will:
 
 ### Scalable Production Architecture with Celery
 
-Megido now includes **Celery** integration for asynchronous exploit operations, preventing Gunicorn worker timeouts and improving scalability.
+Megido includes **Celery** integration for asynchronous operations, preventing Gunicorn worker timeouts and improving scalability. This includes:
+- **Asynchronous scan execution** - Scans run in background without blocking Gunicorn workers ⭐ NEW
+- **Exploit operations** - Long-running exploits execute via background tasks
 
 #### Background Task Processing
 
-Exploit operations are automatically executed in the background using Celery workers. The API immediately returns a task ID that can be polled for status and results.
+Both scan and exploit operations are automatically executed in the background using Celery workers. The API immediately returns with a scan/task ID that can be polled for status and results.
+
+**Key Benefits:**
+- ✅ Gunicorn workers freed immediately - no blocking
+- ✅ Better scalability - handle many concurrent scans
+- ✅ Dashboard polling for real-time progress
+- ✅ Automatic error recovery and retry logic
 
 #### Development Setup
 
@@ -633,6 +641,30 @@ python manage.py runserver
 python launch.py
 ```
 
+#### Docker Deployment (Recommended)
+
+The `docker-compose.yml` includes all required services:
+- **redis** - Message broker for Celery
+- **celery** - Background worker for async tasks
+- **web** - Django/Gunicorn application server
+- **clamav** - Antivirus scanning
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+```
+
+**Important:** The `docker-entrypoint.sh` automatically runs:
+- Database migrations
+- **Static file collection** (includes favicon.ico) ⭐ NEW
+- Superuser creation (if needed)
+
 #### Production Deployment
 
 For production, run Celery worker(s) alongside your web server:
@@ -654,6 +686,13 @@ Celery settings can be configured via environment variables:
 export CELERY_BROKER_URL=redis://localhost:6379/0
 export CELERY_RESULT_BACKEND=redis://localhost:6379/0
 ```
+
+#### Additional Documentation
+
+For detailed information on async features:
+- **[ASYNC_SCAN_ARCHITECTURE.md](ASYNC_SCAN_ARCHITECTURE.md)** - Async scan architecture and flow ⭐ NEW
+- **[FAVICON_SETUP.md](FAVICON_SETUP.md)** - Favicon setup and troubleshooting ⭐ NEW
+- **[docs/SCANNER_POLLING.md](docs/SCANNER_POLLING.md)** - Dashboard polling implementation
 
 #### API Usage
 

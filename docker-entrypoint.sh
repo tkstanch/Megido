@@ -7,6 +7,9 @@ sleep 2
 echo "Running database migrations..."
 python manage.py migrate --noinput
 
+echo "Collecting static files (including favicon.ico)..."
+python manage.py collectstatic --noinput --clear
+
 echo "Creating superuser if it doesn't exist..."
 python manage.py shell << END
 from django.contrib.auth import get_user_model
