@@ -440,7 +440,9 @@ print(f"Vulnerabilities: {scan.vulnerabilities.count()}")
 - `/megido_security/celery.py` - Celery configuration
 - `/megido_security/settings.py` - Celery settings
 - `/docker-compose.yml` - Redis and Celery services
+- `/nginx.conf.example` - Optional NGINX configuration
 - `/docs/SCANNER_POLLING.md` - Dashboard polling documentation
+- `/FAVICON_SETUP.md` - Static file serving documentation
 
 ## References
 

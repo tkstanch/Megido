@@ -111,16 +111,23 @@ Browsers cache favicons very aggressively. To force reload:
 
 ## NGINX Configuration (Optional)
 
-If using NGINX as a reverse proxy, add this to your config to serve favicon directly:
+If using NGINX as a reverse proxy, you can optionally configure it to serve the favicon directly. However, this is **not required** as WhiteNoise already serves it efficiently.
+
+See `nginx.conf.example` in the repository root for a complete NGINX configuration example.
+
+**Basic favicon configuration:**
 
 ```nginx
 server {
-    location /favicon.ico {
+    # Optional: Serve favicon directly from NGINX (faster but not necessary)
+    location = /favicon.ico {
         alias /path/to/megido/staticfiles/favicon.ico;
         access_log off;
         log_not_found off;
+        expires 30d;
     }
     
+    # Optional: Serve all static files from NGINX
     location /static/ {
         alias /path/to/megido/staticfiles/;
         expires 30d;
@@ -128,10 +135,15 @@ server {
     
     location / {
         proxy_pass http://127.0.0.1:8000;
-        # ... other proxy settings
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
+
+**Important:** NGINX configuration is completely optional. WhiteNoise serves static files efficiently without NGINX.
 
 ## Docker Deployment
 
