@@ -120,7 +120,9 @@ let ws = null;
 let wsConnected = false;
 let pollingInterval = null;
 let pollingRetries = 0;
+let unknownStateRetries = 0;
 const MAX_POLLING_RETRIES = 30; // Stop after 30 failed attempts (60 seconds)
+const MAX_UNKNOWN_STATE_RETRIES = 5; // Stop after 5 consecutive unknown states
 let useWebSocket = true;
 
 // Attach event listener securely
@@ -656,8 +658,9 @@ function fallbackToPolling(taskId) {
 function startPolling(taskId) {
     console.log('Starting polling for task:', taskId);
     
-    // Reset retry counter when starting a new polling session
+    // Reset retry counters when starting a new polling session
     pollingRetries = 0;
+    unknownStateRetries = 0;
     
     // Clear any existing interval
     if (pollingInterval) {
@@ -693,10 +696,12 @@ async function pollTaskStatus(taskId) {
         
         const data = await response.json();
         
-        // Reset retry counter on successful response
+        // Reset network error counter on successful response
         pollingRetries = 0;
         
         if (data.state === 'PROGRESS') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             updateProgressDisplay({
                 current: data.current || 0,
                 total: data.total || 0,
@@ -704,12 +709,16 @@ async function pollTaskStatus(taskId) {
                 status: data.status
             });
         } else if (data.state === 'SUCCESS') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             if (pollingInterval) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
             }
             handleExploitationComplete(data.result);
         } else if (data.state === 'FAILURE') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             if (pollingInterval) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
@@ -717,13 +726,15 @@ async function pollTaskStatus(taskId) {
             displayError(data.error || 'Exploitation failed');
             enableExploitButtons();
         } else if (data.state === 'PENDING') {
+            // Reset unknown state counter on valid state
+            unknownStateRetries = 0;
             // Task is still pending, keep polling
             console.log('Task is pending...');
         } else {
-            // Unknown state - stop polling after a few retries
+            // Unknown state - stop polling after consecutive unknown states
             console.warn('Unknown task state:', data.state);
-            pollingRetries++;
-            if (pollingRetries >= 5) {
+            unknownStateRetries++;
+            if (unknownStateRetries >= MAX_UNKNOWN_STATE_RETRIES) {
                 if (pollingInterval) {
                     clearInterval(pollingInterval);
                     pollingInterval = null;
