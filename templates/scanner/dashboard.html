@@ -728,7 +728,6 @@ async function pollTaskStatus(taskId) {
         } else if (data.state === 'PENDING') {
             // Reset unknown state counter on valid state
             unknownStateRetries = 0;
-            // Task is still pending, keep polling
             console.log('Task is pending...');
         } else {
             // Unknown state - stop polling after consecutive unknown states
@@ -753,7 +752,7 @@ async function pollTaskStatus(taskId) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
             }
-            displayError('Unable to fetch task status after multiple attempts. The task may still be running in the background.');
+            displayError('Unable to fetch task status after multiple attempts. Please refresh the page to check if the task completed.');
             enableExploitButtons();
         }
     }
