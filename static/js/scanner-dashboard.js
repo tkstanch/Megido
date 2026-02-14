@@ -9,12 +9,13 @@
     
     // Configuration
     const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
-    const MAX_POLL_RETRIES = 150; // 5 minutes worth of retries (150 * 2 seconds)
+    const MAX_POLL_ATTEMPTS = 150; // 5 minutes worth of attempts (150 * 2 seconds)
     const INITIAL_DELAY_MS = 2000; // Initial delay before first poll
     
     // State
     let pollIntervalId = null;
-    let pollRetryCount = 0;
+    let pollAttemptCount = 0;
+    let consecutiveFailures = 0;
     let currentScanId = null;
     let scanCompleted = false;
     
@@ -36,7 +37,8 @@
         // Reset state
         stopPolling();
         currentScanId = scanId;
-        pollRetryCount = 0;
+        pollAttemptCount = 0;
+        consecutiveFailures = 0;
         scanCompleted = false;
         
         // Log polling start
@@ -65,9 +67,9 @@
      */
     async function pollScanStatus(onProgress, onComplete, onError) {
         try {
-            // Check retry limit
-            if (pollRetryCount >= MAX_POLL_RETRIES) {
-                console.warn('Scanner Dashboard: Max poll retries reached');
+            // Check attempt limit
+            if (pollAttemptCount >= MAX_POLL_ATTEMPTS) {
+                console.warn('Scanner Dashboard: Max poll attempts reached');
                 stopPolling();
                 if (onError) {
                     onError('Scan is taking longer than expected. Please refresh the page to check status.');
@@ -75,7 +77,7 @@
                 return;
             }
             
-            pollRetryCount++;
+            pollAttemptCount++;
             
             // Fetch scan results
             const response = await fetch(`/scanner/api/scans/${currentScanId}/results/`);
@@ -87,8 +89,8 @@
             
             const data = await response.json();
             
-            // Reset retry count on successful fetch
-            pollRetryCount = 0;
+            // Reset consecutive failures on successful fetch
+            consecutiveFailures = 0;
             
             // Log status
             console.log(`Scanner Dashboard: Scan ${currentScanId} status: ${data.status}`);
@@ -98,7 +100,8 @@
                 scanCompleted = true;
                 stopPolling();
                 
-                console.log(`Scanner Dashboard: Scan ${currentScanId} completed with ${data.vulnerabilities.length} vulnerabilities`);
+                const vulnCount = data.vulnerabilities?.length || 0;
+                console.log(`Scanner Dashboard: Scan ${currentScanId} completed with ${vulnCount} vulnerabilities`);
                 
                 if (onComplete) {
                     onComplete(data);
@@ -122,8 +125,11 @@
         } catch (error) {
             console.error('Scanner Dashboard: Poll error:', error);
             
+            // Increment consecutive failures
+            consecutiveFailures++;
+            
             // Only show error to user after multiple consecutive failures
-            if (pollRetryCount >= 5) {
+            if (consecutiveFailures >= 5) {
                 if (onError) {
                     onError(`Network error: ${error.message}`);
                 }
