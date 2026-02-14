@@ -9,6 +9,9 @@
     <!-- Security Headers via meta tags -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
+    <!-- Content Security Policy - DEVELOPMENT ONLY -->
+    <!-- WARNING: 'unsafe-eval' is enabled for development. DO NOT use this in production! -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' ws: wss:;">
     
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="/static/css/tailwind.output.css">

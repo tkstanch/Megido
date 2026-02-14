@@ -1027,7 +1027,7 @@ function showVisualProof(path, type, vulnId) {
     // Create image element
     const img = document.createElement('img');
     img.src = path;
-    img.alt = \`Visual proof for vulnerability \${vulnId}\`;
+    img.alt = `Visual proof for vulnerability ${vulnId}`;
     img.style.cssText = `
         max-width: 100%;
         max-height: 90vh;
@@ -1038,7 +1038,7 @@ function showVisualProof(path, type, vulnId) {
     // Add download link
     const downloadLink = document.createElement('a');
     downloadLink.href = path;
-    downloadLink.download = \`proof_vuln_\${vulnId}.\${type === 'gif' ? 'gif' : 'png'}\`;
+    downloadLink.download = `proof_vuln_${vulnId}.${type === 'gif' ? 'gif' : 'png'}`;
     downloadLink.style.cssText = `
         margin-top: 15px;
         padding: 8px 16px;
