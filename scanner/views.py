@@ -25,7 +25,7 @@ def scan_targets(request):
             'url': target.url,
             'created_at': target.created_at.isoformat(),
         } for target in targets]
-        return Response(data)
+        return Response(data, status=200)
     
     elif request.method == 'POST':
         target = ScanTarget.objects.create(
@@ -50,7 +50,7 @@ def start_scan(request, target_id):
             scan.status = 'completed'
             scan.completed_at = timezone.now()
             scan.save()
-            return Response({'id': scan.id, 'message': 'Scan completed'})
+            return Response({'id': scan.id, 'message': 'Scan completed', 'status': 'completed'}, status=201)
         except Exception as e:
             scan.status = 'failed'
             scan.save()
@@ -157,7 +157,7 @@ def scan_results(request, scan_id):
                 'exploit_media': _serialize_exploit_media(vuln.exploit_media.all()),
             } for vuln in vulnerabilities]
         }
-        return Response(data)
+        return Response(data, status=200)
     except Scan.DoesNotExist:
         return Response({'error': 'Scan not found'}, status=404)
 
@@ -309,7 +309,7 @@ def exploit_status(request, task_id):
         # Any other state
         response_data['status'] = str(task_result.state)
     
-    return Response(response_data)
+    return Response(response_data, status=200)
 
 
 @api_view(['GET'])
@@ -367,7 +367,7 @@ def vulnerability_detail(request, vuln_id):
             'exploit_media': _serialize_exploit_media(exploit_media),
             'exploit_media_count': exploit_media.count(),
         }
-        return Response(data)
+        return Response(data, status=200)
     except Vulnerability.DoesNotExist:
         return Response({'error': 'Vulnerability not found'}, status=404)
 
