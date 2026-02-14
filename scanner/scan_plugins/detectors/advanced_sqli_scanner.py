@@ -14,7 +14,7 @@ Features:
 
 import logging
 from typing import Dict, List, Any, Optional
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urljoin
 
 try:
     import requests
