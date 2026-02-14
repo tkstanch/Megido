@@ -179,7 +179,7 @@ def _serialize_exploit_media(media_queryset):
         'media_type': media.media_type,
         'title': media.title,
         'description': media.description,
-        'file_url': f"{media_url_base}exploit_proofs/{media.file_path}",
+        'file_url': f"{media_url_base}{media.file_path}",  # file_path already includes exploit_proofs/
         'file_name': media.file_name,
         'file_size': media.file_size,
         'mime_type': media.mime_type,
