@@ -47,7 +47,18 @@ findings = ScanEngine().scan('https://target.com', {
 })
 ```
 
-**See:** [STEALTH_FEATURES_GUIDE.md](STEALTH_FEATURES_GUIDE.md) for complete documentation
+**Scanning ngrok URLs:**
+```python
+# Scan locally exposed applications via ngrok tunnels
+findings = ScanEngine().scan('https://abc123.ngrok-free.app', {
+    'verify_ssl': True,  # ngrok provides valid SSL certificates
+    'timeout': 30,       # Allow extra time for ngrok latency
+})
+```
+
+**See:** 
+- [STEALTH_FEATURES_GUIDE.md](STEALTH_FEATURES_GUIDE.md) for stealth documentation
+- [docs/NGROK_SCANNING_GUIDE.md](docs/NGROK_SCANNING_GUIDE.md) for ngrok scanning guide ⭐ NEW
 
 ### 🎯 Scanner Engines (5 Total)
 
