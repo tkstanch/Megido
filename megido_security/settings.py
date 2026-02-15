@@ -19,11 +19,7 @@ For deployment checklist:
 https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 """
 import os
-import logging
 from pathlib import Path
-
-# Get logger for settings
-logger = logging.getLogger(__name__)
 
 # Suppress SSL warnings during testing (configured for security testing tool)
 import urllib3
@@ -284,7 +280,7 @@ if os.environ.get('NGROK_URL'):
     ngrok_url = os.environ.get('NGROK_URL')
     if ngrok_url not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(ngrok_url)
-        logger.info(f"Added ngrok URL to CSRF_TRUSTED_ORIGINS: {ngrok_url}")
+        # Note: Logging is available after Django setup completes
 
 # For production, use environment variable to add specific trusted origins:
 # CSRF_TRUSTED_ORIGINS += os.environ.get('EXTRA_TRUSTED_ORIGINS', '').split(',')

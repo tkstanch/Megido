@@ -395,10 +395,12 @@ kill $APP_PID
 
 ## Related Documentation
 
-- [NGROK_CALLBACK_GUIDE.md](../NGROK_CALLBACK_GUIDE.md) - Using ngrok for XSS callback verification
+- [NGROK_CALLBACK_GUIDE.md](../NGROK_CALLBACK_GUIDE.md) - Using ngrok for XSS callback verification (receiving callbacks from exploits)
 - [SCANNER_PLUGIN_GUIDE.md](../SCANNER_PLUGIN_GUIDE.md) - Scanner plugin architecture
 - [VULNERABILITY_SCANNER_COMPLETE_GUIDE.md](../VULNERABILITY_SCANNER_COMPLETE_GUIDE.md) - Complete scanner guide
 - [README.md](../README.md) - Main project documentation
+
+**Note:** The NGROK_CALLBACK_GUIDE covers using ngrok to *receive* callbacks from XSS payloads, while this guide covers using ngrok URLs as *targets* for scanning.
 
 ## Support
 
