@@ -26,11 +26,12 @@ except ImportError:
     HAS_BS4 = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.stealth_scan_mixin import StealthScanMixin
 
 logger = logging.getLogger(__name__)
 
 
-class XSSScannerPlugin(BaseScanPlugin):
+class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
     """
     XSS vulnerability detection plugin.
     
@@ -57,7 +58,7 @@ class XSSScannerPlugin(BaseScanPlugin):
     
     @property
     def version(self) -> str:
-        return '1.0.0'
+        return '2.0.0'  # Enhanced with stealth capabilities
     
     @property
     def vulnerability_types(self) -> List[str]:
@@ -82,11 +83,14 @@ class XSSScannerPlugin(BaseScanPlugin):
         findings = []
         
         try:
-            verify_ssl = config.get('verify_ssl', False)
-            timeout = config.get('timeout', 10)
+            # Use stealth request if enabled
+            if config.get('enable_stealth', False):
+                response = self.make_stealth_request(url, config=config)
+            else:
+                verify_ssl = config.get('verify_ssl', False)
+                timeout = config.get('timeout', 10)
+                response = requests.get(url, timeout=timeout, verify=verify_ssl)
             
-            # Fetch the target page
-            response = requests.get(url, timeout=timeout, verify=verify_ssl)
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Check for forms (potential XSS targets)
@@ -128,8 +132,14 @@ class XSSScannerPlugin(BaseScanPlugin):
     
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration for XSS scanning."""
-        return {
+        base_config = {
             'verify_ssl': False,
             'timeout': 10,
             # TODO: Add check_reflection option when reflection testing is implemented
         }
+        
+        # Merge with stealth config defaults
+        stealth_config = self.get_stealth_config_defaults()
+        base_config.update(stealth_config)
+        
+        return base_config

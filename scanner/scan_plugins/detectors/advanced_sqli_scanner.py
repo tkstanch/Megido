@@ -41,11 +41,12 @@ except ImportError:
     logging.warning("SQL Injection Engine not available")
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.stealth_scan_mixin import StealthScanMixin
 
 logger = logging.getLogger(__name__)
 
 
-class AdvancedSQLiScannerPlugin(BaseScanPlugin):
+class AdvancedSQLiScannerPlugin(StealthScanMixin, BaseScanPlugin):
     """
     Advanced SQL Injection vulnerability detection plugin.
     
@@ -72,7 +73,7 @@ class AdvancedSQLiScannerPlugin(BaseScanPlugin):
     
     @property
     def version(self) -> str:
-        return '2.0.0'
+        return '3.0.0'  # Enhanced with stealth capabilities
     
     @property
     def vulnerability_types(self) -> List[str]:

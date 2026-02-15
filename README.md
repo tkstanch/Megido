@@ -6,6 +6,49 @@
 
 Megido features an **enterprise-grade multi-engine plugin architecture** with **5 production-ready scanner engines**, Django integration, REST API, and advanced CLI:
 
+### 🥷 Advanced Stealth & Exploitation Features ⭐ NEW
+
+Megido now includes **professional-grade stealth capabilities** for realistic penetration testing:
+
+#### Stealth Engine
+- ✅ **User-Agent Rotation** - 20+ authentic browser profiles (Chrome, Firefox, Safari, Edge)
+- ✅ **Header Randomization** - Dynamic Accept, Accept-Language, Sec-Fetch-* headers
+- ✅ **Request Timing** - Configurable delays with jitter to evade rate limiting
+- ✅ **Session Rotation** - Automatic cookie and session ID management
+- ✅ **Parameter Randomization** - Random URL parameter ordering
+- ✅ **Payload Encoding** - Multiple encoding variations (URL, HTML, Unicode, Base64)
+
+#### Adaptive Payload Engine
+- ✅ **Context Detection** - Automatic injection context identification (HTML, JSON, JS, SVG)
+- ✅ **Smart Payload Selection** - Context-aware payload generation
+- ✅ **Response Analysis** - Reflection detection and filter identification
+- ✅ **Filter Evasion** - Automatic bypass technique suggestions
+- ✅ **WAF Detection** - Identify Cloudflare, Akamai, AWS WAF, Imperva, etc.
+- ✅ **Multi-Encoding** - Generate encoded payload variants
+
+#### Callback Verification System
+- ✅ **Built-in Callback Server** - Local HTTP server for OOB verification
+- ✅ **ngrok Integration** - Automatic tunnel setup for remote testing
+- ✅ **External Services** - Burp Collaborator, Interactsh support
+- ✅ **Interaction Logging** - Detailed callback metadata capture
+- ✅ **Proof of Exploitation** - Verified exploitation evidence
+
+**Quick Start with Stealth:**
+```python
+from scanner.scan_engine import ScanEngine
+
+# Scan with maximum stealth
+findings = ScanEngine().scan('https://target.com', {
+    'enable_stealth': True,
+    'stealth_min_delay': 2.0,
+    'stealth_max_delay': 5.0,
+    'enable_callback_verification': True,
+    'callback_use_ngrok': True,
+})
+```
+
+**See:** [STEALTH_FEATURES_GUIDE.md](STEALTH_FEATURES_GUIDE.md) for complete documentation
+
 ### 🎯 Scanner Engines (5 Total)
 
 - **🔍 SAST** - Static Application Security Testing
