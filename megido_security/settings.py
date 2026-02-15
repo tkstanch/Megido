@@ -34,7 +34,21 @@ SECRET_KEY = 'django-insecure-development-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']
+# ALLOWED_HOSTS Configuration
+# For development and testing, including ngrok tunnel support
+# In production, replace '*' with specific domain names
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '*',  # Allows all hosts for testing - CHANGE IN PRODUCTION
+    # ngrok domains are automatically supported due to wildcard
+    # Example ngrok patterns: '*.ngrok-free.app', '*.ngrok.io', '*.ngrok-free.dev'
+]
+
+# For production with ngrok, use environment variable:
+# ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Then set: ALLOWED_HOSTS="localhost,your-subdomain.ngrok-free.app"
 
 INSTALLED_APPS = [
     'daphne',  # Must be first for Channels ASGI support
@@ -251,11 +265,25 @@ if 'corsheaders' in [app.split('.')[-1] for app in INSTALLED_APPS]:
     CORS_ALLOW_ALL_ORIGINS = True  # For local testing only
 
 # Session and CSRF settings for local testing
+# Supports ngrok tunnels for testing locally exposed servers
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'http://0.0.0.0:8000',
+    # Add your ngrok URL here when testing
+    # Example: 'https://your-subdomain.ngrok-free.app'
 ]
+
+# For ngrok tunnel support, add your ngrok URL dynamically:
+# Get ngrok URL from environment variable if provided
+if os.environ.get('NGROK_URL'):
+    ngrok_url = os.environ.get('NGROK_URL')
+    if ngrok_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(ngrok_url)
+        # Note: Logging is available after Django setup completes
+
+# For production, use environment variable to add specific trusted origins:
+# CSRF_TRUSTED_ORIGINS += os.environ.get('EXTRA_TRUSTED_ORIGINS', '').split(',')
 
 # Security middleware settings for local development
 # These should be enabled (True/secure values) in production
