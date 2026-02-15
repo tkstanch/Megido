@@ -7,7 +7,7 @@
         "url": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/MySQL%20Injection.md",
         "format": "markdown",
         "category": "sqli-mysql",
-        "last_updated": "2026-02-12T23:34:21.646835",
+        "last_updated": "2026-02-15T01:20:13.933482",
         "enabled": true
       },
       {
@@ -15,7 +15,7 @@
         "url": "https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/PostgreSQL%20Injection.md",
         "format": "markdown",
         "category": "sqli-postgresql",
-        "last_updated": "2026-02-12T23:34:21.718218",
+        "last_updated": "2026-02-15T01:20:14.032861",
         "enabled": true
       },
       {
@@ -27,7 +27,7 @@
         "enabled": true
       }
     ],
-    "exported_at": "2026-02-12T23:34:21.779072"
+    "exported_at": "2026-02-15T01:20:14.106962"
   },
   "payloads": [
     {
