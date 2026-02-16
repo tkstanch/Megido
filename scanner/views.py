@@ -148,6 +148,7 @@ def scan_results(request, scan_id):
             'status': scan.status,
             'started_at': scan.started_at.isoformat(),
             'completed_at': scan.completed_at.isoformat() if scan.completed_at else None,
+            'warnings': scan.warnings if hasattr(scan, 'warnings') else [],
             'vulnerabilities': [{
                 'id': vuln.id,
                 'type': vuln.get_vulnerability_type_display(),
@@ -173,6 +174,7 @@ def scan_results(request, scan_id):
                 # Visual proof media
                 'visual_proof_path': vuln.visual_proof_path,
                 'visual_proof_type': vuln.visual_proof_type,
+                'visual_proof_status': vuln.visual_proof_status if hasattr(vuln, 'visual_proof_status') else 'not_attempted',
                 'exploit_media': _serialize_exploit_media(vuln.exploit_media.all()),
             } for vuln in vulnerabilities]
         }

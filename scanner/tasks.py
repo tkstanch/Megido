@@ -67,6 +67,20 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
     scan.status = 'running'
     scan.save()
     
+    # Collect visual proof diagnostics at scan start
+    try:
+        from scanner.visual_proof_diagnostics import get_visual_proof_warnings
+        visual_proof_warnings = get_visual_proof_warnings()
+        if visual_proof_warnings:
+            # Initialize warnings list if it doesn't exist (for migration compatibility)
+            if not hasattr(scan, 'warnings') or scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.extend(visual_proof_warnings)
+            scan.save()
+            logger.warning(f"Visual proof diagnostics found {len(visual_proof_warnings)} issue(s) for scan {scan_id}")
+    except Exception as e:
+        logger.error(f"Failed to collect visual proof warnings for scan {scan_id}: {e}")
+    
     try:
         # Import here to avoid circular imports
         from scanner.views import perform_basic_scan

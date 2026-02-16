@@ -28,6 +28,11 @@ class Scan(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    warnings = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of warnings generated during the scan (e.g., missing dependencies, configuration issues)'
+    )
     
     class Meta:
         ordering = ['-started_at']
@@ -138,6 +143,19 @@ class Vulnerability(models.Model):
         blank=True, 
         null=True, 
         help_text='File size in bytes'
+    )
+    visual_proof_status = models.CharField(
+        max_length=50,
+        choices=[
+            ('captured', 'Successfully Captured'),
+            ('disabled', 'Disabled by Configuration'),
+            ('failed', 'Capture Failed'),
+            ('not_supported', 'Not Supported for This Vulnerability Type'),
+            ('missing_dependencies', 'Missing Required Dependencies'),
+            ('not_attempted', 'Not Attempted'),
+        ],
+        default='not_attempted',
+        help_text='Status of visual proof capture attempt'
     )
     
     # False positive management
