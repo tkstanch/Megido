@@ -22,7 +22,7 @@ Usage:
         results = plugin.scan(url, config)
 """
 
-from .base_scan_plugin import BaseScanPlugin, VulnerabilityFinding, ScanSeverity
+from .base_scan_plugin import BaseScanPlugin, VulnerabilityFinding, ScanSeverity, create_repeater_request
 from .scan_plugin_registry import ScanPluginRegistry, get_scan_registry
 
 __all__ = [
@@ -31,4 +31,5 @@ __all__ = [
     'ScanSeverity',
     'ScanPluginRegistry',
     'get_scan_registry',
+    'create_repeater_request',
 ]
