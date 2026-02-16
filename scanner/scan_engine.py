@@ -146,6 +146,7 @@ class ScanEngine:
                 verified=finding.verified,
                 successful_payloads=finding.successful_payloads or [],
                 repeater_data=finding.repeater_requests or [],
+                http_traffic=finding.http_traffic or {},
             )
             vulnerabilities.append(vuln)
         

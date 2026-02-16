@@ -44,6 +44,7 @@ class VulnerabilityFinding:
     verified: bool = False  # True if exploit confirmed real-world impact
     successful_payloads: Optional[List[str]] = None  # Payloads that succeeded
     repeater_requests: Optional[List[Dict[str, Any]]] = None  # Copy-paste ready request data
+    http_traffic: Optional[Dict[str, Any]] = None  # HTTP request/response traffic capture
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
@@ -66,6 +67,9 @@ class VulnerabilityFinding:
         
         if self.repeater_requests:
             result['repeater_requests'] = self.repeater_requests
+        
+        if self.http_traffic:
+            result['http_traffic'] = self.http_traffic
             
         return result
 
