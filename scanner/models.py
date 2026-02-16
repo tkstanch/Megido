@@ -97,6 +97,18 @@ class Vulnerability(models.Model):
     verified = models.BooleanField(default=False, help_text='Verified through successful exploitation')
     proof_of_impact = models.TextField(blank=True, null=True, help_text='Evidence of real-world impact')
     
+    # Enhanced verification data (payloads and repeater requests)
+    successful_payloads = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of payloads that successfully exploited the vulnerability'
+    )
+    repeater_data = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Copy-paste ready HTTP requests for manual verification in repeater app'
+    )
+    
     # Visual proof of exploitation (screenshots/GIFs)
     visual_proof_path = models.CharField(
         max_length=512, 

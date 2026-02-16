@@ -28,6 +28,7 @@ class VulnerabilityFinding:
     Represents a vulnerability found during scanning.
     
     This standardized format ensures consistent reporting across all plugins.
+    Enhanced with payload tracking and repeater-ready request/response data.
     """
     vulnerability_type: str  # e.g., 'xss', 'sqli', 'csrf', 'info_disclosure'
     severity: str  # 'low', 'medium', 'high', 'critical'
@@ -39,9 +40,14 @@ class VulnerabilityFinding:
     confidence: float = 0.5  # 0.0 to 1.0
     cwe_id: Optional[str] = None  # Common Weakness Enumeration ID
     
+    # Enhanced fields for verification and manual testing
+    verified: bool = False  # True if exploit confirmed real-world impact
+    successful_payloads: Optional[List[str]] = None  # Payloads that succeeded
+    repeater_requests: Optional[List[Dict[str, Any]]] = None  # Copy-paste ready request data
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
-        return {
+        result = {
             'vulnerability_type': self.vulnerability_type,
             'severity': self.severity,
             'url': self.url,
@@ -51,7 +57,17 @@ class VulnerabilityFinding:
             'parameter': self.parameter,
             'confidence': self.confidence,
             'cwe_id': self.cwe_id,
+            'verified': self.verified,
         }
+        
+        # Include enhanced fields if present
+        if self.successful_payloads:
+            result['successful_payloads'] = self.successful_payloads
+        
+        if self.repeater_requests:
+            result['repeater_requests'] = self.repeater_requests
+            
+        return result
 
 
 class BaseScanPlugin(ABC):
@@ -196,3 +212,39 @@ class BaseScanPlugin(ABC):
             List[str]: List of required keys
         """
         return []
+
+
+def create_repeater_request(
+    url: str,
+    method: str = 'GET',
+    headers: Optional[Dict[str, str]] = None,
+    body: Optional[str] = None,
+    description: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a repeater-ready request dictionary for manual testing.
+    
+    This formats HTTP request data in a copy-paste ready format compatible
+    with Megido's repeater app for manual verification.
+    
+    Args:
+        url: Full URL of the request
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        headers: Dictionary of HTTP headers
+        body: Request body (for POST/PUT requests)
+        description: Optional description of what this request does
+    
+    Returns:
+        Dict containing repeater-compatible request data
+    """
+    request_data = {
+        'url': url,
+        'method': method.upper(),
+        'headers': headers or {},
+        'body': body or '',
+    }
+    
+    if description:
+        request_data['description'] = description
+    
+    return request_data

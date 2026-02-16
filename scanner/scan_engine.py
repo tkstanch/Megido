@@ -143,6 +143,9 @@ class ScanEngine:
                 evidence=finding.evidence,
                 remediation=finding.remediation,
                 confidence_score=finding.confidence,
+                verified=finding.verified,
+                successful_payloads=finding.successful_payloads or [],
+                repeater_data=finding.repeater_requests or [],
             )
             vulnerabilities.append(vuln)
         
