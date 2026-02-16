@@ -63,6 +63,18 @@ class ErrorClassifier:
                               'consider increasing the timeout value in configuration.'
             }
         
+        # SSL/TLS errors (check before ConnectionError as SSLError is a subclass)
+        if isinstance(error, SSLError):
+            return {
+                'category': ErrorCategory.FATAL,
+                'type': 'ssl_error',
+                'retryable': False,
+                'user_message': 'SSL/TLS certificate validation failed. The connection is not secure.',
+                'technical_details': f'SSL error: {str(error)}',
+                'remediation': 'Verify the certificate is valid. For testing purposes, you can '
+                              'disable SSL verification (not recommended for production).'
+            }
+        
         # Connection errors
         if isinstance(error, ConnectionError):
             error_str = str(error).lower()
@@ -111,18 +123,6 @@ class ErrorClassifier:
                 'user_message': 'Network connection error occurred.',
                 'technical_details': f'Connection error: {str(error)}',
                 'remediation': 'Check network connectivity. The request will be automatically retried.'
-            }
-        
-        # SSL/TLS errors
-        if isinstance(error, SSLError):
-            return {
-                'category': ErrorCategory.FATAL,
-                'type': 'ssl_error',
-                'retryable': False,
-                'user_message': 'SSL/TLS certificate validation failed. The connection is not secure.',
-                'technical_details': f'SSL error: {str(error)}',
-                'remediation': 'Verify the certificate is valid. For testing purposes, you can '
-                              'disable SSL verification (not recommended for production).'
             }
         
         # Proxy errors

@@ -93,6 +93,10 @@ class NetworkRetryClient:
         Returns:
             True if the error should be retried
         """
+        # SSL errors, redirect loops are not retryable (check these first)
+        if isinstance(error, (SSLError, TooManyRedirects)):
+            return False
+        
         # Connection errors are retryable (network issues, DNS failures, etc.)
         if isinstance(error, (ConnectionError, Timeout)):
             return True
@@ -110,10 +114,6 @@ class NetworkRetryClient:
         # Encoding/chunking errors might be transient
         if isinstance(error, (ChunkedEncodingError, ContentDecodingError)):
             return True
-        
-        # SSL errors, redirect loops, and other issues are not retryable
-        if isinstance(error, (SSLError, TooManyRedirects)):
-            return False
         
         # Other RequestException types - don't retry by default
         return False
