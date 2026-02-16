@@ -1,0 +1,158 @@
+# Megido Network Configuration
+# Template for configuring network retry behavior and error handling
+
+# ============================================================================
+# Retry Configuration
+# ============================================================================
+# Controls how the scanner retries failed network requests
+
+network:
+  # Maximum number of retry attempts (0 = no retries, 3 = recommended)
+  max_retries: 3
+  
+  # Base delay for exponential backoff (in seconds)
+  # Actual delay = base_delay * (2 ^ attempt_number) + jitter
+  base_delay: 1.0
+  
+  # Maximum delay between retries (in seconds)
+  # Prevents excessively long waits for deeply nested retries
+  max_delay: 30.0
+  
+  # Maximum random jitter to add to backoff (in seconds)
+  # Helps prevent "thundering herd" when many requests retry simultaneously
+  jitter_max: 1.0
+
+# ============================================================================
+# Timeout Configuration
+# ============================================================================
+# Controls how long to wait for network operations
+
+timeouts:
+  # Default timeout for all requests (in seconds)
+  default: 30
+  
+  # Timeout for establishing TCP connection (in seconds)
+  connect: 10
+  
+  # Timeout for reading response data (in seconds)
+  read: 30
+  
+  # Service-specific timeouts override the default
+  services:
+    fireblocks_api: 30
+    callback_server: 60
+    ngrok_api: 15
+    collaborator: 45
+    interactsh: 45
+
+# ============================================================================
+# Error Handling Configuration
+# ============================================================================
+
+error_handling:
+  # HTTP status codes that should trigger automatic retry
+  # 408 = Request Timeout
+  # 429 = Too Many Requests (Rate Limit)
+  # 500 = Internal Server Error
+  # 502 = Bad Gateway
+  # 503 = Service Unavailable
+  # 504 = Gateway Timeout
+  retryable_status_codes:
+    - 408
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+  
+  # Enable degraded mode - continue scanning even if some services fail
+  # When enabled, the scanner will:
+  # - Log service failures but continue with available services
+  # - Mark affected findings as "partial" or "unverified"
+  # - Report which services were unavailable
+  degraded_mode_enabled: true
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+logging:
+  # Enable detailed network logging (retry attempts, error details, etc.)
+  detailed: true
+  
+  # Log level for network operations
+  # Options: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+  
+  # Automatically redact sensitive data from logs
+  # Includes: passwords, tokens, API keys, cookies, etc.
+  redact_sensitive_data: true
+
+# ============================================================================
+# Example: Production Configuration
+# ============================================================================
+# For production deployments, consider these adjustments:
+
+# production:
+#   network:
+#     max_retries: 5              # More aggressive retries
+#     base_delay: 2.0             # Longer initial delay
+#     max_delay: 60.0             # Allow longer max delay
+#   
+#   timeouts:
+#     default: 60                 # Longer default timeout
+#     connect: 15                 # More time for connection
+#     read: 60                    # More time for response
+#   
+#   error_handling:
+#     degraded_mode_enabled: true # Always enable for resilience
+#   
+#   logging:
+#     level: WARNING              # Less verbose in production
+#     detailed: false             # Reduce log volume
+
+# ============================================================================
+# Example: Fast Scanning Configuration
+# ============================================================================
+# For quick scans where speed is more important than reliability:
+
+# fast_scan:
+#   network:
+#     max_retries: 1              # Minimal retries
+#     base_delay: 0.5             # Quick retries
+#     max_delay: 5.0              # Short max delay
+#   
+#   timeouts:
+#     default: 10                 # Quick timeout
+#     connect: 5                  # Fast connection timeout
+#     read: 10                    # Fast read timeout
+#   
+#   error_handling:
+#     degraded_mode_enabled: true # Still enable degraded mode
+#   
+#   logging:
+#     level: WARNING              # Minimal logging
+#     detailed: false
+
+# ============================================================================
+# Environment Variable Mapping
+# ============================================================================
+# These settings can be overridden via environment variables:
+#
+# MEGIDO_MAX_RETRIES          -> network.max_retries
+# MEGIDO_BASE_DELAY           -> network.base_delay
+# MEGIDO_MAX_DELAY            -> network.max_delay
+# MEGIDO_JITTER_MAX           -> network.jitter_max
+# MEGIDO_DEFAULT_TIMEOUT      -> timeouts.default
+# MEGIDO_CONNECT_TIMEOUT      -> timeouts.connect
+# MEGIDO_READ_TIMEOUT         -> timeouts.read
+# MEGIDO_DEGRADED_MODE        -> error_handling.degraded_mode_enabled
+# MEGIDO_DETAILED_LOGGING     -> logging.detailed
+# MEGIDO_NETWORK_LOG_LEVEL    -> logging.level
+#
+# Service-specific timeouts:
+# MEGIDO_TIMEOUT_FIREBLOCKS   -> timeouts.services.fireblocks_api
+# MEGIDO_TIMEOUT_CALLBACK     -> timeouts.services.callback_server
+# MEGIDO_TIMEOUT_NGROK        -> timeouts.services.ngrok_api
+# MEGIDO_TIMEOUT_COLLABORATOR -> timeouts.services.collaborator
+# MEGIDO_TIMEOUT_INTERACTSH   -> timeouts.services.interactsh
