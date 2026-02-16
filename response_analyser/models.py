@@ -59,6 +59,10 @@ class Vulnerability(models.Model):
                                        help_text="Whether the vulnerability has been manually confirmed")
     false_positive = models.BooleanField(default=False, db_index=True)
     
+    # Proof of Concept / Proof of Impact
+    proof_of_impact = models.TextField(blank=True, null=True,
+                                       help_text="Proof of Concept or evidence of impact for this vulnerability")
+    
     class Meta:
         ordering = ['-detected_at']
         indexes = [

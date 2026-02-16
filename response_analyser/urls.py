@@ -9,5 +9,6 @@ urlpatterns = [
     path('vulnerabilities/', views.vulnerability_list, name='vulnerability_list'),
     path('vulnerabilities/<int:pk>/', views.vulnerability_detail, name='vulnerability_detail'),
     path('vulnerabilities/<int:pk>/html/', views.render_evidence_html, name='render_evidence_html'),
+    path('vulnerabilities/<int:pk>/download-poc/', views.download_poc, name='download_poc'),
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

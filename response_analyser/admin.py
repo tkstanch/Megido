@@ -62,10 +62,11 @@ class VulnerabilityAdmin(admin.ModelAdmin):
                 'render_html_preview',
             )
         }),
-        ('Analysis', {
+        ('Analysis & Proof of Concept', {
             'fields': (
                 'is_confirmed',
                 'false_positive',
+                'proof_of_impact',
                 'notes',
                 'detected_at',
             )
