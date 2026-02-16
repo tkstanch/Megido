@@ -390,4 +390,64 @@ XSS_CALLBACK_POLL_INTERVAL = int(os.environ.get('XSS_CALLBACK_POLL_INTERVAL', '2
 # Use internal collaborator server for callback verification
 # If true and XSS_CALLBACK_ENDPOINT is not set, uses the internal collaborator
 XSS_USE_INTERNAL_COLLABORATOR = os.environ.get('XSS_USE_INTERNAL_COLLABORATOR', 'true').lower() == 'true'
+
+# ============================================================================
+# Network Retry and Error Handling Configuration
+# ============================================================================
+# Configuration for robust network error handling with exponential backoff
+# and automatic retries for recoverable errors
+
+# Maximum number of retry attempts for network requests
+NETWORK_MAX_RETRIES = int(os.environ.get('MEGIDO_MAX_RETRIES', '3'))
+
+# Base delay for exponential backoff (in seconds)
+NETWORK_BASE_DELAY = float(os.environ.get('MEGIDO_BASE_DELAY', '1.0'))
+
+# Maximum delay between retries (in seconds)
+NETWORK_MAX_DELAY = float(os.environ.get('MEGIDO_MAX_DELAY', '30.0'))
+
+# Maximum jitter to add to backoff delay (in seconds)
+NETWORK_JITTER_MAX = float(os.environ.get('MEGIDO_JITTER_MAX', '1.0'))
+
+# Default timeout for network requests (in seconds)
+NETWORK_DEFAULT_TIMEOUT = int(os.environ.get('MEGIDO_DEFAULT_TIMEOUT', '30'))
+
+# Connect timeout (in seconds) - time to establish connection
+NETWORK_CONNECT_TIMEOUT = int(os.environ.get('MEGIDO_CONNECT_TIMEOUT', '10'))
+
+# Read timeout (in seconds) - time to receive response
+NETWORK_READ_TIMEOUT = int(os.environ.get('MEGIDO_READ_TIMEOUT', '30'))
+
+# HTTP status codes that should trigger automatic retry
+NETWORK_RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504]
+
+# Enable degraded mode - continue scanning even if external services fail
+NETWORK_DEGRADED_MODE_ENABLED = os.environ.get('MEGIDO_DEGRADED_MODE', 'true').lower() == 'true'
+
+# Service-specific timeout overrides (in seconds)
+NETWORK_SERVICE_TIMEOUTS = {
+    'fireblocks_api': int(os.environ.get('MEGIDO_TIMEOUT_FIREBLOCKS', '30')),
+    'callback_server': int(os.environ.get('MEGIDO_TIMEOUT_CALLBACK', '60')),
+    'ngrok_api': int(os.environ.get('MEGIDO_TIMEOUT_NGROK', '15')),
+    'collaborator': int(os.environ.get('MEGIDO_TIMEOUT_COLLABORATOR', '45')),
+    'interactsh': int(os.environ.get('MEGIDO_TIMEOUT_INTERACTSH', '45')),
+}
+
+# Enable detailed network logging (includes retry attempts and error details)
+NETWORK_DETAILED_LOGGING = os.environ.get('MEGIDO_DETAILED_LOGGING', 'true').lower() == 'true'
+
+# Log level for network operations (DEBUG, INFO, WARNING, ERROR)
+NETWORK_LOG_LEVEL = os.environ.get('MEGIDO_NETWORK_LOG_LEVEL', 'INFO')
+
+# Update logging configuration to include network logger
+LOGGING['loggers']['scanner.utils'] = {
+    'handlers': ['console'],
+    'level': NETWORK_LOG_LEVEL,
+    'propagate': False,
+}
+LOGGING['loggers']['spider'] = {
+    'handlers': ['console'],
+    'level': 'INFO',
+    'propagate': False,
+}
 # }

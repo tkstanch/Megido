@@ -898,4 +898,135 @@ CHANNEL_LAYERS = {
 
 > **See Also:** [DOCKER_TESTING.md](DOCKER_TESTING.md) for additional production deployment guidance.
 
+---
+
+## 🌐 Network Error Handling & Resilience ⭐ NEW
+
+Megido includes **enterprise-grade network error handling** with automatic retries, health monitoring, and degraded mode operation.
+
+### Features
+
+- ✅ **Exponential Backoff with Jitter** - Prevents thundering herd, backs off gracefully
+- ✅ **Intelligent Error Classification** - Distinguishes recoverable from fatal errors
+- ✅ **Automatic Retries** - Configurable retry behavior for transient failures
+- ✅ **Health Monitoring Dashboard** - Real-time service availability tracking
+- ✅ **Degraded Mode** - Continues operation when external services are unavailable
+- ✅ **Secure Logging** - Automatically redacts sensitive data (passwords, tokens, API keys)
+
+### Quick Configuration
+
+Set via environment variables:
+
+```bash
+# Retry configuration
+export MEGIDO_MAX_RETRIES=3          # Number of retry attempts
+export MEGIDO_BASE_DELAY=1.0         # Initial delay (seconds)
+export MEGIDO_MAX_DELAY=30.0         # Maximum delay (seconds)
+
+# Timeout configuration
+export MEGIDO_DEFAULT_TIMEOUT=30     # Default request timeout (seconds)
+export MEGIDO_CONNECT_TIMEOUT=10     # Connection timeout (seconds)
+
+# Degraded mode - continue scanning even if services fail
+export MEGIDO_DEGRADED_MODE=true
+```
+
+### Health Monitoring Dashboard
+
+Access real-time network health monitoring:
+
+```
+http://localhost:8000/scanner/health/dashboard/
+```
+
+Features:
+- ✅ Overall system health status (Healthy/Degraded/Critical)
+- 📊 Service-by-service breakdown with response times
+- 🔄 Auto-refresh every 60 seconds
+- ⚠️ Error details and remediation suggestions
+- 📈 Health metrics and statistics
+
+### API Endpoint
+
+Get health status via API:
+
+```bash
+curl http://localhost:8000/scanner/health/
+```
+
+### Common Network Issues & Solutions
+
+#### Issue: Requests Timing Out
+
+**Symptoms:** Scanner fails to connect to target or external services
+
+**Solutions:**
+```bash
+# Increase timeout
+export MEGIDO_DEFAULT_TIMEOUT=60
+
+# Increase retries for flaky connections
+export MEGIDO_MAX_RETRIES=5
+
+# Check health dashboard for service status
+# Visit: http://localhost:8000/scanner/health/dashboard/
+```
+
+#### Issue: External Service Unavailable
+
+**Symptoms:** Health dashboard shows services as unhealthy
+
+**Solutions:**
+- Enable degraded mode to continue scanning:
+  ```bash
+  export MEGIDO_DEGRADED_MODE=true
+  ```
+- Check service endpoints in health dashboard
+- Verify network connectivity and firewall rules
+- Review detailed logs for error messages
+
+#### Issue: Connection Reset by Peer
+
+**Symptoms:** Intermittent connection failures
+
+**Solutions:**
+- Automatic retries with exponential backoff (enabled by default)
+- Increase jitter to randomize retry timing:
+  ```bash
+  export MEGIDO_JITTER_MAX=2.0
+  ```
+- Check target server rate limiting
+
+#### Issue: DNS Resolution Failures
+
+**Symptoms:** "Name or service not known" errors
+
+**Solutions:**
+- Check DNS server configuration
+- Verify hostname is correct
+- Automatic retries will handle transient DNS issues
+- Check `/etc/resolv.conf` (Linux) or DNS settings (Windows)
+
+### Detailed Documentation
+
+For comprehensive information:
+- **[NETWORK_ERROR_HANDLING.md](NETWORK_ERROR_HANDLING.md)** - Complete guide to network error handling
+- **[CONFIGURATION.md](CONFIGURATION.md)** - All configuration options
+- **Health Dashboard** - Real-time monitoring at `/scanner/health/dashboard/`
+
+### Production Recommendations
+
+```bash
+# Production-optimized settings
+export MEGIDO_MAX_RETRIES=5
+export MEGIDO_BASE_DELAY=2.0
+export MEGIDO_MAX_DELAY=60.0
+export MEGIDO_DEFAULT_TIMEOUT=60
+export MEGIDO_DEGRADED_MODE=true
+export MEGIDO_NETWORK_LOG_LEVEL=WARNING  # Reduce log verbosity
+```
+
+---
+
+
 [...]rest of README untouched...
