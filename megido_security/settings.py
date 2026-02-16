@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'data_tracer',
     'discover',
     'manipulator',
+    'forensics',
 ]
 
 MIDDLEWARE = [
