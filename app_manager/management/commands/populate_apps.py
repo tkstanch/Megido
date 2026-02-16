@@ -127,6 +127,14 @@ class Command(BaseCommand):
                 'category': 'exploitation',
                 'capabilities': 'craft, encode, manipulate',
             },
+            {
+                'app_name': 'forensics',
+                'display_name': 'Digital Forensics',
+                'description': 'Digital forensics dashboard for analyzing forensic images, backups, and logs',
+                'icon': '🔬',
+                'category': 'analysis',
+                'capabilities': 'analyze, extract, investigate',
+            },
         ]
 
         created_count = 0

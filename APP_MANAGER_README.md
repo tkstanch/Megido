@@ -77,7 +77,13 @@ Returns the state change history for an app.
 python manage.py populate_apps
 ```
 
-Populates the database with initial app configuration for all 15 Megido apps.
+Populates the database with initial app configuration for all Megido apps.
+
+**Important**: When adding new apps to the platform, they must be added to both:
+1. The `INSTALLED_APPS` list in `settings.py`
+2. The `apps_data` list in the `populate_apps` command (`app_manager/management/commands/populate_apps.py`)
+
+Without an entry in the `populate_apps` command, apps will not appear on the App Manager dashboard even if they are properly installed and registered with Django admin.
 
 ## Middleware
 

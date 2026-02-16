@@ -1,5 +1,6 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from .models import AppConfiguration, AppStateChange, AppSettings
 
 
@@ -108,3 +109,37 @@ class AppStateChangeTest(TestCase):
         self.assertEqual(change.user, self.user)
         self.assertTrue(change.previous_state)
         self.assertFalse(change.new_state)
+
+
+class PopulateAppsCommandTest(TestCase):
+    def test_populate_apps_creates_forensics_app(self):
+        """Test that populate_apps command creates forensics app configuration"""
+        # Run the populate_apps command
+        call_command('populate_apps')
+        
+        # Check that forensics app was created
+        forensics_app = AppConfiguration.objects.filter(app_name='forensics').first()
+        self.assertIsNotNone(forensics_app, "Forensics app should be created by populate_apps command")
+        self.assertEqual(forensics_app.display_name, 'Digital Forensics')
+        self.assertEqual(forensics_app.category, 'analysis')
+        self.assertEqual(forensics_app.icon, '🔬')
+        self.assertIn('analyze', forensics_app.capabilities)
+    
+    def test_populate_apps_creates_all_apps(self):
+        """Test that populate_apps command creates all expected apps"""
+        call_command('populate_apps')
+        
+        # Expected apps based on the populate_apps command
+        expected_apps = [
+            'proxy', 'spider', 'scanner', 'repeater', 'interceptor',
+            'mapper', 'bypasser', 'collaborator', 'decompiler',
+            'malware_analyser', 'response_analyser', 'sql_attacker',
+            'data_tracer', 'discover', 'manipulator', 'forensics'
+        ]
+        
+        for app_name in expected_apps:
+            app = AppConfiguration.objects.filter(app_name=app_name).first()
+            self.assertIsNotNone(app, f"App '{app_name}' should be created by populate_apps command")
+        
+        # Verify the total count
+        self.assertEqual(AppConfiguration.objects.count(), len(expected_apps))
