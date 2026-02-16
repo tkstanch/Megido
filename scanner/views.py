@@ -11,6 +11,7 @@ import os
 import logging
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
+from scanner.config_defaults import get_default_proof_config
 
 logger = logging.getLogger(__name__)
 
@@ -95,21 +96,12 @@ def perform_basic_scan(scan, url):
         
         engine = get_scan_engine()
         
-        # Configure the scan
-        config = {
+        # Configure the scan - merge with defaults
+        config = get_default_proof_config()
+        config.update({
             'verify_ssl': verify_ssl,
             'timeout': 10,
-            'enable_proof_reporting': True,
-            'enable_visual_proof': True,
-            'capture_visual_proof': True,
-            'visual_proof': {
-                'enabled': True,
-                'type': 'auto',
-                'duration': 3.0,
-                'wait_time': 2.0,
-                'viewport': (1280, 720)
-            }
-        }
+        })
         
         # Run the scan using all available plugins
         findings = engine.scan(url, config)

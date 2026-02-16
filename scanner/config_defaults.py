@@ -1,0 +1,53 @@
+"""
+Default configuration values for proof reporting and visual proof capture.
+
+This module provides centralized default configuration values used across
+the scanner to ensure consistency.
+"""
+
+# Default proof reporting and visual proof configuration
+DEFAULT_PROOF_CONFIG = {
+    'enable_proof_reporting': True,
+    'enable_visual_proof': True,
+    'capture_visual_proof': True,
+    'visual_proof': {
+        'enabled': True,
+        'type': 'auto',
+        'duration': 3.0,
+        'wait_time': 2.0,
+        'viewport': (1280, 720)
+    }
+}
+
+
+def get_default_proof_config():
+    """
+    Get a copy of the default proof configuration.
+    
+    Returns a copy to prevent accidental modification of the global defaults.
+    
+    Returns:
+        dict: Default proof configuration
+    """
+    import copy
+    return copy.deepcopy(DEFAULT_PROOF_CONFIG)
+
+
+def merge_with_defaults(config):
+    """
+    Merge provided config with defaults, giving priority to provided values.
+    
+    Args:
+        config: Configuration dictionary (can be None or empty)
+        
+    Returns:
+        dict: Merged configuration with defaults
+    """
+    import copy
+    merged = copy.deepcopy(DEFAULT_PROOF_CONFIG)
+    if config:
+        merged.update(config)
+        # Handle visual_proof separately for deep merge
+        if 'visual_proof' in config:
+            merged['visual_proof'].update(config['visual_proof'])
+    return merged
