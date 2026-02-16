@@ -29,6 +29,7 @@ import re
 import logging
 import hashlib
 import time
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
@@ -36,6 +37,28 @@ from urllib.parse import urlparse
 import io
 
 logger = logging.getLogger(__name__)
+
+# Dependency status logging - thread-safe
+_dependencies_lock = threading.Lock()
+_DEPENDENCIES_LOGGED = False
+
+def _log_dependencies_status():
+    """Log the status of visual proof dependencies once (thread-safe)."""
+    global _DEPENDENCIES_LOGGED
+    with _dependencies_lock:
+        if not _DEPENDENCIES_LOGGED:
+            if not HAS_PLAYWRIGHT and not HAS_SELENIUM:
+                logger.warning(
+                    "Visual proof capture requires Playwright or Selenium for browser automation.\n"
+                    "Install with: pip install playwright (preferred) or pip install selenium\n"
+                    "For Playwright, also run: playwright install chromium"
+                )
+            if not HAS_PIL:
+                logger.warning(
+                    "Visual proof capture requires Pillow for image processing.\n"
+                    "Install with: pip install Pillow"
+                )
+            _DEPENDENCIES_LOGGED = True
 
 # Try to import Playwright (preferred)
 try:
@@ -627,6 +650,9 @@ def get_visual_proof_capture(output_dir: str = 'media/exploit_proofs') -> Option
         VisualProofCapture instance or None if dependencies missing
     """
     global _global_capture_instance
+    
+    # Log dependency status on first call
+    _log_dependencies_status()
     
     if _global_capture_instance is None:
         try:

@@ -24,6 +24,7 @@ from scanner.websocket_utils import (
     send_success_update,
     send_failure_update
 )
+from scanner.config_defaults import get_default_proof_config
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
         logger.error(f"Scan {scan_id} not found")
         return error_result
     
-    config = config or {}
+    config = config or get_default_proof_config()
     vulnerabilities = scan.vulnerabilities.all()
     total = vulnerabilities.count()
     
@@ -235,7 +236,7 @@ def async_exploit_selected_vulnerabilities(
         f"(task_id: {task_id})"
     )
     
-    config = config or {}
+    config = config or get_default_proof_config()
     vulnerabilities = Vulnerability.objects.filter(id__in=vulnerability_ids)
     total = vulnerabilities.count()
     

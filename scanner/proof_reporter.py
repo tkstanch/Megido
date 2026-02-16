@@ -221,6 +221,13 @@ class ProofReporter:
             self.visual_proof_capture = get_visual_proof_capture(str(self.output_dir))
             if self.visual_proof_capture:
                 logger.info("Visual proof capture enabled")
+        except ImportError as e:
+            logger.warning(
+                f"Visual proof capture is enabled but required dependencies are missing: {e}\n"
+                "Install dependencies with: pip install playwright selenium Pillow\n"
+                "For Playwright, also run: playwright install chromium"
+            )
+            self.enable_visual_proof = False
         except Exception as e:
             logger.warning(f"Could not initialize visual proof capture: {e}")
             self.enable_visual_proof = False

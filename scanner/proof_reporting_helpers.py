@@ -109,7 +109,7 @@ class ProofReportingMixin:
                     proof_data.add_oob_interaction(interaction)
             
             # Capture visual proof if enabled and applicable
-            if enable_visual_proof and success and config.get('enable_visual_proof', False):
+            if enable_visual_proof and success and config.get('enable_visual_proof', True):
                 try:
                     reporter.capture_visual_proof(
                         proof_data,
