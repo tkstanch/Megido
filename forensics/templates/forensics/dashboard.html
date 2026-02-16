@@ -81,7 +81,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {% widthratio file.file_size 1048576 1 %} MB
+                                {{ file.file_size|filesizeformat }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ file.upload_date|date:"Y-m-d H:i" }}

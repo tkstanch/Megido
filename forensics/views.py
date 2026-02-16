@@ -105,9 +105,6 @@ def file_detail(request, pk):
     """
     forensic_file = get_object_or_404(ForensicFile, pk=pk)
     
-    # Format file size for display
-    file_size_mb = forensic_file.file_size / (1024 * 1024)
-    
     # Split hex sample into lines of 16 bytes (32 hex chars + spaces)
     hex_sample = forensic_file.hex_sample
     hex_lines = []
@@ -129,7 +126,6 @@ def file_detail(request, pk):
     
     context = {
         'file': forensic_file,
-        'file_size_mb': f'{file_size_mb:.2f}',
         'hex_lines': hex_lines,
     }
     
