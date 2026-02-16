@@ -58,6 +58,8 @@ class ProofData:
         self.visual_proof_type: Optional[str] = None
         
         # Callback/OOB evidence
+        # callback_evidence: High-level callback verification results (e.g., XSS callback verified)
+        # oob_interactions: Low-level out-of-band interaction details (e.g., HTTP request received, DNS query)
         self.callback_evidence: List[Dict[str, Any]] = []
         self.oob_interactions: List[Dict[str, Any]] = []
         
@@ -120,14 +122,23 @@ class ProofData:
         self.visual_proof_type = proof_type
     
     def add_callback_evidence(self, callback_data: Dict[str, Any]):
-        """Add callback/OOB evidence."""
+        """
+        Add high-level callback evidence (e.g., XSS callback verified, SSRF callback received).
+        
+        Use this for application-level callback verification results.
+        """
         self.callback_evidence.append({
             **callback_data,
             'timestamp': datetime.now().isoformat()
         })
     
     def add_oob_interaction(self, interaction: Dict[str, Any]):
-        """Add out-of-band interaction evidence."""
+        """
+        Add low-level out-of-band interaction details (e.g., HTTP request, DNS query).
+        
+        Use this for protocol-level OOB interaction logs.
+        Note: Timestamps should be included in the interaction dict by the caller.
+        """
         self.oob_interactions.append(interaction)
     
     def set_success(self, success: bool, verified: bool = False, confidence: float = 0.0):
@@ -290,7 +301,9 @@ class ProofReporter:
             if not filename:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 vuln_id = proof_data.vulnerability_id or 'unknown'
-                filename = f"{proof_data.vulnerability_type}_{vuln_id}_{timestamp}_proof.json"
+                # Sanitize vulnerability type to prevent path traversal
+                vuln_type_safe = str(proof_data.vulnerability_type).replace('../', '').replace('..\\', '').replace('/', '_').replace('\\', '_')
+                filename = f"{vuln_type_safe}_{vuln_id}_{timestamp}_proof.json"
             
             file_path = self.output_dir / filename
             file_path.write_text(proof_data.to_json())
@@ -317,7 +330,9 @@ class ProofReporter:
             if not filename:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 vuln_id = proof_data.vulnerability_id or 'unknown'
-                filename = f"{proof_data.vulnerability_type}_{vuln_id}_{timestamp}_proof.html"
+                # Sanitize vulnerability type to prevent path traversal
+                vuln_type_safe = str(proof_data.vulnerability_type).replace('../', '').replace('..\\', '').replace('/', '_').replace('\\', '_')
+                filename = f"{vuln_type_safe}_{vuln_id}_{timestamp}_proof.html"
             
             html_content = self._generate_html_report(proof_data)
             file_path = self.output_dir / filename
@@ -332,12 +347,18 @@ class ProofReporter:
     
     def _generate_html_report(self, proof_data: ProofData) -> str:
         """Generate HTML report from proof data."""
+        import html
+        
         data = proof_data.to_dict()
         
-        html = f"""<!DOCTYPE html>
+        # Escape all user-controlled values
+        vuln_type_escaped = html.escape(str(proof_data.vulnerability_type).upper())
+        timestamp_escaped = html.escape(str(proof_data.timestamp))
+        
+        html_content = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Exploitation Proof - {proof_data.vulnerability_type.upper()}</title>
+    <title>Exploitation Proof - {vuln_type_escaped}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
@@ -347,7 +368,7 @@ class ProofReporter:
         .failed {{ color: #d32f2f; font-weight: bold; }}
         .verified {{ background: #4caf50; color: white; padding: 5px 10px; border-radius: 3px; }}
         .section {{ margin: 20px 0; }}
-        pre {{ background: #f5f5f5; padding: 10px; border-left: 3px solid #1976d2; overflow-x: auto; }}
+        pre {{ background: #f5f5f5; padding: 10px; border-left: 3px solid #1976d2; overflow-x: auto; word-wrap: break-word; white-space: pre-wrap; }}
         .http-request {{ background: #e3f2fd; padding: 10px; margin: 10px 0; border-radius: 3px; }}
         .http-response {{ background: #fff3e0; padding: 10px; margin: 10px 0; border-radius: 3px; }}
         .screenshot {{ max-width: 100%; border: 1px solid #ddd; margin: 10px 0; }}
@@ -363,9 +384,9 @@ class ProofReporter:
             <h2>Summary</h2>
             <table>
                 <tr><th>Property</th><th>Value</th></tr>
-                <tr><td>Vulnerability Type</td><td>{proof_data.vulnerability_type.upper()}</td></tr>
-                <tr><td>Vulnerability ID</td><td>{proof_data.vulnerability_id or 'N/A'}</td></tr>
-                <tr><td>Timestamp</td><td>{proof_data.timestamp}</td></tr>
+                <tr><td>Vulnerability Type</td><td>{vuln_type_escaped}</td></tr>
+                <tr><td>Vulnerability ID</td><td>{html.escape(str(proof_data.vulnerability_id or 'N/A'))}</td></tr>
+                <tr><td>Timestamp</td><td>{timestamp_escaped}</td></tr>
                 <tr><td>Status</td><td><span class="{'success' if proof_data.success else 'failed'}">
                     {'SUCCESS' if proof_data.success else 'FAILED'}</span></td></tr>
                 <tr><td>Verified</td><td>{'<span class="verified">VERIFIED</span>' if proof_data.verified else 'No'}</td></tr>
@@ -376,107 +397,114 @@ class ProofReporter:
         
         # HTTP Traffic
         if data['http_requests'] or data['http_responses']:
-            html += """
+            html_content += """
         <div class="section">
             <h2>HTTP Traffic</h2>
 """
             for i, req in enumerate(data['http_requests'], 1):
-                html += f"""
+                html_content += f"""
             <div class="http-request">
                 <strong>Request #{i}</strong><br>
-                <strong>Method:</strong> {req.get('method', 'N/A')}<br>
-                <strong>URL:</strong> {req.get('url', 'N/A')}<br>
-                <strong>Headers:</strong><pre>{json.dumps(req.get('headers', {}), indent=2)}</pre>
-                {'<strong>Body:</strong><pre>' + str(req.get('body', ''))[:500] + '</pre>' if req.get('body') else ''}
+                <strong>Method:</strong> {html.escape(str(req.get('method', 'N/A')))}<br>
+                <strong>URL:</strong> {html.escape(str(req.get('url', 'N/A')))}<br>
+                <strong>Headers:</strong><pre>{html.escape(json.dumps(req.get('headers', {}), indent=2))}</pre>
+                {'<strong>Body:</strong><pre>' + html.escape(str(req.get('body', ''))[:500]) + '</pre>' if req.get('body') else ''}
             </div>
 """
             
             for i, resp in enumerate(data['http_responses'], 1):
-                html += f"""
+                html_content += f"""
             <div class="http-response">
                 <strong>Response #{i}</strong><br>
-                <strong>Status:</strong> {resp.get('status_code', 'N/A')}<br>
-                <strong>Headers:</strong><pre>{json.dumps(resp.get('headers', {}), indent=2)}</pre>
-                {'<strong>Body:</strong><pre>' + str(resp.get('body', ''))[:500] + '</pre>' if resp.get('body') else ''}
+                <strong>Status:</strong> {html.escape(str(resp.get('status_code', 'N/A')))}<br>
+                <strong>Headers:</strong><pre>{html.escape(json.dumps(resp.get('headers', {}), indent=2))}</pre>
+                {'<strong>Body:</strong><pre>' + html.escape(str(resp.get('body', ''))[:500]) + '</pre>' if resp.get('body') else ''}
             </div>
 """
-            html += "        </div>\n"
+            html_content += "        </div>\n"
         
         # Exploitation Output
         if data['command_output'] or data['extracted_data']:
-            html += """
+            html_content += """
         <div class="section">
             <h2>Exploitation Output</h2>
 """
             if data['command_output']:
-                html += f"""
+                html_content += f"""
             <h3>Command Output</h3>
-            <pre>{data['command_output']}</pre>
+            <pre>{html.escape(str(data['command_output']))}</pre>
 """
             if data['extracted_data']:
-                html += f"""
+                extracted_str = json.dumps(data['extracted_data'], indent=2) if isinstance(data['extracted_data'], (dict, list)) else str(data['extracted_data'])
+                html_content += f"""
             <h3>Extracted Data</h3>
-            <pre>{json.dumps(data['extracted_data'], indent=2) if isinstance(data['extracted_data'], (dict, list)) else data['extracted_data']}</pre>
+            <pre>{html.escape(extracted_str)}</pre>
 """
-            html += "        </div>\n"
+            html_content += "        </div>\n"
         
         # Visual Proof
         if data['screenshots']:
-            html += """
+            html_content += """
         <div class="section">
             <h2>Visual Proof</h2>
 """
             for screenshot in data['screenshots']:
-                html += f"""
+                # Validate and sanitize screenshot path
+                screenshot_path = str(screenshot['path'])
+                # Remove any path traversal attempts
+                screenshot_path = screenshot_path.replace('../', '').replace('..\\', '')
+                screenshot_path_escaped = html.escape(screenshot_path)
+                
+                html_content += f"""
             <div>
-                <strong>Type:</strong> {screenshot['type']}<br>
-                <strong>Path:</strong> {screenshot['path']}<br>
-                {'<strong>URL:</strong> ' + screenshot['url'] + '<br>' if screenshot.get('url') else ''}
-                <img src="../{screenshot['path']}" class="screenshot" alt="Screenshot">
+                <strong>Type:</strong> {html.escape(str(screenshot['type']))}<br>
+                <strong>Path:</strong> {screenshot_path_escaped}<br>
+                {'<strong>URL:</strong> ' + html.escape(str(screenshot['url'])) + '<br>' if screenshot.get('url') else ''}
+                <img src="../{screenshot_path_escaped}" class="screenshot" alt="Screenshot">
             </div>
 """
-            html += "        </div>\n"
+            html_content += "        </div>\n"
         
         # Callback Evidence
         if data['callback_evidence'] or data['oob_interactions']:
-            html += """
+            html_content += """
         <div class="section">
             <h2>Callback Evidence</h2>
 """
             for evidence in data['callback_evidence']:
-                html += f"""
+                html_content += f"""
             <div style="margin: 10px 0;">
-                <pre>{json.dumps(evidence, indent=2)}</pre>
+                <pre>{html.escape(json.dumps(evidence, indent=2))}</pre>
             </div>
 """
             for interaction in data['oob_interactions']:
-                html += f"""
+                html_content += f"""
             <div style="margin: 10px 0;">
                 <strong>OOB Interaction:</strong>
-                <pre>{json.dumps(interaction, indent=2)}</pre>
+                <pre>{html.escape(json.dumps(interaction, indent=2))}</pre>
             </div>
 """
-            html += "        </div>\n"
+            html_content += "        </div>\n"
         
         # Logs
         if data['logs']:
-            html += """
+            html_content += """
         <div class="section">
             <h2>Logs</h2>
             <pre>
 """
             for log in data['logs']:
-                html += f"{log}\n"
-            html += """            </pre>
+                html_content += html.escape(str(log)) + "\n"
+            html_content += """            </pre>
         </div>
 """
         
-        html += """
+        html_content += """
     </div>
 </body>
 </html>
 """
-        return html
+        return html_content
     
     def store_in_database(self, proof_data: ProofData,
                          vulnerability_model=None) -> bool:
