@@ -73,16 +73,16 @@ class InfoDisclosureDetectorPlugin(BaseScanPlugin):
             response = requests.get(url, timeout=timeout, verify=verify_ssl)
             content = response.text + '\n' + str(response.headers)
             
-            # Track patterns found for verification
-            patterns_found = {}
+            # Track patterns found for verification (maps pattern name to matches)
+            matched_patterns = {}
             
             for pattern_name, pattern in self.PATTERNS.items():
                 matches = re.findall(pattern, content, re.IGNORECASE)
                 if matches:
-                    patterns_found[pattern_name] = matches
+                    matched_patterns[pattern_name] = matches
             
             # Create findings with enhanced data
-            for pattern_name, matches in patterns_found.items():
+            for pattern_name, matches in matched_patterns.items():
                 # Determine if this is verified based on pattern type
                 is_verified = self._is_pattern_verified(pattern_name, matches, response)
                 

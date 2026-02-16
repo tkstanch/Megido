@@ -242,8 +242,13 @@ class TestVerificationLogic(unittest.TestCase):
             'repeater_requests': []
         }
         
-        # Simulate verification - would be True because credentials found
-        has_credentials = 'AWS_ACCESS_KEY_ID' in str(result.get('disclosed_info', {}))
+        # Simulate verification - check each file content for credentials
+        has_credentials = False
+        for file_path, content in result.get('disclosed_info', {}).items():
+            if 'AWS_ACCESS_KEY_ID' in content or 'password' in content.lower():
+                has_credentials = True
+                break
+        
         self.assertTrue(has_credentials)
     
     def test_rce_verification(self):
