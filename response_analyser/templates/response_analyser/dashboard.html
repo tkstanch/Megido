@@ -157,6 +157,7 @@
                             <th>Severity</th>
                             <th>Target URL</th>
                             <th>Detected</th>
+                            <th>PoC</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -172,6 +173,21 @@
                             <td class="text-gray-600 dark:text-gray-400">{{ vuln.target_url|truncatechars:50 }}</td>
                             <td class="text-gray-600 dark:text-gray-400">{{ vuln.detected_at|date:"Y-m-d H:i" }}</td>
                             <td>
+                                {% if vuln.proof_of_impact %}
+                                    <button 
+                                        onclick="openPoCModalDashboard({{ vuln.pk }}, '{{ vuln.proof_of_impact|escapejs }}')"
+                                        class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        View PoC
+                                    </button>
+                                {% else %}
+                                    <span class="text-xs text-gray-400 dark:text-gray-500">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 <a href="{% url 'response_analyser:vulnerability_detail' vuln.pk %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
                                     View →
                                 </a>
@@ -179,7 +195,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5">
+                            <td colspan="6">
                                 <div class="empty-state">
                                     <div class="empty-state-icon">🔍</div>
                                     <h3 class="empty-state-title">No Vulnerabilities Found</h3>
@@ -194,4 +210,93 @@
         </div>
     </div>
 </div>
+
+<!-- PoC Modal for Dashboard -->
+<div id="pocModalDashboard" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onclick="closePoCModalDashboard(event)">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800" onclick="event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white" id="pocModalTitle">
+                Proof of Concept
+            </h3>
+            <button onclick="closePoCModalDashboard()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="mt-4 max-h-96 overflow-y-auto">
+            <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <pre class="text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap" id="pocContent"></pre>
+            </div>
+        </div>
+        
+        <!-- Modal Footer with Download Options -->
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex flex-wrap gap-3 justify-center">
+                <a id="downloadTextLink" href="#" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                   download>
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                    Download as Text
+                </a>
+                <a id="downloadJsonLink" href="#" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                   download>
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                    Download as JSON
+                </a>
+                <button onclick="closePoCModalDashboard()" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openPoCModalDashboard(vulnId, pocContent) {
+    const modal = document.getElementById('pocModalDashboard');
+    const title = document.getElementById('pocModalTitle');
+    const content = document.getElementById('pocContent');
+    const downloadTextLink = document.getElementById('downloadTextLink');
+    const downloadJsonLink = document.getElementById('downloadJsonLink');
+    
+    // Set modal content
+    title.textContent = `Proof of Concept - Vulnerability #${vulnId}`;
+    content.textContent = pocContent;
+    
+    // Set download links
+    downloadTextLink.href = `/response-analyser/vulnerabilities/${vulnId}/download-poc/?format=text`;
+    downloadJsonLink.href = `/response-analyser/vulnerabilities/${vulnId}/download-poc/?format=json`;
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePoCModalDashboard(event) {
+    // Close if clicking outside modal or on close button
+    if (!event || event.target.id === 'pocModalDashboard' || event.target.closest('button[onclick*="closePoCModalDashboard"]')) {
+        const modal = document.getElementById('pocModalDashboard');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closePoCModalDashboard();
+    }
+});
+</script>
+
 {% endblock %}
