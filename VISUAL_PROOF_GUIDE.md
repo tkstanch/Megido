@@ -312,29 +312,139 @@ All URLs are validated before capture:
 
 ## Troubleshooting
 
+### Automated Diagnostics
+
+The scanner now includes automated diagnostics for visual proof issues. Check scan results for warnings:
+
+```json
+{
+  "scan_id": 123,
+  "warnings": [
+    {
+      "category": "visual_proof",
+      "severity": "high",
+      "component": "Pillow",
+      "message": "Pillow (PIL) is not installed - required for image processing",
+      "recommendation": "pip install Pillow"
+    }
+  ],
+  "vulnerabilities": [...]
+}
+```
+
+Each vulnerability now includes a `visual_proof_status` field:
+- **`captured`**: Visual proof successfully captured
+- **`disabled`**: Visual proof disabled by configuration
+- **`failed`**: Capture attempted but failed (check warnings)
+- **`not_supported`**: Not supported for this vulnerability type
+- **`missing_dependencies`**: Required dependencies not installed
+- **`not_attempted`**: Visual proof not attempted
+
+### Diagnostic Check
+
+Run a comprehensive diagnostic check:
+
+```python
+from scanner.visual_proof_diagnostics import check_visual_proof_dependencies
+
+result = check_visual_proof_dependencies()
+print(f"Overall Status: {result['overall_status']}")
+print(f"Dependencies: {result['dependencies']}")
+print(f"Browsers: {result['browsers']}")
+print(f"Filesystem: {result['filesystem']}")
+
+# Print recommendations
+for recommendation in result['recommendations']:
+    print(f"→ {recommendation}")
+```
+
 ### Common Issues
 
-#### 1. "Playwright not available"
+#### 1. "No visual proof available" - Missing Dependencies
+
+**Symptoms:**
+- Scan results show `visual_proof_status: "missing_dependencies"`
+- Warnings list missing components (Playwright, Selenium, Pillow)
+- Backend logs show dependency warnings
+
+**Solution:**
+```bash
+# Install all required dependencies
+pip install playwright selenium Pillow
+
+# For Playwright, also install browser
+playwright install chromium
+```
+
+**Verification:**
+```python
+from scanner.visual_proof_diagnostics import check_visual_proof_dependencies
+result = check_visual_proof_dependencies()
+assert result['overall_status'] == 'ok', f"Issues: {result['recommendations']}"
+```
+
+#### 2. "Visual proof capture failed" - Browser Issues
+
+**Symptoms:**
+- `visual_proof_status: "failed"`
+- Warning: "Browser binary not found" or "Browser automation failed"
+
+**Solution:**
+```bash
+# For Playwright
+playwright install chromium
+
+# For Selenium - Install Chrome/Chromium
+# Ubuntu/Debian:
+sudo apt-get install chromium-browser
+
+# macOS:
+brew install --cask google-chrome
+
+# Verify browser is accessible
+which google-chrome || which chromium || which chromium-browser
+```
+
+#### 3. "Directory not writable" - Permission Issues
+
+**Symptoms:**
+- Warning: "Cannot create media directory" or "Directory not writable"
+- Visual proofs not saved to disk
+
+**Solution:**
+```bash
+# Check directory permissions
+ls -la media/exploit_proofs/
+
+# Fix permissions
+chmod 755 media/exploit_proofs/
+chown -R www-data:www-data media/  # For web server
+
+# Check disk space
+df -h media/
+```
+
+#### 4. "Playwright not available"
 
 ```bash
 pip install playwright
 playwright install chromium
 ```
 
-#### 2. "Selenium WebDriver not found"
+#### 5. "Selenium WebDriver not found"
 
 ```bash
 pip install selenium
 # Install Chrome or Chromium on your system
 ```
 
-#### 3. "PIL/Pillow not available"
+#### 6. "PIL/Pillow not available"
 
 ```bash
 pip install Pillow
 ```
 
-#### 4. "Screenshot capture timeout"
+#### 7. "Screenshot capture timeout"
 
 Increase wait time or check network connectivity:
 
@@ -346,7 +456,7 @@ config = {
 }
 ```
 
-#### 5. "File size exceeds limit"
+#### 8. "File size exceeds limit"
 
 Reduce duration for GIFs:
 
@@ -365,6 +475,59 @@ Enable detailed logging:
 ```python
 import logging
 logging.getLogger('scanner.visual_proof_capture').setLevel(logging.DEBUG)
+logging.getLogger('scanner.visual_proof_diagnostics').setLevel(logging.DEBUG)
+logging.getLogger('scanner.proof_reporter').setLevel(logging.DEBUG)
+```
+
+### Understanding Visual Proof Status in API
+
+When fetching vulnerability results, the `visual_proof_status` field tells you exactly what happened:
+
+```javascript
+// Frontend example
+fetch('/api/scans/123/results/')
+  .then(res => res.json())
+  .then(data => {
+    data.vulnerabilities.forEach(vuln => {
+      switch(vuln.visual_proof_status) {
+        case 'captured':
+          console.log('✓ Visual proof available:', vuln.visual_proof_path);
+          break;
+        case 'missing_dependencies':
+          console.warn('⚠ Cannot capture: dependencies missing');
+          console.log('Install:', data.warnings
+            .filter(w => w.category === 'visual_proof')
+            .map(w => w.recommendation));
+          break;
+        case 'failed':
+          console.error('✗ Capture failed - check logs');
+          break;
+        case 'disabled':
+          console.info('ℹ Visual proof disabled in config');
+          break;
+        case 'not_supported':
+          console.info('ℹ Not supported for this vulnerability type');
+          break;
+        default:
+          console.info('ℹ Visual proof not attempted');
+      }
+    });
+  });
+```
+
+### Scan-Level Warnings
+
+Check scan-level warnings for system-wide issues:
+
+```python
+# Backend example
+scan = Scan.objects.get(id=123)
+if scan.warnings:
+    for warning in scan.warnings:
+        if warning['category'] == 'visual_proof':
+            print(f"[{warning['severity'].upper()}] {warning['component']}")
+            print(f"  {warning['message']}")
+            print(f"  → {warning['recommendation']}")
 ```
 
 ## Best Practices
