@@ -5,6 +5,8 @@ This module provides centralized default configuration values used across
 the scanner to ensure consistency.
 """
 
+import copy
+
 # Default proof reporting and visual proof configuration
 DEFAULT_PROOF_CONFIG = {
     'enable_proof_reporting': True,
@@ -29,7 +31,6 @@ def get_default_proof_config():
     Returns:
         dict: Default proof configuration
     """
-    import copy
     return copy.deepcopy(DEFAULT_PROOF_CONFIG)
 
 
@@ -43,11 +44,13 @@ def merge_with_defaults(config):
     Returns:
         dict: Merged configuration with defaults
     """
-    import copy
     merged = copy.deepcopy(DEFAULT_PROOF_CONFIG)
     if config:
-        merged.update(config)
-        # Handle visual_proof separately for deep merge
-        if 'visual_proof' in config:
-            merged['visual_proof'].update(config['visual_proof'])
+        for key, value in config.items():
+            if key == 'visual_proof' and isinstance(value, dict):
+                # Deep merge visual_proof dict
+                merged['visual_proof'].update(value)
+            else:
+                # Replace other values entirely
+                merged[key] = value
     return merged
