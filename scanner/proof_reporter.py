@@ -56,6 +56,8 @@ class ProofData:
         self.screenshots: List[Dict[str, Any]] = []
         self.visual_proof_path: Optional[str] = None
         self.visual_proof_type: Optional[str] = None
+        self.visual_proof_status: str = 'not_attempted'
+        self.visual_proof_warnings: List[Dict[str, Any]] = []
         
         # Callback/OOB evidence
         # callback_evidence: High-level callback verification results (e.g., XSS callback verified)
@@ -116,10 +118,49 @@ class ProofData:
             'timestamp': datetime.now().isoformat()
         })
     
-    def set_visual_proof(self, path: str, proof_type: str = 'screenshot'):
-        """Set primary visual proof."""
+    def set_visual_proof(self, path: str, proof_type: str = 'screenshot', status: str = 'captured'):
+        """
+        Set the primary visual proof for this exploitation.
+        
+        Args:
+            path: Path to visual proof file
+            proof_type: Type of proof ('screenshot', 'gif', 'video')
+            status: Status of visual proof capture
+        """
         self.visual_proof_path = path
         self.visual_proof_type = proof_type
+        self.visual_proof_status = status
+    
+    def set_visual_proof_status(self, status: str, warning: Optional[Dict[str, Any]] = None):
+        """
+        Set visual proof capture status with optional warning.
+        
+        Args:
+            status: Status code ('captured', 'disabled', 'failed', 'not_supported', 'missing_dependencies', 'not_attempted')
+            warning: Optional warning dictionary with details
+        """
+        self.visual_proof_status = status
+        if warning:
+            self.visual_proof_warnings.append(warning)
+    
+    def add_visual_proof_warning(self, message: str, severity: str = 'medium', 
+                                 component: str = 'Visual Proof', recommendation: str = ''):
+        """
+        Add a warning about visual proof capture.
+        
+        Args:
+            message: Warning message
+            severity: Severity level ('low', 'medium', 'high')
+            component: Component that generated the warning
+            recommendation: Recommended action to resolve the issue
+        """
+        self.visual_proof_warnings.append({
+            'category': 'visual_proof',
+            'severity': severity,
+            'component': component,
+            'message': message,
+            'recommendation': recommendation
+        })
     
     def add_callback_evidence(self, callback_data: Dict[str, Any]):
         """
@@ -165,6 +206,8 @@ class ProofData:
             'screenshots': self.screenshots,
             'visual_proof_path': self.visual_proof_path,
             'visual_proof_type': self.visual_proof_type,
+            'visual_proof_status': self.visual_proof_status,
+            'visual_proof_warnings': self.visual_proof_warnings,
             'callback_evidence': self.callback_evidence,
             'oob_interactions': self.oob_interactions,
             'success': self.success,
@@ -209,6 +252,7 @@ class ProofReporter:
         # Optional integrations
         self.visual_proof_capture = None
         self.oob_framework = None
+        self.visual_proof_warnings: List[Dict[str, Any]] = []
         
         # Initialize integrations if enabled
         if enable_visual_proof:
@@ -221,16 +265,42 @@ class ProofReporter:
             self.visual_proof_capture = get_visual_proof_capture(str(self.output_dir))
             if self.visual_proof_capture:
                 logger.info("Visual proof capture enabled")
+            else:
+                # Dependencies are missing - collect warnings
+                self._collect_visual_proof_warnings()
+                self.enable_visual_proof = False
         except ImportError as e:
             logger.warning(
                 f"Visual proof capture is enabled but required dependencies are missing: {e}\n"
                 "Install dependencies with: pip install playwright selenium Pillow\n"
                 "For Playwright, also run: playwright install chromium"
             )
+            self._collect_visual_proof_warnings()
             self.enable_visual_proof = False
         except Exception as e:
             logger.warning(f"Could not initialize visual proof capture: {e}")
+            self._collect_visual_proof_warnings()
             self.enable_visual_proof = False
+    
+    def _collect_visual_proof_warnings(self):
+        """Collect warnings about visual proof setup issues."""
+        try:
+            from scanner.visual_proof_diagnostics import get_visual_proof_warnings
+            warnings = get_visual_proof_warnings(str(self.output_dir))
+            self.visual_proof_warnings = warnings
+            if warnings:
+                logger.warning(f"Visual proof diagnostics found {len(warnings)} issue(s)")
+                for warning in warnings:
+                    logger.warning(f"  - {warning.get('component')}: {warning.get('message')}")
+        except Exception as e:
+            logger.error(f"Failed to collect visual proof warnings: {e}")
+            self.visual_proof_warnings = [{
+                'category': 'visual_proof',
+                'severity': 'high',
+                'component': 'Visual Proof System',
+                'message': 'Visual proof system initialization failed',
+                'recommendation': 'Check logs for details and verify dependencies are installed'
+            }]
     
     def create_proof_data(self, vulnerability_type: str,
                          vulnerability_id: Optional[int] = None) -> ProofData:
@@ -261,8 +331,22 @@ class ProofReporter:
         Returns:
             True if capture was successful
         """
-        if not self.enable_visual_proof or not self.visual_proof_capture:
-            logger.debug("Visual proof capture disabled or unavailable")
+        if not self.enable_visual_proof:
+            proof_data.set_visual_proof_status('disabled')
+            logger.debug("Visual proof capture disabled by configuration")
+            return False
+        
+        if not self.visual_proof_capture:
+            proof_data.set_visual_proof_status('missing_dependencies')
+            # Add warnings from diagnostics
+            for warning in self.visual_proof_warnings:
+                proof_data.add_visual_proof_warning(
+                    message=warning.get('message', 'Visual proof unavailable'),
+                    severity=warning.get('severity', 'high'),
+                    component=warning.get('component', 'Visual Proof'),
+                    recommendation=warning.get('recommendation', '')
+                )
+            logger.debug("Visual proof capture unavailable (missing dependencies)")
             return False
         
         try:
@@ -282,14 +366,28 @@ class ProofReporter:
                     size=result.get('size'),
                     url=result.get('url')
                 )
-                proof_data.set_visual_proof(result['path'], result['type'])
+                proof_data.set_visual_proof(result['path'], result['type'], status='captured')
                 logger.info(f"Visual proof captured: {result['path']}")
                 return True
             else:
+                proof_data.set_visual_proof_status('failed')
+                proof_data.add_visual_proof_warning(
+                    message='Visual proof capture returned no result',
+                    severity='medium',
+                    component='Visual Proof Capture',
+                    recommendation='Check browser automation logs for details'
+                )
                 logger.warning("Visual proof capture returned no result")
                 return False
                 
         except Exception as e:
+            proof_data.set_visual_proof_status('failed')
+            proof_data.add_visual_proof_warning(
+                message=f'Visual proof capture failed: {str(e)}',
+                severity='medium',
+                component='Visual Proof Capture',
+                recommendation='Check logs and verify browser automation is working'
+            )
             logger.error(f"Failed to capture visual proof: {e}")
             return False
     
@@ -563,6 +661,10 @@ class ProofReporter:
             if proof_data.visual_proof_path:
                 vuln.visual_proof_path = proof_data.visual_proof_path
                 vuln.visual_proof_type = proof_data.visual_proof_type
+                vuln.visual_proof_status = proof_data.visual_proof_status
+            else:
+                # Set status even if no visual proof was captured
+                vuln.visual_proof_status = proof_data.visual_proof_status
             
             vuln.save()
             logger.info(f"Proof data stored in database for vulnerability {vuln.id}")
