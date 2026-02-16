@@ -461,6 +461,16 @@ function displayVulnerabilities(vulnerabilities) {
         return;
     }
     
+    /**
+     * Vulnerability Card Design Pattern:
+     * Each vulnerability card ALWAYS displays three key sections to maintain UI consistency:
+     * 1. Confidence Badge - Shows confidence score (0-100%) for every finding
+     * 2. PoC Evidence Panel - Shows verified/unverified evidence, or placeholder if none available
+     * 3. Visual Proof Panel - Shows screenshots/GIFs if available, or placeholder message
+     * 
+     * This ensures security teams never miss critical evidence and understand what's available.
+     * Placeholders guide users on how to enable missing features (e.g., visual proof capture).
+     */
     resultsDiv.innerHTML = '<h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Vulnerabilities Detected:</h3>' + vulnerabilities.map(vuln => `
         <div class="card border-l-4 border-severity-${sanitizeSeverity(vuln.severity)} mb-4 hover:shadow-card-hover transition-shadow" id="vuln-${vuln.id}">
             <div class="card-body">
@@ -482,15 +492,15 @@ function displayVulnerabilities(vulnerabilities) {
                                 </span>` : ''}
                             ${vuln.exploit_status !== 'not_attempted' ? 
                                 `<span class="badge ${getExploitStatusClass(vuln.exploit_status)}">${formatExploitStatus(vuln.exploit_status)}</span>` : ''}
-                            ${vuln.confidence_score ? 
-                                `<span class="badge badge-gray" title="Confidence in finding">
-                                    Confidence: ${Math.round(vuln.confidence_score * 100)}%
-                                </span>` : ''}
+                            <span class="badge badge-gray" title="Confidence in finding">
+                                Confidence: ${vuln.confidence_score ? Math.round(vuln.confidence_score * 100) : 0}%
+                            </span>
                         </div>
                         <div class="space-y-2 text-sm">
                             <div><strong class="text-gray-700 dark:text-gray-300">URL:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.url)}</span></div>
                             <div><strong class="text-gray-700 dark:text-gray-300">Description:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.description)}</span></div>
                             ${vuln.evidence ? `<div><strong class="text-gray-700 dark:text-gray-300">Evidence:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.evidence)}</span></div>` : ''}
+                            <!-- PoC Evidence Panel - Always Visible -->
                             ${vuln.proof_of_impact ? (vuln.verified ? `
                                 <div class="mt-3 p-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
                                     <div class="flex items-start gap-2">
@@ -515,7 +525,20 @@ function displayVulnerabilities(vulnerabilities) {
                                         </div>
                                     </div>
                                 </div>
-                            `) : ''}
+                            `) : `
+                                <div class="mt-3 p-4 bg-gray-50 dark:bg-gray-800/50 border-l-4 border-gray-400 rounded">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <strong class="text-gray-700 dark:text-gray-300">ℹ Proof of Concept Evidence</strong>
+                                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">No PoC evidence available for this finding. Run exploitation to generate proof of impact.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `}
+                            <!-- Visual Proof Panel - Always Visible -->
                             ${vuln.visual_proof_path ? `
                                 <div class="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 rounded">
                                     <div class="flex items-start gap-2">
@@ -560,7 +583,19 @@ function displayVulnerabilities(vulnerabilities) {
                                         </div>
                                     </div>
                                 </div>
-                            ` : ''}
+                            ` : `
+                                <div class="mt-3 p-4 bg-gray-50 dark:bg-gray-800/50 border-l-4 border-gray-400 rounded">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <strong class="text-gray-700 dark:text-gray-300">📸 Visual Proof</strong>
+                                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">No visual proof available. Enable visual proof capture in scan configuration to generate screenshots/GIFs of exploitation.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `}
                             ${vuln.exploit_result ? `<div class="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
                                 <strong class="text-gray-900 dark:text-white">Exploit Results:</strong>
                                 <pre class="mt-2 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHtml(vuln.exploit_result)}</pre>
