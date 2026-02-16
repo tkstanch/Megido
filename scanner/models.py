@@ -109,6 +109,13 @@ class Vulnerability(models.Model):
         help_text='Copy-paste ready HTTP requests for manual verification in repeater app'
     )
     
+    # HTTP traffic capture for proof
+    http_traffic = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Captured HTTP request/response traffic during exploitation'
+    )
+    
     # Visual proof of exploitation (screenshots/GIFs)
     visual_proof_path = models.CharField(
         max_length=512, 
