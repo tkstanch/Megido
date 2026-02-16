@@ -357,8 +357,10 @@ class TestPoCFormattingAndDisplay(unittest.TestCase):
         )
         
         self.assertIsNotNone(proof)
-        # Should have "... and X more" message for files or findings
-        self.assertTrue('more' in proof.lower() or len(disclosed_files) > self.plugin.MAX_DISPLAYED_FILES)
+        # When there are more items than the display limit, should show truncation message
+        if len(disclosed_files) > self.plugin.MAX_DISPLAYED_FILES:
+            self.assertIn('more', proof.lower(), 
+                         "PoC should contain 'more' when exceeding display limits")
     
     def test_poc_uses_proper_formatting_characters(self):
         """Test that PoC uses unicode characters for visual appeal"""

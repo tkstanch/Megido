@@ -37,11 +37,12 @@ def demo_verified_with_credentials():
     plugin = InfoDisclosurePlugin()
     
     # Simulate result with credentials
+    # NOTE: These are DEMO/FAKE credentials for testing purposes only
     result = {
         'success': True,
         'disclosed_info': {
-            '/.env': 'API_KEY=example_abc123def456ghi789jkl012mno345\nDB_PASSWORD=MyS3cr3tP@ss!\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE',
-            '/config/database.yml': 'production:\n  password: admin123\n  host: db.internal.com'
+            '/.env': 'API_KEY=demo_fake_key_not_real_abc123def456\nDB_PASSWORD=DemoFakePassword123!\nAWS_ACCESS_KEY_ID=AKIADEMOEXAMPLEONLY',
+            '/config/database.yml': 'production:\n  password: demo_fake_pass\n  host: db.demo.example.com'
         },
         'evidence': 'Found 2 exposed file(s) with credentials',
         'vulnerability_type': 'info_disclosure'
