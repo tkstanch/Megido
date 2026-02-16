@@ -60,11 +60,13 @@ class VisualProofDiagnostics:
             results['errors'].extend(results['dependencies']['missing_critical'])
         
         if results['browsers']['status'] == 'unavailable':
-            results['overall_status'] = 'critical' if results['overall_status'] == 'ok' else results['overall_status']
+            if results['overall_status'] == 'ok':
+                results['overall_status'] = 'critical'
             results['errors'].append(results['browsers']['message'])
         
         if not results['filesystem']['writable']:
-            results['overall_status'] = 'critical' if results['overall_status'] == 'ok' else results['overall_status']
+            if results['overall_status'] == 'ok':
+                results['overall_status'] = 'critical'
             results['errors'].append(results['filesystem']['error'])
         
         # Collect warnings

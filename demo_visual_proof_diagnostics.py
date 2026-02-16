@@ -290,9 +290,9 @@ elif vuln.visual_proof_status == 'missing_dependencies':
 
 def main():
     """Run all demos."""
-    print("\n" + "🔍" * 35)
+    print("\n" + "=" * 70)
     print(" Visual Proof Diagnostics & Warnings System Demo")
-    print("🔍" * 35)
+    print("=" * 70)
     
     try:
         demo_diagnostics()

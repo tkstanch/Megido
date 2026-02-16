@@ -332,10 +332,24 @@ class ProofReporter:
             True if capture was successful
         """
         # Check if visual proof was explicitly disabled in config
-        if not self.enable_visual_proof and not self.visual_proof_warnings:
-            # Explicitly disabled by configuration (no warnings collected)
-            proof_data.set_visual_proof_status('disabled')
-            logger.debug("Visual proof capture disabled by configuration")
+        if not self.enable_visual_proof:
+            # Determine if it was disabled due to missing dependencies or config
+            if self.visual_proof_warnings:
+                # Disabled because dependencies are missing
+                proof_data.set_visual_proof_status('missing_dependencies')
+                # Add warnings from diagnostics
+                for warning in self.visual_proof_warnings:
+                    proof_data.add_visual_proof_warning(
+                        message=warning.get('message', 'Visual proof unavailable'),
+                        severity=warning.get('severity', 'high'),
+                        component=warning.get('component', 'Visual Proof'),
+                        recommendation=warning.get('recommendation', '')
+                    )
+                logger.debug("Visual proof capture unavailable (missing dependencies)")
+            else:
+                # Explicitly disabled by configuration (no warnings)
+                proof_data.set_visual_proof_status('disabled')
+                logger.debug("Visual proof capture disabled by configuration")
             return False
         
         # Check if visual proof capture is unavailable due to missing dependencies
