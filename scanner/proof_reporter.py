@@ -331,11 +331,14 @@ class ProofReporter:
         Returns:
             True if capture was successful
         """
-        if not self.enable_visual_proof:
+        # Check if visual proof was explicitly disabled in config
+        if not self.enable_visual_proof and not self.visual_proof_warnings:
+            # Explicitly disabled by configuration (no warnings collected)
             proof_data.set_visual_proof_status('disabled')
             logger.debug("Visual proof capture disabled by configuration")
             return False
         
+        # Check if visual proof capture is unavailable due to missing dependencies
         if not self.visual_proof_capture:
             proof_data.set_visual_proof_status('missing_dependencies')
             # Add warnings from diagnostics
