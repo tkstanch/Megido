@@ -1,0 +1,389 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - Megido Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        .status-healthy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-degraded {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-unhealthy, .status-critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-unknown, .status-error {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .services-list {
+            margin-top: 20px;
+        }
+
+        .service-item {
+            background: #f8f9fa;
+            border-left: 4px solid #ddd;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+
+        .service-item.healthy {
+            border-left-color: #28a745;
+        }
+
+        .service-item.degraded {
+            border-left-color: #ffc107;
+        }
+
+        .service-item.unhealthy {
+            border-left-color: #dc3545;
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .service-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .service-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .service-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .detail-item {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        .refresh-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .last-check {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .degraded-mode-notice {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+
+        .degraded-mode-notice strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Network Health Monitor</h1>
+            <p>Real-time monitoring of external service connectivity and health</p>
+        </div>
+
+        {% if error %}
+        <div class="status-card">
+            <div class="error-message">
+                <strong>❌ Error Loading Health Data</strong>
+                <p>{{ error }}</p>
+            </div>
+        </div>
+        {% else %}
+        
+        {% if health_data.degraded_mode_enabled %}
+        <div class="degraded-mode-notice">
+            <strong>ℹ️ Degraded Mode Enabled</strong>
+            <p>The scanner will continue operations even if some services are unavailable, with limited functionality for affected features.</p>
+        </div>
+        {% endif %}
+
+        <div class="status-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <span class="status-badge status-{{ health_data.overall_status }}">
+                        {% if health_data.overall_status == 'healthy' %}✅{% elif health_data.overall_status == 'degraded' %}⚠️{% else %}❌{% endif %}
+                        {{ health_data.overall_status }}
+                    </span>
+                    <h2 style="margin-top: 10px; color: #333;">{{ health_data.message }}</h2>
+                </div>
+                <button class="refresh-btn" onclick="refreshHealth()">🔄 Refresh</button>
+            </div>
+
+            {% if health_data.last_check %}
+            <p class="last-check">Last checked: {{ health_data.last_check }}</p>
+            {% endif %}
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" style="color: #28a745;">{{ health_data.stats.healthy }}</div>
+                    <div class="stat-label">Healthy</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" style="color: #ffc107;">{{ health_data.stats.degraded }}</div>
+                    <div class="stat-label">Degraded</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" style="color: #dc3545;">{{ health_data.stats.unhealthy }}</div>
+                    <div class="stat-label">Unhealthy</div>
+                </div>
+                {% if health_data.stats.avg_response_time_ms %}
+                <div class="stat-box">
+                    <div class="stat-value">{{ health_data.stats.avg_response_time_ms }}ms</div>
+                    <div class="stat-label">Avg Response Time</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h2 style="margin-bottom: 20px; color: #333;">Services Status</h2>
+            <div class="services-list">
+                {% if health_data.services %}
+                {% for service_name, service_data in health_data.services.items %}
+                <div class="service-item {{ service_data.status }}">
+                    <div class="service-header">
+                        <span class="service-name">{{ service_name }}</span>
+                        <span class="service-status status-{{ service_data.status }}">{{ service_data.status }}</span>
+                    </div>
+                    
+                    <div class="service-details">
+                        {% if service_data.response_time_ms %}
+                        <div class="detail-item">
+                            <span class="detail-label">Response Time:</span> {{ service_data.response_time_ms }}ms
+                        </div>
+                        {% endif %}
+                        
+                        <div class="detail-item">
+                            <span class="detail-label">Last Check:</span> {{ service_data.last_check }}
+                        </div>
+                        
+                        {% if service_data.consecutive_failures > 0 %}
+                        <div class="detail-item">
+                            <span class="detail-label">Consecutive Failures:</span> {{ service_data.consecutive_failures }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if service_data.error_message %}
+                    <div class="error-message">
+                        <strong>Error:</strong> {{ service_data.error_message }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #666; text-align: center; padding: 20px;">No service health data available. Click refresh to check services.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let isRefreshing = false;
+
+        async function refreshHealth() {
+            if (isRefreshing) return;
+            
+            const btn = document.querySelector('.refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Checking...';
+            isRefreshing = true;
+
+            try {
+                const response = await fetch('/scanner/health?refresh=true');
+                if (response.ok) {
+                    // Reload page to show updated data
+                    window.location.reload();
+                } else {
+                    alert('Failed to refresh health data');
+                }
+            } catch (error) {
+                console.error('Error refreshing health:', error);
+                alert('Error refreshing health data: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh';
+                isRefreshing = false;
+            }
+        }
+
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+            if (!isRefreshing) {
+                fetch('/scanner/health?refresh=true')
+                    .then(() => window.location.reload())
+                    .catch(err => console.error('Auto-refresh failed:', err));
+            }
+        }, 60000);
+    </script>
+</body>
+</html>

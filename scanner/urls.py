@@ -7,6 +7,7 @@ from .engine_api_views import (
     EngineExecutionViewSet,
     EngineFindingViewSet
 )
+from .health_views import health_check_api, check_service_health, health_dashboard
 from browser.views import launch_pyqt_browser
 
 app_name = 'scanner'
@@ -28,6 +29,11 @@ urlpatterns = [
     path('api/vulnerabilities/<int:vuln_id>/', views.vulnerability_detail, name='vulnerability_detail'),
     path('api/exploit_status/<str:task_id>/', views.exploit_status, name='exploit_status'),
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
+    
+    # Network Health Check endpoints
+    path('health/', health_check_api, name='health_check_api'),
+    path('health/dashboard/', health_dashboard, name='health_dashboard'),
+    path('api/health/check-service/', check_service_health, name='check_service_health'),
     
     # Engine API routes
     path('api/', include(router.urls)),
