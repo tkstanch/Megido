@@ -249,6 +249,138 @@ $env:DJANGO_ALLOWED_HOSTS="localhost"
 $env:MEGIDO_VERIFY_SSL="False"
 ```
 
+## Network Error Handling Configuration
+
+Megido includes robust network error handling with exponential backoff, automatic retries, and service health monitoring.
+
+### MEGIDO_MAX_RETRIES
+Maximum number of retry attempts for failed network requests.
+
+**Default**: `3`
+
+**Example**:
+```bash
+export MEGIDO_MAX_RETRIES=5
+```
+
+### MEGIDO_BASE_DELAY
+Base delay (in seconds) for exponential backoff calculation.
+
+**Default**: `1.0`
+
+**Example**:
+```bash
+export MEGIDO_BASE_DELAY=2.0
+```
+
+### MEGIDO_MAX_DELAY
+Maximum delay (in seconds) between retry attempts.
+
+**Default**: `30.0`
+
+**Example**:
+```bash
+export MEGIDO_MAX_DELAY=60.0
+```
+
+### MEGIDO_JITTER_MAX
+Maximum random jitter (in seconds) added to backoff delay.
+
+**Default**: `1.0`
+
+**Example**:
+```bash
+export MEGIDO_JITTER_MAX=2.0
+```
+
+### MEGIDO_DEFAULT_TIMEOUT
+Default timeout (in seconds) for network requests.
+
+**Default**: `30`
+
+**Example**:
+```bash
+export MEGIDO_DEFAULT_TIMEOUT=45
+```
+
+### MEGIDO_CONNECT_TIMEOUT
+Timeout (in seconds) for establishing TCP connections.
+
+**Default**: `10`
+
+**Example**:
+```bash
+export MEGIDO_CONNECT_TIMEOUT=15
+```
+
+### MEGIDO_READ_TIMEOUT
+Timeout (in seconds) for reading response data.
+
+**Default**: `30`
+
+**Example**:
+```bash
+export MEGIDO_READ_TIMEOUT=60
+```
+
+### MEGIDO_DEGRADED_MODE
+Enable degraded mode - continue scanning even if some services are unavailable.
+
+**Default**: `true`
+
+**Example**:
+```bash
+export MEGIDO_DEGRADED_MODE=true
+```
+
+### Service-Specific Timeouts
+
+Override timeout for specific external services:
+
+```bash
+export MEGIDO_TIMEOUT_FIREBLOCKS=30
+export MEGIDO_TIMEOUT_CALLBACK=60
+export MEGIDO_TIMEOUT_NGROK=15
+export MEGIDO_TIMEOUT_COLLABORATOR=45
+export MEGIDO_TIMEOUT_INTERACTSH=45
+```
+
+### MEGIDO_DETAILED_LOGGING
+Enable detailed network logging including retry attempts and error details.
+
+**Default**: `true`
+
+**Example**:
+```bash
+export MEGIDO_DETAILED_LOGGING=false
+```
+
+### MEGIDO_NETWORK_LOG_LEVEL
+Log level for network operations.
+
+**Default**: `INFO`
+
+**Options**: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+
+**Example**:
+```bash
+export MEGIDO_NETWORK_LOG_LEVEL=DEBUG
+```
+
+### Health Monitoring
+
+Access the network health dashboard:
+```
+http://localhost:8000/scanner/health/dashboard/
+```
+
+API endpoint for health status:
+```
+http://localhost:8000/scanner/health/
+```
+
+For detailed information, see [NETWORK_ERROR_HANDLING.md](NETWORK_ERROR_HANDLING.md).
+
 ## Production Deployment Checklist
 
 Before deploying to production:
