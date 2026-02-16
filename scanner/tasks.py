@@ -158,7 +158,18 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
         logger.error(f"Scan {scan_id} not found")
         return error_result
     
-    config = config or {}
+    config = config or {
+        'enable_proof_reporting': True,
+        'enable_visual_proof': True,
+        'capture_visual_proof': True,
+        'visual_proof': {
+            'enabled': True,
+            'type': 'auto',
+            'duration': 3.0,
+            'wait_time': 2.0,
+            'viewport': (1280, 720)
+        }
+    }
     vulnerabilities = scan.vulnerabilities.all()
     total = vulnerabilities.count()
     
@@ -235,7 +246,18 @@ def async_exploit_selected_vulnerabilities(
         f"(task_id: {task_id})"
     )
     
-    config = config or {}
+    config = config or {
+        'enable_proof_reporting': True,
+        'enable_visual_proof': True,
+        'capture_visual_proof': True,
+        'visual_proof': {
+            'enabled': True,
+            'type': 'auto',
+            'duration': 3.0,
+            'wait_time': 2.0,
+            'viewport': (1280, 720)
+        }
+    }
     vulnerabilities = Vulnerability.objects.filter(id__in=vulnerability_ids)
     total = vulnerabilities.count()
     

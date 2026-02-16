@@ -127,15 +127,34 @@ media/
 
 ### Automatic (Recommended)
 
-Visual proofs are captured automatically during exploitation:
+Visual proofs are captured **automatically by default** during exploitation:
 
 ```python
 from scanner.exploit_integration import exploit_vulnerabilities
 
-# Visual proofs are captured by default
+# Visual proofs are captured by default (no config needed!)
 result = exploit_vulnerabilities(vulnerabilities)
 
 # Proofs automatically saved and linked to vulnerabilities
+```
+
+**Default Behavior (Since v2.6):**
+- ✅ Visual proof capture is **enabled by default**
+- ✅ Proof reporting is **enabled by default**
+- ✅ No configuration required for basic usage
+- ✅ Smart type selection (GIF for dynamic, screenshot for static)
+- ⚠️ If dependencies are missing, a warning is logged but exploitation continues
+
+**Dependencies:**
+Visual proof capture requires:
+- **Playwright** (preferred) or **Selenium** - for browser automation
+- **Pillow** - for image processing
+
+If these are not installed, you'll see a warning message with installation instructions:
+```
+Visual proof capture requires Playwright or Selenium for browser automation.
+Install with: pip install playwright (preferred) or pip install selenium
+For Playwright, also run: playwright install chromium
 ```
 
 ### Manual Capture

@@ -291,27 +291,77 @@ def _generate_proof_report(self, result, target_url, vulnerability_data, config)
 
 ## Configuration
 
-### Global Configuration
+### Default Configuration (v2.6+)
 
-Configure proof reporting behavior in your scan configuration:
+**Proof reporting and visual proof capture are enabled by default!** No configuration is required for basic usage.
+
+```python
+from scanner.exploit_integration import exploit_vulnerability
+
+# This will automatically:
+# - Generate proof reports (JSON + HTML)
+# - Capture visual proof (screenshot or GIF)
+# - Store evidence in database
+result = exploit_vulnerability(vulnerability)
+```
+
+**Default Settings:**
+```python
+{
+    'enable_proof_reporting': True,      # ✅ Enabled by default
+    'enable_visual_proof': True,         # ✅ Enabled by default
+    'capture_visual_proof': True,        # ✅ Enabled by default
+    'visual_proof': {
+        'enabled': True,
+        'type': 'auto',                  # Smart selection
+        'duration': 3.0,                 # 3 seconds for GIFs
+        'wait_time': 2.0,                # 2 second wait
+        'viewport': (1280, 720)          # HD viewport
+    }
+}
+```
+
+**Dependencies:**
+Visual proof capture requires:
+- **Playwright** (preferred) or **Selenium** - for browser automation
+- **Pillow** - for image processing
+
+Install with:
+```bash
+pip install playwright Pillow
+playwright install chromium
+```
+
+If dependencies are missing, you'll see a clear warning message, but exploitation will continue without visual proof.
+
+### Custom Configuration
+
+You can override defaults if needed:
 
 ```python
 config = {
-    # Enable/disable proof reporting
-    'enable_proof_reporting': True,
+    # Disable proof reporting
+    'enable_proof_reporting': False,
     
-    # Visual proof settings
-    'enable_visual_proof': True,
-    'visual_proof_type': 'screenshot',  # 'screenshot' or 'gif'
+    # Disable visual proof
+    'enable_visual_proof': False,
+    
+    # Custom visual proof settings
+    'visual_proof': {
+        'enabled': True,
+        'type': 'gif',                    # Force GIF
+        'duration': 5.0,                  # 5 seconds
+        'wait_time': 1.0,                 # 1 second wait
+        'viewport': (1920, 1080)          # Full HD
+    },
     
     # Output settings
     'save_proof_json': True,
     'save_proof_html': True,
     'store_proof_db': True,
-    
-    # Visual proof capture settings (optional)
-    'capture_visual_proof': True,
 }
+
+result = exploit_vulnerability(vulnerability, config)
 ```
 
 ### Per-Plugin Configuration

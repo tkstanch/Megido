@@ -99,6 +99,16 @@ def perform_basic_scan(scan, url):
         config = {
             'verify_ssl': verify_ssl,
             'timeout': 10,
+            'enable_proof_reporting': True,
+            'enable_visual_proof': True,
+            'capture_visual_proof': True,
+            'visual_proof': {
+                'enabled': True,
+                'type': 'auto',
+                'duration': 3.0,
+                'wait_time': 2.0,
+                'viewport': (1280, 720)
+            }
         }
         
         # Run the scan using all available plugins
