@@ -60,6 +60,7 @@ urlpatterns = [
     path('data-tracer/', include('data_tracer.urls')),
     path('discover/', include('discover.urls')),
     path('manipulator/', include('manipulator.urls')),
+    path('forensics/', include('forensics.urls')),
 ]
 
 # Serve media files in development
