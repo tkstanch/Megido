@@ -171,7 +171,8 @@ class TestErrorClassifier(unittest.TestCase):
         result = ErrorClassifier.classify(error)
         
         self.assertEqual(result['type'], 'ssl_error')
-        self.assertFalse(result['retryable'])  # SSL errors are fatal but still classified
+        # SSL errors are non-retryable as they indicate certificate/security issues
+        self.assertFalse(result['retryable'])
     
     def test_classify_http_500(self):
         """Test classification of 500 server errors."""

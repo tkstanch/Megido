@@ -377,11 +377,16 @@
         }
 
         // Auto-refresh every 60 seconds
+        // Use a single coordinated refresh mechanism to prevent concurrent reloads
         setInterval(() => {
             if (!isRefreshing) {
+                isRefreshing = true;
                 fetch('/scanner/health?refresh=true')
                     .then(() => window.location.reload())
-                    .catch(err => console.error('Auto-refresh failed:', err));
+                    .catch(err => {
+                        console.error('Auto-refresh failed:', err);
+                        isRefreshing = false;
+                    });
             }
         }, 60000);
     </script>

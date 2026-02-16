@@ -74,13 +74,14 @@ class NetworkHealthChecker:
             endpoint: URL endpoint to check
             method: HTTP method (default: GET)
             expected_status: List of acceptable status codes (default: [200, 204])
+                           Note: Redirects (301, 302) are treated as degraded, not healthy
             **kwargs: Additional request parameters
             
         Returns:
             ServiceHealthStatus object
         """
         if expected_status is None:
-            expected_status = [200, 204, 301, 302]  # Accept redirects too
+            expected_status = [200, 204]  # Only success codes
         
         start_time = time.time()
         
@@ -115,6 +116,16 @@ class NetworkHealthChecker:
                     status='healthy',
                     response_time_ms=elapsed_ms,
                     consecutive_failures=0
+                )
+            elif response.status_code in [301, 302, 303, 307, 308]:
+                # Redirects indicate endpoint has moved - mark as degraded
+                status = ServiceHealthStatus(
+                    service_name=service_name,
+                    status='degraded',
+                    response_time_ms=elapsed_ms,
+                    error_message=f'Redirect status code: {response.status_code}',
+                    error_type=f'http_redirect_{response.status_code}',
+                    consecutive_failures=self._get_consecutive_failures(service_name) + 1
                 )
             else:
                 status = ServiceHealthStatus(

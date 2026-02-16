@@ -82,9 +82,9 @@ class ErrorClassifier:
             # DNS resolution failure
             if 'name resolution' in error_str or 'nodename nor servname' in error_str or 'getaddrinfo failed' in error_str:
                 return {
-                    'category': ErrorCategory.FATAL,
+                    'category': ErrorCategory.RECOVERABLE,  # Changed to RECOVERABLE as DNS issues can be transient
                     'type': 'dns_failure',
-                    'retryable': True,  # Might be transient DNS issue
+                    'retryable': True,
                     'user_message': 'Could not resolve domain name. The hostname may be incorrect or DNS server may be unavailable.',
                     'technical_details': f'DNS resolution failed: {str(error)}',
                     'remediation': 'Verify the URL is correct. Check DNS server configuration. '

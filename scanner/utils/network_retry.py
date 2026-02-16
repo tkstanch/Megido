@@ -173,7 +173,8 @@ class NetworkRetryClient:
             **kwargs: Additional arguments for requests
             
         Returns:
-            Response object or None if all retries failed
+            Response object on success (even if status code indicates error),
+            or None if all retries failed due to connection/timeout errors
         """
         from .network_logger import NetworkLogger
         net_logger = NetworkLogger()
