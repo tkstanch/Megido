@@ -38,17 +38,30 @@ def merge_with_defaults(config):
     """
     Merge provided config with defaults, giving priority to provided values.
     
+    Note: This function performs a shallow merge for most keys, but does a
+    one-level deep merge for the 'visual_proof' dictionary to allow partial
+    overrides of visual proof settings while keeping other defaults.
+    
     Args:
         config: Configuration dictionary (can be None or empty)
         
     Returns:
         dict: Merged configuration with defaults
+        
+    Examples:
+        # Partial visual_proof override
+        merge_with_defaults({'visual_proof': {'type': 'gif'}})
+        # Returns all defaults but with type='gif'
+        
+        # Complete override
+        merge_with_defaults({'enable_visual_proof': False})
+        # Returns all defaults but with enable_visual_proof=False
     """
     merged = copy.deepcopy(DEFAULT_PROOF_CONFIG)
     if config:
         for key, value in config.items():
-            if key == 'visual_proof' and isinstance(value, dict):
-                # Deep merge visual_proof dict
+            if key == 'visual_proof' and isinstance(value, dict) and isinstance(merged.get('visual_proof'), dict):
+                # Deep merge visual_proof dict (one level only)
                 merged['visual_proof'].update(value)
             else:
                 # Replace other values entirely
