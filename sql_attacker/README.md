@@ -14,7 +14,7 @@ The SQL Attacker module now supports injection attacks across **5 different inte
 
 ### 🌟 Multi-Context Features
 
-- ✨ **180+ specialized payloads** across all contexts
+- ✨ **176 specialized payloads** across all contexts
 - 🎯 **Parallel context testing** for faster results
 - 🔍 **Intelligent response analysis** with context-specific detection
 - 💉 **Automated exploitation** with data extraction

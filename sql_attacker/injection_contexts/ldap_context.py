@@ -198,6 +198,8 @@ class LDAPInjectionContext(InjectionContext):
             "*)(uid=*)(mail=*",
         ]
         
+        response = None  # Initialize to avoid NameError
+        
         for payload in user_extraction_payloads:
             try:
                 if parameter_type.upper() == "GET":
@@ -231,8 +233,8 @@ class LDAPInjectionContext(InjectionContext):
         exploitation_results['users_found'] = list(set(exploitation_results['users_found']))
         exploitation_results['attributes_extracted'] = list(set(exploitation_results['attributes_extracted']))
         
-        # Check if authentication was bypassed
-        if self._check_auth_bypass(response.text):
+        # Check if authentication was bypassed (only if we got a response)
+        if response is not None and self._check_auth_bypass(response.text):
             exploitation_results['authentication_bypassed'] = True
         
         return exploitation_results if any(exploitation_results.values()) else None

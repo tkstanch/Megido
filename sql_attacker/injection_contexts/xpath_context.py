@@ -206,6 +206,8 @@ class XPathInjectionContext(InjectionContext):
             "' or //password or '1'='1",
         ]
         
+        response = None  # Initialize to avoid NameError
+        
         for payload in node_extraction_payloads:
             try:
                 if parameter_type.upper() == "GET":
@@ -239,8 +241,8 @@ class XPathInjectionContext(InjectionContext):
         # Remove duplicates
         exploitation_results['xml_nodes_found'] = list(set(exploitation_results['xml_nodes_found']))
         
-        # Check if authentication was bypassed
-        if self._check_auth_bypass(response.text):
+        # Check if authentication was bypassed (only if we got a response)
+        if response is not None and self._check_auth_bypass(response.text):
             exploitation_results['authentication_bypassed'] = True
         
         return exploitation_results if any(exploitation_results.values()) else None

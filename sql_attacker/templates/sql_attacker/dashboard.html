@@ -800,6 +800,8 @@ function showVisualProof(path, type, resultId) {
 
 // Download exploit data
 function downloadExploitData(resultId) {
+    // TODO: Implement proper URL resolution via Django template or data attribute
+    // For now, using hardcoded path - should be replaced with {% url %} pattern
     window.location.href = `/sql_attacker/result/${resultId}/download/`;
 }
 </script>
