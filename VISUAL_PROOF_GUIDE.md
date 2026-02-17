@@ -190,14 +190,22 @@ if proof:
 
 ### Configuration
 
+Visual proof is **enabled by default** since v2.6. You only need to provide configuration to override defaults or disable the feature:
+
 ```python
+# To customize visual proof settings (still enabled):
 config = {
     'visual_proof': {
-        'enabled': True,          # Enable/disable feature
-        'type': 'auto',           # 'auto', 'screenshot', or 'gif'
-        'duration': 3.0,          # GIF duration in seconds
-        'wait_time': 2.0,         # Wait before screenshot
-        'viewport': (1280, 720),  # Browser viewport size
+        'type': 'gif',            # Force GIF capture
+        'duration': 5.0,          # Longer GIF duration
+        'viewport': (1920, 1080), # Full HD viewport
+    }
+}
+
+# To explicitly disable visual proof:
+config = {
+    'visual_proof': {
+        'enabled': False,         # Disable visual proof capture
     }
 }
 
