@@ -80,11 +80,16 @@ class NumericInjectionResult:
         confidence: Confidence score (0.0 to 1.0)
         evidence: Evidence of vulnerability
         response_diff: Difference in response compared to baseline
+        injection_type: Type of injection detected (e.g., 'order_by', 'numeric')
+        ordering_changed: Whether ordering was detected to change
+        field_changed: Whether response fields changed
     """
     
     def __init__(self, parameter: NumericParameter, payload: str, 
                  vulnerable: bool = False, confidence: float = 0.0,
-                 evidence: str = "", response_diff: float = 0.0):
+                 evidence: str = "", response_diff: float = 0.0,
+                 injection_type: str = 'numeric', ordering_changed: bool = False,
+                 field_changed: bool = False):
         """
         Initialize an injection result.
         
@@ -95,6 +100,9 @@ class NumericInjectionResult:
             confidence: Confidence score (0.0 to 1.0)
             evidence: Evidence of vulnerability
             response_diff: Difference in response compared to baseline
+            injection_type: Type of injection detected
+            ordering_changed: Whether ordering was detected to change
+            field_changed: Whether response fields changed
         """
         self.parameter = parameter
         self.payload = payload
@@ -102,10 +110,14 @@ class NumericInjectionResult:
         self.confidence = confidence
         self.evidence = evidence
         self.response_diff = response_diff
+        self.injection_type = injection_type
+        self.ordering_changed = ordering_changed
+        self.field_changed = field_changed
     
     def __repr__(self):
         return (f"NumericInjectionResult(parameter={self.parameter.name}, "
-                f"vulnerable={self.vulnerable}, confidence={self.confidence:.2f})")
+                f"vulnerable={self.vulnerable}, confidence={self.confidence:.2f}, "
+                f"type={self.injection_type})")
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -120,7 +132,10 @@ class NumericInjectionResult:
             'vulnerable': self.vulnerable,
             'confidence': self.confidence,
             'evidence': self.evidence,
-            'response_diff': self.response_diff
+            'response_diff': self.response_diff,
+            'injection_type': self.injection_type,
+            'ordering_changed': self.ordering_changed,
+            'field_changed': self.field_changed
         }
 
 
@@ -188,6 +203,30 @@ class NumericSqlInjector:
         '({value}+1)-1',     # Should equal original
         '({value}*2)/2',     # Should equal original
         '{value}+(2-2)',     # Addition of zero with expression
+    ]
+    
+    # ORDER BY-based SQL injection payloads
+    # These payloads target parameters used in ORDER BY clauses or column selection
+    ORDER_BY_PAYLOADS = [
+        # Basic ORDER BY tests
+        '{value} ASC --',    # Ascending order with comment
+        '{value} DESC --',   # Descending order with comment
+        '{value} ASC#',      # Ascending order with MySQL comment
+        '{value} DESC#',     # Descending order with MySQL comment
+        
+        # Nested SELECT for MS-SQL
+        '(SELECT 1)',        # Simple subquery
+        '(SELECT 1 WHERE 1=1)',  # Conditional subquery
+        '(SELECT 1 WHERE 1=0)',  # False conditional
+        
+        # Batched queries for MS-SQL
+        '{value};SELECT 1 --',   # Batch with SELECT
+        '{value}; WAITFOR DELAY \'0:0:1\' --',  # Time-based for MS-SQL
+        
+        # Column name detection
+        '(CASE WHEN 1=1 THEN 1 ELSE 2 END)',  # CASE expression
+        '(SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES)',  # MS-SQL metadata
+        '(SELECT 1 FROM DUAL)',  # Oracle DUAL table
     ]
     
     # Patterns to identify numeric parameters
@@ -793,3 +832,503 @@ class NumericSqlInjector:
                 return match.group(0)
         
         return None
+    
+    def analyze_order_by_injection(self, url: str, parameter: NumericParameter,
+                                   method: str = 'GET',
+                                   params: Optional[Dict[str, str]] = None,
+                                   data: Optional[Dict[str, str]] = None,
+                                   cookies: Optional[Dict[str, str]] = None,
+                                   headers: Optional[Dict[str, str]] = None,
+                                   max_sequential: int = 10
+                                   ) -> List[NumericInjectionResult]:
+        """
+        Analyze a numeric parameter for ORDER BY-based SQL injection.
+        
+        This method sends sequential numeric values (1, 2, 3, ...) and monitors
+        for ordering changes, field changes, or error patterns that indicate
+        the parameter is used in ORDER BY clauses or column selection.
+        
+        Args:
+            url: Target URL
+            parameter: NumericParameter to analyze
+            method: HTTP method (GET, POST, etc.)
+            params: Query parameters
+            data: POST data
+            cookies: Cookies
+            headers: HTTP headers
+            max_sequential: Maximum number of sequential values to test (default: 10)
+        
+        Returns:
+            List of NumericInjectionResult objects for ORDER BY vulnerabilities
+        
+        Example:
+            >>> injector = NumericSqlInjector()
+            >>> param = NumericParameter('sort', '1', 'GET', 'query')
+            >>> results = injector.analyze_order_by_injection(
+            ...     url='http://example.com/products',
+            ...     parameter=param,
+            ...     method='GET',
+            ...     params={'sort': '1'}
+            ... )
+        """
+        results = []
+        logger.info(f"Starting ORDER BY analysis for parameter '{parameter.name}'")
+        
+        # Get baseline response with original value
+        baseline_response = self._make_request(
+            url, method, params, data, cookies, headers
+        )
+        
+        if not baseline_response:
+            logger.warning(f"Failed to get baseline response for '{parameter.name}'")
+            return results
+        
+        # Store responses for each sequential value
+        sequential_responses = {}
+        sequential_responses[parameter.value] = baseline_response
+        
+        # Test sequential numeric values (1, 2, 3, ...)
+        logger.info(f"Testing sequential values 1 to {max_sequential} for ordering/field changes")
+        for test_value in range(1, max_sequential + 1):
+            test_value_str = str(test_value)
+            
+            # Skip if this is the baseline value
+            if test_value_str == parameter.value:
+                continue
+            
+            # Create modified request parameters
+            test_params = params.copy() if params else {}
+            test_data = data.copy() if data else {}
+            test_cookies = cookies.copy() if cookies else {}
+            test_headers = headers.copy() if headers else {}
+            
+            # Set the test value based on parameter location
+            if parameter.location == 'query':
+                test_params[parameter.name] = test_value_str
+            elif parameter.location == 'body':
+                test_data[parameter.name] = test_value_str
+            elif parameter.location == 'cookie':
+                test_cookies[parameter.name] = test_value_str
+            elif parameter.location == 'header':
+                test_headers[parameter.name] = test_value_str
+            
+            # Send request with test value
+            test_response = self._make_request(
+                url, method, test_params, test_data, test_cookies, test_headers
+            )
+            
+            if test_response:
+                sequential_responses[test_value_str] = test_response
+                
+                # Analyze for ordering or field changes
+                ordering_changed = self._detect_ordering_change(
+                    baseline_response, test_response
+                )
+                field_changed = self._detect_field_change(
+                    baseline_response, test_response
+                )
+                column_with_ones = self._detect_column_with_ones(test_response)
+                
+                if ordering_changed:
+                    logger.warning(
+                        f"Ordering change detected with value '{test_value_str}' "
+                        f"in parameter '{parameter.name}'"
+                    )
+                    results.append(NumericInjectionResult(
+                        parameter=parameter,
+                        payload=test_value_str,
+                        vulnerable=True,
+                        confidence=0.8,
+                        evidence=f"Ordering changed when value set to {test_value_str}",
+                        response_diff=1.0 - self._calculate_similarity(
+                            baseline_response.text, test_response.text
+                        ),
+                        injection_type='order_by',
+                        ordering_changed=True,
+                        field_changed=False
+                    ))
+                
+                if field_changed:
+                    logger.warning(
+                        f"Field change detected with value '{test_value_str}' "
+                        f"in parameter '{parameter.name}'"
+                    )
+                    results.append(NumericInjectionResult(
+                        parameter=parameter,
+                        payload=test_value_str,
+                        vulnerable=True,
+                        confidence=0.85,
+                        evidence=f"Response fields changed when value set to {test_value_str}",
+                        response_diff=1.0 - self._calculate_similarity(
+                            baseline_response.text, test_response.text
+                        ),
+                        injection_type='order_by',
+                        ordering_changed=False,
+                        field_changed=True
+                    ))
+                
+                if column_with_ones:
+                    logger.warning(
+                        f"Column with '1' values detected with value '{test_value_str}' "
+                        f"in parameter '{parameter.name}' - likely column name usage"
+                    )
+                    results.append(NumericInjectionResult(
+                        parameter=parameter,
+                        payload=test_value_str,
+                        vulnerable=True,
+                        confidence=0.75,
+                        evidence=f"Response contains column with '1' values - parameter likely used as column name",
+                        response_diff=1.0 - self._calculate_similarity(
+                            baseline_response.text, test_response.text
+                        ),
+                        injection_type='column_selection',
+                        ordering_changed=False,
+                        field_changed=True
+                    ))
+        
+        # If ordering/field changes detected, test ORDER BY payloads
+        if any(r.ordering_changed for r in results):
+            logger.info(f"Ordering changes detected - testing ORDER BY payloads")
+            order_by_results = self._test_order_by_payloads(
+                url, parameter, method, params, data, cookies, headers, baseline_response
+            )
+            results.extend(order_by_results)
+        
+        # If column selection detected, test advanced payloads
+        if any(r.field_changed for r in results):
+            logger.info(f"Field changes detected - testing advanced column selection payloads")
+            advanced_results = self._test_advanced_column_payloads(
+                url, parameter, method, params, data, cookies, headers, baseline_response
+            )
+            results.extend(advanced_results)
+        
+        logger.info(
+            f"ORDER BY analysis complete for '{parameter.name}': "
+            f"{len(results)} potential vulnerabilities found"
+        )
+        
+        return results
+    
+    def _detect_ordering_change(self, baseline_response: requests.Response,
+                               test_response: requests.Response) -> bool:
+        """
+        Detect if the ordering of items in the response has changed.
+        
+        This method looks for patterns that suggest reordering of results:
+        - Lists or tables with different item sequences
+        - Numeric or alphabetic sequences in different order
+        
+        Args:
+            baseline_response: Original response
+            test_response: Response with modified parameter
+        
+        Returns:
+            True if ordering appears to have changed, False otherwise
+        """
+        # Extract numeric sequences from responses
+        baseline_numbers = re.findall(r'\b\d+\b', baseline_response.text)
+        test_numbers = re.findall(r'\b\d+\b', test_response.text)
+        
+        # If we have the same numbers but in different order, ordering changed
+        if len(baseline_numbers) > 3 and len(test_numbers) > 3:
+            # Compare first 10 numbers in sequence
+            baseline_seq = baseline_numbers[:10]
+            test_seq = test_numbers[:10]
+            
+            # Check if sequences are different but contain similar numbers
+            if baseline_seq != test_seq:
+                # Count how many numbers are the same (just different order)
+                baseline_set = set(baseline_numbers[:20])
+                test_set = set(test_numbers[:20])
+                common = baseline_set & test_set
+                
+                # If >70% of numbers are common but sequence is different,
+                # likely an ordering change
+                if len(common) > 0.7 * min(len(baseline_set), len(test_set)):
+                    return True
+        
+        # Check for reversed sequences (ascending to descending or vice versa)
+        if len(baseline_numbers) >= 3 and len(test_numbers) >= 3:
+            # Check if baseline is ascending and test is descending (or vice versa)
+            try:
+                baseline_first_three = [int(x) for x in baseline_numbers[:3]]
+                test_first_three = [int(x) for x in test_numbers[:3]]
+                
+                baseline_ascending = baseline_first_three == sorted(baseline_first_three)
+                test_ascending = test_first_three == sorted(test_first_three)
+                
+                # If one is ascending and the other is descending
+                if baseline_ascending != test_ascending:
+                    return True
+            except (ValueError, IndexError):
+                pass
+        
+        return False
+    
+    def _detect_field_change(self, baseline_response: requests.Response,
+                            test_response: requests.Response) -> bool:
+        """
+        Detect if the fields/columns in the response have changed.
+        
+        This indicates the parameter may control which columns are selected.
+        
+        Args:
+            baseline_response: Original response
+            test_response: Response with modified parameter
+        
+        Returns:
+            True if fields appear to have changed, False otherwise
+        """
+        # Check if response structure is significantly different
+        # but still returns successful status
+        if baseline_response.status_code != test_response.status_code:
+            return False  # Status change is handled separately
+        
+        # Calculate similarity
+        similarity = self._calculate_similarity(
+            baseline_response.text, test_response.text
+        )
+        
+        # If similarity is low but both responses are successful,
+        # might indicate different columns
+        if similarity < 0.5 and baseline_response.status_code == 200 and test_response.status_code == 200:
+            # Check if response sizes are significantly different
+            size_ratio = len(test_response.text) / max(len(baseline_response.text), 1)
+            if 0.3 < size_ratio < 3.0:  # Not too different in size
+                return True
+        
+        return False
+    
+    def _detect_column_with_ones(self, response: requests.Response) -> bool:
+        """
+        Detect if the response contains a column where all values are '1'.
+        
+        This pattern suggests the numeric parameter is being used as a column
+        selector and the application is directly selecting column by number
+        (e.g., SELECT * ORDER BY <user_input>).
+        
+        Args:
+            response: HTTP response to analyze
+        
+        Returns:
+            True if pattern detected, False otherwise
+        """
+        # Look for patterns like: value="1", >1<, "1", etc. repeated multiple times
+        ones_pattern = r'(?:>1<|"1"|\'1\'|\b1\b)'
+        matches = re.findall(ones_pattern, response.text)
+        
+        # If we find many instances of '1' (more than 5), might indicate
+        # a column filled with 1s
+        if len(matches) > 5:
+            # Check that these aren't just page numbers or random 1s
+            # by looking for structured repetition
+            text_parts = response.text.split('\n')
+            lines_with_one = sum(1 for line in text_parts if re.search(ones_pattern, line))
+            
+            # If more than 30% of lines contain '1', likely a column of 1s
+            if lines_with_one > 0.3 * len(text_parts) and lines_with_one > 3:
+                return True
+        
+        return False
+    
+    def _test_order_by_payloads(self, url: str, parameter: NumericParameter,
+                                method: str, params: Optional[Dict[str, str]],
+                                data: Optional[Dict[str, str]],
+                                cookies: Optional[Dict[str, str]],
+                                headers: Optional[Dict[str, str]],
+                                baseline_response: requests.Response
+                                ) -> List[NumericInjectionResult]:
+        """
+        Test ORDER BY specific payloads (ASC --, DESC --) on a parameter.
+        
+        Args:
+            url: Target URL
+            parameter: Parameter to test
+            method: HTTP method
+            params: Query parameters
+            data: POST data
+            cookies: Cookies
+            headers: HTTP headers
+            baseline_response: Baseline response for comparison
+        
+        Returns:
+            List of NumericInjectionResult objects
+        """
+        results = []
+        
+        # Test ASC and DESC payloads
+        for payload_template in self.ORDER_BY_PAYLOADS:
+            payload = payload_template.replace('{value}', parameter.value)
+            
+            logger.debug(f"Testing ORDER BY payload '{payload}' on parameter '{parameter.name}'")
+            
+            # Create modified request parameters
+            test_params = params.copy() if params else {}
+            test_data = data.copy() if data else {}
+            test_cookies = cookies.copy() if cookies else {}
+            test_headers = headers.copy() if headers else {}
+            
+            # Set the payload based on parameter location
+            if parameter.location == 'query':
+                encoded_payload = self.url_encode_payload(payload, 'query')
+                test_params[parameter.name] = encoded_payload
+            elif parameter.location == 'body':
+                encoded_payload = self.url_encode_payload(payload, 'body')
+                test_data[parameter.name] = encoded_payload
+            elif parameter.location == 'cookie':
+                test_cookies[parameter.name] = payload
+            elif parameter.location == 'header':
+                test_headers[parameter.name] = payload
+            
+            # Send request
+            test_response = self._make_request(
+                url, method, test_params, test_data, test_cookies, test_headers
+            )
+            
+            if not test_response:
+                continue
+            
+            # Check for ordering reversal with ASC/DESC
+            if 'ASC' in payload or 'DESC' in payload:
+                ordering_changed = self._detect_ordering_change(
+                    baseline_response, test_response
+                )
+                
+                if ordering_changed:
+                    results.append(NumericInjectionResult(
+                        parameter=parameter,
+                        payload=payload,
+                        vulnerable=True,
+                        confidence=0.9,
+                        evidence=f"ORDER BY injection confirmed: ordering changed with {payload}",
+                        response_diff=1.0 - self._calculate_similarity(
+                            baseline_response.text, test_response.text
+                        ),
+                        injection_type='order_by',
+                        ordering_changed=True,
+                        field_changed=False
+                    ))
+                    logger.warning(
+                        f"ORDER BY injection confirmed in '{parameter.name}' with payload '{payload}'"
+                    )
+            
+            # Check for SQL errors
+            sql_errors = self._check_sql_errors(test_response.text)
+            if sql_errors:
+                results.append(NumericInjectionResult(
+                    parameter=parameter,
+                    payload=payload,
+                    vulnerable=True,
+                    confidence=0.85,
+                    evidence=f"SQL error with ORDER BY payload: {sql_errors}",
+                    response_diff=1.0 - self._calculate_similarity(
+                        baseline_response.text, test_response.text
+                    ),
+                    injection_type='order_by',
+                    ordering_changed=False,
+                    field_changed=False
+                ))
+        
+        return results
+    
+    def _test_advanced_column_payloads(self, url: str, parameter: NumericParameter,
+                                      method: str, params: Optional[Dict[str, str]],
+                                      data: Optional[Dict[str, str]],
+                                      cookies: Optional[Dict[str, str]],
+                                      headers: Optional[Dict[str, str]],
+                                      baseline_response: requests.Response
+                                      ) -> List[NumericInjectionResult]:
+        """
+        Test advanced payloads for column selection injection (nested queries, etc.).
+        
+        Args:
+            url: Target URL
+            parameter: Parameter to test
+            method: HTTP method
+            params: Query parameters
+            data: POST data
+            cookies: Cookies
+            headers: HTTP headers
+            baseline_response: Baseline response for comparison
+        
+        Returns:
+            List of NumericInjectionResult objects
+        """
+        results = []
+        
+        # Advanced payloads for MS-SQL and other databases
+        advanced_payloads = [
+            '(SELECT 1)',
+            '(SELECT 1 WHERE 1=1)',
+            '(SELECT 1 WHERE 1=0)',
+            '(CASE WHEN 1=1 THEN 1 ELSE 2 END)',
+            '(SELECT TOP 1 1 FROM INFORMATION_SCHEMA.TABLES)',  # MS-SQL
+            '(SELECT 1 FROM DUAL)',  # Oracle
+        ]
+        
+        for payload in advanced_payloads:
+            logger.debug(f"Testing advanced payload '{payload}' on parameter '{parameter.name}'")
+            
+            # Create modified request parameters
+            test_params = params.copy() if params else {}
+            test_data = data.copy() if data else {}
+            test_cookies = cookies.copy() if cookies else {}
+            test_headers = headers.copy() if headers else {}
+            
+            # Set the payload based on parameter location
+            if parameter.location == 'query':
+                encoded_payload = self.url_encode_payload(payload, 'query')
+                test_params[parameter.name] = encoded_payload
+            elif parameter.location == 'body':
+                encoded_payload = self.url_encode_payload(payload, 'body')
+                test_data[parameter.name] = encoded_payload
+            elif parameter.location == 'cookie':
+                test_cookies[parameter.name] = payload
+            elif parameter.location == 'header':
+                test_headers[parameter.name] = payload
+            
+            # Send request
+            test_response = self._make_request(
+                url, method, test_params, test_data, test_cookies, test_headers
+            )
+            
+            if not test_response:
+                continue
+            
+            # Analyze response
+            similarity = self._calculate_similarity(
+                baseline_response.text, test_response.text
+            )
+            sql_errors = self._check_sql_errors(test_response.text)
+            column_with_ones = self._detect_column_with_ones(test_response)
+            
+            # If subquery returned data or caused interesting behavior
+            if column_with_ones or sql_errors or (similarity > 0.7 and test_response.status_code == 200):
+                confidence = 0.8 if sql_errors else 0.7 if column_with_ones else 0.6
+                evidence_parts = []
+                
+                if sql_errors:
+                    evidence_parts.append(f"SQL error: {sql_errors}")
+                if column_with_ones:
+                    evidence_parts.append("Response contains column with '1' values from subquery")
+                if not sql_errors and not column_with_ones:
+                    evidence_parts.append("Subquery accepted and executed successfully")
+                
+                results.append(NumericInjectionResult(
+                    parameter=parameter,
+                    payload=payload,
+                    vulnerable=True,
+                    confidence=confidence,
+                    evidence="; ".join(evidence_parts),
+                    response_diff=1.0 - similarity,
+                    injection_type='advanced_column_selection',
+                    ordering_changed=False,
+                    field_changed=True
+                ))
+                
+                logger.warning(
+                    f"Advanced column selection injection detected in '{parameter.name}' "
+                    f"with payload '{payload}'"
+                )
+        
+        return results
