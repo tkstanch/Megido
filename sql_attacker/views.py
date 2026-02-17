@@ -13,6 +13,7 @@ import logging
 from .models import SQLInjectionTask, SQLInjectionResult
 from .sqli_engine import SQLInjectionEngine
 from .param_discovery import ParameterDiscoveryEngine
+from .oob_payloads import OOBPayloadGenerator, DatabaseType as OOBDatabaseType
 from response_analyser.analyse import save_vulnerability
 
 # Configure logging
@@ -671,3 +672,129 @@ def api_results(request):
     } for result in results]
     
     return Response(data)
+
+
+@api_view(['POST'])
+def api_generate_oob_payloads(request):
+    """
+    REST API endpoint for generating Out-of-Band SQL injection payloads.
+    
+    Request body:
+    {
+        "attacker_host": "attacker.com",  // Required
+        "attacker_port": 80,               // Optional, default: 80
+        "db_type": "mssql",                // Optional: mssql, oracle, mysql, or null for all
+        "data_to_exfiltrate": "@@version"  // Optional, default: varies by DB
+    }
+    
+    Response:
+    {
+        "mssql": [
+            {
+                "technique": "mssql_openrowset_http",
+                "payload": "...",
+                "description": "...",
+                "requires_privileges": true,
+                "privilege_level": "...",
+                "listener_type": "http",
+                "example_listener_setup": "..."
+            },
+            ...
+        ],
+        "oracle": [...],
+        "mysql": [...]
+    }
+    """
+    try:
+        # Parse request parameters
+        attacker_host = request.data.get('attacker_host')
+        if not attacker_host:
+            return Response({
+                'error': 'attacker_host is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        attacker_port = request.data.get('attacker_port', 80)
+        db_type_str = request.data.get('db_type', None)
+        data_to_exfiltrate = request.data.get('data_to_exfiltrate', None)
+        
+        # Convert db_type string to enum
+        db_type = None
+        if db_type_str:
+            try:
+                db_type = OOBDatabaseType[db_type_str.upper()]
+            except KeyError:
+                return Response({
+                    'error': f'Invalid db_type. Must be one of: mssql, oracle, mysql'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Initialize payload generator
+        generator = OOBPayloadGenerator(attacker_host, attacker_port)
+        
+        # Set default data to exfiltrate based on DB type if not provided
+        if data_to_exfiltrate is None:
+            data_to_exfiltrate = {
+                OOBDatabaseType.MSSQL: '@@version',
+                OOBDatabaseType.ORACLE: 'user',
+                OOBDatabaseType.MYSQL: '@@version'
+            }.get(db_type, 'user') if db_type else 'user'
+        
+        # Generate payloads
+        all_payloads = generator.generate_all_payloads(db_type, data_to_exfiltrate)
+        
+        # Convert to serializable format
+        response_data = {}
+        for db, payloads in all_payloads.items():
+            response_data[db] = [{
+                'technique': payload.technique.value,
+                'payload': payload.payload,
+                'description': payload.description,
+                'requires_privileges': payload.requires_privileges,
+                'privilege_level': payload.privilege_level,
+                'listener_type': payload.listener_type,
+                'example_listener_setup': payload.example_listener_setup
+            } for payload in payloads]
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.exception("Error generating OOB payloads")
+        return Response({
+            'error': f'Failed to generate payloads: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def api_oob_listener_guide(request):
+    """
+    REST API endpoint for getting listener setup guides.
+    
+    Query parameters:
+    - listener_type: http, smb, dns, or ldap
+    
+    Response:
+    {
+        "listener_type": "http",
+        "setup_guide": "..."
+    }
+    """
+    try:
+        listener_type = request.query_params.get('listener_type', 'http')
+        
+        if listener_type not in ['http', 'smb', 'dns', 'ldap']:
+            return Response({
+                'error': 'Invalid listener_type. Must be one of: http, smb, dns, ldap'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        generator = OOBPayloadGenerator()
+        guide = generator.get_listener_setup_guide(listener_type)
+        
+        return Response({
+            'listener_type': listener_type,
+            'setup_guide': guide
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.exception("Error retrieving listener guide")
+        return Response({
+            'error': f'Failed to retrieve guide: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
