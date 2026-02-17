@@ -615,7 +615,9 @@ function displayVulnerabilities(vulnerabilities) {
                                         </svg>
                                         <div class="flex-1">
                                             <strong class="text-gray-700 dark:text-gray-300">📸 Visual Proof</strong>
-                                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">No visual proof available. This may be due to missing dependencies (Playwright/Selenium + Pillow), exploitation failure, or explicit disabling in config.</p>
+                                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                                                ${getVisualProofStatusMessage(vuln.visual_proof_status)}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -1168,6 +1170,18 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Format visual proof status message
+function getVisualProofStatusMessage(status) {
+    const messages = {
+        'missing_dependencies': '⚠️ Visual proof unavailable: Missing required dependencies (Playwright/Selenium and Pillow). Install with: pip install playwright Pillow && playwright install chromium',
+        'disabled': 'ℹ️ Visual proof capture is disabled in configuration.',
+        'failed': '❌ Visual proof capture failed. Check logs for details or verify browser automation is working.',
+        'not_supported': 'ℹ️ Visual proof is not supported for this vulnerability type.',
+        'not_attempted': 'No visual proof available.'  // Default status for new vulnerabilities
+    };
+    return messages[status] || 'No visual proof available.';
 }
 
 // Visual proof viewer functions
