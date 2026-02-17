@@ -213,12 +213,14 @@ class EncodingBypassTest(TestCase):
         """Test partial encoding"""
         payload = "SELECT FROM"
         result = EncodingBypass.partial_encode(payload, ratio=0.5)
-        # Should have mix of encoded and non-encoded characters
+        # Should have non-empty result
+        self.assertGreater(len(result), 0)
+        # Should have mix of encoded and non-encoded characters (with some tolerance for randomness)
         has_encoded = "%" in result
-        has_normal = any(c.isalpha() for c in result)
-        self.assertTrue(has_encoded or len(result) > 0)
-        
-    def test_mixed_encoding(self):
+        has_normal = any(c.isalpha() for c in result if c != '%')
+        # At least one should be true for a non-trivial payload
+        self.assertTrue(has_encoded or has_normal)
+        print("  ✓ Partial encoding works")
         """Test mixed encoding"""
         payload = "' OR 1=1"
         result = EncodingBypass.mixed_encoding(payload)

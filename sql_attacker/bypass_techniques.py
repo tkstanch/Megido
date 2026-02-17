@@ -303,10 +303,7 @@ class KeywordVariantBypass:
             >>> KeywordVariantBypass.mixed_case_variant("SELECT", "alternate")
             "SeLeCt"
         """
-        if pattern == 'alternate':
-            return ''.join(c.upper() if i % 2 == 0 else c.lower() 
-                          for i, c in enumerate(keyword))
-        elif pattern == 'random':
+        if pattern == 'random':
             return ''.join(c.upper() if random.random() > 0.5 else c.lower() 
                           for c in keyword)
         elif pattern == 'camel':
@@ -314,7 +311,7 @@ class KeywordVariantBypass:
             return ''.join(c.upper() if i == 0 or i % 2 == 1 else c.lower() 
                           for i, c in enumerate(keyword))
         else:
-            # Default: simple alternation
+            # Default and 'alternate': simple alternation
             return ''.join(c.upper() if i % 2 == 0 else c.lower() 
                           for i, c in enumerate(keyword))
     
