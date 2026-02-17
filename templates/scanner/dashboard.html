@@ -1179,7 +1179,7 @@ function getVisualProofStatusMessage(status) {
         'disabled': 'ℹ️ Visual proof capture is disabled in configuration.',
         'failed': '❌ Visual proof capture failed. Check logs for details or verify browser automation is working.',
         'not_supported': 'ℹ️ Visual proof is not supported for this vulnerability type.',
-        'not_attempted': 'No visual proof available.'
+        'not_attempted': 'No visual proof available.'  // Default status for new vulnerabilities
     };
     return messages[status] || 'No visual proof available.';
 }
