@@ -433,7 +433,7 @@ function showExploitActions() {
     visualProofCheckbox.type = 'checkbox';
     visualProofCheckbox.id = 'enable-visual-proof';
     visualProofCheckbox.checked = true; // Default to enabled
-    visualProofCheckbox.className = 'form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500';
+    visualProofCheckbox.className = 'h-4 w-4 text-primary-600 rounded border-gray-300';
     
     const visualProofLabel = document.createElement('label');
     visualProofLabel.htmlFor = 'enable-visual-proof';
@@ -935,7 +935,8 @@ async function exploitAll() {
             </div>
         `;
         
-        // Get visual proof checkbox value
+        // Get visual proof checkbox value (defaults to true if checkbox not found)
+        // The checkbox is created in showExploitActions() which runs before this function
         const enableVisualProof = document.getElementById('enable-visual-proof')?.checked ?? true;
         
         const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
@@ -1053,7 +1054,8 @@ async function exploitSelected() {
             </div>
         `;
         
-        // Get visual proof checkbox value
+        // Get visual proof checkbox value (defaults to true if checkbox not found)
+        // The checkbox is created in showExploitActions() which runs before this function
         const enableVisualProof = document.getElementById('enable-visual-proof')?.checked ?? true;
         
         const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
