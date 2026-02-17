@@ -645,7 +645,7 @@ class ComprehensiveInputTester:
                 
                 if isinstance(value, dict):
                     test_json_field(value, current_path)
-                elif isinstance(value, str) or isinstance(value, (int, float)):
+                elif isinstance(value, (str, int, float)):
                     # Test this field
                     for payload in ["'", "' OR '1'='1"]:
                         test_json = json_data.copy()

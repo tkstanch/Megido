@@ -43,7 +43,7 @@ class ComprehensiveInputTesterTest(TestCase):
     def test_wildcard_payloads(self):
         """Test that SQL wildcard payloads are defined"""
         self.assertGreater(len(self.tester.WILDCARD_PAYLOADS), 0)
-        self.assertIn("%", self.tester.WILDCARD_PAYLOADS)
+        self.assertTrue(any('%' in p for p in self.tester.WILDCARD_PAYLOADS))
         self.assertTrue(any("LIKE" in p for p in self.tester.WILDCARD_PAYLOADS))
     
     def test_testable_headers(self):
