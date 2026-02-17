@@ -57,7 +57,7 @@ The module automatically adapts queries based on the detected DBMS:
 
 | Feature | MySQL | PostgreSQL | MS-SQL | Oracle |
 |---------|-------|------------|--------|--------|
-| String Concat | `CONCAT()` | `\|\|` | `+` | `\|\|` |
+| String Concat | `CONCAT()` | `\|\|` (pipe-pipe) | `+` | `\|\|` (pipe-pipe) |
 | Limit Results | `LIMIT n` | `LIMIT n` | `TOP n` | `ROWNUM <= n` |
 | Version Function | `VERSION()` | `version()` | `@@version` | `v$version` |
 | Schema Tables | `information_schema.tables` | `information_schema.tables` | `information_schema.tables` | `all_tables` |

