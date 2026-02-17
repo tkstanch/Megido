@@ -128,6 +128,8 @@ class SQLInjectionResult(models.Model):
     """
     Model to store SQL injection detection and exploitation results.
     Each result represents a specific vulnerable parameter or finding.
+    
+    Enhanced to support multi-context injection attacks (SQL, LDAP, XPath, etc.).
     """
     INJECTION_TYPE_CHOICES = [
         ('error_based', 'Error-based'),
@@ -135,6 +137,15 @@ class SQLInjectionResult(models.Model):
         ('union_based', 'UNION-based'),
         ('boolean_based', 'Boolean-based'),
         ('stacked_queries', 'Stacked Queries'),
+    ]
+    
+    # Multi-context injection support
+    INJECTION_CONTEXT_CHOICES = [
+        ('sql', 'SQL'),
+        ('ldap', 'LDAP'),
+        ('xpath', 'XPath'),
+        ('message_queue', 'Message Queue'),
+        ('custom_query', 'Custom Query Language'),
     ]
     
     task = models.ForeignKey(SQLInjectionTask, on_delete=models.CASCADE,
@@ -192,6 +203,48 @@ class SQLInjectionResult(models.Model):
     proof_of_concept = models.JSONField(blank=True, null=True,
                                        help_text="Proof-of-concept queries and findings")
     
+    # Multi-context injection fields
+    injection_context = models.CharField(
+        max_length=50, 
+        choices=INJECTION_CONTEXT_CHOICES,
+        default='sql',
+        db_index=True,
+        help_text="Injection context type (SQL, LDAP, XPath, etc.)"
+    )
+    
+    # Visual proof fields (mirroring vulnerability scanner pattern)
+    verified = models.BooleanField(
+        default=False,
+        help_text="Verified through successful exploitation"
+    )
+    proof_of_impact = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Evidence of real-world impact"
+    )
+    visual_proof_path = models.CharField(
+        max_length=512, 
+        blank=True, 
+        null=True, 
+        help_text="Path to screenshot or GIF showing exploitation impact"
+    )
+    visual_proof_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('screenshot', 'Screenshot'),
+            ('gif', 'Animated GIF'),
+            ('video', 'Video'),
+        ],
+        blank=True,
+        null=True,
+        help_text="Type of visual proof"
+    )
+    visual_proof_size = models.IntegerField(
+        blank=True, 
+        null=True, 
+        help_text="File size in bytes"
+    )
+    
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
     severity = models.CharField(max_length=20, default='critical',
@@ -199,13 +252,15 @@ class SQLInjectionResult(models.Model):
     
     class Meta:
         ordering = ['-detected_at']
-        verbose_name = 'SQL Injection Result'
-        verbose_name_plural = 'SQL Injection Results'
+        verbose_name = 'Injection Attack Result'
+        verbose_name_plural = 'Injection Attack Results'
         indexes = [
             models.Index(fields=['task', 'injection_type']),
             models.Index(fields=['severity', 'detected_at']),
+            models.Index(fields=['injection_context', 'detected_at']),
         ]
     
     def __str__(self):
-        return (f"{self.get_injection_type_display()} in {self.vulnerable_parameter} "
+        context_display = self.get_injection_context_display() if self.injection_context != 'sql' else self.get_injection_type_display()
+        return (f"{context_display} in {self.vulnerable_parameter} "
                 f"({self.task.target_url[:30]}...)")
