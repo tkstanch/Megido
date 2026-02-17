@@ -38,6 +38,7 @@ from .cognitive_attack_planner import CognitiveAttackPlanner, AttackObjective
 from .smart_context_analyzer import SmartContextAnalyzer
 from .advanced_learning_system import AdvancedLearningSystem
 from .comprehensive_input_tester import ComprehensiveInputTester
+from .bypass_techniques import AdvancedBypassEngine as BypassEngine, DBMSType
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -208,6 +209,9 @@ class SQLInjectionEngine:
         # Initialize COMPREHENSIVE INPUT TESTING module (NEW!)
         self.comprehensive_tester = ComprehensiveInputTester(self)
         
+        # Initialize ADVANCED BYPASS TECHNIQUES module (LATEST!)
+        self.bypass_engine = BypassEngine()
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
@@ -222,6 +226,7 @@ class SQLInjectionEngine:
         self.use_context_analysis = config.get('enable_context_analysis', True)
         self.use_advanced_learning = config.get('enable_advanced_learning', True)
         self.use_comprehensive_testing = config.get('enable_comprehensive_testing', True)
+        self.use_bypass_techniques = config.get('enable_bypass_techniques', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
@@ -291,6 +296,7 @@ class SQLInjectionEngine:
         """
         Get adaptive bypass payload variations based on WAF detection.
         This is the EXTREMELY ADVANCED feature that adapts to WAF behavior.
+        Now includes advanced bypass techniques from bypass_techniques module.
         
         Args:
             original_payload: Original SQL injection payload
@@ -309,20 +315,87 @@ class SQLInjectionEngine:
         if detected_waf and confidence > 0.5:
             logger.info(f"WAF detected: {detected_waf} (confidence: {confidence:.2f})")
         
-        # Get adaptive bypass payloads
+        # Allocate variations budget across different techniques
+        # 40% for existing adaptive bypass, 40% for new bypass techniques, 20% for polyglots
+        existing_bypass_budget = max(1, int(max_variations * 0.4))
+        bypass_techniques_budget = max(1, int(max_variations * 0.4))
+        polyglot_budget = max(1, int(max_variations * 0.2))
+        
+        # Get adaptive bypass payloads from existing system
         bypass_payloads = self.adaptive_bypass.get_bypass_payloads(
             original_payload, 
             detected_waf=detected_waf,
-            max_variations=max_variations
+            max_variations=existing_bypass_budget
         )
+        
+        # Add advanced bypass technique variants (NEW!)
+        if self.use_bypass_techniques:
+            bypass_variants = self._get_bypass_technique_variants(
+                original_payload,
+                max_variants=bypass_techniques_budget
+            )
+            bypass_payloads.extend(bypass_variants)
         
         # Add polyglot payloads if enabled
         if self.use_polyglot_payloads:
             # Get context-agnostic polyglots
-            polyglots = self.polyglot_engine.get_context_agnostic()[:3]
+            polyglots = self.polyglot_engine.get_context_agnostic()[:polyglot_budget]
             bypass_payloads.extend(polyglots)
         
-        return bypass_payloads[:max_variations]
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_payloads = []
+        for payload in bypass_payloads:
+            if payload not in seen:
+                seen.add(payload)
+                unique_payloads.append(payload)
+        
+        # Ensure we don't exceed max_variations
+        return unique_payloads[:max_variations]
+    
+    def _get_bypass_technique_variants(self, original_payload: str, 
+                                      max_variants: int = 20) -> List[str]:
+        """
+        Generate bypass technique variants using the new bypass_techniques module.
+        
+        This method generates payloads using:
+        - String construction without quotes (CHR/CHAR functions)
+        - Comment-based whitespace replacement
+        - Keyword obfuscation (mixed casing, hex encoding, repetition)
+        - Encoding techniques (double encoding, partial encoding)
+        
+        Args:
+            original_payload: Original SQL injection payload
+            max_variants: Maximum number of variants to generate
+            
+        Returns:
+            List of bypass payload variants
+        """
+        if not self.use_bypass_techniques:
+            return []
+        
+        # Auto-detect DBMS if fingerprinting is enabled
+        if self.use_fingerprinting and hasattr(self, 'detected_db_type') and self.detected_db_type:
+            # Map DatabaseType to DBMSType
+            dbms_mapping = {
+                DatabaseType.MYSQL: DBMSType.MYSQL,
+                DatabaseType.POSTGRESQL: DBMSType.POSTGRESQL,
+                DatabaseType.MSSQL: DBMSType.MSSQL,
+                DatabaseType.ORACLE: DBMSType.ORACLE,
+                DatabaseType.SQLITE: DBMSType.SQLITE,
+            }
+            dbms = dbms_mapping.get(self.detected_db_type, DBMSType.UNKNOWN)
+            self.bypass_engine.set_dbms(dbms)
+            logger.debug(f"Configured bypass engine for detected DBMS: {dbms}")
+        
+        # Generate all bypass variants
+        variants = self.bypass_engine.generate_all_bypass_variants(
+            original_payload, 
+            max_variants=max_variants
+        )
+        
+        logger.debug(f"Generated {len(variants)} bypass technique variants")
+        return variants
     
     def _test_with_adaptive_bypass(self, url: str, method: str,
                                    param_name: str, param_value: str,
