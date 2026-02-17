@@ -1054,11 +1054,14 @@ class OrderByInjectionTest(TestCase):
         self.assertIsNotNone(self.injector.ORDER_BY_PAYLOADS)
         self.assertGreater(len(self.injector.ORDER_BY_PAYLOADS), 0)
         
-        # Check for expected payloads
-        payload_strings = ' '.join(self.injector.ORDER_BY_PAYLOADS)
-        self.assertIn('ASC', payload_strings)
-        self.assertIn('DESC', payload_strings)
-        self.assertIn('SELECT', payload_strings)
+        # Check for expected payloads efficiently
+        has_asc = any('ASC' in payload for payload in self.injector.ORDER_BY_PAYLOADS)
+        has_desc = any('DESC' in payload for payload in self.injector.ORDER_BY_PAYLOADS)
+        has_select = any('SELECT' in payload for payload in self.injector.ORDER_BY_PAYLOADS)
+        
+        self.assertTrue(has_asc, "ORDER BY payloads should include ASC")
+        self.assertTrue(has_desc, "ORDER BY payloads should include DESC")
+        self.assertTrue(has_select, "ORDER BY payloads should include SELECT")
     
     def test_injection_result_with_order_by_attributes(self):
         """Test NumericInjectionResult with ORDER BY attributes"""

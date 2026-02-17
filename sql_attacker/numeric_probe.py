@@ -279,6 +279,15 @@ class NumericSqlInjector:
             'X-Request-ID', 'X-Session-ID', 'X-User-ID', 
             'X-Account-ID', 'X-Transaction-ID'
         ]
+        
+        # ORDER BY detection thresholds
+        self.ORDERING_SIMILARITY_THRESHOLD = 0.7  # 70% common numbers indicate ordering change
+        self.MIN_SEQUENCE_LENGTH = 3  # Minimum sequence length for ordering detection
+        self.FIELD_CHANGE_SIMILARITY_THRESHOLD = 0.5  # Below this indicates field change
+        self.MIN_SIZE_RATIO = 0.3  # Minimum size ratio for field change
+        self.MAX_SIZE_RATIO = 3.0  # Maximum size ratio for field change
+        self.COLUMN_ONES_LINE_RATIO = 0.3  # 30% of lines with '1' indicates column pattern
+        self.MIN_COLUMN_ONES_LINES = 3  # Minimum lines needed to detect pattern
     
     def identify_numeric_parameters(self, url: str, method: str = 'GET',
                                    params: Optional[Dict[str, str]] = None,
@@ -1030,7 +1039,7 @@ class NumericSqlInjector:
         test_numbers = re.findall(r'\b\d+\b', test_response.text)
         
         # If we have the same numbers but in different order, ordering changed
-        if len(baseline_numbers) > 3 and len(test_numbers) > 3:
+        if len(baseline_numbers) > self.MIN_SEQUENCE_LENGTH and len(test_numbers) > self.MIN_SEQUENCE_LENGTH:
             # Compare first 10 numbers in sequence
             baseline_seq = baseline_numbers[:10]
             test_seq = test_numbers[:10]
@@ -1044,15 +1053,15 @@ class NumericSqlInjector:
                 
                 # If >70% of numbers are common but sequence is different,
                 # likely an ordering change
-                if len(common) > 0.7 * min(len(baseline_set), len(test_set)):
+                if len(common) > self.ORDERING_SIMILARITY_THRESHOLD * min(len(baseline_set), len(test_set)):
                     return True
         
         # Check for reversed sequences (ascending to descending or vice versa)
-        if len(baseline_numbers) >= 3 and len(test_numbers) >= 3:
+        if len(baseline_numbers) >= self.MIN_SEQUENCE_LENGTH and len(test_numbers) >= self.MIN_SEQUENCE_LENGTH:
             # Check if baseline is ascending and test is descending (or vice versa)
             try:
-                baseline_first_three = [int(x) for x in baseline_numbers[:3]]
-                test_first_three = [int(x) for x in test_numbers[:3]]
+                baseline_first_three = [int(x) for x in baseline_numbers[:self.MIN_SEQUENCE_LENGTH]]
+                test_first_three = [int(x) for x in test_numbers[:self.MIN_SEQUENCE_LENGTH]]
                 
                 baseline_ascending = baseline_first_three == sorted(baseline_first_three)
                 test_ascending = test_first_three == sorted(test_first_three)
@@ -1091,10 +1100,12 @@ class NumericSqlInjector:
         
         # If similarity is low but both responses are successful,
         # might indicate different columns
-        if similarity < 0.5 and baseline_response.status_code == 200 and test_response.status_code == 200:
+        if similarity < self.FIELD_CHANGE_SIMILARITY_THRESHOLD and \
+           baseline_response.status_code == 200 and test_response.status_code == 200:
             # Check if response sizes are significantly different
             size_ratio = len(test_response.text) / max(len(baseline_response.text), 1)
-            if 0.3 < size_ratio < 3.0:  # Not too different in size
+            # Ratio should be reasonable (not too different in size)
+            if self.MIN_SIZE_RATIO < size_ratio < self.MAX_SIZE_RATIO:
                 return True
         
         return False
@@ -1126,7 +1137,8 @@ class NumericSqlInjector:
             lines_with_one = sum(1 for line in text_parts if re.search(ones_pattern, line))
             
             # If more than 30% of lines contain '1', likely a column of 1s
-            if lines_with_one > 0.3 * len(text_parts) and lines_with_one > 3:
+            if lines_with_one > self.COLUMN_ONES_LINE_RATIO * len(text_parts) and \
+               lines_with_one > self.MIN_COLUMN_ONES_LINES:
                 return True
         
         return False
