@@ -143,7 +143,7 @@ class MockTransport:
         return error_response
 
 
-class SqlFingerprintersTest(TestCase):
+class SqlFingerprinterTest(TestCase):
     """Test SQL Fingerprinter functionality"""
     
     def test_initialization(self):
