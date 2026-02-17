@@ -2,6 +2,29 @@
 
 **The Most Extra Much More Super Intelligent Automated SQL Injection Scanner** 🚀🧠
 
+## 🎯 NEW: Multi-Context Injection Attack Framework (2026)
+
+The SQL Attacker module now supports injection attacks across **5 different interpreted query contexts**:
+
+1. **SQL Injection** - Traditional database injection (MySQL, PostgreSQL, MSSQL, Oracle, SQLite)
+2. **LDAP Injection** - Directory service injection (Active Directory, OpenLDAP)
+3. **XPath Injection** - XML query injection (XML databases, SOAP services)
+4. **Message Queue Injection** - Message system injection (RabbitMQ, Kafka, Redis, ActiveMQ)
+5. **Custom Query Language** - Modern API injection (GraphQL, JSONPath, OData, MongoDB)
+
+### 🌟 Multi-Context Features
+
+- ✨ **180+ specialized payloads** across all contexts
+- 🎯 **Parallel context testing** for faster results
+- 🔍 **Intelligent response analysis** with context-specific detection
+- 💉 **Automated exploitation** with data extraction
+- 📸 **Visual proof capture** (screenshots/GIFs) following vulnerability scanner pattern
+- 🎨 **Beautiful dashboard UI** with multi-context results display
+- 📊 **Comprehensive reporting** with confidence scores and evidence
+- 🔧 **Extensible framework** for adding new contexts
+
+📖 See [MULTI_CONTEXT_INJECTION_GUIDE.md](MULTI_CONTEXT_INJECTION_GUIDE.md) for detailed documentation.
+
 A comprehensive, state-of-the-art SQL injection detection and exploitation tool with **advanced AI capabilities**, integrated into the Megido security platform. Now with cognitive planning, deep learning, and reinforcement learning!
 
 ## Overview
