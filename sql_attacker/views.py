@@ -20,6 +20,30 @@ from response_analyser.analyse import save_vulnerability
 logger = logging.getLogger(__name__)
 
 
+def _get_default_data_to_exfiltrate(db_type):
+    """
+    Helper function to get default data expression for OOB exfiltration.
+    
+    Args:
+        db_type: OOBDatabaseType enum value or None
+        
+    Returns:
+        Default SQL expression to exfiltrate based on database type
+    """
+    # Default expressions that work across databases
+    DEFAULT_EXFIL_EXPRESSIONS = {
+        OOBDatabaseType.MSSQL: '@@version',
+        OOBDatabaseType.ORACLE: 'user',
+        OOBDatabaseType.MYSQL: '@@version'
+    }
+    
+    if db_type is None:
+        # If no specific DB type, use generic expression
+        return 'user'
+    
+    return DEFAULT_EXFIL_EXPRESSIONS.get(db_type, 'user')
+
+
 def dashboard(request):
     """
     Dashboard view showing SQL injection attack tasks and statistics.
@@ -732,11 +756,7 @@ def api_generate_oob_payloads(request):
         
         # Set default data to exfiltrate based on DB type if not provided
         if data_to_exfiltrate is None:
-            data_to_exfiltrate = {
-                OOBDatabaseType.MSSQL: '@@version',
-                OOBDatabaseType.ORACLE: 'user',
-                OOBDatabaseType.MYSQL: '@@version'
-            }.get(db_type, 'user') if db_type else 'user'
+            data_to_exfiltrate = _get_default_data_to_exfiltrate(db_type)
         
         # Generate payloads
         all_payloads = generator.generate_all_payloads(db_type, data_to_exfiltrate)

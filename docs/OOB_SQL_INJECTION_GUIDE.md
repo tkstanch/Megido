@@ -252,10 +252,14 @@ SMB listeners capture Windows UNC path connections and can log NTLM hashes.
 pip install impacket
 
 # Create SMB share
+# Note: Port 445 (default SMB) requires root/admin privileges
 smbserver.py share /tmp/share -smb2support
 
 # With specific IP binding
 smbserver.py share /tmp/share -ip 192.168.1.100 -smb2support
+
+# Alternative: Use high port (no admin required) with custom configuration
+# However, most OOB techniques expect standard port 445
 ```
 
 **Option 2: Responder (Hash Capture)**
@@ -283,7 +287,7 @@ run
 # Hashes saved to /tmp/captured_hashes.txt
 ```
 
-**Note:** SMB listeners require administrative/root privileges for port 445.
+**Note:** SMB listeners require administrative/root privileges for port 445 (standard SMB port). On Unix-like systems, any port below 1024 requires elevated privileges. The SMB protocol specifically uses port 445 for direct hosting, and attempting to bind to this port without proper privileges will fail.
 
 ---
 
