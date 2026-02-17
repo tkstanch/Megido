@@ -425,6 +425,30 @@ function showExploitActions() {
     description.textContent = 'Choose how to proceed with discovered vulnerabilities:';
     cardBody.appendChild(description);
     
+    // Add visual proof toggle checkbox
+    const visualProofContainer = document.createElement('div');
+    visualProofContainer.className = 'mb-4 flex items-center gap-2';
+    
+    const visualProofCheckbox = document.createElement('input');
+    visualProofCheckbox.type = 'checkbox';
+    visualProofCheckbox.id = 'enable-visual-proof';
+    visualProofCheckbox.checked = true; // Default to enabled
+    visualProofCheckbox.className = 'h-4 w-4 text-primary-600 rounded border-gray-300';
+    
+    const visualProofLabel = document.createElement('label');
+    visualProofLabel.htmlFor = 'enable-visual-proof';
+    visualProofLabel.className = 'text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer';
+    visualProofLabel.textContent = 'Enable Visual Proof';
+    
+    const visualProofHelpText = document.createElement('span');
+    visualProofHelpText.className = 'text-xs text-gray-500 dark:text-gray-400 ml-2';
+    visualProofHelpText.textContent = '(Capture screenshots/GIFs of successful exploits)';
+    
+    visualProofContainer.appendChild(visualProofCheckbox);
+    visualProofContainer.appendChild(visualProofLabel);
+    visualProofContainer.appendChild(visualProofHelpText);
+    cardBody.appendChild(visualProofContainer);
+    
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex flex-wrap gap-3';
     
@@ -911,6 +935,10 @@ async function exploitAll() {
             </div>
         `;
         
+        // Get visual proof checkbox value (defaults to true if checkbox not found)
+        // The checkbox is created in showExploitActions() which runs before this function
+        const enableVisualProof = document.getElementById('enable-visual-proof')?.checked ?? true;
+        
         const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
             method: 'POST',
             headers: {
@@ -918,7 +946,10 @@ async function exploitAll() {
                 'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin',
-            body: JSON.stringify({action: 'all'})
+            body: JSON.stringify({
+                action: 'all',
+                enable_visual_proof: enableVisualProof
+            })
         });
         
         if (!response.ok) {
@@ -1023,6 +1054,10 @@ async function exploitSelected() {
             </div>
         `;
         
+        // Get visual proof checkbox value (defaults to true if checkbox not found)
+        // The checkbox is created in showExploitActions() which runs before this function
+        const enableVisualProof = document.getElementById('enable-visual-proof')?.checked ?? true;
+        
         const response = await fetch(`/scanner/api/scans/${currentScanId}/exploit/`, {
             method: 'POST',
             headers: {
@@ -1032,7 +1067,8 @@ async function exploitSelected() {
             credentials: 'same-origin',
             body: JSON.stringify({
                 action: 'selected',
-                vulnerability_ids: selectedIds
+                vulnerability_ids: selectedIds,
+                enable_visual_proof: enableVisualProof
             })
         });
         

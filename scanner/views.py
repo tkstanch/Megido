@@ -225,6 +225,7 @@ def exploit_vulnerabilities(request, scan_id):
     Request body should contain:
     - action: 'all' to exploit all vulnerabilities, 'selected' for specific ones
     - vulnerability_ids: (optional) list of vulnerability IDs when action='selected'
+    - enable_visual_proof: (optional) boolean to enable/disable visual proof capture (default: True)
     
     Returns:
     - task_id: Celery task ID for polling status
@@ -237,11 +238,18 @@ def exploit_vulnerabilities(request, scan_id):
     
     action = request.data.get('action', 'all')
     
+    # Read enable_visual_proof from request, default to True for backward compatibility
+    enable_visual_proof = request.data.get('enable_visual_proof', True)
+    # Convert string 'true'/'false' to boolean if needed
+    if isinstance(enable_visual_proof, str):
+        enable_visual_proof = enable_visual_proof.lower() == 'true'
+    
     # Configuration for exploit attempts
     config = {
         'timeout': 30,
         'verify_ssl': False,
         'enable_exploitation': True,
+        'enable_visual_proof': enable_visual_proof,
     }
     
     if action == 'all':
