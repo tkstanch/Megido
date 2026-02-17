@@ -247,5 +247,84 @@ class XPathInjectionContext(InjectionContext):
         
         return exploitation_results if any(exploitation_results.values()) else None
     
+    # ========================================
+    # Six-Step Injection Testing Methodology (Stub Implementations)
+    # ========================================
+    
+    def step1_supply_payloads(self, parameter_value: str) -> List[str]:
+        """Step 1: Supply unexpected syntax and context-specific payloads."""
+        return self.payloads
+    
+    def step2_detect_anomalies(
+        self,
+        response_body: str,
+        response_headers: Dict[str, str],
+        response_time: float,
+        baseline_response: Optional[Tuple[str, float]] = None
+    ) -> Tuple[bool, List[str]]:
+        """Step 2: Detect anomalies and error messages in responses."""
+        anomalies = []
+        for pattern_info in self.detection_patterns:
+            if re.search(pattern_info['pattern'], response_body, re.IGNORECASE):
+                anomalies.append(f"xpath_error: {pattern_info['pattern']}")
+        return len(anomalies) > 0, anomalies
+    
+    def step3_extract_evidence(
+        self,
+        response_body: str,
+        anomalies: List[str]
+    ) -> Dict[str, Any]:
+        """Step 3: Analyze and extract error/evidence from response."""
+        return {
+            'error_type': 'xpath_injection',
+            'details': {'anomalies': anomalies},
+            'context_info': {},
+            'confidence': 0.80 if anomalies else 0.0
+        }
+    
+    def step4_mutate_and_verify(
+        self,
+        target_url: str,
+        parameter_name: str,
+        parameter_type: str,
+        parameter_value: str,
+        successful_payload: str,
+        http_method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None
+    ) -> Tuple[bool, float, str]:
+        """Step 4: Mutate input systematically to confirm or disprove vulnerabilities."""
+        return True, 0.75, "XPath injection verification (basic)"
+    
+    def step5_build_poc(
+        self,
+        vulnerable_parameter: str,
+        successful_payload: str,
+        evidence: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Step 5: Build proof-of-concept payloads for safe, verifiable exploits."""
+        return {
+            'poc_payload': "' or '1'='1",
+            'expected_result': 'All XML nodes returned',
+            'safety_notes': 'This POC only queries data without modification',
+            'reproduction_steps': ['Send XPath query with payload'],
+            'original_payload': successful_payload
+        }
+    
+    def step6_automated_exploitation(
+        self,
+        target_url: str,
+        vulnerable_parameter: str,
+        parameter_type: str,
+        poc_payload: str,
+        evidence: Dict[str, Any],
+        http_method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Step 6: Exploitation automation for verified cases."""
+        # Use existing attempt_exploitation logic
+        return self.attempt_exploitation(target_url, vulnerable_parameter, parameter_type, poc_payload)
+    
     def get_description(self) -> str:
         return "XPath Injection - Tests for vulnerabilities in XML XPath queries"

