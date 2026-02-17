@@ -792,3 +792,295 @@ class NumericSqlInjectorIntegrationTest(TestCase):
         # Should find and test user_id parameter
         self.assertGreater(len(results), 0)
         self.assertEqual(results[0].parameter.location, 'body')
+
+
+class OrderByInjectionTest(TestCase):
+    """Test ORDER BY-based SQL injection detection"""
+    
+    def setUp(self):
+        """Set up test fixtures"""
+        self.injector = NumericSqlInjector()
+    
+    def test_detect_ordering_change_reversed_sequence(self):
+        """Test detection of reversed ordering"""
+        # Baseline response with ascending order
+        baseline = MockResponse(
+            "ID: 1, Name: Apple\nID: 2, Name: Banana\nID: 3, Name: Cherry",
+            200
+        )
+        
+        # Test response with descending order
+        test = MockResponse(
+            "ID: 3, Name: Cherry\nID: 2, Name: Banana\nID: 1, Name: Apple",
+            200
+        )
+        
+        # Should detect ordering change
+        ordering_changed = self.injector._detect_ordering_change(baseline, test)
+        self.assertTrue(ordering_changed)
+    
+    def test_detect_ordering_change_same_order(self):
+        """Test no detection when ordering is the same"""
+        baseline = MockResponse("ID: 1, 2, 3, 4, 5", 200)
+        test = MockResponse("ID: 1, 2, 3, 4, 5", 200)
+        
+        ordering_changed = self.injector._detect_ordering_change(baseline, test)
+        self.assertFalse(ordering_changed)
+    
+    def test_detect_ordering_change_different_items(self):
+        """Test detection when items are reordered"""
+        baseline = MockResponse(
+            "Product: 10, 20, 30, 40, 50",
+            200
+        )
+        test = MockResponse(
+            "Product: 50, 40, 30, 20, 10",
+            200
+        )
+        
+        ordering_changed = self.injector._detect_ordering_change(baseline, test)
+        self.assertTrue(ordering_changed)
+    
+    def test_detect_field_change(self):
+        """Test detection of field/column changes"""
+        # Baseline with certain columns
+        baseline = MockResponse(
+            "ID: 1, Name: Test, Price: 100, Description: Lorem ipsum",
+            200
+        )
+        
+        # Test with different columns (simulating different column selection)
+        test = MockResponse(
+            "ID: 1, Category: Electronics",
+            200
+        )
+        
+        field_changed = self.injector._detect_field_change(baseline, test)
+        self.assertTrue(field_changed)
+    
+    def test_detect_field_change_similar_content(self):
+        """Test no detection when content is similar"""
+        baseline = MockResponse("ID: 1, Name: Test, Price: 100", 200)
+        test = MockResponse("ID: 1, Name: Test, Price: 101", 200)
+        
+        field_changed = self.injector._detect_field_change(baseline, test)
+        self.assertFalse(field_changed)
+    
+    def test_detect_column_with_ones(self):
+        """Test detection of column filled with '1' values"""
+        # Response where a column has all 1s (indicating column number usage)
+        response = MockResponse(
+            "<tr><td>1</td><td>Product A</td></tr>\n" * 10,
+            200
+        )
+        
+        has_ones = self.injector._detect_column_with_ones(response)
+        self.assertTrue(has_ones)
+    
+    def test_detect_column_with_ones_no_pattern(self):
+        """Test no detection when there's no column of 1s"""
+        response = MockResponse(
+            "ID: 5, Name: Test, Count: 2, Price: 100",
+            200
+        )
+        
+        has_ones = self.injector._detect_column_with_ones(response)
+        self.assertFalse(has_ones)
+    
+    @patch('sql_attacker.numeric_probe.NumericSqlInjector._make_request')
+    def test_analyze_order_by_injection_basic(self, mock_request):
+        """Test basic ORDER BY injection analysis"""
+        # Create different responses for sequential values
+        responses = {
+            '1': MockResponse("ID: 1, 2, 3", 200),  # Baseline
+            '2': MockResponse("ID: 3, 2, 1", 200),  # Reversed order
+            '3': MockResponse("ID: 1, 2, 3", 200),
+        }
+        
+        def side_effect(*args, **kwargs):
+            # Get the parameter value from request
+            if args[2] and 'sort' in args[2]:  # params dict
+                value = args[2]['sort']
+                return responses.get(value, responses['1'])
+            return responses['1']
+        
+        mock_request.side_effect = side_effect
+        
+        param = NumericParameter('sort', '1', 'GET', 'query')
+        results = self.injector.analyze_order_by_injection(
+            url='http://example.com/products',
+            parameter=param,
+            method='GET',
+            params={'sort': '1'},
+            max_sequential=3
+        )
+        
+        # Should detect ordering change
+        self.assertGreater(len(results), 0)
+        ordering_results = [r for r in results if r.ordering_changed]
+        self.assertGreater(len(ordering_results), 0)
+    
+    @patch('sql_attacker.numeric_probe.NumericSqlInjector._make_request')
+    def test_analyze_order_by_injection_field_change(self, mock_request):
+        """Test ORDER BY analysis detecting field changes"""
+        responses = {
+            '1': MockResponse("Column1: Data1, Column2: Data2", 200),
+            '2': MockResponse("Column3: Data3", 200),  # Different fields
+            '3': MockResponse("Column1: Data1, Column2: Data2", 200),
+        }
+        
+        def side_effect(*args, **kwargs):
+            if args[2] and 'col' in args[2]:
+                value = args[2]['col']
+                return responses.get(value, responses['1'])
+            return responses['1']
+        
+        mock_request.side_effect = side_effect
+        
+        param = NumericParameter('col', '1', 'GET', 'query')
+        results = self.injector.analyze_order_by_injection(
+            url='http://example.com/data',
+            parameter=param,
+            method='GET',
+            params={'col': '1'},
+            max_sequential=3
+        )
+        
+        # Should detect field change
+        field_results = [r for r in results if r.field_changed]
+        self.assertGreater(len(field_results), 0)
+    
+    @patch('sql_attacker.numeric_probe.NumericSqlInjector._make_request')
+    def test_analyze_order_by_injection_column_ones(self, mock_request):
+        """Test detection of column selection via number (all 1s)"""
+        responses = {
+            '1': MockResponse("<tr><td>1</td></tr>\n" * 10, 200),  # All 1s
+            '2': MockResponse("ID: 1, 2, 3", 200),
+        }
+        
+        def side_effect(*args, **kwargs):
+            if args[2] and 'field' in args[2]:
+                value = args[2]['field']
+                return responses.get(value, responses['2'])
+            return responses['2']
+        
+        mock_request.side_effect = side_effect
+        
+        param = NumericParameter('field', '2', 'GET', 'query')
+        results = self.injector.analyze_order_by_injection(
+            url='http://example.com/data',
+            parameter=param,
+            method='GET',
+            params={'field': '2'},
+            max_sequential=2
+        )
+        
+        # Should detect column selection pattern
+        column_results = [r for r in results if r.injection_type == 'column_selection']
+        self.assertGreater(len(column_results), 0)
+    
+    @patch('sql_attacker.numeric_probe.NumericSqlInjector._make_request')
+    def test_order_by_payloads_asc_desc(self, mock_request):
+        """Test ORDER BY ASC/DESC payload testing"""
+        baseline = MockResponse("ID: 1, 2, 3", 200)
+        desc_response = MockResponse("ID: 3, 2, 1", 200)
+        
+        def side_effect(*args, **kwargs):
+            if args[2] and 'sort' in args[2]:
+                value = args[2]['sort']
+                # Check if payload contains DESC
+                if 'DESC' in str(value):
+                    return desc_response
+            return baseline
+        
+        mock_request.side_effect = side_effect
+        
+        param = NumericParameter('sort', '1', 'GET', 'query')
+        
+        # Call the internal method directly
+        results = self.injector._test_order_by_payloads(
+            url='http://example.com/products',
+            parameter=param,
+            method='GET',
+            params={'sort': '1'},
+            data=None,
+            cookies=None,
+            headers=None,
+            baseline_response=baseline
+        )
+        
+        # Should detect ORDER BY injection via DESC payload
+        self.assertGreater(len(results), 0)
+        order_by_results = [r for r in results if r.injection_type == 'order_by']
+        self.assertGreater(len(order_by_results), 0)
+    
+    @patch('sql_attacker.numeric_probe.NumericSqlInjector._make_request')
+    def test_advanced_column_payloads(self, mock_request):
+        """Test advanced column selection payloads"""
+        baseline = MockResponse("ID: 1, Name: Test", 200)
+        subquery_response = MockResponse("<tr><td>1</td></tr>\n" * 5, 200)
+        
+        def side_effect(*args, **kwargs):
+            if args[2] and 'col' in args[2]:
+                value = args[2]['col']
+                # Detect subquery patterns
+                if 'SELECT' in str(value):
+                    return subquery_response
+            return baseline
+        
+        mock_request.side_effect = side_effect
+        
+        param = NumericParameter('col', '1', 'GET', 'query')
+        
+        # Call the internal method
+        results = self.injector._test_advanced_column_payloads(
+            url='http://example.com/data',
+            parameter=param,
+            method='GET',
+            params={'col': '1'},
+            data=None,
+            cookies=None,
+            headers=None,
+            baseline_response=baseline
+        )
+        
+        # Should detect advanced column selection
+        self.assertGreater(len(results), 0)
+        advanced_results = [r for r in results if 'advanced' in r.injection_type]
+        self.assertGreater(len(advanced_results), 0)
+    
+    def test_order_by_payloads_exist(self):
+        """Test that ORDER BY payloads are defined"""
+        self.assertIsNotNone(self.injector.ORDER_BY_PAYLOADS)
+        self.assertGreater(len(self.injector.ORDER_BY_PAYLOADS), 0)
+        
+        # Check for expected payloads
+        payload_strings = ' '.join(self.injector.ORDER_BY_PAYLOADS)
+        self.assertIn('ASC', payload_strings)
+        self.assertIn('DESC', payload_strings)
+        self.assertIn('SELECT', payload_strings)
+    
+    def test_injection_result_with_order_by_attributes(self):
+        """Test NumericInjectionResult with ORDER BY attributes"""
+        param = NumericParameter('sort', '1', 'GET', 'query')
+        result = NumericInjectionResult(
+            parameter=param,
+            payload='1 ASC --',
+            vulnerable=True,
+            confidence=0.9,
+            evidence='Ordering changed',
+            response_diff=0.5,
+            injection_type='order_by',
+            ordering_changed=True,
+            field_changed=False
+        )
+        
+        self.assertEqual(result.injection_type, 'order_by')
+        self.assertTrue(result.ordering_changed)
+        self.assertFalse(result.field_changed)
+        
+        # Check dictionary representation
+        result_dict = result.to_dict()
+        self.assertEqual(result_dict['injection_type'], 'order_by')
+        self.assertTrue(result_dict['ordering_changed'])
+        self.assertFalse(result_dict['field_changed'])
