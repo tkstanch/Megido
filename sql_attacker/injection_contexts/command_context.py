@@ -541,3 +541,8 @@ class CommandInjectionModule(InjectionAttackModule):
             exploitation_result['verification'] = verification_evidence
         
         return exploitation_result
+    
+    def get_description(self) -> str:
+        """Get a human-readable description of this module."""
+        return "Command Injection - Tests for OS command injection vulnerabilities in system calls"
+

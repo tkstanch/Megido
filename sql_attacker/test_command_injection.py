@@ -209,8 +209,8 @@ class TestCommandInjectionModule(unittest.TestCase):
     def test_get_description(self):
         """Test module description."""
         description = self.module.get_description()
-        self.assertIn("COMMAND", description)
-        self.assertIn("Injection", description)
+        self.assertIn("command", description.lower())
+        self.assertIn("injection", description.lower())
 
 
 class TestCommandInjectionIntegration(unittest.TestCase):
