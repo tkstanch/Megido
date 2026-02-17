@@ -123,8 +123,11 @@ class TestInsertPayloads(unittest.TestCase):
                 param_count = param_section.count(',') + 1
                 max_found = max(max_found, param_count)
         
-        # Should not exceed max_params (allowing some tolerance for mixed types)
-        self.assertLessEqual(max_found, max_params + 2)
+        # Should not exceed max_params
+        # Note: +2 tolerance accounts for mixed-type payloads that may have
+        # slightly more parameters for testing different column type combinations
+        MAX_PARAMS_TOLERANCE = 2
+        self.assertLessEqual(max_found, max_params + MAX_PARAMS_TOLERANCE)
     
     def test_insert_quote_balanced_variants(self):
         """Test that INSERT payloads include quote-balanced variants."""

