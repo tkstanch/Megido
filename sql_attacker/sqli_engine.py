@@ -315,25 +315,31 @@ class SQLInjectionEngine:
         if detected_waf and confidence > 0.5:
             logger.info(f"WAF detected: {detected_waf} (confidence: {confidence:.2f})")
         
+        # Allocate variations budget across different techniques
+        # 40% for existing adaptive bypass, 40% for new bypass techniques, 20% for polyglots
+        existing_bypass_budget = max(1, int(max_variations * 0.4))
+        bypass_techniques_budget = max(1, int(max_variations * 0.4))
+        polyglot_budget = max(1, int(max_variations * 0.2))
+        
         # Get adaptive bypass payloads from existing system
         bypass_payloads = self.adaptive_bypass.get_bypass_payloads(
             original_payload, 
             detected_waf=detected_waf,
-            max_variations=max_variations // 2  # Reserve half for new bypass techniques
+            max_variations=existing_bypass_budget
         )
         
         # Add advanced bypass technique variants (NEW!)
         if self.use_bypass_techniques:
             bypass_variants = self._get_bypass_technique_variants(
                 original_payload,
-                max_variants=max_variations // 2
+                max_variants=bypass_techniques_budget
             )
             bypass_payloads.extend(bypass_variants)
         
         # Add polyglot payloads if enabled
         if self.use_polyglot_payloads:
             # Get context-agnostic polyglots
-            polyglots = self.polyglot_engine.get_context_agnostic()[:3]
+            polyglots = self.polyglot_engine.get_context_agnostic()[:polyglot_budget]
             bypass_payloads.extend(polyglots)
         
         # Remove duplicates while preserving order
@@ -344,6 +350,7 @@ class SQLInjectionEngine:
                 seen.add(payload)
                 unique_payloads.append(payload)
         
+        # Ensure we don't exceed max_variations
         return unique_payloads[:max_variations]
     
     def _get_bypass_technique_variants(self, original_payload: str, 
@@ -368,7 +375,7 @@ class SQLInjectionEngine:
             return []
         
         # Auto-detect DBMS if fingerprinting is enabled
-        if self.use_fingerprinting and hasattr(self, 'detected_db_type'):
+        if self.use_fingerprinting and hasattr(self, 'detected_db_type') and self.detected_db_type:
             # Map DatabaseType to DBMSType
             dbms_mapping = {
                 DatabaseType.MYSQL: DBMSType.MYSQL,
@@ -379,6 +386,7 @@ class SQLInjectionEngine:
             }
             dbms = dbms_mapping.get(self.detected_db_type, DBMSType.UNKNOWN)
             self.bypass_engine.set_dbms(dbms)
+            logger.debug(f"Configured bypass engine for detected DBMS: {dbms}")
         
         # Generate all bypass variants
         variants = self.bypass_engine.generate_all_bypass_variants(

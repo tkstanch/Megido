@@ -11,6 +11,7 @@ filters and application-level blacklists. Implements various techniques includin
 
 import re
 import urllib.parse
+import random
 from typing import List, Optional, Dict
 from enum import Enum
 
@@ -306,7 +307,6 @@ class KeywordVariantBypass:
             return ''.join(c.upper() if i % 2 == 0 else c.lower() 
                           for i, c in enumerate(keyword))
         elif pattern == 'random':
-            import random
             return ''.join(c.upper() if random.random() > 0.5 else c.lower() 
                           for c in keyword)
         elif pattern == 'camel':
@@ -463,7 +463,6 @@ class EncodingBypass:
         Returns:
             Partially encoded payload
         """
-        import random
         result = []
         for char in payload:
             if random.random() < ratio:
@@ -522,7 +521,6 @@ class EncodingBypass:
         elif style == 'mixed':
             # Mix of URL encoding and unicode
             result = []
-            import random
             for char in payload:
                 if random.random() < 0.3:
                     result.append(f'\\u{ord(char):04x}')
