@@ -175,7 +175,8 @@ class NumericSqlInjector:
         # ASCII/CHAR operations
         '67-ASCII("A")',     # 67-65=2 (ASCII of 'A' is 65)
         '67-ASCII(\'A\')',   # Same with single quotes
-        '51-ASCII(1)',       # 51-49=2 (ASCII of '1' is 49)
+        '51-ASCII(1)',       # Tests SQL interpretation of ASCII(1) - numeric vs string
+        '51-ASCII("1")',     # 51-49=2 (ASCII of '1' character is 49)
         'ASCII("B")-64',     # 66-64=2 (ASCII of 'B' is 66)
         
         # Bitwise operations
@@ -214,7 +215,8 @@ class NumericSqlInjector:
     }
     
     def __init__(self, timeout: int = 10, max_retries: int = 2,
-                 similarity_threshold: float = 0.95):
+                 similarity_threshold: float = 0.95,
+                 numeric_headers: Optional[List[str]] = None):
         """
         Initialize the NumericSqlInjector.
         
@@ -222,6 +224,8 @@ class NumericSqlInjector:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts for failed requests
             similarity_threshold: Threshold for response similarity comparison (0.0 to 1.0)
+            numeric_headers: List of header names to check for numeric values.
+                           If None, uses default list of common numeric headers.
         """
         self.timeout = timeout
         self.max_retries = max_retries
@@ -230,6 +234,12 @@ class NumericSqlInjector:
         
         # User agent for requests
         self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        
+        # Configure which headers to check for numeric values
+        self.numeric_headers = numeric_headers or [
+            'X-Request-ID', 'X-Session-ID', 'X-User-ID', 
+            'X-Account-ID', 'X-Transaction-ID'
+        ]
     
     def identify_numeric_parameters(self, url: str, method: str = 'GET',
                                    params: Optional[Dict[str, str]] = None,
@@ -311,9 +321,8 @@ class NumericSqlInjector:
                     logger.debug(f"Identified numeric cookie: {cookie_name}={cookie_value}")
         
         # Check specific headers that commonly contain numeric values
-        numeric_headers = ['X-Request-ID', 'X-Session-ID', 'X-User-ID', 'X-Account-ID']
         if headers:
-            for header_name in numeric_headers:
+            for header_name in self.numeric_headers:
                 if header_name in headers:
                     header_value = headers[header_name]
                     if self._is_numeric(str(header_value)):

@@ -6,6 +6,9 @@ Tests for the NumericSqlInjector class, including:
 - Numeric parameter identification
 - HTTP request handling
 - Response analysis and vulnerability detection
+
+Note: Uses Django TestCase for consistency with other sql_attacker tests in this project,
+even though the NumericSqlInjector itself doesn't require Django.
 """
 
 from django.test import TestCase
@@ -144,15 +147,18 @@ class NumericSqlInjectorTest(TestCase):
     
     def test_initialization_custom_params(self):
         """Test injector initialization with custom parameters"""
+        custom_headers = ['X-Custom-ID', 'X-Special-Number']
         injector = NumericSqlInjector(
             timeout=30,
             max_retries=5,
-            similarity_threshold=0.90
+            similarity_threshold=0.90,
+            numeric_headers=custom_headers
         )
         
         self.assertEqual(injector.timeout, 30)
         self.assertEqual(injector.max_retries, 5)
         self.assertEqual(injector.similarity_threshold, 0.90)
+        self.assertEqual(injector.numeric_headers, custom_headers)
     
     def test_is_numeric_integer(self):
         """Test numeric detection for integers"""
@@ -271,6 +277,7 @@ class NumericSqlInjectorTest(TestCase):
         self.assertIn('67-ASCII("A")', payloads)
         self.assertIn("67-ASCII('A')", payloads)
         self.assertIn('51-ASCII(1)', payloads)
+        self.assertIn('51-ASCII("1")', payloads)
     
     def test_generate_payloads_different_value(self):
         """Test payload generation with different value"""
