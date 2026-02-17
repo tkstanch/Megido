@@ -26,7 +26,7 @@ class ProofReportingMixin:
         target_url: str,
         vulnerability_data: Dict[str, Any],
         config: Dict[str, Any],
-        enable_visual_proof: bool = False
+        enable_visual_proof: bool = True
     ) -> None:
         """
         Generate a generic proof report for any exploit type.
@@ -40,7 +40,7 @@ class ProofReportingMixin:
             target_url: Target URL
             vulnerability_data: Vulnerability data dictionary
             config: Configuration dictionary
-            enable_visual_proof: Whether to enable visual proof capture
+            enable_visual_proof: Whether to enable visual proof capture (default: True, enabled by default)
         """
         try:
             from scanner.proof_reporter import get_proof_reporter
@@ -110,6 +110,7 @@ class ProofReportingMixin:
             
             # Capture visual proof if enabled and applicable
             if enable_visual_proof and success and config.get('enable_visual_proof', True):
+                logger.info(f"Attempting to capture visual proof for {vulnerability_type} vulnerability")
                 try:
                     reporter.capture_visual_proof(
                         proof_data,
@@ -118,6 +119,13 @@ class ProofReportingMixin:
                     )
                 except Exception as e:
                     proof_data.add_log(f"Visual proof capture failed: {e}", 'warning')
+                    logger.warning(f"Visual proof capture failed for {vulnerability_type}: {e}")
+            elif not enable_visual_proof:
+                logger.debug(f"Visual proof capture disabled via enable_visual_proof parameter for {vulnerability_type}")
+            elif not success:
+                logger.debug(f"Visual proof capture skipped (exploitation not successful) for {vulnerability_type}")
+            elif not config.get('enable_visual_proof', True):
+                logger.debug(f"Visual proof capture disabled via config for {vulnerability_type}")
             
             # Add metadata
             proof_data.add_metadata('target_url', target_url)
@@ -161,13 +169,16 @@ def add_proof_reporting_to_result(
     target_url: str,
     vulnerability_data: Dict[str, Any],
     config: Dict[str, Any],
-    enable_visual_proof: bool = False
+    enable_visual_proof: bool = True
 ) -> None:
     """
     Helper function to add proof reporting to any exploit plugin result.
     
     This is a convenience function that can be called from any plugin's
     execute_attack method to add proof reporting.
+    
+    Visual proof capture is enabled by default since v2.6 to provide
+    automatic screenshot/GIF evidence of successful exploitations.
     
     Args:
         plugin_instance: The plugin instance (for accessing version, etc.)
@@ -176,7 +187,7 @@ def add_proof_reporting_to_result(
         target_url: Target URL
         vulnerability_data: Vulnerability data
         config: Configuration dictionary
-        enable_visual_proof: Whether to enable visual proof
+        enable_visual_proof: Whether to enable visual proof capture (default: True, enabled by default)
     
     Example:
         from scanner.proof_reporting_helpers import add_proof_reporting_to_result
