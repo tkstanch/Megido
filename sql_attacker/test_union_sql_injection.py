@@ -165,23 +165,26 @@ class TestUnionSQLInjectionAttacker(unittest.TestCase):
     
     def test_discover_column_count_success(self):
         """Test successful column count discovery."""
-        # First 2 attempts fail, 3rd succeeds
-        self.mock_request.side_effect = [
-            ("<html>baseline</html>", 200, {}),  # set_target
-            ("SQL syntax error", 200, {}),  # 1 column fails
-            ("SQL syntax error", 200, {}),  # 2 columns fails
-            ("<html>success with extra data</html>", 200, {}),  # 3 columns succeeds
+        # Setup responses in order:
+        # 1. baseline for set_target
+        # 2-4. column count tests (1 col fails, 2 cols fails, 3 cols succeeds)
+        # 5-7. injectable column identification for 3 columns
+        responses = [
+            ("<html>baseline</html>", 200, {}),  # set_target baseline
+            ("SQL syntax error", 200, {}),  # 1 column fails (all 3 comment styles)
+            ("SQL syntax error", 200, {}),
+            ("SQL syntax error", 200, {}),
+            ("SQL syntax error", 200, {}),  # 2 columns fails (all 3 comment styles)
+            ("SQL syntax error", 200, {}),
+            ("SQL syntax error", 200, {}),
+            ("<html>success with extra data</html>", 200, {}),  # 3 columns succeeds (first comment style)
+            ("<html>INJECTABLE_1_TEST found</html>", 200, {}),  # column 1 injectable
+            ("<html>no marker</html>", 200, {}),  # column 2 not injectable
+            ("<html>no marker</html>", 200, {}),  # column 3 not injectable
         ]
+        self.mock_request.side_effect = responses
         
         self.attacker.set_target("http://example.com/product?id=1")
-        
-        # Add more responses for injectable column identification
-        self.mock_request.side_effect = [
-            ("<html>INJECTABLE_1_TEST found</html>", 200, {}),
-            ("<html>no marker</html>", 200, {}),
-            ("<html>no marker</html>", 200, {}),
-        ]
-        
         column_count = self.attacker.discover_column_count()
         
         self.assertEqual(column_count, 3)
