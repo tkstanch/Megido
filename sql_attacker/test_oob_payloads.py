@@ -44,6 +44,7 @@ def test_mssql_payloads():
     """Test MS-SQL OOB payload generation"""
     print("\nTesting MS-SQL payload generation...")
     
+    # Test domain for validation - not used for actual URL sanitization
     generator = OOBPayloadGenerator("attacker.com", 80)
     payloads = generator.generate_mssql_payloads()
     
@@ -89,6 +90,7 @@ def test_oracle_payloads():
     """Test Oracle OOB payload generation"""
     print("\nTesting Oracle payload generation...")
     
+    # Test domain for validation - not used for actual URL sanitization
     generator = OOBPayloadGenerator("oracle-test.com", 80)
     payloads = generator.generate_oracle_payloads()
     
@@ -141,6 +143,7 @@ def test_mysql_payloads():
     """Test MySQL OOB payload generation"""
     print("\nTesting MySQL payload generation...")
     
+    # Test domain for validation - not used for actual URL sanitization
     generator = OOBPayloadGenerator("mysql-test.com", 445)
     payloads = generator.generate_mysql_payloads()
     
@@ -260,6 +263,7 @@ def test_format_payload_for_output():
     """Test payload formatting"""
     print("\nTesting payload formatting...")
     
+    # Test domain for validation - not used for actual URL sanitization
     generator = OOBPayloadGenerator("format-test.com", 80)
     payloads = generator.generate_mssql_payloads()
     
