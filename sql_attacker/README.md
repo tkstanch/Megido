@@ -2,7 +2,68 @@
 
 **The Most Extra Much More Super Intelligent Automated SQL Injection Scanner** 🚀🧠
 
-## 🎯 NEW: Multi-Context Injection Attack Framework (2026)
+## 🎯 NEW: Comprehensive Input Vector Testing (2026)
+
+The SQL Attacker now performs **comprehensive automated probing** across ALL potential HTTP input vectors:
+
+### 🔍 Complete Input Vector Coverage
+
+- ✅ **URL Query Parameters (GET)** - Tests all query string parameters
+- ✅ **POST Data** - Form fields, JSON data, multipart data
+- ✅ **HTTP Cookies** - All cookie values tested for injection
+- ✅ **HTTP Headers** - User-Agent, Referer, X-Forwarded-For, and 10+ custom headers
+- ✅ **Parameter/Header NAMES** - Tests names, not just values (rare but critical)
+- ✅ **JSON Fields** - Recursive testing of nested JSON structures
+
+### 💉 Advanced Payload Types
+
+**String-Based Injection Payloads:**
+- Single quote (`'`) for breaking string contexts
+- Double quote (`"`) and escaped quotes (`''`)
+- Database-specific string concatenations:
+  - Oracle: `'||'FOO` (pipe operator)
+  - MS-SQL: `'+'FOO` (plus operator)
+  - MySQL: `' 'FOO` (space concatenation)
+  - PostgreSQL: `'||'FOO` (pipe operator)
+- SQL wildcard (`%`) for database interaction detection
+
+### 🔬 Multi-Stage Stateful Process Handling
+
+- **Session tracking**: Maintains state across multiple requests
+- **Wizard flow support**: Handles multi-step forms and processes
+- **Data persistence testing**: Verifies injection after complete workflow
+- **Context preservation**: Cookies and sessions maintained throughout scan
+
+### 🚨 Enhanced Detection Heuristics
+
+**Error Detection:**
+- Standard SQL error signatures (MySQL, PostgreSQL, MSSQL, Oracle, SQLite)
+- 40+ error pattern matching rules
+- Database-specific error fingerprinting
+
+**Anomaly Detection:**
+- Response content differences (>20% change)
+- Status code variations (200 → 500, etc.)
+- Response structure analysis
+- Content length anomalies
+
+**JavaScript Error Detection:**
+- Detects unescaped injection in JavaScript contexts
+- Identifies potential XSS vectors via `SyntaxError`, `Uncaught`, etc.
+- Indicates reflected input vulnerabilities
+
+### 🧩 Extensibility
+
+- **Modular payload library**: Easy to add new injection patterns
+- **Plugin-based detection**: Custom detectors can be registered
+- **Database-agnostic core**: Supports any SQL database
+- **Future-proof design**: Ready for numeric, boolean, time-based extensions
+
+📖 See test cases in `test_comprehensive_input_tester.py` for usage examples.
+
+---
+
+## 🎯 Multi-Context Injection Attack Framework
 
 The SQL Attacker module now supports injection attacks across **5 different interpreted query contexts**:
 
