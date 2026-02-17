@@ -15,7 +15,8 @@ from .injection_contexts import (
     InjectionResult,
     InjectionContextType,
 )
-from .injection_contexts.sql_context import SQLInjectionContext
+from .injection_contexts.sql_context import SQLInjectionContext, SQLInjectionModule
+from .injection_contexts.command_context import CommandInjectionModule
 from .injection_contexts.ldap_context import LDAPInjectionContext
 from .injection_contexts.xpath_context import XPathInjectionContext
 from .injection_contexts.message_queue_context import MessageQueueInjectionContext
@@ -47,6 +48,7 @@ class MultiContextAttackOrchestrator:
         self.config = config or {}
         self.enabled_contexts = self.config.get('enabled_contexts', [
             InjectionContextType.SQL,
+            InjectionContextType.COMMAND,
             InjectionContextType.LDAP,
             InjectionContextType.XPATH,
             InjectionContextType.MESSAGE_QUEUE,
@@ -63,7 +65,8 @@ class MultiContextAttackOrchestrator:
     def _initialize_contexts(self):
         """Initialize all enabled injection contexts."""
         context_classes = {
-            InjectionContextType.SQL: SQLInjectionContext,
+            InjectionContextType.SQL: SQLInjectionModule,
+            InjectionContextType.COMMAND: CommandInjectionModule,
             InjectionContextType.LDAP: LDAPInjectionContext,
             InjectionContextType.XPATH: XPathInjectionContext,
             InjectionContextType.MESSAGE_QUEUE: MessageQueueInjectionContext,
