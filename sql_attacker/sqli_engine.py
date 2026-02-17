@@ -37,6 +37,7 @@ from .report_generator import ReportGenerator
 from .cognitive_attack_planner import CognitiveAttackPlanner, AttackObjective
 from .smart_context_analyzer import SmartContextAnalyzer
 from .advanced_learning_system import AdvancedLearningSystem
+from .comprehensive_input_tester import ComprehensiveInputTester
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -204,6 +205,9 @@ class SQLInjectionEngine:
         self.context_analyzer = SmartContextAnalyzer()
         self.learning_system = AdvancedLearningSystem()
         
+        # Initialize COMPREHENSIVE INPUT TESTING module (NEW!)
+        self.comprehensive_tester = ComprehensiveInputTester(self)
+        
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
         self.use_fp_reduction = config.get('enable_false_positive_reduction', True)
@@ -217,6 +221,7 @@ class SQLInjectionEngine:
         self.use_cognitive_planning = config.get('enable_cognitive_planning', True)
         self.use_context_analysis = config.get('enable_context_analysis', True)
         self.use_advanced_learning = config.get('enable_advanced_learning', True)
+        self.use_comprehensive_testing = config.get('enable_comprehensive_testing', True)
         
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
@@ -1057,10 +1062,24 @@ class SQLInjectionEngine:
                        headers: Optional[Dict] = None,
                        enable_error_based: bool = True,
                        enable_time_based: bool = True,
-                       enable_exploitation: bool = True) -> List[Dict]:
+                       enable_exploitation: bool = True,
+                       json_data: Optional[Dict] = None) -> List[Dict]:
         """
         Run full SQL injection attack with all enabled techniques.
         Enhanced with advanced payloads, false positive reduction, and impact demonstration.
+        NOW WITH COMPREHENSIVE INPUT VECTOR TESTING for cookies, headers, and parameter names.
+        
+        Args:
+            url: Target URL
+            method: HTTP method (GET, POST, etc.)
+            params: URL query parameters
+            data: POST form data
+            cookies: HTTP cookies
+            headers: HTTP headers
+            enable_error_based: Enable error-based testing
+            enable_time_based: Enable time-based testing
+            enable_exploitation: Enable exploitation
+            json_data: JSON POST data (optional)
         
         Returns:
             List of all findings with exploitation results and impact analysis
@@ -1069,6 +1088,16 @@ class SQLInjectionEngine:
         
         logger.info(f"Starting enhanced SQL injection scan on {url}")
         logger.info(f"Advanced payloads: {self.use_advanced_payloads}, FP reduction: {self.use_fp_reduction}, Impact demo: {self.use_impact_demo}")
+        logger.info(f"Comprehensive testing: {self.use_comprehensive_testing}")
+        
+        # NEW: Comprehensive input vector testing (cookies, headers, param names)
+        if self.use_comprehensive_testing:
+            logger.info("Running comprehensive input vector tests (cookies, headers, param names)...")
+            comprehensive_findings = self.comprehensive_tester.test_all_vectors(
+                url, method, params, data, cookies, headers, json_data
+            )
+            all_findings.extend(comprehensive_findings)
+            logger.info(f"Found {len(comprehensive_findings)} vulnerabilities via comprehensive testing")
         
         # Error-based detection
         if enable_error_based:
