@@ -263,12 +263,86 @@ def demo_numeric_parameter_class():
     print()
 
 
+def demo_order_by_injection():
+    """Demonstrate ORDER BY injection detection"""
+    print("=" * 70)
+    print("Demo 7: ORDER BY-Based SQL Injection Detection")
+    print("=" * 70)
+    print()
+    
+    injector = NumericSqlInjector()
+    
+    print("ORDER BY injection detection analyzes parameters that may be used")
+    print("in ORDER BY clauses or column selection by:")
+    print()
+    print("1. Testing sequential numeric values (1, 2, 3, ...)")
+    print("2. Detecting ordering changes in responses")
+    print("3. Detecting field/column changes in responses")
+    print("4. Identifying column-with-1s pattern (column number usage)")
+    print("5. Testing ORDER BY payloads (ASC --, DESC --)")
+    print("6. Testing advanced payloads (subqueries, CASE expressions)")
+    print()
+    
+    print("Example: ORDER BY payloads")
+    print()
+    for payload in injector.ORDER_BY_PAYLOADS[:8]:
+        print(f"  • {payload}")
+    print(f"  ... and {len(injector.ORDER_BY_PAYLOADS) - 8} more")
+    print()
+    
+    print("Usage example:")
+    print()
+    print("```python")
+    print("# Create a parameter suspected to be used in ORDER BY")
+    print("param = NumericParameter('sort', '1', 'GET', 'query')")
+    print()
+    print("# Analyze for ORDER BY injection")
+    print("results = injector.analyze_order_by_injection(")
+    print("    url='http://example.com/products?sort=1',")
+    print("    parameter=param,")
+    print("    method='GET',")
+    print("    params={'sort': '1'},")
+    print("    max_sequential=10")
+    print(")")
+    print()
+    print("# Check for ORDER BY vulnerabilities")
+    print("for result in results:")
+    print("    if result.vulnerable:")
+    print("        print(f'Type: {result.injection_type}')")
+    print("        print(f'Ordering changed: {result.ordering_changed}')")
+    print("        print(f'Fields changed: {result.field_changed}')")
+    print("```")
+    print()
+    
+    print("Detection Features:")
+    print()
+    print("✓ Ordering Change Detection")
+    print("  - Identifies when item ordering changes (ascending/descending)")
+    print("  - Detects reversed sequences and reordered items")
+    print()
+    print("✓ Field Change Detection")
+    print("  - Identifies when response fields/columns change")
+    print("  - Indicates parameter controls column selection")
+    print()
+    print("✓ Column-with-1s Pattern")
+    print("  - Detects when a column contains all '1' values")
+    print("  - Suggests parameter used as column number")
+    print("  - Pattern: SELECT * FROM table ORDER BY <param>")
+    print()
+    print("✓ Advanced Payload Testing")
+    print("  - Subqueries: (SELECT 1), (SELECT 1 WHERE 1=1)")
+    print("  - CASE expressions: (CASE WHEN 1=1 THEN 1 ELSE 2 END)")
+    print("  - MS-SQL specific: batched queries, WAITFOR DELAY")
+    print()
+
+
 def main():
     """Run all demos"""
     print("\n")
     print("╔" + "═" * 68 + "╗")
     print("║" + " " * 15 + "NumericSqlInjector Demonstration" + " " * 21 + "║")
     print("║" + " " * 15 + "SQL Injection Probing for Numeric Parameters" + " " * 9 + "║")
+    print("║" + " " * 12 + "Now with ORDER BY Injection Detection!" + " " * 17 + "║")
     print("╚" + "═" * 68 + "╝")
     print()
     
@@ -297,6 +371,10 @@ def main():
         input("Press Enter to continue...")
         print()
         
+        demo_order_by_injection()
+        input("Press Enter to continue...")
+        print()
+        
         demo_integration_example()
         
         print()
@@ -307,6 +385,7 @@ def main():
         print("For more information, see:")
         print("  - sql_attacker/numeric_probe.py (implementation)")
         print("  - sql_attacker/test_numeric_probe.py (tests)")
+        print("  - sql_attacker/NUMERIC_PROBE_README.md (documentation)")
         print()
         
     except KeyboardInterrupt:
