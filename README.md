@@ -475,6 +475,7 @@ if result['vulnerable']:
 - [XSS_PLUGIN_GUIDE.md](XSS_PLUGIN_GUIDE.md) - Detailed XSS plugin documentation
 - [XSS_CALLBACK_VERIFICATION_GUIDE.md](XSS_CALLBACK_VERIFICATION_GUIDE.md) - Callback verification system guide ⭐ NEW
 - [NGROK_CALLBACK_GUIDE.md](NGROK_CALLBACK_GUIDE.md) - ngrok-powered callback verification setup and usage (PR #110) ⭐ NEW
+- [docs/SQL_INJECTION_POST_EXPLOITATION.md](docs/SQL_INJECTION_POST_EXPLOITATION.md) - SQL injection post-exploitation techniques for MS-SQL, Oracle, and MySQL ⭐ NEW
 
 **Demo Scripts:**
 - `python demo_xss_callback_verification.py` - Interactive callback verification demo
