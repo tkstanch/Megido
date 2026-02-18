@@ -87,6 +87,15 @@ class SQLInjectionViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'SQL Injection Attacker Dashboard')
     
+    def test_dashboard_no_template_syntax_error(self):
+        """Test dashboard renders without TemplateSyntaxError from empty url tags"""
+        # This test specifically verifies that there are no empty {% url %} tags
+        # that would cause: TemplateSyntaxError: 'url' takes at least one argument
+        response = self.client.get(reverse('sql_attacker:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        # If we get here without exception, the template rendered successfully
+        self.assertContains(response, 'Dashboard')
+    
     def test_task_list_view(self):
         """Test task list view loads"""
         response = self.client.get(reverse('sql_attacker:task_list'))
