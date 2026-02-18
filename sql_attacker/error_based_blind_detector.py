@@ -300,6 +300,10 @@ class ErrorBasedBlindDetector:
                 if (is_true and payload_info['error_expected'] == 'true') or \
                    (not is_true and payload_info['error_expected'] == 'false'):
                     
+                    # Skip payloads that require data parameter (used only for extraction)
+                    if '{data}' in payload_info['payload_template']:
+                        continue
+                    
                     payload = payload_info['payload_template'].format(condition=condition)
                     
                     try:

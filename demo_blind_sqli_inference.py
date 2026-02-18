@@ -36,41 +36,46 @@ def simulate_vulnerable_app(payload, true_response="User found: admin", false_re
     """
     payload_lower = payload.lower()
     
-    # Detect if this is a true condition (1=1, 'a'='a', etc.)
+    # Detect if this is a true condition
     is_true_condition = False
     
     # Simple true condition patterns
     if any(x in payload_lower for x in ['1=1', '2=2', '5=5', "'a'='a", "'x'='x", "'1'='1"]):
         is_true_condition = True
     
-    # False condition patterns
+    # False condition patterns  
     if any(x in payload_lower for x in ['1=2', '1=0', '5=6', "'a'='b", "'x'='y", "'1'='2"]):
         is_true_condition = False
     
+    # Check for NOT in condition (inverts the logic)
+    if 'not(' in payload_lower or 'not (' in payload_lower:
+        is_true_condition = not is_true_condition
+    
     # ASCII code tests (simulating "database" = [100, 97, 116, 97, 98, 97, 115, 101])
     # Checking first character 'd' = ASCII 100
-    if 'ascii' in payload_lower and 'position' not in payload_lower:
+    if 'ascii' in payload_lower and 'substring' in payload_lower:
         # Simplified: check for ASCII code matching
-        if 'ascii_code=100' in payload_lower or '=100' in payload_lower:
+        if any(x in payload_lower for x in ['=100', '=68']):  # 'd' or 'D'
             is_true_condition = True
-        elif 'ascii_code=97' in payload_lower or '=97' in payload_lower:
-            is_true_condition = False  # Not matching first char
+        elif any(x in payload_lower for x in ['=97', '=65']):  # 'a' or 'A'
+            is_true_condition = False
     
     # Check for conditional error payloads
-    has_error_trigger = any(x in payload_lower for x in ['1/0', 'div', 'cast', "cast('a' as int"])
+    has_error_trigger = any(x in payload_lower for x in ['1/0', '/0', 'cast', "cast('a' as int", "cast('a' as integer", "to_number('a')"])
     
-    if has_error_trigger and is_true_condition:
-        # Trigger error when condition is true
-        return MockResponse(
-            "Error: Division by zero encountered in query execution",
-            status_code=500
-        )
-    elif has_error_trigger and not is_true_condition:
-        # No error when condition is false
-        return MockResponse(
-            "Query executed successfully",
-            status_code=200
-        )
+    if has_error_trigger:
+        # For conditional error payloads, trigger error when condition is true
+        if is_true_condition:
+            return MockResponse(
+                "Error: Division by zero encountered in query execution",
+                status_code=500
+            )
+        else:
+            # No error when condition is false
+            return MockResponse(
+                "Query executed successfully",
+                status_code=200
+            )
     else:
         # Standard boolean-based response
         if is_true_condition:
