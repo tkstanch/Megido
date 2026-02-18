@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Injection Payload Generator - Megido</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .payload-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .context-label {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #667eea;
+            color: white;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .payload-text {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            width: auto;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .cheat-sheet {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .cheat-sheet h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .syntax-example {
+            background: #2d3748;
+            color: #68d391;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 5px 0;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 4px solid #c33;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196f3;
+            margin-bottom: 20px;
+        }
+
+        .info-box p {
+            color: #1976d2;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔒 SQL Injection Payload Generator</h1>
+            <p class="subtitle">Part of Megido Security Testing Platform</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Configuration Panel -->
+            <div class="panel">
+                <h2>⚙️ Configuration</h2>
+                
+                <div class="info-box">
+                    <p>Select your target database, injection requirement, and context to generate ready-to-use SQL injection payloads.</p>
+                </div>
+
+                <form id="payloadForm">
+                    <div class="form-group">
+                        <label for="dbms">Database Management System (DBMS):</label>
+                        <select id="dbms" name="dbms" required>
+                            <option value="">-- Select DBMS --</option>
+                            {% for dbms in dbms_list %}
+                            <option value="{{ dbms }}">{{ dbms|upper }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="injectionType">Injection Type:</label>
+                        <select id="injectionType" name="injectionType" required disabled>
+                            <option value="">-- Select Injection Type --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="context">Injection Context:</label>
+                        <select id="context" name="context" required>
+                            <option value="">-- All Contexts --</option>
+                            <option value="string">String Context (' injection point ')</option>
+                            <option value="numeric">Numeric Context (123 injection point)</option>
+                            <option value="parenthesis">Parenthesis Context (') injection point)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" id="generateBtn">🚀 Generate Payloads</button>
+                </form>
+
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="panel">
+                <h2>📋 Generated Payloads</h2>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating payloads...</p>
+                </div>
+
+                <div id="results">
+                    <div class="info-box">
+                        <p>Configure options on the left and click "Generate Payloads" to see results here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const dbmsSelect = document.getElementById('dbms');
+        const injectionTypeSelect = document.getElementById('injectionType');
+        const contextSelect = document.getElementById('context');
+        const payloadForm = document.getElementById('payloadForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const resultsDiv = document.getElementById('results');
+        const errorMessage = document.getElementById('errorMessage');
+        const loading = document.getElementById('loading');
+
+        // Event Listeners
+        dbmsSelect.addEventListener('change', handleDbmsChange);
+        payloadForm.addEventListener('submit', handleFormSubmit);
+
+        // Handle DBMS selection change
+        async function handleDbmsChange() {
+            const dbms = dbmsSelect.value;
+            
+            if (!dbms) {
+                injectionTypeSelect.disabled = true;
+                injectionTypeSelect.innerHTML = '<option value="">-- Select Injection Type --</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/injection-types/${dbms}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    injectionTypeSelect.innerHTML = '<option value="">-- Select Injection Type --</option>';
+                    data.injection_types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type.value;
+                        option.textContent = type.label;
+                        injectionTypeSelect.appendChild(option);
+                    });
+                    injectionTypeSelect.disabled = false;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to load injection types: ' + error.message);
+            }
+        }
+
+        // Handle form submission
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const dbms = dbmsSelect.value;
+            const injectionType = injectionTypeSelect.value;
+            const context = contextSelect.value;
+
+            if (!dbms || !injectionType) {
+                showError('Please select DBMS and Injection Type');
+                return;
+            }
+
+            hideError();
+            showLoading();
+
+            try {
+                const response = await fetch('/api/generate-payload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dbms: dbms,
+                        injection_type: injectionType,
+                        context: context || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to generate payloads: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            let html = '';
+
+            // Display payloads
+            html += '<div class="result-section active">';
+            html += `<h3 style="color: #667eea; margin-bottom: 15px;">Generated Payloads for ${data.dbms_name}</h3>`;
+
+            data.payloads.forEach(payload => {
+                html += `
+                    <div class="payload-card">
+                        <span class="context-label">${payload.context.toUpperCase()} CONTEXT</span>
+                        <div class="payload-text">
+                            ${escapeHtml(payload.payload)}
+                            <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(payload.payload)}')">📋 Copy</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Display cheat sheet reference
+            if (data.cheat_sheet) {
+                html += '<div class="cheat-sheet">';
+                html += `<h3>📖 Reference: ${data.cheat_sheet.name || 'Cheat Sheet'}</h3>`;
+                
+                if (data.cheat_sheet.description) {
+                    html += `<p style="margin: 10px 0; color: #666;">${data.cheat_sheet.description}</p>`;
+                }
+
+                if (data.cheat_sheet.syntax && data.cheat_sheet.syntax.length > 0) {
+                    html += '<h4 style="margin-top: 15px; margin-bottom: 10px; color: #667eea;">Syntax Examples:</h4>';
+                    data.cheat_sheet.syntax.forEach(syntax => {
+                        html += `<div class="syntax-example">${escapeHtml(syntax)}</div>`;
+                    });
+                }
+
+                if (data.cheat_sheet.errors && data.cheat_sheet.errors.length > 0) {
+                    html += '<h4 style="margin-top: 15px; margin-bottom: 10px; color: #667eea;">Common Error Messages:</h4>';
+                    data.cheat_sheet.errors.forEach(error => {
+                        html += `<div style="background: #fff3cd; padding: 8px; border-radius: 3px; margin: 5px 0; font-size: 13px; color: #856404;">${escapeHtml(error)}</div>`;
+                    });
+                }
+
+                html += '</div>';
+            }
+
+            html += '</div>';
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            // Show feedback
+            alert('Payload copied to clipboard!');
+        }
+
+        // Utility functions
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('active');
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('active');
+        }
+
+        function showLoading() {
+            loading.classList.add('active');
+            generateBtn.disabled = true;
+        }
+
+        function hideLoading() {
+            loading.classList.remove('active');
+            generateBtn.disabled = false;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
