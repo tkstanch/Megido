@@ -12,7 +12,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from client_side.hpp_detector import (
+from sql_attacker.client_side.hpp_detector import (
     HTTPParameterPollutionDetector,
     HPPFinding,
     HPPTechnique
@@ -61,7 +61,7 @@ class TestHTTPParameterPollutionDetector(unittest.TestCase):
         array_url = test_urls['array'][0]
         self.assertIn('id[]', array_url)
     
-    @patch('client_side.hpp_detector.requests.Session.get')
+    @patch('sql_attacker.client_side.hpp_detector.requests.Session.get')
     def test_scan_url_with_mocked_response(self, mock_get):
         """Test URL scanning with mocked responses"""
         # Mock baseline response

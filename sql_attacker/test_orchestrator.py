@@ -14,16 +14,16 @@ import json
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from client_side.orchestrator import (
+from sql_attacker.client_side.orchestrator import (
     ClientSideScanOrchestrator,
     ScanConfiguration,
     ScanResults,
     ScanType
 )
-from client_side.browser_automation import BrowserFinding
-from client_side.static_scanner import StaticFinding
-from client_side.hpp_detector import HPPFinding
-from client_side.privacy_analyzer import PrivacyFinding, RiskLevel, StorageLocation
+from sql_attacker.client_side.browser_automation import BrowserFinding
+from sql_attacker.client_side.static_scanner import StaticFinding
+from sql_attacker.client_side.hpp_detector import HPPFinding
+from sql_attacker.client_side.privacy_analyzer import PrivacyFinding, RiskLevel, StorageLocation
 
 
 class TestClientSideScanOrchestrator(unittest.TestCase):
@@ -63,7 +63,7 @@ class TestClientSideScanOrchestrator(unittest.TestCase):
         self.assertEqual(result['scan_types'], [ScanType.ALL.value])
         self.assertEqual(result['target_url'], "https://example.com")
     
-    @patch('client_side.orchestrator.JavaScriptStaticScanner')
+    @patch('sql_attacker.client_side.orchestrator.JavaScriptStaticScanner')
     def test_run_static_analysis(self, mock_scanner_class):
         """Test running static JavaScript analysis"""
         # Mock scanner
@@ -91,7 +91,7 @@ class TestClientSideScanOrchestrator(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].vulnerability_type, "TEST")
     
-    @patch('client_side.orchestrator.HTTPParameterPollutionDetector')
+    @patch('sql_attacker.client_side.orchestrator.HTTPParameterPollutionDetector')
     def test_run_hpp_detection(self, mock_detector_class):
         """Test running HPP detection"""
         # Mock detector
