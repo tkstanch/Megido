@@ -818,3 +818,172 @@ def api_oob_listener_guide(request):
         return Response({
             'error': f'Failed to retrieve guide: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============================================================================
+# Client-Side Scanning Views
+# ============================================================================
+
+from .client_side import (
+    ClientSideScanOrchestrator,
+    ScanConfiguration,
+    ScanType
+)
+
+
+def client_side_dashboard(request):
+    """
+    Dashboard view for client-side security scanning.
+    """
+    context = {
+        'scan_types': [
+            {'value': ScanType.BROWSER_AUTOMATION.value, 'label': 'Browser Automation (HTML5 Storage)'},
+            {'value': ScanType.STATIC_JAVASCRIPT.value, 'label': 'Static JavaScript Analysis'},
+            {'value': ScanType.HPP_DETECTION.value, 'label': 'HTTP Parameter Pollution'},
+            {'value': ScanType.PRIVACY_ANALYSIS.value, 'label': 'Privacy & Storage Analysis'},
+            {'value': ScanType.ALL.value, 'label': 'All Scans'},
+        ]
+    }
+    
+    return render(request, 'sql_attacker/client_side_dashboard.html', context)
+
+
+@api_view(['POST'])
+def api_client_side_scan(request):
+    """
+    REST API endpoint for running client-side security scans.
+    
+    POST data:
+    {
+        "scan_types": ["browser_automation", "static_javascript", ...],
+        "target_url": "https://example.com",
+        "javascript_code": "optional JS code string",
+        "javascript_files": ["optional", "file", "paths"],
+        "use_playwright": true,
+        "headless": true,
+        "timeout": 30000,
+        "verify_ssl": true,
+        "follow_redirects": true,
+        "scan_flash_lso": false,
+        "form_selector": "optional CSS selector",
+        "test_params": {"optional": "params"}
+    }
+    
+    Response:
+    {
+        "scan_id": "cs_20240101_120000",
+        "status": "completed",
+        "summary": {...},
+        "findings": {...}
+    }
+    """
+    try:
+        data = request.data
+        
+        # Create scan configuration
+        config = ScanConfiguration(
+            scan_types=data.get('scan_types', [ScanType.ALL.value]),
+            target_url=data.get('target_url'),
+            javascript_code=data.get('javascript_code'),
+            javascript_files=data.get('javascript_files'),
+            use_playwright=data.get('use_playwright', True),
+            headless=data.get('headless', True),
+            timeout=data.get('timeout', 30000),
+            verify_ssl=data.get('verify_ssl', True),
+            follow_redirects=data.get('follow_redirects', True),
+            scan_flash_lso=data.get('scan_flash_lso', False),
+            form_selector=data.get('form_selector'),
+            test_params=data.get('test_params')
+        )
+        
+        # Execute scan
+        orchestrator = ClientSideScanOrchestrator()
+        results = orchestrator.scan(config)
+        
+        return Response(results.to_dict(), status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.exception("Error during client-side scan")
+        return Response({
+            'error': f'Scan failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def api_client_side_export(request):
+    """
+    REST API endpoint for exporting client-side scan results.
+    
+    POST data:
+    {
+        "scan_results": {...},  # Full scan results object
+        "format": "json" or "html",
+        "output_file": "optional file path"
+    }
+    
+    Response:
+    {
+        "file_path": "/path/to/exported/file",
+        "status": "success"
+    }
+    """
+    try:
+        data = request.data
+        scan_results_data = data.get('scan_results')
+        export_format = data.get('format', 'json')
+        output_file = data.get('output_file')
+        
+        if not scan_results_data:
+            return Response({
+                'error': 'scan_results is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Reconstruct ScanResults object
+        from .client_side.orchestrator import ScanResults
+        
+        # For simplicity, we'll just save the data directly
+        # In production, you'd reconstruct the full object
+        import os
+        import tempfile
+        
+        if not output_file:
+            # Generate temporary file
+            if export_format == 'html':
+                fd, output_file = tempfile.mkstemp(suffix='.html', prefix='client_scan_')
+            else:
+                fd, output_file = tempfile.mkstemp(suffix='.json', prefix='client_scan_')
+            os.close(fd)
+        
+        if export_format == 'json':
+            with open(output_file, 'w') as f:
+                json.dump(scan_results_data, f, indent=2)
+        elif export_format == 'html':
+            # Generate HTML report
+            # This is a simplified version - you'd use the orchestrator's method
+            html = f"""
+<!DOCTYPE html>
+<html>
+<head><title>Client-Side Scan Report</title></head>
+<body>
+    <h1>Client-Side Security Scan Report</h1>
+    <pre>{json.dumps(scan_results_data, indent=2)}</pre>
+</body>
+</html>
+"""
+            with open(output_file, 'w') as f:
+                f.write(html)
+        else:
+            return Response({
+                'error': f'Invalid format: {export_format}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            'file_path': output_file,
+            'status': 'success'
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.exception("Error exporting client-side scan results")
+        return Response({
+            'error': f'Export failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
