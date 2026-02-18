@@ -2,6 +2,72 @@
 
 **The Most Extra Much More Super Intelligent Automated SQL Injection Scanner** 🚀🧠
 
+## 🎯 NEW: Blind SQL Injection Inference Techniques (2026)
+
+The SQL Attacker now supports **two major blind SQL injection inference techniques** for data extraction when no out-of-band (OOB) or data-leak channels are available:
+
+### 1️⃣ Behavioral Inference (Boolean-based Blind SQLi)
+
+**Module:** `boolean_blind_detector.py`
+
+Uses content-based differentiation where the application behaves differently when a tested condition is true vs false. Enables character-by-character data extraction through iterative testing.
+
+**Key Features:**
+- ✅ **ASCII-based extraction**: Fast extraction using ASCII code comparison (32-126)
+- ✅ **Character-based extraction**: Fallback to direct character comparison
+- ✅ **Content differentiation**: Analyzes response patterns with 95% similarity threshold
+- ✅ **Cross-database support**: MySQL, MS-SQL, Oracle, PostgreSQL
+- ✅ **Confidence scoring**: High-confidence detection with differentiation metrics
+
+**Example Payloads:**
+```sql
+-- MySQL: Extract database name character-by-character
+' AND ASCII(SUBSTRING((SELECT database()),1,1))=68--
+
+-- MS-SQL: Extract database name
+' AND ASCII(SUBSTRING((SELECT DB_NAME()),1,1))=68--
+
+-- Oracle: Extract user
+' AND ASCII(SUBSTR((SELECT user FROM dual),1,1))=68--
+```
+
+### 2️⃣ Error-based/Conditional Error Inference
+
+**Module:** `error_based_blind_detector.py`
+
+Triggers deliberate errors (divide-by-zero, type conversion) when a tested condition is true. Detects errors through HTTP status codes (500) or error messages in responses.
+
+**Key Features:**
+- ✅ **Conditional error triggering**: Errors occur only when conditions are true
+- ✅ **Multiple error types**: Divide-by-zero, type conversion, value errors
+- ✅ **HTTP error detection**: Monitors status codes (500, 503)
+- ✅ **Content-based error detection**: 40+ error message patterns
+- ✅ **Fast extraction**: Clear error/no-error distinction enables rapid extraction
+
+**Example Payloads:**
+```sql
+-- Oracle: Divide by zero on true condition
+(SELECT 1/0 FROM dual WHERE (SELECT username FROM all_users 
+ WHERE username = 'DBSNMP') = 'DBSNMP')
+
+-- MySQL: IF statement with conditional error
+AND IF((SELECT SUBSTRING(@@version,1,1))='5', (SELECT 1/0), 1)
+
+-- MS-SQL: CASE with divide-by-zero
+AND 1=CASE WHEN (SELECT TOP 1 name FROM master..sysdatabases)='master' 
+THEN 1/0 ELSE 1 END
+```
+
+**When to Use:**
+- **Boolean-based**: When error messages are suppressed, need stealth
+- **Error-based**: When errors are displayed, need speed
+
+📖 See [BLIND_SQLI_GUIDE.md](BLIND_SQLI_GUIDE.md) for comprehensive documentation and usage examples.
+
+🎬 **Demo:** Run `python demo_blind_sqli_inference.py` for an interactive demonstration.
+
+---
+
 ## 🎯 NEW: Comprehensive Input Vector Testing (2026)
 
 The SQL Attacker now performs **comprehensive automated probing** across ALL potential HTTP input vectors:

