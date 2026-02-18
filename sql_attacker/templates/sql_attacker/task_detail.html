@@ -256,12 +256,40 @@
         </div>
     </div>
     
+    <!-- NEW: SQL Injection Types Breakdown -->
+    <div class="card" id="sqli-breakdown-card" {% if task.status != 'completed' %}style="display: none;"{% endif %}>
+        <div class="card-header">
+            <h3 class="card-title">🔍 SQL Injection Test Results Breakdown</h3>
+        </div>
+        <div class="card-body">
+            <div id="sqli-breakdown-content">
+                <!-- Content will be populated by JavaScript -->
+                <div class="text-center py-8">
+                    <div class="text-4xl mb-2">⏳</div>
+                    <p class="text-gray-600 dark:text-gray-400">Loading test breakdown...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Results -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">🐛 Vulnerability Findings ({{ results.count }})</h3>
         </div>
         <div class="card-body">
+            <div id="running-status-message" {% if task.status != 'running' %}style="display: none;"{% endif %}>
+                <div class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+                        <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Scan in Progress...</p>
+                        <p class="text-gray-600 dark:text-gray-400">Testing for SQL injection vulnerabilities</p>
+                        <div class="mt-4 text-sm text-gray-500 dark:text-gray-500">
+                            <p>This page will automatically refresh when the scan completes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% if results %}
             <div class="table-container">
                 <table class="table">
@@ -332,19 +360,240 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-gray-600 dark:text-gray-400">
-                {% if task.status == 'completed' %}
-                No vulnerabilities found.
-                {% elif task.status == 'running' %}
-                Task is currently running...
-                {% elif task.status == 'failed' %}
-                Task failed. Check error message above.
-                {% else %}
-                Task has not been executed yet.
-                {% endif %}
-            </p>
+            <div id="no-results-message" {% if task.status == 'running' %}style="display: none;"{% endif %}>
+                <p class="text-gray-600 dark:text-gray-400">
+                    {% if task.status == 'completed' %}
+                    No vulnerabilities found.
+                    {% elif task.status == 'failed' %}
+                    Task failed. Check error message above.
+                    {% else %}
+                    Task has not been executed yet.
+                    {% endif %}
+                </p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+// Task status polling and breakdown display
+(function() {
+    const taskId = {{ task.id }};
+    const initialStatus = '{{ task.status }}';
+    let pollInterval = null;
+    
+    /**
+     * Fetch task status with per-SQLi-type breakdown
+     */
+    function fetchTaskStatus() {
+        fetch(`/sql_attacker/api/tasks/${taskId}/status/`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Task status:', data.status);
+                
+                // Update status if changed
+                if (data.status !== initialStatus) {
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        // Stop polling and reload page to show results
+                        if (pollInterval) {
+                            clearInterval(pollInterval);
+                            pollInterval = null;
+                        }
+                        console.log('Task completed, reloading page...');
+                        location.reload();
+                    }
+                }
+                
+                // Display breakdown if task is completed
+                if (data.status === 'completed') {
+                    displayBreakdown(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching task status:', error);
+            });
+    }
+    
+    /**
+     * Display SQLi types breakdown in a table/cards format
+     */
+    function displayBreakdown(data) {
+        const breakdownCard = document.getElementById('sqli-breakdown-card');
+        const breakdownContent = document.getElementById('sqli-breakdown-content');
+        
+        if (!data.results || data.results.length === 0) {
+            breakdownContent.innerHTML = `
+                <p class="text-gray-600 dark:text-gray-400">No test breakdown available.</p>
+            `;
+            breakdownCard.style.display = 'block';
+            return;
+        }
+        
+        // Create breakdown table
+        let html = `
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>SQL Injection Type</th>
+                            <th class="text-center">Tested</th>
+                            <th class="text-center">Vulnerable</th>
+                            <th class="text-center">Count</th>
+                            <th>Proof of Concept</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.results.forEach(result => {
+            const testedIcon = result.tested ? '✅' : '⬜';
+            const vulnerableIcon = result.vulnerable ? '🔴 Yes' : '🟢 No';
+            const vulnerableClass = result.vulnerable ? 'badge-danger' : 'badge-success';
+            
+            html += `
+                <tr class="${result.vulnerable ? 'bg-red-50 dark:bg-red-900/10' : ''}">
+                    <td class="font-semibold">
+                        <span class="badge badge-secondary">${result.type}</span>
+                    </td>
+                    <td class="text-center text-2xl">${testedIcon}</td>
+                    <td class="text-center">
+                        <span class="badge ${vulnerableClass}">${vulnerableIcon}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="text-lg font-bold ${result.vulnerable ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}">${result.count}</span>
+                    </td>
+                    <td>
+            `;
+            
+            if (result.proof) {
+                html += `
+                    <div class="space-y-2 text-sm">
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Parameter:</strong>
+                            <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">${escapeHtml(result.proof.parameter)}</code>
+                            <span class="badge badge-info ml-1">${escapeHtml(result.proof.parameter_type)}</span>
+                        </div>
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Payload:</strong>
+                            <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded block mt-1 overflow-x-auto">${escapeHtml(result.proof.payload)}</code>
+                        </div>
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Evidence:</strong>
+                            <span class="text-gray-600 dark:text-gray-400">${escapeHtml(result.proof.evidence)}</span>
+                        </div>
+                `;
+                
+                if (result.proof.database_type) {
+                    html += `
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Database:</strong>
+                            <span class="badge badge-info">${escapeHtml(result.proof.database_type)}</span>
+                    `;
+                    
+                    if (result.proof.is_exploitable) {
+                        html += ` <span class="badge badge-danger ml-1">Exploitable</span>`;
+                        
+                        if (result.proof.database_version) {
+                            html += ` <span class="text-gray-600 dark:text-gray-400 ml-1">${escapeHtml(result.proof.database_version)}</span>`;
+                        }
+                    }
+                    
+                    html += `</div>`;
+                }
+                
+                if (result.proof.current_user) {
+                    html += `
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">User:</strong>
+                            <code class="text-xs">${escapeHtml(result.proof.current_user)}</code>
+                        </div>
+                    `;
+                }
+                
+                if (result.proof.current_database) {
+                    html += `
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Database:</strong>
+                            <code class="text-xs">${escapeHtml(result.proof.current_database)}</code>
+                        </div>
+                    `;
+                }
+                
+                if (result.proof.sample_tables && result.proof.sample_tables.length > 0) {
+                    html += `
+                        <div>
+                            <strong class="text-gray-700 dark:text-gray-300">Sample Tables:</strong>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                ${result.proof.sample_tables.map(table => 
+                                    `<code class="text-xs bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">${escapeHtml(table)}</code>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            } else {
+                html += `<span class="text-gray-400 dark:text-gray-600 text-sm">N/A</span>`;
+            }
+            
+            html += `
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div class="flex items-start">
+                    <div class="text-2xl mr-3">ℹ️</div>
+                    <div>
+                        <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-1">Testing Summary</h4>
+                        <p class="text-sm text-blue-800 dark:text-blue-200">
+                            Total vulnerabilities found: <strong>${data.vulnerabilities_found}</strong>
+                        </p>
+                        ${data.completed_at ? `
+                            <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                                Completed: ${new Date(data.completed_at).toLocaleString()}
+                            </p>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        breakdownContent.innerHTML = html;
+        breakdownCard.style.display = 'block';
+    }
+    
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Start polling if task is running
+    if (initialStatus === 'running') {
+        console.log('Task is running, starting status polling...');
+        // Poll every 3 seconds
+        pollInterval = setInterval(fetchTaskStatus, 3000);
+        // Fetch immediately
+        fetchTaskStatus();
+    } else if (initialStatus === 'completed') {
+        // If already completed, fetch and display breakdown
+        fetchTaskStatus();
+    }
+})();
+</script>
 {% endblock %}
