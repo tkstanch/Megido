@@ -5,12 +5,14 @@ Runs tests without requiring full Django setup or database
 """
 
 import sys
+import os
 import time
 import unittest
 from typing import Optional
 
-# Add project root to path
-sys.path.insert(0, '/home/runner/work/Megido/Megido')
+# Add project root to path (portable across environments)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_dir)
 
 from sql_attacker.time_based_blind_detector import (
     TimeBasedBlindDetector,
