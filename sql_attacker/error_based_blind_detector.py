@@ -273,7 +273,7 @@ class ErrorBasedBlindDetector:
         
         logger.info(f"Testing error-based blind injection on parameter: {param} (DB: {db_type})")
         
-        if 'normal' not in str(self.baseline_pattern) and not self.baseline_pattern:
+        if self.baseline_pattern is None:
             logger.warning("No baseline established")
             return results
         
@@ -331,9 +331,12 @@ class ErrorBasedBlindDetector:
                         logger.debug(f"Payload test failed: {e}")
                         continue
         
-        # Calculate confidence
-        total_true_tests = len(test_conditions) * len([p for p in payloads if p['error_expected'] == 'true'])
-        total_false_tests = len(test_conditions) * len([p for p in payloads if p['error_expected'] == 'false'])
+        # Calculate confidence - cache filtered payloads to avoid redundant filtering
+        true_expected_payloads = [p for p in payloads if p['error_expected'] == 'true']
+        false_expected_payloads = [p for p in payloads if p['error_expected'] == 'false']
+        
+        total_true_tests = len(test_conditions) * len(true_expected_payloads)
+        total_false_tests = len(test_conditions) * len(false_expected_payloads)
         
         true_rate = true_error_count / total_true_tests if total_true_tests > 0 else 0
         false_rate = false_no_error_count / total_false_tests if total_false_tests > 0 else 0

