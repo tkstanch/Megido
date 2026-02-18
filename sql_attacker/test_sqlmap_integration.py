@@ -414,7 +414,10 @@ available databases [3]:
         
         self.assertTrue(result.success)
         self.assertIn("testdb", result.tables)
-        # Note: Actual parsing may vary, this tests the method structure
+        # Verify table parsing
+        tables = result.tables.get("testdb", [])
+        self.assertGreater(len(tables), 0, "Should parse at least one table")
+        self.assertIn("users", tables, "Should parse 'users' table from output")
     
     @patch('subprocess.Popen')
     def test_orchestrate_attack_not_vulnerable(self, mock_popen):

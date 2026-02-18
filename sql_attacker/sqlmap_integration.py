@@ -169,6 +169,24 @@ class SQLMapAttacker:
                 logger.warning(f"Failed to remove temp file {temp_file}: {e}")
         self.temp_files.clear()
     
+    def _extract_url_parts(self, url: str) -> Tuple[str, str]:
+        """
+        Extract host and path from URL.
+        
+        Args:
+            url: Full URL
+            
+        Returns:
+            Tuple of (host, path)
+        """
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        host = parsed.netloc
+        path = parsed.path if parsed.path else '/'
+        if parsed.query:
+            path += '?' + parsed.query
+        return host, path
+    
     def _save_request_to_file(self, request: HTTPRequest) -> str:
         """
         Save HTTP request to temporary file for sqlmap -r option.
@@ -184,10 +202,10 @@ class SQLMapAttacker:
             content = request.raw_request
         else:
             # Build HTTP request from components
-            lines = [f"{request.method} {request.url.split('://', 1)[1].split('/', 1)[1] if '/' in request.url.split('://', 1)[1] else '/'} HTTP/1.1"]
+            host, path = self._extract_url_parts(request.url)
+            lines = [f"{request.method} {path} HTTP/1.1"]
             
             # Add Host header
-            host = request.url.split('://')[1].split('/')[0]
             lines.append(f"Host: {host}")
             
             # Add headers
@@ -500,19 +518,41 @@ class SQLMapAttacker:
         
         # Extract tables from output
         tables = []
-        if f"database '{database}'" in stdout.lower():
+        # Check various format patterns for database name
+        db_patterns = [
+            f"database '{database}'",
+            f'database "{database}"',
+            f"database: {database}",
+            f"database {database}"
+        ]
+        
+        db_found = any(pattern in stdout.lower() for pattern in db_patterns)
+        
+        if db_found:
             lines = stdout.split('\n')
             in_table_section = False
             for line in lines:
-                if f"database '{database}'" in line.lower() and "table" in line.lower():
+                line_lower = line.lower()
+                # Check if we've entered the table section
+                if any(pattern in line_lower for pattern in db_patterns) or (
+                    database.lower() in line_lower and "table" in line_lower
+                ):
                     in_table_section = True
                     continue
+                
                 if in_table_section:
-                    if line.strip().startswith('[*]') or line.strip().startswith('|'):
-                        table_name = line.strip().split('|')[-1].strip() if '|' in line else line.strip()[4:].strip()
-                        if table_name and table_name not in ['', '+', '-']:
+                    if line.strip().startswith('[*]'):
+                        # Extract table name from [*] format
+                        table_name = line.strip()[4:].strip()
+                        if table_name and table_name not in ['', '+', '-', 'Table']:
                             tables.append(table_name)
-                    elif not line.strip() or line.strip().startswith('['):
+                    elif line.strip().startswith('|') and '|' in line:
+                        # Extract table name from | format
+                        table_name = line.strip().split('|')[-1].strip()
+                        if table_name and table_name not in ['', '+', '-', 'Table']:
+                            tables.append(table_name)
+                    elif not line.strip():
+                        # Empty line ends the section
                         in_table_section = False
         
         result = SQLMapResult(
@@ -546,9 +586,31 @@ class SQLMapAttacker:
         
         parsed = self._parse_output(stdout)
         
-        # Extract columns from output (simplified parsing)
+        # Extract columns from output
         columns = []
-        # TODO: Implement more robust column parsing
+        if f"database '{database}'" in stdout.lower() and f"table '{table}'" in stdout.lower():
+            lines = stdout.split('\n')
+            in_column_section = False
+            for line in lines:
+                # Look for column section indicators
+                if 'column' in line.lower() and (f"'{table}'" in line.lower() or f'"{table}"' in line.lower()):
+                    in_column_section = True
+                    continue
+                if in_column_section:
+                    # Extract column names from various formats
+                    line = line.strip()
+                    if line.startswith('[*]') or line.startswith('|'):
+                        # Format: [*] column_name or | column_name | type |
+                        parts = line.split('|')
+                        if len(parts) > 1:
+                            col_name = parts[1].strip()
+                        else:
+                            col_name = line[4:].strip() if line.startswith('[*]') else line.strip()
+                        
+                        if col_name and col_name not in ['', '+', '-', 'Column', 'Type']:
+                            columns.append(col_name)
+                    elif not line or line.startswith('['):
+                        in_column_section = False
         
         result = SQLMapResult(
             success=(return_code == 0),
