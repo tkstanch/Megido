@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoSQL Attacker GUI - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-strong {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f4ff',
+                            100: '#e0e9ff',
+                            200: '#c7d7fe',
+                            300: '#a5bbfc',
+                            400: '#8496f8',
+                            500: '#667eea',
+                            600: '#5568d3',
+                            700: '#4553b8',
+                            800: '#3a4694',
+                            900: '#333d76',
+                            950: '#1e2244',
+                        },
+                        midnight: {
+                            950: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-midnight-950">
+    <div class="container mx-auto px-4 py-6 lg:py-8 max-w-7xl">
+        <!-- Header -->
+        <div class="glass-strong rounded-xl border border-gray-700/50 p-6 mb-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-r from-primary-500 to-purple-500 shadow-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl lg:text-3xl font-bold text-white">
+                            Advanced Injection Attack Console
+                        </h1>
+                        <p class="text-sm text-gray-400 mt-1">
+                            Generate and test injection payloads for SQL, NoSQL, XPath, and LDAP
+                        </p>
+                    </div>
+                </div>
+                <button class="p-3 rounded-lg bg-gray-800/60 hover:bg-gray-800 transition-all duration-200 shadow-md">
+                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex flex-wrap gap-2">
+                <button class="px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30">
+                    SQL
+                </button>
+                <button class="px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-gray-800/60 text-gray-300 hover:bg-gray-800 hover:shadow-md">
+                    NoSQL
+                </button>
+                <button class="px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-gray-800/60 text-gray-300 hover:bg-gray-800 hover:shadow-md">
+                    XPath
+                </button>
+                <button class="px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-gray-800/60 text-gray-300 hover:bg-gray-800 hover:shadow-md">
+                    LDAP
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Payload Library -->
+            <div class="lg:col-span-1 glass-strong rounded-xl border border-gray-700/50 p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-white">Payload Library</h2>
+                    <span class="px-3 py-1 text-xs font-medium bg-primary-900/30 text-primary-400 rounded-full">
+                        8 payloads
+                    </span>
+                </div>
+
+                <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                            Authentication Bypass
+                        </h3>
+                        <div class="space-y-2">
+                            <button class="w-full text-left p-3 rounded-lg transition-all duration-200 bg-primary-900/30 border border-primary-700">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-semibold text-white truncate">Basic OR Bypass</h4>
+                                        <p class="text-xs text-gray-400 mt-1 line-clamp-2">
+                                            Classic authentication bypass
+                                        </p>
+                                    </div>
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            </button>
+                            <button class="w-full text-left p-3 rounded-lg transition-all duration-200 bg-gray-800/60 hover:bg-gray-800 border border-transparent">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-semibold text-white truncate">Union Select</h4>
+                                        <p class="text-xs text-gray-400 mt-1 line-clamp-2">
+                                            Extract data from users table
+                                        </p>
+                                    </div>
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor & Logs -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Editor -->
+                <div class="glass-strong rounded-xl border border-gray-700/50 p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-white">Payload Editor</h2>
+                        <div class="flex gap-2">
+                            <button class="px-4 py-2 text-sm font-medium bg-blue-900/30 text-blue-400 rounded-lg hover:bg-blue-900/50 transition-all">
+                                Auto-fill
+                            </button>
+                            <button class="px-4 py-2 text-sm font-medium bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-4 rounded-lg bg-primary-900/20 border border-primary-800">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            <div>
+                                <h4 class="text-sm font-semibold text-primary-100">Basic OR Bypass</h4>
+                                <p class="text-xs text-primary-300 mt-1">Classic authentication bypass</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Target URL</label>
+                            <input type="text" value="https://target.example.com/api/login" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Custom Payload</label>
+                            <textarea rows="6" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 font-mono text-sm">' OR '1'='1</textarea>
+                        </div>
+                        <button class="w-full px-6 py-4 rounded-lg font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg shadow-primary-500/30">
+                            Execute Attack
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Response Log -->
+                <div class="glass-strong rounded-xl border border-gray-700/50 p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-white">Response Log</h2>
+                        <button class="px-3 py-1.5 text-xs font-medium bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-all">
+                            Clear Log
+                        </button>
+                    </div>
+
+                    <div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+                        <div class="p-4 rounded-lg border bg-green-900/20 border-green-800">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2 mb-2">
+                                        <span class="text-xs font-semibold text-green-300">SUCCESS</span>
+                                        <span class="text-xs text-gray-500">12:34:56</span>
+                                    </div>
+                                    <p class="text-sm text-green-200">
+                                        Attack executed successfully. Found 7 matching records.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-6 glass-strong rounded-xl border border-gray-700/50 p-4 shadow-md">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <h4 class="text-sm font-semibold text-white mb-1">Security Warning</h4>
+                    <p class="text-xs text-gray-400">
+                        This tool is for educational and authorized security testing purposes only. 
+                        Unauthorized access to computer systems is illegal.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('%c NoSQL Attacker GUI Demo ', 'background: #667eea; color: white; font-size: 16px; padding: 8px;');
+        console.log('This is a static HTML demonstration of the component UI.');
+        console.log('The actual React component provides full interactivity.');
+    </script>
+</body>
+</html>

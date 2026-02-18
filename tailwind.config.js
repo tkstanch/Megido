@@ -4,6 +4,8 @@ module.exports = {
     './templates/**/*.html',
     './*/templates/**/*.html',
     './static/**/*.js',
+    './sqli_web/frontend/**/*.tsx',
+    './sqli_web/frontend/**/*.ts',
   ],
   darkMode: 'class', // Enable class-based dark mode
   theme: {

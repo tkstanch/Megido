@@ -5,12 +5,27 @@
   "scripts": {
     "build:css": "npx tailwindcss -i ./static/css/tailwind.input.css -o ./static/css/tailwind.output.css --minify",
     "watch:css": "npx tailwindcss -i ./static/css/tailwind.input.css -o ./static/css/tailwind.output.css --watch",
+    "build:tsx": "webpack --config webpack.config.js",
+    "build:all": "npm run build:css && npm run build:tsx",
     "dev": "npm run watch:css"
   },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.17",
+    "css-loader": "^6.8.1",
     "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.19"
+    "postcss-loader": "^7.3.3",
+    "style-loader": "^3.3.3",
+    "tailwindcss": "^3.4.19",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.2.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   },
   "keywords": [
     "security",
