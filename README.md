@@ -462,6 +462,12 @@ if result['vulnerable']:
 ### Other Available Plugins
 
 - **SQL Injection Plugin** - Multi-database support with error-based, time-based, and union-based detection
+- **SQL Injection Payload Generator Web UI** - Interactive web interface for generating context-aware SQL injection payloads ⭐ NEW
+  - Supports Oracle, MySQL, and Microsoft SQL Server
+  - Context-aware payload generation (string, numeric, parenthesis contexts)
+  - Rich cheat sheet with syntax examples and error messages
+  - RESTful API for programmatic access
+  - See [sqli_web/USAGE.md](sqli_web/USAGE.md) for detailed usage guide
 - **XSS Plugin** - Advanced cross-site scripting testing with **callback-based verification** and **visual proof (GIF) generation** ⭐ NEW
   - Reduces false positives by verifying actual JavaScript execution
   - Supports Burp Collaborator, Interactsh, internal collaborator, or custom webhooks
@@ -476,10 +482,12 @@ if result['vulnerable']:
 - [XSS_CALLBACK_VERIFICATION_GUIDE.md](XSS_CALLBACK_VERIFICATION_GUIDE.md) - Callback verification system guide ⭐ NEW
 - [NGROK_CALLBACK_GUIDE.md](NGROK_CALLBACK_GUIDE.md) - ngrok-powered callback verification setup and usage (PR #110) ⭐ NEW
 - [docs/SQL_INJECTION_POST_EXPLOITATION.md](docs/SQL_INJECTION_POST_EXPLOITATION.md) - SQL injection post-exploitation techniques for MS-SQL, Oracle, and MySQL ⭐ NEW
+- [sqli_web/USAGE.md](sqli_web/USAGE.md) - SQL Injection Payload Generator web UI guide ⭐ NEW
 
 **Demo Scripts:**
 - `python demo_xss_callback_verification.py` - Interactive callback verification demo
 - `python demo_ngrok_scan.py` - ngrok tunnel setup and callback testing (PR #110) ⭐ NEW
+- `cd sqli_web && python app.py` - Launch SQL Injection Payload Generator web UI ⭐ NEW
 
 ## 🎥 XSS Visual Proof Generation ⭐ NEW FEATURE
 

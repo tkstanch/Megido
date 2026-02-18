@@ -219,15 +219,20 @@ if __name__ == '__main__':
 
 For production use:
 
-1. Disable debug mode in `app.py`:
-   ```python
-   app.run(host='0.0.0.0', port=5000, debug=False)
+1. Set environment variables for security:
+   ```bash
+   export SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')
+   export FLASK_DEBUG=False
    ```
 
 2. Use a production WSGI server like Gunicorn:
    ```bash
    gunicorn -w 4 -b 0.0.0.0:5000 sqli_web.app:app
    ```
+
+3. Consider using HTTPS to enable the modern Clipboard API for copy functionality
+
+4. Use a reverse proxy (nginx, Apache) for additional security and performance
 
 ## Extending the Cheat Sheet
 

@@ -7,13 +7,15 @@ options and displays generated payloads with reference cheat sheets.
 """
 
 from flask import Flask, render_template, request, jsonify
-from generate_sql_payloads import SQLPayloadGenerator, generate_payloads, get_cheat_sheet_reference
-from sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_list
+import os
+from .generate_sql_payloads import SQLPayloadGenerator, generate_payloads, get_cheat_sheet_reference
+from .sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_list
 
 app = Flask(__name__)
 
 # Configure Flask
-app.config['SECRET_KEY'] = 'sql-injection-payload-generator-secret-key'
+# Use environment variable or generate random key for production
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sql-injection-payload-generator-secret-key-change-in-production')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 
@@ -192,8 +194,11 @@ if __name__ == '__main__':
     print("Access the web interface at: http://localhost:5000")
     print("=" * 60)
     
+    # Get debug mode from environment variable, default to False for security
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    
     app.run(
         host='0.0.0.0',
         port=5000,
-        debug=True
+        debug=debug_mode
     )

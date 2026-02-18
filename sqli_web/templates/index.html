@@ -465,17 +465,32 @@
             resultsDiv.innerHTML = html;
         }
 
-        // Copy to clipboard
-        function copyToClipboard(text) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            
-            // Show feedback
-            alert('Payload copied to clipboard!');
+        // Copy to clipboard using modern Clipboard API with fallback
+        async function copyToClipboard(text) {
+            try {
+                // Try modern Clipboard API first
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    alert('Payload copied to clipboard!');
+                } else {
+                    // Fallback to older method for non-HTTPS contexts
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        alert('Payload copied to clipboard!');
+                    } catch (err) {
+                        alert('Failed to copy to clipboard');
+                    }
+                    document.body.removeChild(textarea);
+                }
+            } catch (err) {
+                alert('Failed to copy to clipboard: ' + err.message);
+            }
         }
 
         // Utility functions
