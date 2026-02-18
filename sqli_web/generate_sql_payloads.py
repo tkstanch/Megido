@@ -5,7 +5,11 @@ Utility module for generating context-aware SQL injection payloads
 based on the SQL syntax and error cheat sheet.
 """
 
-from .sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_info, get_cheat_sheet_data
+# Support both relative imports (when used as module) and absolute imports (when run as script)
+try:
+    from .sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_info, get_cheat_sheet_data
+except ImportError:
+    from sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_info, get_cheat_sheet_data
 
 
 class SQLPayloadGenerator:

@@ -8,8 +8,15 @@ options and displays generated payloads with reference cheat sheets.
 
 from flask import Flask, render_template, request, jsonify
 import os
-from .generate_sql_payloads import SQLPayloadGenerator, generate_payloads, get_cheat_sheet_reference
-from .sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_list
+import sys
+
+# Support both relative imports (when used as module) and absolute imports (when run as script)
+try:
+    from .generate_sql_payloads import SQLPayloadGenerator, generate_payloads, get_cheat_sheet_reference
+    from .sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_list
+except ImportError:
+    from generate_sql_payloads import SQLPayloadGenerator, generate_payloads, get_cheat_sheet_reference
+    from sql_syntax_and_errors import SQL_CHEAT_SHEET, get_dbms_list
 
 app = Flask(__name__)
 
