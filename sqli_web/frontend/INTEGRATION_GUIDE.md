@@ -175,11 +175,16 @@ npm run build:all
 
 ### Mock vs. Live Mode
 
-The component includes a mock mode toggle. To switch modes, edit line 383 in `NoSQLAttackerGUI.tsx`:
+The component includes a mock mode toggle. To switch modes, edit around line 351 in the `handleExecute` function in `NoSQLAttackerGUI.tsx`:
 
 ```typescript
 const useMockData = false; // Change to false for live API calls
+
+// For production, consider using environment variables:
+// const useMockData = process.env.REACT_APP_USE_MOCK_DATA !== 'false';
 ```
+
+**Important**: For production deployments, ensure mock mode is disabled or use environment variables to control this behavior.
 
 Then rebuild:
 ```bash

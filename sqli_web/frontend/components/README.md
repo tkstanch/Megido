@@ -2,6 +2,8 @@
 
 A comprehensive, cross-platform GUI component for generating and managing various injection attack payloads including SQL, NoSQL (MongoDB), XPath, and LDAP injection attacks.
 
+> **Note on Naming**: Despite the name "NoSQLAttackerGUI", this component supports all major injection types: SQL, NoSQL, XPath, and LDAP. The name emphasizes the NoSQL capabilities as they are a key differentiator, but the component is a full-featured multi-injection attack console. The default tab is set to "NoSQL" to highlight this modern attack vector.
+
 ## Features
 
 ✨ **Key Capabilities:**
@@ -193,12 +195,20 @@ urlpatterns = [
 
 ### Mock Mode for Testing
 
-The component includes built-in mock mode for testing without a backend. To enable:
+The component includes built-in mock mode for testing without a backend. To disable:
 
 ```typescript
-// In NoSQLAttackerGUI.tsx, line ~383
-const useMockData = true; // Set to false when backend is available
+// In NoSQLAttackerGUI.tsx, around line 351 in the handleExecute function
+const useMockData = false; // Set to false when backend is available
+
+// For production deployment, use environment variables:
+const useMockData = process.env.REACT_APP_USE_MOCK_DATA !== 'false';
 ```
+
+**Production Warning**: The mock mode flag is hardcoded by default. For production deployments:
+1. Set `useMockData = false` before building
+2. Or better: Use environment variables to control this behavior
+3. Add checks in your build pipeline to ensure mock mode is disabled
 
 ## Payload Libraries
 

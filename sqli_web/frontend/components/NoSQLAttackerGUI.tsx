@@ -348,6 +348,8 @@ const NoSQLAttackerGUI: React.FC = () => {
     try {
       // TODO: Replace with actual API endpoint when backend is ready
       // For now, using mock response for demonstration
+      // IMPORTANT: Set this to false when backend API is ready for production
+      // Consider using environment variable: process.env.REACT_APP_USE_MOCK_DATA
       const useMockData = true; // Set to false when backend is available
 
       let response: AttackResponse;
