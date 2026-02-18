@@ -329,7 +329,7 @@ class ClientSideScanOrchestrator:
             end = datetime.fromisoformat(end_time)
             duration = end - start
             return str(duration)
-        except:
+        except Exception:
             return "N/A"
     
     def export_results(self, results: ScanResults, output_file: str, 

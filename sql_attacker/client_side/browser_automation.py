@@ -383,9 +383,10 @@ class BrowserAutomationWorker:
         if not isinstance(value, str):
             return False
         
-        # Check for SQL injection indicators
-        sql_indicators = ['null', 'undefined', 'NaN', 'syntax error', 'database']
-        return any(indicator in value.lower() for indicator in sql_indicators)
+        # Check for SQL injection indicators (case-insensitive)
+        sql_indicators = ['null', 'undefined', 'nan', 'syntax error', 'database']
+        value_lower = value.lower()
+        return any(indicator in value_lower for indicator in sql_indicators)
     
     def monitor_storage_changes(self, url: str, duration: int = 10) -> List[BrowserFinding]:
         """

@@ -9,12 +9,20 @@ from rest_framework import status
 import json
 import threading
 import logging
+import os
+import tempfile
 
 from .models import SQLInjectionTask, SQLInjectionResult
 from .sqli_engine import SQLInjectionEngine
 from .param_discovery import ParameterDiscoveryEngine
 from .oob_payloads import OOBPayloadGenerator, DatabaseType as OOBDatabaseType
 from response_analyser.analyse import save_vulnerability
+from .client_side import (
+    ClientSideScanOrchestrator,
+    ScanConfiguration,
+    ScanType
+)
+from .client_side.orchestrator import ScanResults
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -824,12 +832,6 @@ def api_oob_listener_guide(request):
 # Client-Side Scanning Views
 # ============================================================================
 
-from .client_side import (
-    ClientSideScanOrchestrator,
-    ScanConfiguration,
-    ScanType
-)
-
 
 def client_side_dashboard(request):
     """
@@ -938,13 +940,9 @@ def api_client_side_export(request):
                 'error': 'scan_results is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Reconstruct ScanResults object
-        from .client_side.orchestrator import ScanResults
-        
+        # Reconstruct ScanResults object from data
         # For simplicity, we'll just save the data directly
         # In production, you'd reconstruct the full object
-        import os
-        import tempfile
         
         if not output_file:
             # Generate temporary file

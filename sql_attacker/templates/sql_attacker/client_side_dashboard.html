@@ -237,23 +237,34 @@ function displayResults(data) {
     }
     html += '</ul>';
     
-    // Export button
+    <!-- Export button -->
     html += '<div class="mt-3">';
-    html += '<button class="btn btn-secondary" onclick="exportResults(' + JSON.stringify(data) + ', \'json\')">Export as JSON</button> ';
-    html += '<button class="btn btn-secondary" onclick="exportResults(' + JSON.stringify(data) + ', \'html\')">Export as HTML</button>';
+    html += '<button class="btn btn-secondary" onclick="exportResultsAsFile(\'json\')">Export as JSON</button> ';
+    html += '<button class="btn btn-secondary" onclick="exportResultsAsFile(\'html\')">Export as HTML</button>';
     html += '</div>';
     
     resultsDiv.innerHTML = html;
+    
+    // Store results data for export
+    window.currentScanResults = data;
 }
 
-function exportResults(data, format) {
-    // In a real implementation, you would call the export API
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: format === 'json' ? 'application/json' : 'text/html' });
+function exportResultsAsFile(format) {
+    const data = window.currentScanResults;
+    if (!data) {
+        alert('No scan results to export');
+        return;
+    }
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { 
+        type: format === 'json' ? 'application/json' : 'text/html' 
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `client_side_scan_${data.scan_id}.${format}`;
     a.click();
+    URL.revokeObjectURL(url);
 }
 </script>
 {% endblock %}

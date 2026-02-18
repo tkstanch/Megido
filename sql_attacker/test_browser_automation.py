@@ -83,7 +83,7 @@ class TestBrowserAutomationWorker(unittest.TestCase):
         """Test detection of corrupted data"""
         self.assertTrue(self.worker._is_corrupted_data("null"))
         self.assertTrue(self.worker._is_corrupted_data("undefined"))
-        # NaN check is case-sensitive in our implementation
+        self.assertTrue(self.worker._is_corrupted_data("NaN"))  # Should work now with case-insensitive check
         self.assertTrue(self.worker._is_corrupted_data("syntax error"))
         self.assertFalse(self.worker._is_corrupted_data("normal value"))
     

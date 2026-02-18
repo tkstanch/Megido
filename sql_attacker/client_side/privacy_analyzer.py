@@ -395,7 +395,7 @@ class PrivacyStorageAnalyzer:
             for part in parts:
                 base64.b64decode(part + '==')  # Add padding
             return True
-        except:
+        except Exception:
             return False
     
     def analyze_all(self, storage_data: Dict[str, Any]) -> List[PrivacyFinding]:
