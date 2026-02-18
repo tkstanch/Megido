@@ -10,7 +10,7 @@ from .browser_automation import BrowserAutomationWorker
 from .static_scanner import JavaScriptStaticScanner
 from .hpp_detector import HTTPParameterPollutionDetector
 from .privacy_analyzer import PrivacyStorageAnalyzer
-from .orchestrator import ClientSideScanOrchestrator
+from .orchestrator import ClientSideScanOrchestrator, ScanConfiguration, ScanType
 
 __all__ = [
     'BrowserAutomationWorker',
@@ -18,4 +18,6 @@ __all__ = [
     'HTTPParameterPollutionDetector',
     'PrivacyStorageAnalyzer',
     'ClientSideScanOrchestrator',
+    'ScanConfiguration',
+    'ScanType',
 ]
