@@ -684,6 +684,9 @@ def api_task_status(request, pk):
         ]
     }
     """
+    # Maximum length for truncating payload and evidence text in API responses
+    MAX_TEXT_DISPLAY_LENGTH = 200
+    
     try:
         task = SQLInjectionTask.objects.get(pk=pk)
         
@@ -719,10 +722,10 @@ def api_task_status(request, pk):
             if vulnerable:
                 first_result = type_results.first()
                 proof = {
-                    'payload': first_result.test_payload[:200],  # Limit length
+                    'payload': first_result.test_payload[:MAX_TEXT_DISPLAY_LENGTH],
                     'parameter': first_result.vulnerable_parameter,
                     'parameter_type': first_result.parameter_type,
-                    'evidence': first_result.detection_evidence[:200],  # Limit length
+                    'evidence': first_result.detection_evidence[:MAX_TEXT_DISPLAY_LENGTH],
                     'database_type': first_result.database_type,
                     'is_exploitable': first_result.is_exploitable,
                 }
