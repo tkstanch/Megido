@@ -651,6 +651,118 @@ def api_task_detail(request, pk):
         }, status=status.HTTP_404_NOT_FOUND)
 
 
+@api_view(['GET'])
+def api_task_status(request, pk):
+    """
+    REST API endpoint for retrieving task status with per-SQLi-type breakdown.
+    
+    Returns structured status information including which SQLi types were tested,
+    which ones found vulnerabilities, and proof-of-concept details.
+    
+    Response format:
+    {
+        "status": "completed|running|failed|pending",
+        "results": [
+            {
+                "type": "Error-Based",
+                "tested": true,
+                "vulnerable": false,
+                "count": 0,
+                "proof": null
+            },
+            {
+                "type": "Time-Based",
+                "tested": true,
+                "vulnerable": true,
+                "count": 2,
+                "proof": {
+                    "payload": "' AND SLEEP(5)--",
+                    "parameter": "id",
+                    "evidence": "Response delayed by 5.2 seconds"
+                }
+            }
+        ]
+    }
+    """
+    # Maximum length for truncating payload and evidence text in API responses
+    MAX_TEXT_DISPLAY_LENGTH = 200
+    
+    try:
+        task = SQLInjectionTask.objects.get(pk=pk)
+        
+        # Define all SQLi types that could be tested
+        sqli_types = [
+            ('error_based', 'Error-Based'),
+            ('time_based', 'Time-Based'),
+            ('union_based', 'UNION-Based'),
+            ('boolean_based', 'Boolean-Based'),
+            ('stacked_queries', 'Stacked Queries'),
+        ]
+        
+        results_breakdown = []
+        
+        for injection_type_key, injection_type_display in sqli_types:
+            # Check if this type was enabled for testing
+            tested = False
+            if injection_type_key == 'error_based':
+                tested = task.enable_error_based
+            elif injection_type_key == 'time_based':
+                tested = task.enable_time_based
+            elif injection_type_key in ['union_based', 'boolean_based', 'stacked_queries']:
+                # These are tested when exploitation is enabled
+                tested = task.enable_exploitation
+            
+            # Get results for this injection type
+            type_results = task.results.filter(injection_type=injection_type_key)
+            vulnerable = type_results.exists()
+            count = type_results.count()
+            
+            # Get proof of concept from first result if available
+            proof = None
+            if vulnerable:
+                first_result = type_results.first()
+                proof = {
+                    'payload': first_result.test_payload[:MAX_TEXT_DISPLAY_LENGTH],
+                    'parameter': first_result.vulnerable_parameter,
+                    'parameter_type': first_result.parameter_type,
+                    'evidence': first_result.detection_evidence[:MAX_TEXT_DISPLAY_LENGTH],
+                    'database_type': first_result.database_type,
+                    'is_exploitable': first_result.is_exploitable,
+                }
+                
+                # Add exploitation details if available
+                if first_result.is_exploitable:
+                    proof['database_version'] = first_result.database_version
+                    proof['current_user'] = first_result.current_user
+                    proof['current_database'] = first_result.current_database
+                    
+                    # Add sample extracted data if available
+                    if first_result.extracted_tables:
+                        proof['sample_tables'] = first_result.extracted_tables[:3] if isinstance(first_result.extracted_tables, list) else None
+            
+            results_breakdown.append({
+                'type': injection_type_display,
+                'tested': tested,
+                'vulnerable': vulnerable,
+                'count': count,
+                'proof': proof
+            })
+        
+        return Response({
+            'status': task.status,
+            'started_at': task.started_at.isoformat() if task.started_at else None,
+            'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+            'vulnerabilities_found': task.vulnerabilities_found,
+            'error_message': task.error_message,
+            'results': results_breakdown
+        })
+    
+    except SQLInjectionTask.DoesNotExist:
+        return Response({
+            'error': 'Task not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
 @api_view(['POST'])
 def api_task_execute(request, pk):
     """
