@@ -66,10 +66,40 @@ class PayloadIntegration:
             category="sqli-postgresql"
         ),
         PayloadSource(
+            name="PayloadAllTheThings-MSSQL",
+            url="https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/MSSQL%20Injection.md",
+            format="markdown",
+            category="sqli-mssql"
+        ),
+        PayloadSource(
+            name="PayloadAllTheThings-Oracle",
+            url="https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/SQL%20Injection/OracleSQL%20Injection.md",
+            format="markdown",
+            category="sqli-oracle"
+        ),
+        PayloadSource(
             name="SecLists-SQLi",
             url="https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/Databases/sqli.txt",
             format="txt",
             category="sqli-generic"
+        ),
+        PayloadSource(
+            name="SecLists-MySQL",
+            url="https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/Databases/MySQL.txt",
+            format="txt",
+            category="sqli-mysql"
+        ),
+        PayloadSource(
+            name="SecLists-MSSQL",
+            url="https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/Databases/MSSQL.txt",
+            format="txt",
+            category="sqli-mssql"
+        ),
+        PayloadSource(
+            name="SecLists-Postgres",
+            url="https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/Databases/Postgres.txt",
+            format="txt",
+            category="sqli-postgresql"
         ),
     ]
     
@@ -400,6 +430,41 @@ class PayloadIntegration:
             
         except Exception as e:
             logger.error(f"Error importing custom payloads: {e}")
+            return 0
+    
+    def generate_comprehensive_payloads(self):
+        """
+        Generate comprehensive set of payloads using the payload generator.
+        
+        This will generate 1000+ unique payloads through combinatorial generation,
+        encoding variations, and WAF bypass techniques.
+        """
+        try:
+            from .payload_generator import generate_comprehensive_payloads
+            
+            logger.info("Generating comprehensive payload set...")
+            all_payloads, categorized = generate_comprehensive_payloads()
+            
+            # Create a synthetic source for generated payloads
+            source = PayloadSource(
+                name="Generated-Comprehensive",
+                url="internal://generated",
+                format="generated",
+                category="sqli-generated",
+                last_updated=datetime.utcnow().isoformat()
+            )
+            
+            # Add generated payloads to library
+            added = 0
+            for payload_content in all_payloads:
+                if self._add_payload(payload_content, source):
+                    added += 1
+            
+            logger.info(f"Generated and added {added} payloads to library")
+            return added
+            
+        except Exception as e:
+            logger.error(f"Error generating comprehensive payloads: {e}")
             return 0
     
     def get_statistics(self) -> Dict[str, Any]:
