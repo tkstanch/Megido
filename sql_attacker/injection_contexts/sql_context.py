@@ -709,12 +709,24 @@ class SQLInjectionModule(InjectionAttackModule):
         response_body: str,
         response_headers: Dict[str, str],
         response_time: float,
-        baseline_time: Optional[float] = None
+        baseline_time: Optional[float] = None,
+        payload_used: Optional[str] = None
     ) -> Tuple[bool, float, str]:
         """
         Analyze response for SQL injection indicators.
         
+        Enhanced version integrating fuzzy logic detection and adaptive learning.
         This method integrates steps 2 and 3 for backward compatibility.
+        
+        Args:
+            response_body: HTTP response body
+            response_headers: HTTP response headers
+            response_time: Response time in seconds
+            baseline_time: Optional baseline response time
+            payload_used: Optional payload that was used
+            
+        Returns:
+            Tuple of (detected, confidence, evidence_string)
         """
         # Step 2: Detect anomalies
         baseline_response = None
@@ -729,11 +741,38 @@ class SQLInjectionModule(InjectionAttackModule):
             return False, 0.0, "No SQL injection detected"
         
         # Step 3: Extract evidence
-        evidence_data = self.step3_extract_evidence(response_body, anomalies)
+        evidence_data = self.step3_extract_evidence(response_body, anomalies, payload_used)
         
         confidence = evidence_data['confidence']
-        evidence_str = f"SQL injection detected. Database: {evidence_data['context_info'].get('database_type', 'Unknown')}. "
+        dbms = evidence_data['context_info'].get('database_type', 'Unknown')
+        injection_type = evidence_data['context_info'].get('injection_type', 'unknown')
+        attack_score = evidence_data.get('attack_score', 0.0)
+        
+        evidence_str = f"SQL injection detected. "
+        evidence_str += f"Type: {injection_type}, DBMS: {dbms}, "
+        evidence_str += f"Confidence: {confidence:.2f}, Score: {attack_score:.1f}. "
         evidence_str += f"Anomalies: {', '.join(anomalies[:3])}"
+        
+        # Update adaptive strategy
+        if self.use_adaptive and payload_used:
+            # Determine encoding type from payload
+            encoding_type = 'none'
+            if '%' in payload_used:
+                encoding_type = 'url'
+            elif '/**/' in payload_used:
+                encoding_type = 'comment'
+            elif payload_used != payload_used.upper() and payload_used != payload_used.lower():
+                encoding_type = 'case'
+            
+            # Update strategy
+            from sql_attacker.injection_contexts.sql_context import ResponseProfile
+            response_profile = ResponseProfile.from_response(
+                response_body, 200, response_time, response_headers
+            )
+            
+            self.adaptive_strategy.update_from_response(
+                injection_type, encoding_type, response_profile, detected
+            )
         
         return True, confidence, evidence_str
     
@@ -868,24 +907,41 @@ class SQLInjectionModule(InjectionAttackModule):
         parameter_value: str, 
         statement_type: str = "SELECT",
         include_insert_enum: bool = False,
-        max_insert_params: int = 10
+        max_insert_params: int = 10,
+        db_hint: Optional[str] = None,
+        enable_polymorphic: Optional[bool] = None
     ) -> List[str]:
         """
         Step 1: Supply unexpected syntax and context-specific payloads.
         
-        Returns SQL injection payloads for various databases, with optional
-        INSERT statement parameter enumeration.
+        Enhanced with adaptive payload selection and polymorphic generation.
+        Returns SQL injection payloads optimized for detected DBMS and WAF.
         
         Args:
             parameter_value: The original parameter value
             statement_type: Type of SQL statement (SELECT, INSERT, UPDATE, DELETE)
             include_insert_enum: Whether to include INSERT parameter enumeration
             max_insert_params: Maximum parameters to enumerate for INSERT
+            db_hint: Optional hint about target DBMS
+            enable_polymorphic: Override config for polymorphic generation
             
         Returns:
-            List of SQL injection payloads
+            List of SQL injection payloads with adaptive optimization
         """
         payloads = list(self.payloads)
+        
+        # Use adaptive strategy if available and enabled
+        if self.use_adaptive and self.adaptive_strategy.detected_dbms:
+            db_hint = self.adaptive_strategy.detected_dbms
+        
+        # Add DBMS-specific payloads if hint available
+        if db_hint:
+            try:
+                from sql_attacker.advanced_payloads import AdvancedPayloadLibrary
+                db_payloads = AdvancedPayloadLibrary.get_payloads_for_db(db_hint)
+                payloads.extend(db_payloads[:200])  # Add subset to avoid overload
+            except ImportError:
+                pass
         
         # Add quote-balanced payloads
         payloads.extend(self._generate_quote_balanced_payloads(parameter_value))
@@ -897,7 +953,90 @@ class SQLInjectionModule(InjectionAttackModule):
                 max_insert_params
             ))
         
-        return payloads
+        # Generate polymorphic variants if enabled
+        use_polymorphic = enable_polymorphic if enable_polymorphic is not None else self.enable_polymorphic
+        if use_polymorphic:
+            payloads = self._add_polymorphic_variants(payloads, db_hint)
+        
+        # Apply adaptive encoding based on learned strategy
+        if self.use_adaptive:
+            payloads = self._apply_adaptive_encoding(payloads)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_payloads = []
+        for p in payloads:
+            if p not in seen:
+                seen.add(p)
+                unique_payloads.append(p)
+        
+        return unique_payloads[:self.max_payloads]
+    
+    def _add_polymorphic_variants(self, payloads: List[str], db_hint: Optional[str] = None) -> List[str]:
+        """
+        Add polymorphic variants of payloads for WAF bypass.
+        
+        Args:
+            payloads: Original payload list
+            db_hint: Optional database type hint
+            
+        Returns:
+            Enhanced payload list with polymorphic variants
+        """
+        try:
+            from sql_attacker.advanced_payloads import PolymorphicPayloadGenerator
+            
+            generator = PolymorphicPayloadGenerator()
+            enhanced = list(payloads)
+            
+            # Generate variants for high-value payloads
+            key_payloads = [p for p in payloads if any(kw in p.upper() for kw in ['UNION', 'SELECT', 'SLEEP'])]
+            
+            for payload in key_payloads[:20]:  # Limit to avoid explosion
+                variants = generator.generate_variants(payload, count=5)
+                enhanced.extend(variants)
+            
+            return enhanced
+            
+        except ImportError:
+            return payloads
+    
+    def _apply_adaptive_encoding(self, payloads: List[str]) -> List[str]:
+        """
+        Apply adaptive encoding based on learned strategy.
+        
+        Args:
+            payloads: Original payload list
+            
+        Returns:
+            Payload list with adaptive encoding applied
+        """
+        if not self.adaptive_strategy.successful_encodings:
+            return payloads
+        
+        try:
+            from sql_attacker.advanced_payloads import PayloadEncoder
+            
+            encoder = PayloadEncoder()
+            enhanced = list(payloads)
+            
+            # Apply successful encodings to subset of payloads
+            for encoding in list(self.adaptive_strategy.successful_encodings)[:3]:
+                for payload in payloads[:50]:  # Limit scope
+                    try:
+                        if encoding == 'url':
+                            enhanced.append(encoder.url_encode(payload))
+                        elif encoding == 'comment':
+                            enhanced.append(encoder.comment_injection(payload))
+                        elif encoding == 'case':
+                            enhanced.append(encoder.case_variation(payload))
+                    except Exception:
+                        continue
+            
+            return enhanced
+            
+        except ImportError:
+            return payloads
     
     def step2_detect_anomalies(
         self,
@@ -905,28 +1044,62 @@ class SQLInjectionModule(InjectionAttackModule):
         response_headers: Dict[str, str],
         response_time: float,
         baseline_response: Optional[Tuple[str, float]] = None,
-        payload_hint: Optional[str] = None
+        payload_hint: Optional[str] = None,
+        response_status: int = 200
     ) -> Tuple[bool, List[str]]:
         """
         Step 2: Detect anomalies and error messages in responses.
         
+        Enhanced with fuzzy logic detection and response profiling.
         Look for SQL errors, timing differences, or content changes.
-        Enhanced to detect INSERT statement errors and quote-balancing effects.
         
         Args:
             response_body: Response body text
             response_headers: Response headers dict
             response_time: Response time in seconds
             baseline_response: Optional baseline (body, time) tuple
-            payload_hint: Optional hint about payload type (e.g., "INSERT", "QUOTE_BALANCED")
+            payload_hint: Optional hint about payload type (e.g., "INSERT", "QUOTE_BALANCED", "time")
+            response_status: HTTP status code
+            
+        Returns:
+            Tuple of (anomaly_detected, list_of_anomalies)
         """
         anomalies = []
         
-        # Check for error-based detection
+        # Create response profile for adaptive learning
+        response_profile = ResponseProfile.from_response(
+            response_body, response_status, response_time, response_headers
+        )
+        
+        # Check for error-based detection (traditional)
+        error_indicators = []
         for pattern_info in self.detection_patterns:
             pattern = pattern_info['pattern']
             if re.search(pattern, response_body, re.IGNORECASE):
-                anomalies.append(f"sql_error: {pattern}")
+                error_message = f"sql_error: {pattern}"
+                anomalies.append(error_message)
+                error_indicators.append(pattern)
+        
+        response_profile.error_indicators = error_indicators
+        
+        # Use fuzzy logic detection if enabled and baseline available
+        if self.use_fuzzy_detection and baseline_response:
+            baseline_body, baseline_time = baseline_response
+            
+            # Create baseline profile if not already added
+            if not self.fuzzy_detector.baseline_profiles:
+                baseline_profile = ResponseProfile.from_response(
+                    baseline_body, response_status, baseline_time, response_headers
+                )
+                self.fuzzy_detector.add_baseline(baseline_profile)
+            
+            # Detect anomaly using fuzzy logic
+            fuzzy_detected, fuzzy_score, fuzzy_reasons = self.fuzzy_detector.detect_anomaly(
+                response_profile, payload_hint
+            )
+            
+            if fuzzy_detected:
+                anomalies.extend([f"fuzzy_logic: {reason}" for reason in fuzzy_reasons])
         
         # Check for INSERT-specific error patterns
         insert_error_patterns = [
@@ -945,7 +1118,6 @@ class SQLInjectionModule(InjectionAttackModule):
                 anomalies.append(f"insert_param_count: {pattern}")
         
         # Check for quote-balancing success indicators
-        # These might indicate successful query execution with balanced quotes
         if payload_hint and 'QUOTE' in payload_hint.upper():
             quote_success_patterns = [
                 r'successfully.*inserted',
@@ -975,42 +1147,53 @@ class SQLInjectionModule(InjectionAttackModule):
             if len_diff > self.SIGNIFICANT_CONTENT_LENGTH_DIFF:
                 anomalies.append(f"content_change: Length difference of {len_diff} bytes")
         
+        # Attempt DBMS fingerprinting from errors
+        if error_indicators and not self.adaptive_strategy.detected_dbms:
+            dbms, confidence = self.fingerprinter.fingerprint_from_error(response_body)
+            if dbms and confidence > 0.7:
+                self.adaptive_strategy.detected_dbms = dbms
+                anomalies.append(f"dbms_detected: {dbms} (confidence: {confidence:.2f})")
+        
         return len(anomalies) > 0, anomalies
     
     def step3_extract_evidence(
         self,
         response_body: str,
-        anomalies: List[str]
+        anomalies: List[str],
+        payload_used: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Step 3: Analyze and extract error/evidence from response.
         
-        Parse SQL errors and extract database information.
+        Enhanced with improved fingerprinting, privilege analysis, and per-attack scoring.
+        Parse SQL errors and extract comprehensive database information.
+        
+        Args:
+            response_body: Response body text
+            anomalies: List of detected anomalies
+            payload_used: Optional payload that triggered the response
+            
+        Returns:
+            Evidence dictionary with comprehensive analysis
         """
         evidence = {
             'error_type': 'sql_injection',
             'details': {},
             'context_info': {},
-            'confidence': 0.0
+            'confidence': 0.0,
+            'attack_score': 0.0
         }
         
-        # Detect database type from errors
-        db_signatures = {
-            'MySQL': [r'You have an error in your SQL syntax', r'mysql_', r'MySQL server version'],
-            'PostgreSQL': [r'PostgreSQL.*ERROR', r'pg_', r'invalid input syntax'],
-            'MSSQL': [r'Microsoft SQL', r'ODBC SQL Server', r'SQLServer JDBC'],
-            'Oracle': [r'ORA-\d{5}', r'Oracle.*Driver'],
-            'SQLite': [r'SQLite.*error', r'sqlite3\.'],
-        }
-        
-        for db_type, patterns in db_signatures.items():
-            for pattern in patterns:
-                if re.search(pattern, response_body, re.IGNORECASE):
-                    evidence['context_info']['database_type'] = db_type
-                    evidence['confidence'] = max(evidence['confidence'], 0.90)
-                    break
-            if evidence['context_info'].get('database_type'):
-                break
+        # Enhanced DBMS detection using fingerprinter
+        if not self.adaptive_strategy.detected_dbms:
+            dbms, confidence = self.fingerprinter.fingerprint_from_error(response_body)
+            if dbms and confidence > 0.7:
+                self.adaptive_strategy.detected_dbms = dbms
+                evidence['context_info']['database_type'] = dbms
+                evidence['confidence'] = max(evidence['confidence'], confidence)
+        else:
+            evidence['context_info']['database_type'] = self.adaptive_strategy.detected_dbms
+            evidence['confidence'] = max(evidence['confidence'], 0.85)
         
         # Extract specific error messages
         error_match = re.search(r'(syntax error|error in your SQL syntax|ORA-\d{5})[^\n]{0,100}', 
@@ -1045,19 +1228,73 @@ class SQLInjectionModule(InjectionAttackModule):
                 evidence['context_info']['injection_method'] = 'quote_balanced'
                 evidence['confidence'] = max(evidence['confidence'], 0.82)
         
-        # Calculate confidence based on anomalies
+        # Calculate confidence and attack score based on anomalies
+        attack_score = 0.0
         for anomaly in anomalies:
             if 'sql_error' in anomaly:
-                evidence['confidence'] = max(evidence['confidence'], 0.85)
+                evidence['confidence'] = max(evidence['confidence'], 0.90)
+                attack_score += 3.0
+            elif 'dbms_detected' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.88)
+                attack_score += 2.5
+            elif 'fuzzy_logic' in anomaly:
+                evidence['confidence'] = max(evidence['confidence'], 0.80)
+                attack_score += 2.0
             elif 'time_based' in anomaly:
                 evidence['confidence'] = max(evidence['confidence'], 0.80)
+                attack_score += 2.5
             elif 'boolean_based' in anomaly:
                 evidence['confidence'] = max(evidence['confidence'], 0.70)
+                attack_score += 1.5
             elif 'content_change' in anomaly:
                 evidence['confidence'] = max(evidence['confidence'], 0.65)
+                attack_score += 1.0
         
+        evidence['attack_score'] = attack_score
         evidence['details']['anomalies'] = anomalies
         evidence['details']['quote_balanced'] = quote_balanced_detected
+        
+        # Extract database version if available
+        version_patterns = [
+            (r'MySQL.*(\d+\.\d+\.\d+)', 'MySQL'),
+            (r'PostgreSQL.*(\d+\.\d+)', 'PostgreSQL'),
+            (r'Microsoft SQL Server.*(\d+)', 'MSSQL'),
+            (r'Oracle.*(\d+[cg])', 'Oracle'),
+            (r'SQLite.*(\d+\.\d+\.\d+)', 'SQLite'),
+        ]
+        
+        for pattern, db_name in version_patterns:
+            match = re.search(pattern, response_body, re.IGNORECASE)
+            if match:
+                evidence['context_info']['database_version'] = match.group(1)
+                evidence['context_info']['database_type'] = db_name
+                break
+        
+        # Attempt to detect privilege level from error messages
+        privilege_indicators = {
+            'high': ['root@', 'admin@', 'sa@', 'dbo', 'SYSDBA'],
+            'medium': ['user@', 'app@'],
+            'low': ['guest@', 'public@']
+        }
+        
+        for level, indicators in privilege_indicators.items():
+            for indicator in indicators:
+                if indicator.lower() in response_body.lower():
+                    evidence['context_info']['privilege_level'] = level
+                    break
+            if 'privilege_level' in evidence['context_info']:
+                break
+        
+        # Determine injection type from payload
+        if payload_used:
+            if 'UNION' in payload_used.upper():
+                evidence['context_info']['injection_type'] = 'union'
+            elif 'SLEEP' in payload_used.upper() or 'WAITFOR' in payload_used.upper():
+                evidence['context_info']['injection_type'] = 'time_based'
+            elif any(op in payload_used.upper() for op in ['AND', 'OR']) and '=' in payload_used:
+                evidence['context_info']['injection_type'] = 'boolean_based'
+            else:
+                evidence['context_info']['injection_type'] = 'error_based'
         
         return evidence
     
