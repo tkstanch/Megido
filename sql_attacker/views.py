@@ -7,12 +7,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 import json
-import threading
 import logging
 import os
 import tempfile
 
 from .models import SQLInjectionTask, SQLInjectionResult
+from .tasks import sql_injection_task, sql_injection_task_with_selection
 from .sqli_engine import SQLInjectionEngine
 from .param_discovery import ParameterDiscoveryEngine
 from .oob_payloads import OOBPayloadGenerator, DatabaseType as OOBDatabaseType
@@ -150,9 +150,7 @@ def task_create(request):
         
         # Execute task in background if requested
         if request.POST.get('execute_now') == 'on':
-            thread = threading.Thread(target=execute_task, args=(task.id,))
-            thread.daemon = False  # Non-daemon thread for safer execution
-            thread.start()
+            sql_injection_task.delay(task.id)
         
         return redirect('sql_attacker:task_detail', pk=task.id)
     
@@ -449,9 +447,7 @@ def confirm_parameters(request, task_id):
             task.save()
             
             # Re-execute the task in background
-            thread = threading.Thread(target=execute_task, args=(task.id,))
-            thread.daemon = True
-            thread.start()
+            sql_injection_task.delay(task.id)
             
             return redirect('sql_attacker:task_detail', pk=task.id)
             
@@ -474,9 +470,7 @@ def confirm_parameters(request, task_id):
             task.save()
             
             # Re-execute with selected parameters only
-            thread = threading.Thread(target=execute_task_with_selection, args=(task.id,))
-            thread.daemon = True
-            thread.start()
+            sql_injection_task_with_selection.delay(task.id)
             
             return redirect('sql_attacker:task_detail', pk=task.id)
     
@@ -577,9 +571,7 @@ def api_tasks(request):
             
             # Execute immediately if requested
             if request.data.get('execute_now', False):
-                thread = threading.Thread(target=execute_task, args=(task.id,))
-                thread.daemon = False  # Non-daemon thread for safer execution
-                thread.start()
+                sql_injection_task.delay(task.id)
             
             return Response({
                 'id': task.id,
@@ -777,9 +769,7 @@ def api_task_execute(request, pk):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Execute in background
-        thread = threading.Thread(target=execute_task, args=(task.id,))
-        thread.daemon = False  # Non-daemon thread for safer execution
-        thread.start()
+        sql_injection_task.delay(task.id)
         
         return Response({
             'id': task.id,
