@@ -25,15 +25,22 @@ def _get_channel_layer():
 def _run_async(coro):
     """Run a coroutine from synchronous code using asyncio."""
     import asyncio
+
+    async def _safe_wrapper():
+        try:
+            await coro
+        except Exception as exc:
+            logger.warning("WebSocket notification failed: %s", exc)
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            # Schedule without blocking (fire-and-forget)
-            loop.create_task(coro)
+            # Schedule without blocking (fire-and-forget with error logging)
+            loop.create_task(_safe_wrapper())
         else:
-            loop.run_until_complete(coro)
+            loop.run_until_complete(_safe_wrapper())
     except RuntimeError:
-        asyncio.run(coro)
+        asyncio.run(_safe_wrapper())
 
 
 # ---------------------------------------------------------------------------

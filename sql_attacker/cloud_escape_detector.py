@@ -246,8 +246,8 @@ class CloudEscapeDetector:
         if re.search(r'"access_token"\s*:', body_lower) and "azure" in provider:
             return RISK_CRITICAL, "Azure managed identity token detected in response"
 
-        # K8s service account token (JWT pattern)
-        if re.search(r"eyj[a-z0-9+/=_.\-]{20,}", body_lower, re.IGNORECASE):
+        # K8s service account token (JWT pattern - body_lower is already lowercase)
+        if re.search(r"eyj[a-z0-9+/=_.\-]{20,}", body_lower):
             return RISK_HIGH, "Kubernetes JWT service account token detected"
 
         # Cloud metadata readable but no creds

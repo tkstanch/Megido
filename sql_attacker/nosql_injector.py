@@ -253,7 +253,8 @@ class NoSQLInjector:
         if baseline_response:
             baseline_body, _ = baseline_response
             diff = abs(len(response_body) - len(baseline_body))
-            if diff > 200:
+            content_change_threshold = self.config.get("content_change_threshold", 200)
+            if diff > content_change_threshold:
                 anomalies.append(f"content_change: Response size changed by {diff} bytes")
 
         return len(anomalies) > 0, anomalies

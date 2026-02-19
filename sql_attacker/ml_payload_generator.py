@@ -348,7 +348,7 @@ class MLPayloadGenerator:
             success: Whether the payload succeeded.
             response_analysis: Optional dict with response metadata.
         """
-        key = hashlib.md5(payload.encode()).hexdigest()  # nosec B324
+        key = hashlib.sha256(payload.encode()).hexdigest()[:32]
         if key not in self._history:
             self._history[key] = {"success": 0, "total": 0, "payload": payload}
         self._history[key]["total"] += 1
@@ -374,7 +374,7 @@ class MLPayloadGenerator:
 
     def _score_payload(self, payload: str, profile: Dict[str, Any]) -> float:
         """Combine historical success rate and evolver fitness."""
-        key = hashlib.md5(payload.encode()).hexdigest()  # nosec B324
+        key = hashlib.sha256(payload.encode()).hexdigest()[:32]
         hist = self._history.get(key)
         if hist and hist["total"] > 0:
             historical = hist["success"] / hist["total"]

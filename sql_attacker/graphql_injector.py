@@ -361,7 +361,8 @@ class GraphQLInjectionModule(InjectionAttackModule):
         if baseline_response:
             baseline_body, _ = baseline_response
             size_diff = abs(len(response_body) - len(baseline_body))
-            if size_diff > 200:
+            content_change_threshold = self.config.get("content_change_threshold", 200)
+            if size_diff > content_change_threshold:
                 anomalies.append(f"content_change: Response size changed by {size_diff} bytes")
 
         return len(anomalies) > 0, anomalies
