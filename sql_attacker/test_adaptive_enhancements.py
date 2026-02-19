@@ -2,7 +2,7 @@
 Unit tests for adaptive payload selector and fuzzy logic detector
 
 Tests cover:
-- Payload generator creating 1000+ payloads
+- Payload generator creating 1700+ unique payloads
 - Adaptive selector learning from responses
 - Fuzzy logic detection and classification
 - Integration with SQL injection engine
@@ -23,9 +23,9 @@ class TestPayloadGenerator(unittest.TestCase):
         self.generator = ComprehensivePayloadGenerator()
     
     def test_payload_count(self):
-        """Test that generator creates 1000+ unique payloads"""
+        """Test that generator creates 1700+ unique payloads"""
         payloads = self.generator.generate_all_payloads()
-        self.assertGreater(len(payloads), 1000, "Should generate more than 1000 payloads")
+        self.assertGreater(len(payloads), 1700, "Should generate more than 1700 payloads")
         
         # Check uniqueness
         self.assertEqual(len(payloads), len(set(payloads)), "All payloads should be unique")
@@ -288,10 +288,10 @@ class TestPayloadIntegration(unittest.TestCase):
         """Test generating comprehensive payload set"""
         count = self.integration.generate_comprehensive_payloads()
         
-        self.assertGreater(count, 1000, "Should generate more than 1000 payloads")
+        self.assertGreater(count, 1700, "Should generate more than 1700 payloads")
         
         stats = self.integration.get_statistics()
-        self.assertGreater(stats['total_payloads'], 1000)
+        self.assertGreater(stats['total_payloads'], 1700)
     
     def test_payload_categorization(self):
         """Test that payloads are categorized"""

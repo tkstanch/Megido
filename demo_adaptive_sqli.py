@@ -281,8 +281,8 @@ def demo_integrated_testing():
     }
     
     logger.info("Initializing SQL injection engine with adaptive features...")
-    # Note: This will take a moment to load 1000+ payloads
-    print("\n⏳ Loading comprehensive payload library (1772+ payloads)...")
+    # Note: This will take a moment to load 1700+ payloads
+    print("\n⏳ Loading comprehensive payload library (1700+ payloads)...")
     
     engine = SQLInjectionEngine(config)
     
@@ -294,7 +294,7 @@ def demo_integrated_testing():
     
     print("\n✓ The engine is now ready for adaptive SQL injection testing!")
     print("\nKey features enabled:")
-    print("  ✓ 1772+ unique payloads across all SQL dialects")
+    print("  ✓ 1700+ unique payloads across all SQL dialects")
     print("  ✓ Real-time learning from response patterns")
     print("  ✓ Automatic payload mutation")
     print("  ✓ Fuzzy logic false positive reduction")

@@ -429,11 +429,11 @@ class ComprehensivePayloadGenerator:
         )
     
     def _hex_encode_chars(self, text: str, chars_to_encode: str = ' ') -> str:
-        """Hex encode specific characters"""
+        """Hex encode specific characters using uppercase hex digits"""
         result = []
         for c in text:
             if c in chars_to_encode:
-                result.append(f"%{ord(c):02x}")
+                result.append(f"%{ord(c):02X}")  # Uppercase for standard URL encoding
             else:
                 result.append(c)
         return ''.join(result)

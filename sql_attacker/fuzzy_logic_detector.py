@@ -408,8 +408,6 @@ class FuzzyLogicDetector:
             return 0.5 + (normalized - 0.7) * 1.67  # High scores amplified
         else:
             return 0.15 + (normalized - 0.3) * 0.875  # Middle range
-        
-        return min(1.0, max(0.0, normalized))
     
     def _fuzzy_verdict(self, similarity: float, error_score: float,
                        anomaly_score: float, confidence: float) -> str:

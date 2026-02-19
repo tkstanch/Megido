@@ -243,10 +243,11 @@ class AdaptivePayloadSelector:
         
         # Filter by category if specified
         if category:
-            filtered = [
-                payload for priority, payload in sorted_queue
-                if self.payload_stats.get(payload, PayloadStats(payload=payload)).payload.upper().find(category.upper()) >= 0
-            ]
+            filtered = []
+            for priority, payload in sorted_queue:
+                stats = self.payload_stats.get(payload, PayloadStats(payload=payload))
+                if category.upper() in stats.payload.upper():
+                    filtered.append(payload)
             return filtered[:count]
         
         return [payload for priority, payload in sorted_queue[:count]]
