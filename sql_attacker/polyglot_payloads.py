@@ -276,7 +276,7 @@ class PolyglotPayloads:
         "{__schema{types{name}}}",
         "{__type(name:\"User\"){fields{name}}}",
         # Batching attack
-        '[{"query":"{user(id:\\"1\' OR \\'1\\'=\\'1\\'")}"}]',
+        '[{"query":"{user(id:\\"1\' OR \'1\'=\'1\'\\")}"}]',
         # Fragment injection
         "fragment sqli on User { password(where: {id: {_eq: \"1' UNION SELECT password FROM admin--\"}}) }",
     ]
