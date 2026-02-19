@@ -287,6 +287,15 @@
                         <div class="mt-4 text-sm text-gray-500 dark:text-gray-500">
                             <p>This page will automatically refresh when the scan completes.</p>
                         </div>
+                        <div id="polling-status-indicator" style="display: none;" class="mt-3 p-2 rounded border text-sm">
+                            Checking status...
+                        </div>
+                        <div id="completion-message" style="display: none;" class="mt-3 p-3 bg-blue-100 text-blue-800 rounded font-semibold">
+                        </div>
+                        <button id="manual-refresh-btn" onclick="location.reload()" style="display: none;"
+                                class="mt-3 btn btn-primary">
+                            🔄 Refresh Page Manually
+                        </button>
                     </div>
                 </div>
             </div>
@@ -384,34 +393,102 @@
     const taskId = {{ task.id }};
     const initialStatus = '{{ task.status }}';
     const POLL_INTERVAL_MS = 3000;  // Poll every 3 seconds
+    const MAX_POLL_ATTEMPTS = 100;  // ~5 minutes
+    const MAX_CONSECUTIVE_FAILURES = 5;
     let pollInterval = null;
-    
+    let pollAttemptCount = 0;
+    let consecutiveFailures = 0;
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    function updatePollingStatus(state, message) {
+        const statusIndicator = document.getElementById('polling-status-indicator');
+        if (!statusIndicator) return;
+        const colors = {
+            healthy: 'bg-green-100 text-green-800 border-green-300',
+            error: 'bg-red-100 text-red-800 border-red-300',
+            timeout: 'bg-yellow-100 text-yellow-800 border-yellow-300'
+        };
+        statusIndicator.className = `mt-3 p-2 rounded border text-sm ${colors[state] || colors.healthy}`;
+        statusIndicator.textContent = message;
+        statusIndicator.style.display = 'block';
+    }
+
+    function showRefreshButton() {
+        const refreshBtn = document.getElementById('manual-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.style.display = 'inline-block';
+        }
+    }
+
+    function showCompletionMessage(state) {
+        const msgDiv = document.getElementById('completion-message');
+        if (msgDiv) {
+            msgDiv.textContent = state === 'completed' ? '✅ Scan completed! Reloading...' : '⚠️ Scan failed. Reloading...';
+            msgDiv.style.display = 'block';
+        }
+    }
+
     /**
      * Fetch task status with per-SQLi-type breakdown
      */
     function fetchTaskStatus() {
         fetch(`/sql_attacker/api/tasks/${taskId}/status/`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                console.log('Task status:', data.status);
-                
+                consecutiveFailures = 0;
+                pollAttemptCount++;
+
+                console.log(`[Poll #${pollAttemptCount}] Task status:`, data.status);
+                console.log('[Poll Debug] Full response:', JSON.stringify(data, null, 2));
+
+                updatePollingStatus('healthy', `Last update: ${new Date().toLocaleTimeString()}`);
+
                 // If task completed or failed, stop polling and reload page
                 if (data.status === 'completed' || data.status === 'failed') {
-                    if (pollInterval) {
-                        clearInterval(pollInterval);
-                        pollInterval = null;
-                    }
-                    console.log('Task completed, reloading page...');
-                    location.reload();
+                    console.log(`[Poll] Task ${data.status}, reloading page in 1 second...`);
+                    stopPolling();
+                    showCompletionMessage(data.status === 'completed' ? 'completed' : 'failed');
+                    setTimeout(() => location.reload(), 1000);
+                    return;
                 }
-                
-                // Display breakdown if task is completed
-                if (data.status === 'completed') {
-                    displayBreakdown(data);
+
+                // Stop after max attempts
+                if (pollAttemptCount >= MAX_POLL_ATTEMPTS) {
+                    console.error('[Poll] Max attempts reached, stopping polling');
+                    stopPolling();
+                    updatePollingStatus('timeout', 'Polling timeout. Please refresh the page manually.');
+                    showRefreshButton();
                 }
             })
             .catch(error => {
-                console.error('Error fetching task status:', error);
+                consecutiveFailures++;
+                pollAttemptCount++;
+
+                console.error(`[Poll Error #${consecutiveFailures}]`, error);
+
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    updatePollingStatus('error', `Connection issues detected. ${error.message}`);
+                    stopPolling();
+                    showRefreshButton();
+                }
+
+                if (pollAttemptCount >= MAX_POLL_ATTEMPTS) {
+                    console.error('[Poll] Max attempts reached, stopping polling');
+                    stopPolling();
+                    updatePollingStatus('timeout', 'Polling timeout. Please refresh the page manually.');
+                    showRefreshButton();
+                }
             });
     }
     
