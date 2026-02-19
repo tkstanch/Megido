@@ -542,19 +542,21 @@ class SQLInjectionModule(InjectionAttackModule):
                 - enable_polymorphic: Enable polymorphic payload generation (default: True)
                 - max_payloads: Maximum payloads to test (default: 1000)
         """
-        super().__init__(config)
         self.config = config or {}
+        
+        # Set configuration flags BEFORE calling super().__init__
+        self.use_adaptive = self.config.get('use_adaptive', True)
+        self.use_fuzzy_detection = self.config.get('use_fuzzy_detection', True)
+        self.enable_polymorphic = self.config.get('enable_polymorphic', True)
+        self.max_payloads = self.config.get('max_payloads', 1000)
         
         # Initialize adaptive components
         self.adaptive_strategy = AdaptiveStrategy()
         self.fuzzy_detector = FuzzyAnomalyDetector()
         self.fingerprinter = EnhancedDBMSFingerprinter()
         
-        # Configuration flags
-        self.use_adaptive = self.config.get('use_adaptive', True)
-        self.use_fuzzy_detection = self.config.get('use_fuzzy_detection', True)
-        self.enable_polymorphic = self.config.get('enable_polymorphic', True)
-        self.max_payloads = self.config.get('max_payloads', 1000)
+        # Call parent __init__ which will call _load_payloads
+        super().__init__(config)
     
     def get_context_type(self) -> InjectionContextType:
         """Return SQL injection context type."""
