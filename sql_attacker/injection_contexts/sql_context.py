@@ -767,7 +767,6 @@ class SQLInjectionModule(InjectionAttackModule):
                 encoding_type = 'case'
             
             # Update strategy
-            from sql_attacker.injection_contexts.sql_context import ResponseProfile
             response_profile = ResponseProfile.from_response(
                 response_body, 200, response_time, response_headers
             )

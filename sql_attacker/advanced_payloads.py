@@ -1096,6 +1096,4 @@ class AdvancedPayloadLibrary:
 
 
 # Backward compatibility: Keep original class name
-class AdvancedPayloadLibrary(AdvancedPayloadLibrary):
-    """Alias for backward compatibility."""
-    pass
+# (No need to redefine, just export the same class)
