@@ -758,7 +758,7 @@ def api_task_status(request, pk):
                 'proof': proof
             })
         
-        return Response({
+        response = Response({
             'status': task.status,
             'started_at': task.started_at.isoformat() if task.started_at else None,
             'completed_at': task.completed_at.isoformat() if task.completed_at else None,
@@ -766,6 +766,13 @@ def api_task_status(request, pk):
             'error_message': task.error_message,
             'results': results_breakdown
         })
+
+        # Prevent stale cached responses
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+
+        return response
     
     except SQLInjectionTask.DoesNotExist:
         return Response({
