@@ -245,6 +245,17 @@ class SQLInjectionResult(models.Model):
         help_text="File size in bytes"
     )
     
+    # Visual Evidence Fields
+    screenshots = models.JSONField(blank=True, null=True, help_text="Array of screenshot paths")
+    video_evidence = models.FileField(upload_to='sql_attacker/videos/%Y/%m/%d/', blank=True, null=True)
+    gif_evidence = models.FileField(upload_to='sql_attacker/gifs/%Y/%m/%d/', blank=True, null=True)
+    evidence_timeline = models.JSONField(blank=True, null=True, help_text="Timeline of attack steps")
+
+    # Enhanced POC Data
+    all_injection_points = models.JSONField(blank=True, null=True, help_text="All discovered injection points")
+    successful_payloads = models.JSONField(blank=True, null=True, help_text="All successful payloads by type")
+    extracted_sensitive_data = models.JSONField(blank=True, null=True, help_text="Categorized extracted data")
+
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
     severity = models.CharField(max_length=20, default='critical',
