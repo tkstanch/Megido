@@ -21,6 +21,8 @@ from .injection_contexts.ldap_context import LDAPInjectionContext
 from .injection_contexts.xpath_context import XPathInjectionContext
 from .injection_contexts.message_queue_context import MessageQueueInjectionContext
 from .injection_contexts.custom_query_context import CustomQueryInjectionContext
+from .graphql_injector import GraphQLInjectionModule
+from .nosql_injector import NoSQLInjectionContext
 
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,8 @@ class MultiContextAttackOrchestrator:
             InjectionContextType.XPATH,
             InjectionContextType.MESSAGE_QUEUE,
             InjectionContextType.CUSTOM_QUERY,
+            InjectionContextType.GRAPHQL,
+            InjectionContextType.NOSQL,
         ])
         
         # Initialize context handlers
@@ -71,6 +75,8 @@ class MultiContextAttackOrchestrator:
             InjectionContextType.XPATH: XPathInjectionContext,
             InjectionContextType.MESSAGE_QUEUE: MessageQueueInjectionContext,
             InjectionContextType.CUSTOM_QUERY: CustomQueryInjectionContext,
+            InjectionContextType.GRAPHQL: GraphQLInjectionModule,
+            InjectionContextType.NOSQL: NoSQLInjectionContext,
         }
         
         for context_type in self.enabled_contexts:
