@@ -48,12 +48,20 @@ jobs:
           from sql_attacker.payload_integration import PayloadIntegration
           
           integrator = PayloadIntegration(storage_path='sql_attacker/payloads')
-          results = integrator.update_all_payloads()
-          print(f'Updated payloads: {results}')
           
+          # Update from public sources
+          results = integrator.update_all_payloads()
+          print(f'Updated payloads from public sources: {results}')
+          
+          # Generate comprehensive payload set
+          generated_count = integrator.generate_comprehensive_payloads()
+          print(f'Generated {generated_count} additional payloads')
+          
+          # Export combined payload set
           integrator.export_payloads('sql_attacker/payloads/latest.json', format='json')
           stats = integrator.get_statistics()
           print(f'Total: {stats[\"total_payloads\"]} payloads')
+          print(f'Breakdown by category: {stats[\"payloads_by_category\"]}')
           "
       
       - name: Commit changes

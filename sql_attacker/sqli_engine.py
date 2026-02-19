@@ -5,7 +5,9 @@ Pure Python implementation of SQL injection detection and exploitation technique
 Inspired by SQLMAP but implemented from scratch for educational and testing purposes.
 
 Enhanced with:
-- Advanced payload library
+- Advanced payload library (1000+ payloads)
+- Adaptive bypass engine with real-time learning
+- Fuzzy logic detection for false positive reduction
 - False positive reduction
 - Impact demonstration
 - Automated exploitation
@@ -39,6 +41,11 @@ from .smart_context_analyzer import SmartContextAnalyzer
 from .advanced_learning_system import AdvancedLearningSystem
 from .comprehensive_input_tester import ComprehensiveInputTester
 from .bypass_techniques import AdvancedBypassEngine as BypassEngine, DBMSType
+
+# Import new advanced modules
+from .adaptive_payload_selector import AdaptivePayloadSelector, ResponseClass
+from .fuzzy_logic_detector import FuzzyLogicDetector
+from .payload_integration import PayloadIntegration
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -211,6 +218,24 @@ class SQLInjectionEngine:
         
         # Initialize ADVANCED BYPASS TECHNIQUES module (LATEST!)
         self.bypass_engine = BypassEngine()
+        
+        # Initialize ULTIMATE ENHANCEMENT modules (NEWEST - 1000+ PAYLOADS!)
+        self.adaptive_selector = AdaptivePayloadSelector(
+            learning_rate=config.get('learning_rate', 0.1)
+        )
+        self.fuzzy_detector = FuzzyLogicDetector(
+            similarity_threshold=config.get('similarity_threshold', 0.85),
+            confidence_threshold=config.get('confidence_threshold', 0.70)
+        )
+        self.payload_integration = PayloadIntegration(
+            storage_path=config.get('payload_storage_path', 'sql_attacker/payloads')
+        )
+        
+        # Generate comprehensive payloads if enabled
+        if config.get('enable_comprehensive_payloads', True):
+            logger.info("Loading comprehensive payload library...")
+            self.payload_integration.generate_comprehensive_payloads()
+            logger.info(f"Loaded {len(self.payload_integration.payloads)} payloads")
         
         # Enable features based on config
         self.use_advanced_payloads = config.get('enable_advanced_payloads', True)
@@ -1270,3 +1295,175 @@ class SQLInjectionEngine:
         
         logger.info(f"Scan complete. Total findings: {len(all_findings)}")
         return all_findings
+    
+    def test_adaptive_sqli(self, url: str, method: str = 'GET',
+                          params: Optional[Dict] = None,
+                          data: Optional[Dict] = None,
+                          cookies: Optional[Dict] = None,
+                          headers: Optional[Dict] = None,
+                          max_payloads: int = 50) -> List[Dict]:
+        """
+        Test for SQL injection using adaptive payload selection and fuzzy logic detection.
+        
+        This method uses:
+        - Comprehensive payload library (1000+ payloads)
+        - Real-time learning from response patterns
+        - Fuzzy logic for false positive reduction
+        - Adaptive mutation of successful payloads
+        
+        Args:
+            url: Target URL
+            method: HTTP method
+            params: URL parameters
+            data: POST data
+            cookies: HTTP cookies
+            headers: HTTP headers
+            max_payloads: Maximum number of payloads to try per parameter
+            
+        Returns:
+            List of vulnerability findings
+        """
+        findings = []
+        
+        logger.info(f"Starting adaptive SQL injection test with {len(self.payload_integration.payloads)} payloads")
+        
+        # Get baseline response for fuzzy detection
+        baseline_response = self._make_request(url, method, params, data, cookies, headers)
+        if not baseline_response:
+            logger.warning("Could not get baseline response")
+            return findings
+        
+        # Set baseline for fuzzy detector
+        self.fuzzy_detector.set_baseline(
+            status_code=baseline_response.status_code,
+            headers=dict(baseline_response.headers),
+            body=baseline_response.text,
+            response_time=baseline_response.elapsed.total_seconds()
+        )
+        
+        # Test GET parameters
+        if params:
+            for param_name, param_value in params.items():
+                logger.info(f"Testing parameter: {param_name}")
+                
+                # Get initial payloads from the comprehensive library
+                all_payloads = list(self.payload_integration.payloads.values())
+                payloads_tested = 0
+                
+                for payload_obj in all_payloads[:max_payloads]:
+                    payload = payload_obj.content
+                    
+                    # Create test request
+                    test_params = params.copy()
+                    test_params[param_name] = str(param_value) + payload
+                    
+                    # Make request
+                    start_time = time.time()
+                    response = self._make_request(url, method, test_params, data, cookies, headers)
+                    response_time = time.time() - start_time
+                    
+                    if not response:
+                        continue
+                    
+                    payloads_tested += 1
+                    
+                    # Analyze response with fuzzy logic
+                    fuzzy_result = self.fuzzy_detector.analyze_response(
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        body=response.text,
+                        response_time=response_time,
+                        payload=payload
+                    )
+                    
+                    # Classify response for adaptive selector
+                    if fuzzy_result.verdict == "vulnerable":
+                        response_class = ResponseClass.SUCCESS
+                    elif fuzzy_result.verdict == "suspicious":
+                        response_class = ResponseClass.ERROR
+                    elif "block" in response.text.lower() or response.status_code == 403:
+                        response_class = ResponseClass.BLOCKED
+                    else:
+                        response_class = ResponseClass.ALLOWED
+                    
+                    # Record attempt in adaptive selector
+                    self.adaptive_selector.record_attempt(
+                        payload=payload,
+                        response_class=response_class,
+                        response_time=response_time,
+                        status_code=response.status_code,
+                        response_body=response.text,
+                        payload_category=payload_obj.category
+                    )
+                    
+                    # If vulnerability detected with high confidence
+                    if fuzzy_result.verdict in ["vulnerable", "suspicious"] and \
+                       fuzzy_result.confidence >= self.fuzzy_detector.confidence_threshold:
+                        
+                        finding = {
+                            'injection_type': 'adaptive_detection',
+                            'vulnerable_parameter': param_name,
+                            'parameter_type': 'GET',
+                            'test_payload': test_params[param_name],
+                            'detection_method': 'fuzzy_logic',
+                            'verdict': fuzzy_result.verdict,
+                            'confidence_score': fuzzy_result.confidence,
+                            'similarity_score': fuzzy_result.similarity_score,
+                            'matched_patterns': fuzzy_result.matched_patterns,
+                            'anomaly_indicators': fuzzy_result.anomaly_indicators,
+                            'request_data': {
+                                'url': url,
+                                'method': method,
+                                'params': test_params,
+                            },
+                            'response_data': {
+                                'status_code': response.status_code,
+                                'response_time': response_time,
+                            },
+                        }
+                        
+                        findings.append(finding)
+                        logger.info(f"Vulnerability detected in {param_name} (confidence: {fuzzy_result.confidence:.2%})")
+                        
+                        # Generate mutations of successful payload
+                        mutations = self.adaptive_selector.generate_mutations(payload, count=5)
+                        logger.info(f"Generated {len(mutations)} mutations to test")
+                        
+                        # Test mutations for confirmation
+                        for mutation in mutations:
+                            test_params_mut = params.copy()
+                            test_params_mut[param_name] = str(param_value) + mutation
+                            
+                            response_mut = self._make_request(url, method, test_params_mut, data, cookies, headers)
+                            if response_mut:
+                                fuzzy_result_mut = self.fuzzy_detector.analyze_response(
+                                    status_code=response_mut.status_code,
+                                    headers=dict(response_mut.headers),
+                                    body=response_mut.text,
+                                    response_time=response_mut.elapsed.total_seconds(),
+                                    payload=mutation
+                                )
+                                
+                                if fuzzy_result_mut.verdict == "vulnerable":
+                                    finding['confirmed_with_mutation'] = True
+                                    finding['confirming_payload'] = mutation
+                                    logger.info(f"Confirmed with mutation: {mutation[:50]}...")
+                                    break
+                        
+                        # If we found a vulnerability, no need to test all payloads
+                        if finding.get('confirmed_with_mutation'):
+                            break
+                
+                logger.info(f"Tested {payloads_tested} payloads for {param_name}")
+        
+        # Log adaptive selector statistics
+        stats = self.adaptive_selector.get_statistics()
+        logger.info(f"Adaptive selector stats: {stats['total_payloads_tried']} payloads tried, "
+                   f"{stats['overall_success_rate']:.2%} success rate")
+        
+        # Log filter insights
+        insights = self.adaptive_selector.get_filter_insights()
+        if insights['recommendations']:
+            logger.info(f"Filter insights: {insights['recommendations']}")
+        
+        return findings
