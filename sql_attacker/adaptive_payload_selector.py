@@ -310,7 +310,7 @@ class AdaptivePayloadSelector:
         Returns:
             List of mutated payloads
         """
-        mutations = []
+        mutations = set()  # Use set to avoid duplicates
         
         # Mutation strategies
         strategies = [
@@ -322,19 +322,24 @@ class AdaptivePayloadSelector:
             self._mutate_operators,
         ]
         
-        for _ in range(count):
+        attempts = 0
+        max_attempts = count * 5  # Allow more attempts to reach the target count
+        
+        while len(mutations) < count and attempts < max_attempts:
             # Apply random strategy
             strategy = random.choice(strategies)
             mutated = strategy(base_payload)
             
-            if mutated and mutated != base_payload:
-                mutations.append(mutated)
+            if mutated and mutated != base_payload and mutated not in mutations:
+                mutations.add(mutated)
                 
                 # Track mutation in stats
                 if base_payload in self.payload_stats:
                     self.payload_stats[base_payload].mutations_generated += 1
+            
+            attempts += 1
         
-        return list(set(mutations))  # Remove duplicates
+        return list(mutations)
     
     def _mutate_quotes(self, payload: str) -> str:
         """Mutate quote characters"""

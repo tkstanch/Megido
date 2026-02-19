@@ -430,6 +430,7 @@ class FuzzyLogicDetector:
         
         anomaly_high = high(anomaly_score)
         anomaly_medium = medium(anomaly_score)
+        anomaly_low = low(anomaly_score)
         
         sim_low = low(similarity)
         sim_medium = medium(similarity)
