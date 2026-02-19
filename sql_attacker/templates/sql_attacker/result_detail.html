@@ -320,7 +320,231 @@
         </div>
     </div>
     {% endif %}
-    
+
+    <!-- Visual Evidence Section -->
+    {% if result.screenshots or result.gif_evidence or result.evidence_timeline %}
+    <div class="card border-indigo-500 dark:border-indigo-600">
+        <div class="card-header bg-indigo-500 text-white">
+            <h3 class="card-title text-white">📸 Visual Evidence</h3>
+        </div>
+        <div class="card-body space-y-4">
+            {% if result.gif_evidence %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-2">Attack Animation:</strong>
+                <img src="{{ result.gif_evidence.url }}" alt="Attack animation GIF"
+                     class="max-w-full rounded border border-gray-300 dark:border-gray-600"
+                     style="max-height: 400px;">
+            </div>
+            {% endif %}
+
+            {% if result.screenshots %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-2">Screenshots ({{ result.screenshots|length }}):</strong>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for screenshot in result.screenshots %}
+                    <div class="border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-gray-800 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {{ screenshot }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if result.evidence_timeline %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-2">Attack Timeline:</strong>
+                <div class="space-y-2">
+                    {% for entry in result.evidence_timeline %}
+                    <details class="border border-gray-200 dark:border-gray-700 rounded">
+                        <summary class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ entry.timestamp }}</span>
+                            {% if entry.step == 'baseline' %}
+                            <span class="badge badge-info text-xs">Baseline</span>
+                            {% elif entry.step == 'injection' %}
+                            <span class="badge badge-warning text-xs">Injection</span>
+                            {% elif entry.step == 'exploitation' %}
+                            <span class="badge badge-danger text-xs">Exploitation</span>
+                            {% else %}
+                            <span class="badge badge-secondary text-xs">{{ entry.step|title }}</span>
+                            {% endif %}
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ entry.description }}</span>
+                        </summary>
+                        <div class="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-1 text-sm">
+                            {% if entry.payload %}
+                            <div>
+                                <strong class="text-gray-600 dark:text-gray-400">Payload:</strong>
+                                <code class="ml-2 text-xs bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded">{{ entry.payload }}</code>
+                            </div>
+                            {% endif %}
+                            {% if entry.screenshot %}
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Screenshot: {{ entry.screenshot }}</div>
+                            {% endif %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All Discovered Injection Points -->
+    {% if result.all_injection_points %}
+    <div class="card border-orange-500 dark:border-orange-600">
+        <div class="card-header bg-orange-500 text-white">
+            <h3 class="card-title text-white">🎯 All Discovered Injection Points ({{ result.all_injection_points|length }})</h3>
+        </div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Parameter</th>
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Type</th>
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Source</th>
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Injection Type</th>
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Confidence</th>
+                        <th class="text-left py-2 px-3 text-gray-700 dark:text-gray-300">Payload</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for point in result.all_injection_points %}
+                    <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td class="py-2 px-3">
+                            <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">{{ point.parameter }}</code>
+                        </td>
+                        <td class="py-2 px-3">
+                            <span class="badge badge-info text-xs">{{ point.type }}</span>
+                        </td>
+                        <td class="py-2 px-3">
+                            <span class="badge badge-secondary text-xs">{{ point.source }}</span>
+                        </td>
+                        <td class="py-2 px-3">
+                            <span class="badge badge-danger text-xs">{{ point.injection_type }}</span>
+                        </td>
+                        <td class="py-2 px-3">
+                            <div class="flex items-center gap-1">
+                                <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: {% widthratio point.confidence 1 100 %}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-600 dark:text-gray-400">{{ point.confidence|floatformat:0 }}%</span>
+                            </div>
+                        </td>
+                        <td class="py-2 px-3">
+                            <details>
+                                <summary class="cursor-pointer text-xs text-blue-600 dark:text-blue-400 truncate max-w-xs">
+                                    {{ point.payload|truncatechars:40 }}
+                                </summary>
+                                <code class="block mt-1 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">{{ point.payload }}</code>
+                            </details>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Successful Payloads by Type -->
+    {% if result.successful_payloads %}
+    <div class="card border-yellow-500 dark:border-yellow-600">
+        <div class="card-header bg-yellow-500 text-white">
+            <h3 class="card-title text-white">✅ Successful Payloads by Type</h3>
+        </div>
+        <div class="card-body space-y-4">
+            {% for inj_type, payloads in result.successful_payloads.items %}
+            <div>
+                <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                    <span class="badge badge-danger">{{ inj_type|title }}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400 ml-2">({{ payloads|length }} payload{{ payloads|length|pluralize }})</span>
+                </h4>
+                <div class="space-y-2 pl-2 border-l-2 border-yellow-400">
+                    {% for item in payloads %}
+                    <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Parameter:</span>
+                            <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded">{{ item.parameter }}</code>
+                            <span class="badge badge-success text-xs">✓ Success</span>
+                        </div>
+                        <pre class="text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto mt-1">{{ item.payload }}</pre>
+                        {% if item.evidence %}
+                        <details class="mt-1">
+                            <summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Evidence snippet</summary>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 pl-2 border-l border-gray-300">{{ item.evidence|truncatechars:200 }}</p>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Extracted Sensitive Information -->
+    {% if result.extracted_sensitive_data %}
+    <div class="card border-red-600 dark:border-red-700">
+        <div class="card-header bg-red-600 text-white">
+            <h3 class="card-title text-white">🔓 Extracted Sensitive Information</h3>
+        </div>
+        <div class="card-body space-y-4">
+            <div class="bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded p-3">
+                <p class="text-sm font-semibold text-red-800 dark:text-red-200">
+                    ⚠️ This data was extracted as Proof of Concept. Handle responsibly.
+                </p>
+            </div>
+            {% if result.extracted_sensitive_data.database_info %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-1">Database Information:</strong>
+                <div class="space-y-1">
+                    {% for info in result.extracted_sensitive_data.database_info %}
+                    <code class="block text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{{ info }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if result.extracted_sensitive_data.tables %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-1">Discovered Tables ({{ result.extracted_sensitive_data.tables|length }}):</strong>
+                <div class="flex flex-wrap gap-1">
+                    {% for table in result.extracted_sensitive_data.tables %}
+                    <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border border-gray-300 dark:border-gray-600">{{ table }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if result.extracted_sensitive_data.sample_data %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-1">Sample Data:</strong>
+                <div class="space-y-1">
+                    {% for item in result.extracted_sensitive_data.sample_data|slice:":5" %}
+                    <code class="block text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{{ item }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% for key, value in result.extracted_sensitive_data.items %}
+            {% if key != 'database_info' and key != 'tables' and key != 'sample_data' %}
+            <div>
+                <strong class="text-gray-700 dark:text-gray-300 block mb-1">{{ key|title|replace:"_":" " }}:</strong>
+                {% if value|length > 0 %}
+                <div class="space-y-1">
+                    {% for item in value|slice:":5" %}
+                    <code class="block text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{{ item }}</code>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Request Details -->
     <div class="card">
         <div class="card-header">

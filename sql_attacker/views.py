@@ -295,19 +295,22 @@ def execute_task(task_id):
                 logger.error(f"Parameter discovery failed: {e}", exc_info=True)
                 # Continue with manual parameters only
         
-        # Run attack
-        findings = engine.run_full_attack(
-            url=task.target_url,
-            method=task.http_method,
-            params=params,
-            data=data,
-            cookies=cookies,
-            headers=headers,
-            enable_error_based=task.enable_error_based,
-            enable_time_based=task.enable_time_based,
-            enable_exploitation=task.enable_exploitation,
+        # Merged parameters dict for evidence capture.
+        # POST (data) keys take precedence over GET (params) if names collide.
+        merged_params = {**params, **data}
+
+        # Run attack with comprehensive evidence collection
+        evidence_result = engine.execute_attack_with_evidence(
+            task=task,
+            params_to_test=merged_params,
+            enable_visual_capture=True,
         )
-        
+        findings = evidence_result.get('_raw_findings', [])
+        visual_evidence = evidence_result.get('visual_evidence', {})
+        all_injection_points = evidence_result.get('all_injection_points', [])
+        successful_payloads = evidence_result.get('successful_payloads', {})
+        extracted_sensitive_data = evidence_result.get('extracted_sensitive_data', {})
+
         # Store results
         vulnerabilities_count = 0
         for finding in findings:
@@ -330,8 +333,13 @@ def execute_task(task_id):
             severity = finding.get('severity', impact_analysis.get('severity', 'critical'))
             risk_score = finding.get('risk_score', impact_analysis.get('risk_score', 50))
             confidence_score = finding.get('confidence_score', 0.7)
+
+            # Build visual evidence data for this result
+            screenshots_data = visual_evidence.get('screenshots', [])
+            gif_path = visual_evidence.get('gif')
+            timeline_data = visual_evidence.get('timeline', [])
             
-            result = SQLInjectionResult.objects.create(
+            create_kwargs = dict(
                 task=task,
                 injection_type=finding.get('injection_type', 'error_based'),
                 vulnerable_parameter=param_name,
@@ -353,7 +361,17 @@ def execute_task(task_id):
                 risk_score=risk_score,
                 impact_analysis=impact_analysis,
                 proof_of_concept=impact_analysis.get('proof_of_concept', []),
+                # New visual evidence and comprehensive data fields
+                screenshots=screenshots_data or None,
+                evidence_timeline=timeline_data or None,
+                all_injection_points=all_injection_points or None,
+                successful_payloads=successful_payloads or None,
+                extracted_sensitive_data=extracted_sensitive_data or None,
             )
+            if gif_path:
+                create_kwargs['gif_evidence'] = gif_path
+
+            result = SQLInjectionResult.objects.create(**create_kwargs)
             vulnerabilities_count += 1
             
             # Forward to response_analyser

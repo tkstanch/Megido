@@ -203,6 +203,11 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# SQL Attacker Evidence Capture
+SQL_ATTACKER_ENABLE_VISUAL_EVIDENCE = True
+SQL_ATTACKER_EVIDENCE_DIR = os.path.join(MEDIA_ROOT, 'sql_attacker', 'evidence')
+SQL_ATTACKER_HEADLESS_BROWSER = True
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 

@@ -1467,3 +1467,173 @@ class SQLInjectionEngine:
             logger.info(f"Filter insights: {insights['recommendations']}")
         
         return findings
+
+    # ------------------------------------------------------------------
+    # Evidence-enhanced attack execution
+    # ------------------------------------------------------------------
+
+    def execute_attack_with_evidence(
+        self,
+        task,
+        params_to_test: Dict,
+        enable_visual_capture: bool = True,
+    ) -> Dict:
+        """
+        Run the full SQL injection attack and collect comprehensive evidence.
+
+        Optionally initialises a VisualEvidenceCapture instance (Selenium-based)
+        that captures before/after screenshots and an animated GIF.  Visual
+        capture is purely additive – if it cannot be initialised the attack
+        runs normally and all non-visual evidence is still collected.
+
+        Args:
+            task: SQLInjectionTask model instance.
+            params_to_test: Merged GET/POST parameter dict to test.
+            enable_visual_capture: Whether to attempt browser-based screenshots.
+
+        Returns:
+            A dict with keys:
+                all_injection_points  – list of every injection point found
+                successful_payloads   – dict keyed by injection type
+                extracted_sensitive_data – categorised extracted data
+                visual_evidence       – screenshots, gif path, timeline
+        """
+        from .evidence_capture import VisualEvidenceCapture
+        from django.conf import settings as django_settings
+
+        # ------------------------------------------------------------------
+        # 1. Initialise optional visual capture
+        # ------------------------------------------------------------------
+        evidence_dir = getattr(
+            django_settings,
+            'SQL_ATTACKER_EVIDENCE_DIR',
+            None,
+        )
+        capture = VisualEvidenceCapture(evidence_dir=evidence_dir)
+
+        if enable_visual_capture and getattr(
+            django_settings, 'SQL_ATTACKER_ENABLE_VISUAL_EVIDENCE', True
+        ):
+            headless = getattr(django_settings, 'SQL_ATTACKER_HEADLESS_BROWSER', True)
+            capture.initialize_browser(headless=headless)
+
+        # ------------------------------------------------------------------
+        # 2. Capture baseline screenshot
+        # ------------------------------------------------------------------
+        capture.capture_baseline_screenshot(task.target_url, params_to_test)
+
+        # ------------------------------------------------------------------
+        # 3. Run the full attack
+        # ------------------------------------------------------------------
+        findings = self.run_full_attack(
+            url=task.target_url,
+            method=task.http_method,
+            params=task.get_params_dict(),
+            data=task.get_post_dict(),
+            cookies=task.get_cookies_dict(),
+            headers=task.get_headers_dict(),
+            enable_error_based=task.enable_error_based,
+            enable_time_based=task.enable_time_based,
+            enable_exploitation=task.enable_exploitation,
+        )
+
+        # ------------------------------------------------------------------
+        # 4. Collect and categorise results
+        # ------------------------------------------------------------------
+        all_injection_points: List[Dict] = []
+        successful_payloads: Dict[str, List[Dict]] = {}
+        extracted_sensitive_data: Dict[str, Any] = {}
+
+        for finding in findings:
+            injection_type = finding.get('injection_type', 'error_based')
+            param_name = finding.get('vulnerable_parameter', 'unknown')
+            payload = finding.get('test_payload', '')
+
+            # --- Injection points list ---
+            all_injection_points.append(
+                {
+                    'parameter': param_name,
+                    'type': finding.get('parameter_type', 'GET'),
+                    'source': finding.get('parameter_source', 'manual'),
+                    'injection_type': injection_type,
+                    'payload': payload,
+                    'confidence': finding.get('confidence_score', 0.7),
+                    'timestamp': finding.get('detected_at', ''),
+                }
+            )
+
+            # --- Successful payloads grouped by type ---
+            if injection_type not in successful_payloads:
+                successful_payloads[injection_type] = []
+            successful_payloads[injection_type].append(
+                {
+                    'payload': payload,
+                    'parameter': param_name,
+                    'evidence': finding.get('detection_evidence', ''),
+                }
+            )
+
+            # --- Capture screenshot for this finding ---
+            capture.capture_injection_screenshot(
+                task.target_url,
+                params_to_test,
+                payload,
+                injection_type,
+            )
+
+            # --- Aggregate extracted sensitive data ---
+            exploitation = finding.get('exploitation', {})
+            impact = finding.get('impact_analysis', {})
+
+            db_info = []
+            if exploitation.get('database_version'):
+                db_info.append(exploitation['database_version'])
+            if exploitation.get('current_database'):
+                db_info.append(exploitation['current_database'])
+            if exploitation.get('current_user'):
+                db_info.append(exploitation['current_user'])
+            if db_info:
+                existing = extracted_sensitive_data.get('database_info', [])
+                extracted_sensitive_data['database_info'] = list(
+                    dict.fromkeys(existing + db_info)
+                )
+
+            tables = exploitation.get('extracted_tables', []) or \
+                impact.get('extracted_info', {}).get('schema', {}).get('tables', [])
+            if tables:
+                existing_tables = extracted_sensitive_data.get('tables', [])
+                extracted_sensitive_data['tables'] = list(
+                    dict.fromkeys(existing_tables + tables)
+                )
+
+            sample_data = exploitation.get('extracted_data', []) or \
+                impact.get('extracted_info', {}).get('sample_data', [])
+            if sample_data:
+                existing_samples = extracted_sensitive_data.get('sample_data', [])
+                extracted_sensitive_data['sample_data'] = (
+                    existing_samples + (sample_data if isinstance(sample_data, list) else [sample_data])
+                )
+
+        # ------------------------------------------------------------------
+        # 5. Capture exploitation screenshot if we found anything
+        # ------------------------------------------------------------------
+        if extracted_sensitive_data:
+            capture.capture_exploitation_screenshot(
+                task.target_url,
+                params_to_test,
+                extracted_sensitive_data,
+            )
+
+        # ------------------------------------------------------------------
+        # 6. Build evidence package and clean up
+        # ------------------------------------------------------------------
+        visual_evidence = capture.get_evidence_package()
+        capture.cleanup()
+
+        return {
+            'all_injection_points': all_injection_points,
+            'successful_payloads': successful_payloads,
+            'extracted_sensitive_data': extracted_sensitive_data,
+            'visual_evidence': visual_evidence,
+            '_raw_findings': findings,
+        }
