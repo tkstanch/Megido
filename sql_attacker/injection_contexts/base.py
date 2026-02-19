@@ -20,6 +20,8 @@ class InjectionContextType(Enum):
     XPATH = "xpath"
     MESSAGE_QUEUE = "message_queue"
     CUSTOM_QUERY = "custom_query"
+    GRAPHQL = "graphql"
+    NOSQL = "nosql"
 
 
 @dataclass

