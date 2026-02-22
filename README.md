@@ -2,6 +2,167 @@
 
 [...]existing intro sections...]
 
+## 🛡️ SQLi Engine: Accuracy, Modularity, Safety & Reporting
+
+The `sql_attacker/engine/` package provides a focused, modular engine for
+accurate SQL injection testing.  It is designed to reduce false positives,
+operate safely by default, and produce machine-readable reports.
+
+### Operation Modes
+
+Every test run operates under an explicit **mode** that controls what the
+engine is allowed to do.  The default is `detect` (safest).
+
+| Mode | Payloads sent | Verification loop | Demonstration |
+|------|--------------|-------------------|---------------|
+| `detect` | ✅ | ❌ | ❌ |
+| `verify` | ✅ | ✅ | ❌ |
+| `demonstrate` | ✅ | ✅ | ✅ (bounded + redacted) |
+
+> **Note:** Unrestricted data exfiltration is **never** permitted regardless
+> of mode.  In `demonstrate` mode the engine retrieves at most the database
+> version string, which is truncated and redacted before inclusion in the
+> report.
+
+```python
+from sql_attacker.engine import OperationMode, ModePolicy
+
+# Default (safest) – detect only
+policy = ModePolicy()
+
+# Confirm findings via repeated probes + benign control
+policy = ModePolicy(OperationMode.VERIFY)
+
+# Show exploitability with bounded, redacted version-string retrieval
+policy = ModePolicy(OperationMode.DEMONSTRATE)
+
+# Fail-closed guards
+policy.assert_may_detect()       # always passes
+policy.assert_may_verify()       # raises ModeViolationError in DETECT mode
+policy.assert_may_exfiltrate()   # ALWAYS raises ModeViolationError
+```
+
+### Confidence Levels
+
+Each finding carries a numeric **confidence score** (0–1) and a verdict:
+
+| Verdict | Score threshold | Minimum active features |
+|---------|-----------------|-------------------------|
+| `confirmed` | ≥ 0.70 | ≥ 2 |
+| `likely` | ≥ 0.45 | 1+ |
+| `uncertain` | < 0.45 | any |
+
+Feature weights (highest contribution first):
+
+| Feature | Weight |
+|---------|--------|
+| `sql_error_pattern` | 0.90 |
+| `timing_delta_significant` | 0.80 |
+| `repeatability` | 0.70 |
+| `boolean_diff` | 0.75 |
+| `similarity_delta` | 0.65 |
+| `content_change` | 0.60 |
+| `http_error_code` | 0.50 |
+| `js_error` | 0.50 |
+| `benign_control_negative` | 0.40 |
+
+```python
+from sql_attacker.engine import compute_confidence
+
+result = compute_confidence({
+    "sql_error_pattern": 1.0,
+    "boolean_diff": 1.0,
+})
+print(result.score, result.verdict)
+# → 0.9775 confirmed
+```
+
+### DB-Specific Adapters
+
+The adapter registry selects payload families based on the detected DBMS:
+
+```python
+from sql_attacker.engine import (
+    AdapterRegistry, DBType,
+    TECHNIQUE_ERROR, TECHNIQUE_BOOLEAN, TECHNIQUE_TIME,
+    fingerprint_from_error, get_adapter,
+)
+
+registry = AdapterRegistry()
+
+# Auto-detect DBMS from an error response
+db_type, adapter = registry.fingerprint_from_error(response_body)
+
+# Or select explicitly
+adapter = get_adapter(DBType.POSTGRESQL)
+error_payloads  = adapter.get_payloads(TECHNIQUE_ERROR)
+boolean_payloads = adapter.get_payloads(TECHNIQUE_BOOLEAN)
+time_payloads   = adapter.get_payloads(TECHNIQUE_TIME)
+```
+
+Supported database types: `mysql`, `postgresql`, `mssql`, `sqlite`, `oracle`, `unknown`.
+
+### Standardised Reports (JSON + SARIF)
+
+Every scan can emit a machine-readable report:
+
+```python
+from sql_attacker.engine import ReportBuilder, Finding, Evidence, TECHNIQUE_ERROR
+
+builder = ReportBuilder(target_url="https://example.com/search")
+builder.add_finding(Finding(
+    parameter="q",
+    technique=TECHNIQUE_ERROR,
+    db_type="mysql",
+    confidence=0.92,
+    verdict="confirmed",
+    evidence=[Evidence(
+        payload="' AND EXTRACTVALUE(1,CONCAT(0x7e,VERSION()))--",
+        request_summary="GET /search?q=%27+AND+EXTRACTVALUE... HTTP/1.1",
+        response_body_excerpt="XPATH syntax error: '~5.7.38'",
+    )],
+    remediation=(
+        "Use parameterised queries / prepared statements. "
+        "Never interpolate user input directly into SQL."
+    ),
+))
+builder.finish()
+
+# JSON report
+json_str = builder.to_json()
+
+# SARIF 2.1.0 report (compatible with GitHub Advanced Security, Azure DevOps, etc.)
+sarif_str = builder.to_sarif()
+```
+
+**JSON report schema (v1.0):**
+
+```json
+{
+  "schema_version": "1.0",
+  "scan_id": "<uuid>",
+  "target_url": "https://...",
+  "started_at": "2026-01-01T00:00:00Z",
+  "finished_at": "2026-01-01T00:01:00Z",
+  "summary": { "total": 1, "by_verdict": {"confirmed": 1}, "by_severity": {"high": 1} },
+  "findings": [
+    {
+      "finding_id": "<uuid>",
+      "parameter": "q",
+      "url": "https://...",
+      "technique": "error",
+      "db_type": "mysql",
+      "confidence": 0.92,
+      "verdict": "confirmed",
+      "severity": "high",
+      "cwe": "CWE-89",
+      "evidence": [ { "payload": "...", "request_summary": "...", ... } ],
+      "remediation": "..."
+    }
+  ]
+}
+```
+
 ## 🔬 Advanced Multi-Engine Scanner Architecture 🚀 ⭐ LATEST
 
 Megido features an **enterprise-grade multi-engine plugin architecture** with **5 production-ready scanner engines**, Django integration, REST API, and advanced CLI:
