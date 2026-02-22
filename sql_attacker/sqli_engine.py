@@ -47,6 +47,21 @@ from .adaptive_payload_selector import AdaptivePayloadSelector, ResponseClass
 from .fuzzy_logic_detector import FuzzyLogicDetector
 from .payload_integration import PayloadIntegration
 
+# Import HTTP utilities (response classification, backoff, circuit breaker)
+from .http_utils import (
+    classify_response,
+    CircuitBreaker,
+    CircuitOpenError,
+    compute_backoff,
+    get_retry_after,
+    ALLOWED,
+    BLOCKED,
+    RATE_LIMITED,
+    CHALLENGE,
+    AUTH_REQUIRED,
+    TRANSIENT_ERROR,
+)
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -252,7 +267,19 @@ class SQLInjectionEngine:
         self.use_advanced_learning = config.get('enable_advanced_learning', True)
         self.use_comprehensive_testing = config.get('enable_comprehensive_testing', True)
         self.use_bypass_techniques = config.get('enable_bypass_techniques', True)
-        
+
+        # Initialize circuit breaker for responsible scan hygiene
+        self._circuit_breaker = CircuitBreaker(
+            threshold=config.get('circuit_breaker_threshold', 5),
+            reset_after=config.get('circuit_breaker_reset_after', 60.0),
+        )
+        # Track last classification per host (for reporting)
+        self._last_classification: Dict[str, object] = {}
+        # Configurable backoff settings
+        self._backoff_base = config.get('backoff_base', 2.0)
+        self._backoff_cap = config.get('backoff_cap', 60.0)
+        self._max_rate_limit_retries = config.get('max_rate_limit_retries', 3)
+
     def _get_headers(self, custom_headers: Optional[Dict] = None) -> Dict:
         """Get request headers with optional randomization."""
         headers = custom_headers.copy() if custom_headers else {}
@@ -508,25 +535,40 @@ class SQLInjectionEngine:
                      headers: Optional[Dict] = None,
                      timeout: int = 30) -> Optional[requests.Response]:
         """
-        Make HTTP request with error handling and retry logic.
+        Make HTTP request with error handling, response classification,
+        adaptive backoff on rate-limiting, and circuit-breaker protection.
+
+        The circuit-breaker key is derived from the URL host so that
+        repeated blocks/challenges for the same host abort further tests.
         """
+        host_key = urlparse(url).netloc or url
+
+        # Check circuit breaker before sending request
+        if self._circuit_breaker.is_open(host_key):
+            logger.warning(
+                f"Circuit breaker is open for '{host_key}'. Skipping request."
+            )
+            return None
+
         # Merge cookies with session cookies if stealth engine is available
         if self.stealth:
             merged_cookies = self.stealth.get_session_cookies()
             if cookies:
                 merged_cookies.update(cookies)
             cookies = merged_cookies
-        
+
+        max_stealth_retries = self.stealth.max_retries if self.stealth else 0
+        rate_limit_attempts = 0
         attempt = 0
         last_exception = None
-        
-        while attempt <= (self.stealth.max_retries if self.stealth else 0):
+
+        while attempt <= max_stealth_retries:
             try:
                 self._apply_delay()
                 request_headers = self._get_headers(headers)
-                
+
                 verify_ssl = self.config.get('verify_ssl', False)
-                
+
                 if method.upper() == 'GET':
                     response = self.session.get(
                         url,
@@ -561,27 +603,97 @@ class SQLInjectionEngine:
                         verify=verify_ssl,
                         allow_redirects=True
                     )
-                
+
                 # Update session cookies if stealth engine is available
                 if self.stealth:
                     self.stealth.update_session_cookies(response)
-                
-                return response
-                
+
+                # Classify the response and record it
+                classification = classify_response(response)
+                self._last_classification[host_key] = classification
+                # Attach classification to response for callers
+                try:
+                    response._megido_classification = classification
+                except Exception:
+                    pass
+
+                outcome = classification.outcome
+
+                if outcome == RATE_LIMITED:
+                    retry_after = get_retry_after(response, default=self._backoff_base)
+                    backoff = max(
+                        retry_after,
+                        compute_backoff(rate_limit_attempts, self._backoff_base, self._backoff_cap),
+                    )
+                    self._circuit_breaker.record(host_key, outcome)
+                    if rate_limit_attempts < self._max_rate_limit_retries:
+                        logger.warning(
+                            f"Rate limited on '{host_key}' "
+                            f"(attempt {rate_limit_attempts + 1}). "
+                            f"Backing off {backoff:.1f}s. "
+                            f"Evidence: {classification.evidence}"
+                        )
+                        time.sleep(backoff)
+                        rate_limit_attempts += 1
+                        # Don't increment stealth attempt counter -- this is a
+                        # separate rate-limit retry loop.
+                        continue
+                    else:
+                        logger.error(
+                            f"Rate limited on '{host_key}' -- max retries reached."
+                        )
+                        return response
+
+                elif outcome in (BLOCKED, CHALLENGE):
+                    self._circuit_breaker.record(host_key, outcome)
+                    if self._circuit_breaker.is_open(host_key):
+                        logger.warning(
+                            f"Circuit breaker opened for '{host_key}': "
+                            f"{classification.reason}. Evidence: {classification.evidence}"
+                        )
+                        return response
+                    else:
+                        logger.info(
+                            f"Request {outcome} for '{host_key}': "
+                            f"{classification.reason}"
+                        )
+                        return response
+
+                elif outcome == AUTH_REQUIRED:
+                    self._circuit_breaker.record(host_key, ALLOWED)  # not a block
+                    logger.info(
+                        f"Auth required for '{host_key}': {classification.reason}"
+                    )
+                    return response
+
+                elif outcome == TRANSIENT_ERROR:
+                    self._circuit_breaker.record(host_key, ALLOWED)
+                    # Fall through to stealth retry logic below
+
+                else:
+                    # ALLOWED
+                    self._circuit_breaker.record(host_key, ALLOWED)
+                    return response
+
             except Exception as e:
                 last_exception = e
                 logger.error(f"Request error (attempt {attempt + 1}): {e}")
-                
-                # Check if should retry
-                if self.stealth and self.stealth.should_retry(attempt, None, e):
-                    retry_delay = self.stealth.get_retry_delay(attempt)
-                    logger.info(f"Retrying after {retry_delay:.2f}s...")
-                    time.sleep(retry_delay)
-                    attempt += 1
-                else:
-                    break
-        
+
+                # Classify connection failure
+                classification = classify_response(None)
+                self._last_classification[host_key] = classification
+
+            # Check if should retry (stealth engine or transient error)
+            if self.stealth and self.stealth.should_retry(attempt, None, last_exception):
+                retry_delay = self.stealth.get_retry_delay(attempt)
+                logger.info(f"Retrying after {retry_delay:.2f}s...")
+                time.sleep(retry_delay)
+                attempt += 1
+            else:
+                break
+
         return None
+
     
     def _check_sql_errors(self, response: requests.Response) -> Optional[str]:
         """
@@ -615,7 +727,36 @@ class SQLInjectionEngine:
             return 'sqlite'
         
         return None
-    
+
+    def _get_response_classification(
+        self, response: Optional[requests.Response]
+    ):
+        """Return the classification attached to *response* (if any), or classify now."""
+        if response is None:
+            from .http_utils import classify_response as _cr
+            return _cr(None)
+        return getattr(response, '_megido_classification', None) or classify_response(response)
+
+    def _make_protection_finding(
+        self, url: str, param_name: str, param_type: str, classification
+    ) -> Dict:
+        """Build a finding dict representing a protection-layer block/challenge."""
+        return {
+            'injection_type': 'protection_layer',
+            'vulnerable_parameter': param_name,
+            'parameter_type': param_type,
+            'test_payload': None,
+            'detection_evidence': (
+                f"Scanning blocked by protection layer: {classification.reason}"
+            ),
+            'database_type': 'unknown',
+            'protection_outcome': classification.outcome,
+            'protection_vendor': classification.vendor,
+            'protection_evidence': classification.evidence,
+            'request_data': {'url': url},
+            'confidence_score': 1.0,
+        }
+
     def test_error_based_sqli(self, url: str, method: str,
                               params: Optional[Dict] = None,
                               data: Optional[Dict] = None,
@@ -634,7 +775,16 @@ class SQLInjectionEngine:
         baseline_response = self._make_request(url, method, params, data, cookies, headers)
         if not baseline_response:
             return findings
-        
+
+        # If baseline itself was blocked, emit a protection finding immediately
+        baseline_cls = self._get_response_classification(baseline_response)
+        if baseline_cls.outcome in (BLOCKED, CHALLENGE, RATE_LIMITED, AUTH_REQUIRED):
+            param_names = list((params or {}).keys()) + list((data or {}).keys())
+            for pname in (param_names or ['(baseline)']):
+                ptype = 'GET' if params and pname in params else 'POST'
+                findings.append(self._make_protection_finding(url, pname, ptype, baseline_cls))
+            return findings
+
         # Set baseline for false positive filter
         if self.use_fp_reduction:
             self.fp_filter.set_baseline(baseline_response)
@@ -657,6 +807,14 @@ class SQLInjectionEngine:
                     response = self._make_request(url, method, test_params, data, cookies, headers)
                     
                     if response:
+                        # Check if this response was blocked by a protection layer
+                        cls = self._get_response_classification(response)
+                        if cls.outcome in (BLOCKED, CHALLENGE, RATE_LIMITED, AUTH_REQUIRED):
+                            findings.append(
+                                self._make_protection_finding(url, param_name, 'GET', cls)
+                            )
+                            break  # Stop testing this parameter
+
                         error_pattern = self._check_sql_errors(response)
                         if error_pattern:
                             # Check for false positive
