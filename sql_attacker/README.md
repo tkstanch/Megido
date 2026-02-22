@@ -1,22 +1,183 @@
 # SQL Injection Attacker App
 
-## 🚀 Phase 1 Enhancement Complete! ⭐ NEW
+## Engine Architecture (engine/ package)
 
-The SQL Attacker module has been **comprehensively enhanced** with world-class capabilities:
+The `sql_attacker/engine/` package contains focused sub-modules extracted from
+`sqli_engine.py` to improve maintainability, testability, and accuracy.
 
-- **✅ 1000+ Advanced Payloads** - Ultra-expanded library covering all major DBMS and attack vectors
-- **✅ Polymorphic Generation** - Dynamic payload mutation for WAF bypass
-- **✅ Adaptive Super-Bypass Engine** - Real-time learning from responses
-- **✅ Fuzzy Logic Detection** - ML-based anomaly detection with reduced false positives
-- **✅ Enhanced Fingerprinting** - Comprehensive DBMS detection and privilege analysis
-- **✅ Per-Attack Scoring** - Intelligent payload effectiveness ranking
-- **✅ Full Test Coverage** - 33 comprehensive tests, all passing
+### engine/normalization.py
 
-**📖 See [SQL_ATTACKER_PHASE1_README.md](SQL_ATTACKER_PHASE1_README.md) for complete Phase 1 documentation.**
+Provides a multi-step response body normalisation pipeline:
+
+| Function | Description |
+|---|---|
+| `strip_html(text)` | Remove HTML tags and decode common HTML entities |
+| `normalize_whitespace(text)` | Collapse consecutive whitespace to a single space |
+| `scrub_dynamic_tokens(text)` | Replace timestamps, UUIDs, CSRF tokens, hex blobs with stable placeholders |
+| `normalize_response_body(text)` | Apply the full pipeline (HTML → whitespace → scrub) |
+| `fingerprint(text)` | Return a 16-char SHA-256 hex digest of the normalised body for fast equality checks |
+
+**Configuration knobs** (no runtime config needed; the pipeline is always safe
+to apply before comparison).
 
 ---
 
-**The Most Extra Much More Super Intelligent Automated SQL Injection Scanner** 🚀🧠
+### engine/baseline.py
+
+Multi-sample baselining, caching, canary scheduling, and a confirmation loop
+to reduce false positives.
+
+#### BaselineCollector
+
+Sends `n_samples` (default: 3) benign requests and computes:
+- `median_time` – median response time (seconds)
+- `iqr_time` – inter-quartile range of response times
+- `body_signature` – stable 16-char hex fingerprint of the most common normalised body
+
+```python
+from sql_attacker.engine.baseline import BaselineCollector
+
+collector = BaselineCollector(request_fn=my_request_fn, n_samples=3)
+baseline = collector.collect(url, "GET", params=params)
+print(baseline.median_time, baseline.iqr_time, baseline.body_signature)
+```
+
+#### BaselineCache
+
+Thread-safe LRU cache keyed on `(url, method, header/cookie fingerprint)`.
+Entries expire after `ttl_seconds` (default: 300 s).
+
+```python
+from sql_attacker.engine.baseline import BaselineCache
+
+cache = BaselineCache(ttl_seconds=300, max_entries=256)
+cached = cache.get(url, "GET")
+if cached is None:
+    result = collector.collect(url, "GET")
+    cache.put(url, "GET", result)
+```
+
+#### CanaryScheduler
+
+Returns `(canary_set, remainder)` from a full payload list.  Callers run the
+canary set first and only escalate to the full list when a signal appears.
+
+```python
+from sql_attacker.engine.baseline import CanaryScheduler
+
+scheduler = CanaryScheduler()   # uses default 5-payload canary set
+canary, rest = scheduler.schedule(full_payload_list)
+```
+
+Custom canary payloads can be supplied:
+```python
+scheduler = CanaryScheduler(canary_payloads=["'", '"', "' OR '1'='1"])
+```
+
+#### confirm_finding
+
+Confirmation loop that re-tests a candidate finding (`repetitions` times, default 2)
+and sends a benign control mutation.  A finding is confirmed only when:
+- The injection probe triggers detection in ≥ ⌈repetitions/2⌉ retests, **and**
+- The benign control does **not** trigger detection.
+
+```python
+from sql_attacker.engine.baseline import confirm_finding
+
+confirmed, rationale = confirm_finding(
+    test_fn=lambda: send_injected_request(),
+    benign_fn=lambda: send_benign_request(),
+    detect_fn=lambda r: is_vulnerable(r),
+    repetitions=2,
+)
+```
+
+---
+
+### engine/scoring.py
+
+Confidence scoring with explicit per-feature contributions.
+
+#### compute_confidence(features)
+
+```python
+from sql_attacker.engine.scoring import compute_confidence
+
+result = compute_confidence({
+    "sql_error_pattern": 1.0,
+    "timing_delta_significant": 0.8,
+    "repeatability": 1.0,
+})
+print(result.score)       # e.g. 0.984
+print(result.verdict)     # "confirmed" | "likely" | "uncertain"
+print(result.rationale)   # human-readable explanation
+for c in result.contributions:
+    print(c.name, c.weight, c.value, c.contribution)
+```
+
+Built-in feature names and weights:
+
+| Feature | Weight |
+|---|---|
+| `sql_error_pattern` | 0.90 |
+| `timing_delta_significant` | 0.80 |
+| `repeatability` | 0.70 |
+| `boolean_diff` | 0.75 |
+| `similarity_delta` | 0.65 |
+| `content_change` | 0.60 |
+| `http_error_code` | 0.50 |
+| `js_error` | 0.50 |
+| `benign_control_negative` | 0.40 |
+
+Custom feature names are accepted and assigned a default weight of 0.30.
+
+Backwards-compatible shim for the old `List[str]` API:
+```python
+from sql_attacker.engine.scoring import compute_confidence_from_signals
+score, verdict = compute_confidence_from_signals(["sql_error_pattern", "time_delay"])
+```
+
+---
+
+## Standardised Finding Schema
+
+`SQLInjectionResult` now includes four additional fields that standardise what
+every finding reports:
+
+| Field | Type | Description |
+|---|---|---|
+| `injection_location` | `CharField(20)` | Where the injection point was found: `GET`, `POST`, `header`, `cookie`, `json` |
+| `evidence_packet` | `JSONField` | Structured evidence: normalised diff summary, matched patterns, classifier outcome, timing delta |
+| `confidence_rationale` | `TextField` | Human-readable explanation of how the confidence score was derived |
+| `reproduction_steps` | `TextField` | Safe, step-by-step instructions to reproduce the finding |
+
+These fields are exposed in the REST API at `/sql-attacker/api/tasks/<id>/`.
+
+---
+
+## Safety Configuration Knobs
+
+All risky techniques are **disabled by default**.  They must be explicitly
+enabled in the engine `config` dict:
+
+| Config key | Default | Description |
+|---|---|---|
+| `enable_comprehensive_payloads` | `True` | Load the full 1000+ payload library |
+| `enable_advanced_payloads` | `True` | Use advanced payload mutations |
+| `enable_false_positive_reduction` | `True` | Enable FP filter |
+| `enable_stealth` | `True` | Enable stealth/timing engine |
+| `circuit_breaker_threshold` | `5` | Consecutive blocks before circuit opens |
+| `circuit_breaker_reset_after` | `60.0` | Seconds until circuit resets |
+| `max_rate_limit_retries` | `3` | Max retries on 429 before aborting |
+| `backoff_base` | `2.0` | Exponential back-off base (seconds) |
+| `backoff_cap` | `60.0` | Maximum back-off delay (seconds) |
+
+The engine enforces per-host concurrency through the `RequestBudget` class in
+`guardrails.py` (`max_concurrent`, default 1) and per-host request caps
+(`max_requests_per_target`, default 200).
+
+---
+
 
 ## 🎯 NEW: Blind SQL Injection Inference Techniques (2026)
 

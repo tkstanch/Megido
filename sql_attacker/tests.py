@@ -462,3 +462,459 @@ class EngineCircuitBreakerIntegrationTest(TestCase):
                 # sleep should have been called for backoff
                 self.assertTrue(mock_sleep.called)
 
+
+# ---------------------------------------------------------------------------
+# engine.normalization tests
+# ---------------------------------------------------------------------------
+
+
+class NormalizationTest(TestCase):
+    """Unit tests for sql_attacker.engine.normalization."""
+
+    def test_strip_html_removes_tags(self):
+        from .engine.normalization import strip_html
+        self.assertNotIn("<b>", strip_html("<b>hello</b>"))
+        self.assertIn("hello", strip_html("<b>hello</b>"))
+
+    def test_strip_html_decodes_entities(self):
+        from .engine.normalization import strip_html
+        result = strip_html("Tom &amp; Jerry &lt;3")
+        self.assertIn("&", result)
+        self.assertNotIn("&amp;", result)
+
+    def test_normalize_whitespace(self):
+        from .engine.normalization import normalize_whitespace
+        result = normalize_whitespace("  hello   world\n\t! ")
+        self.assertEqual(result, "hello world !")
+
+    def test_scrub_removes_uuid(self):
+        from .engine.normalization import scrub_dynamic_tokens
+        text = "Request-ID: 550e8400-e29b-41d4-a716-446655440000 OK"
+        result = scrub_dynamic_tokens(text)
+        self.assertNotIn("550e8400", result)
+        self.assertIn("<UUID>", result)
+
+    def test_scrub_removes_timestamp(self):
+        from .engine.normalization import scrub_dynamic_tokens
+        text = "Generated at 2024-01-15T12:34:56Z by server"
+        result = scrub_dynamic_tokens(text)
+        self.assertNotIn("2024-01-15", result)
+        self.assertIn("<TIMESTAMP>", result)
+
+    def test_scrub_removes_long_hex_token(self):
+        from .engine.normalization import scrub_dynamic_tokens
+        text = "csrfmiddlewaretoken=abcdef1234567890abcdef1234567890"
+        result = scrub_dynamic_tokens(text)
+        # The CSRF token pattern or hex token pattern should scrub it
+        self.assertNotIn("abcdef1234567890abcdef1234567890", result)
+
+    def test_normalize_response_body_pipeline(self):
+        from .engine.normalization import normalize_response_body
+        html = (
+            "<html><body>"
+            "<p>Hello  world</p>"
+            "<span>Token: 550e8400-e29b-41d4-a716-446655440000</span>"
+            "</body></html>"
+        )
+        result = normalize_response_body(html)
+        self.assertNotIn("<html>", result)
+        self.assertNotIn("550e8400", result)
+        self.assertIn("Hello", result)
+        self.assertIn("world", result)
+
+    def test_fingerprint_stable_across_calls(self):
+        from .engine.normalization import fingerprint
+        text = "<p>Same content</p>"
+        self.assertEqual(fingerprint(text), fingerprint(text))
+
+    def test_fingerprint_differs_for_different_content(self):
+        from .engine.normalization import fingerprint
+        self.assertNotEqual(fingerprint("hello"), fingerprint("world"))
+
+    def test_fingerprint_stable_despite_dynamic_tokens(self):
+        """Two responses that differ only in timestamps should have the same fingerprint."""
+        from .engine.normalization import fingerprint
+        body1 = "Page generated at 2024-01-01T00:00:00Z. Welcome!"
+        body2 = "Page generated at 2025-06-15T09:30:00Z. Welcome!"
+        self.assertEqual(fingerprint(body1), fingerprint(body2))
+
+
+# ---------------------------------------------------------------------------
+# engine.baseline tests
+# ---------------------------------------------------------------------------
+
+
+class BaselineStatisticsTest(TestCase):
+    """Unit tests for baseline median/IQR helpers and BaselineCollector."""
+
+    def test_median_odd(self):
+        from .engine.baseline import _median
+        self.assertEqual(_median([1.0, 3.0, 2.0]), 2.0)
+
+    def test_median_even(self):
+        from .engine.baseline import _median
+        self.assertEqual(_median([1.0, 2.0, 3.0, 4.0]), 2.5)
+
+    def test_iqr_basic(self):
+        from .engine.baseline import _iqr
+        vals = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+        iqr = _iqr(vals)
+        self.assertGreater(iqr, 0)
+
+    def test_iqr_single_value(self):
+        from .engine.baseline import _iqr
+        self.assertEqual(_iqr([5.0]), 0.0)
+
+    def test_baseline_collector_returns_result(self):
+        from unittest.mock import MagicMock
+        import datetime
+        from .engine.baseline import BaselineCollector
+
+        def _fake_request(url, method, params, data, cookies, headers):
+            r = MagicMock()
+            r.elapsed = MagicMock()
+            r.elapsed.total_seconds.return_value = 0.15
+            r.text = "<html>Hello world</html>"
+            return r
+
+        collector = BaselineCollector(request_fn=_fake_request, n_samples=3)
+        result = collector.collect("http://example.com/test", "GET")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.sample_count, 3)
+        self.assertAlmostEqual(result.median_time, 0.15, places=2)
+        self.assertIsInstance(result.body_signature, str)
+        self.assertEqual(len(result.body_signature), 16)
+
+    def test_baseline_collector_returns_none_on_all_failures(self):
+        from .engine.baseline import BaselineCollector
+
+        def _always_none(url, method, params, data, cookies, headers):
+            return None
+
+        collector = BaselineCollector(request_fn=_always_none, n_samples=3)
+        result = collector.collect("http://example.com/test", "GET")
+        self.assertIsNone(result)
+
+
+class BaselineCacheTest(TestCase):
+    """Unit tests for BaselineCache."""
+
+    def _make_result(self):
+        from .engine.baseline import BaselineResult
+        return BaselineResult(
+            median_time=0.2,
+            iqr_time=0.05,
+            body_signature="abc123def456abcd",
+            sample_count=3,
+        )
+
+    def test_put_and_get(self):
+        from .engine.baseline import BaselineCache
+        cache = BaselineCache(ttl_seconds=300)
+        result = self._make_result()
+        cache.put("http://example.com", "GET", result)
+        retrieved = cache.get("http://example.com", "GET")
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved.body_signature, result.body_signature)
+
+    def test_get_returns_none_for_missing(self):
+        from .engine.baseline import BaselineCache
+        cache = BaselineCache()
+        self.assertIsNone(cache.get("http://missing.example.com", "GET"))
+
+    def test_entry_expires(self):
+        import time as _time
+        from .engine.baseline import BaselineCache
+        cache = BaselineCache(ttl_seconds=0.05)
+        cache.put("http://example.com", "GET", self._make_result())
+        _time.sleep(0.1)
+        self.assertIsNone(cache.get("http://example.com", "GET"))
+
+    def test_invalidate(self):
+        from .engine.baseline import BaselineCache
+        cache = BaselineCache()
+        cache.put("http://example.com", "GET", self._make_result())
+        cache.invalidate("http://example.com", "GET")
+        self.assertIsNone(cache.get("http://example.com", "GET"))
+
+
+class CanarySchedulerTest(TestCase):
+    """Unit tests for CanaryScheduler."""
+
+    def test_canary_payloads_come_first(self):
+        from .engine.baseline import CanaryScheduler
+        scheduler = CanaryScheduler(canary_payloads=["'", "\""])
+        full = ["payload_a", "'", "payload_b", "\"", "payload_c"]
+        canary, remainder = scheduler.schedule(full)
+        self.assertEqual(canary, ["'", "\""])
+        self.assertNotIn("'", remainder)
+        self.assertNotIn("\"", remainder)
+        self.assertIn("payload_a", remainder)
+
+    def test_remainder_preserves_order(self):
+        from .engine.baseline import CanaryScheduler
+        scheduler = CanaryScheduler(canary_payloads=["'"])
+        full = ["a", "'", "b", "c"]
+        _, remainder = scheduler.schedule(full)
+        self.assertEqual(remainder, ["a", "b", "c"])
+
+
+class ConfirmFindingTest(TestCase):
+    """Unit tests for the confirmation loop in engine.baseline."""
+
+    def test_confirmed_when_repeatable_and_benign_negative(self):
+        from .engine.baseline import confirm_finding
+
+        responses = ["vuln_response", "vuln_response"]
+        idx = [0]
+
+        def test_fn():
+            r = responses[idx[0] % len(responses)]
+            idx[0] += 1
+            return r
+
+        def benign_fn():
+            return "safe_response"
+
+        def detect_fn(r):
+            return r == "vuln_response"
+
+        confirmed, rationale = confirm_finding(test_fn, benign_fn, detect_fn, repetitions=2)
+        self.assertTrue(confirmed)
+        self.assertIn("confirmed", rationale)
+
+    def test_not_confirmed_when_benign_also_triggers(self):
+        from .engine.baseline import confirm_finding
+
+        def test_fn():
+            return "bad"
+
+        def benign_fn():
+            return "bad"  # also triggers
+
+        def detect_fn(r):
+            return True
+
+        confirmed, rationale = confirm_finding(test_fn, benign_fn, detect_fn, repetitions=2)
+        self.assertFalse(confirmed)
+        self.assertIn("false positive", rationale)
+
+    def test_not_confirmed_when_not_repeatable(self):
+        from .engine.baseline import confirm_finding
+
+        # With repetitions=3, required=2. Only 1 out of 3 probes positive → not confirmed.
+        responses = ["vuln", "safe", "safe"]
+        idx = [0]
+
+        def test_fn():
+            r = responses[idx[0] % len(responses)]
+            idx[0] += 1
+            return r
+
+        def benign_fn():
+            return "safe"
+
+        def detect_fn(r):
+            return r == "vuln"
+
+        confirmed, rationale = confirm_finding(test_fn, benign_fn, detect_fn, repetitions=3)
+        self.assertFalse(confirmed)
+
+
+# ---------------------------------------------------------------------------
+# engine.scoring tests
+# ---------------------------------------------------------------------------
+
+
+class ScoringTest(TestCase):
+    """Unit tests for engine.scoring.compute_confidence."""
+
+    def test_single_strong_signal_gives_likely_or_confirmed(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({"sql_error_pattern": 1.0})
+        self.assertGreaterEqual(result.score, 0.5)
+        self.assertIn(result.verdict, ("likely", "confirmed"))
+
+    def test_two_strong_signals_give_confirmed(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({
+            "sql_error_pattern": 1.0,
+            "timing_delta_significant": 1.0,
+        })
+        self.assertEqual(result.verdict, "confirmed")
+        self.assertGreaterEqual(result.score, 0.70)
+
+    def test_no_signals_gives_uncertain(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({})
+        self.assertEqual(result.verdict, "uncertain")
+        self.assertEqual(result.score, 0.0)
+
+    def test_zero_value_features_dont_contribute(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({"sql_error_pattern": 0.0, "timing_delta_significant": 0.0})
+        self.assertEqual(result.score, 0.0)
+
+    def test_contributions_sorted_by_contribution_descending(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({
+            "http_error_code": 1.0,   # weight 0.50
+            "sql_error_pattern": 1.0,  # weight 0.90
+        })
+        self.assertGreater(result.contributions[0].contribution, result.contributions[1].contribution)
+
+    def test_per_feature_contribution_structure(self):
+        from .engine.scoring import compute_confidence, FeatureContribution
+        result = compute_confidence({"boolean_diff": 0.8})
+        self.assertEqual(len(result.contributions), 1)
+        c = result.contributions[0]
+        self.assertIsInstance(c, FeatureContribution)
+        self.assertEqual(c.name, "boolean_diff")
+        self.assertAlmostEqual(c.contribution, 0.75 * 0.8, places=3)
+
+    def test_rationale_is_informative(self):
+        from .engine.scoring import compute_confidence
+        result = compute_confidence({"sql_error_pattern": 1.0, "repeatability": 1.0})
+        self.assertIn("score=", result.rationale)
+        self.assertIn("verdict=", result.rationale)
+
+    def test_backwards_compat_shim(self):
+        from .engine.scoring import compute_confidence_from_signals
+        score, verdict = compute_confidence_from_signals(["sql_error_pattern", "timing_delta_significant"])
+        self.assertIsInstance(score, float)
+        self.assertIn(verdict, ("confirmed", "likely", "uncertain"))
+
+
+# ---------------------------------------------------------------------------
+# New model fields tests
+# ---------------------------------------------------------------------------
+
+
+class FindingSchemaModelTest(TestCase):
+    """Verify that the new finding-schema fields are present on SQLInjectionResult."""
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/api?q=1',
+            http_method='GET',
+        )
+
+    def test_injection_location_field(self):
+        result = SQLInjectionResult.objects.create(
+            task=self.task,
+            injection_type='error_based',
+            vulnerable_parameter='q',
+            parameter_type='GET',
+            injection_location='GET',
+            test_payload="'",
+            detection_evidence='SQL error detected',
+        )
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertEqual(reloaded.injection_location, 'GET')
+
+    def test_evidence_packet_field(self):
+        packet = {
+            'normalized_diff': 'Substantial difference detected',
+            'matched_patterns': ['SQL syntax.*MySQL'],
+            'classifier_outcome': 'ALLOWED',
+            'timing_delta': 0.12,
+        }
+        result = SQLInjectionResult.objects.create(
+            task=self.task,
+            injection_type='time_based',
+            vulnerable_parameter='q',
+            parameter_type='GET',
+            test_payload="' AND SLEEP(5)--",
+            detection_evidence='Timing anomaly',
+            evidence_packet=packet,
+        )
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertEqual(reloaded.evidence_packet['timing_delta'], 0.12)
+
+    def test_confidence_rationale_field(self):
+        rationale = "score=0.972, verdict=confirmed, active_features=2 (top: sql_error_pattern, timing_delta_significant)"
+        result = SQLInjectionResult.objects.create(
+            task=self.task,
+            injection_type='error_based',
+            vulnerable_parameter='q',
+            parameter_type='GET',
+            test_payload="'",
+            detection_evidence='SQL error detected',
+            confidence_rationale=rationale,
+        )
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertEqual(reloaded.confidence_rationale, rationale)
+
+    def test_reproduction_steps_field(self):
+        steps = "1. Send GET /api?q=' to example.com\n2. Observe SQL error in response."
+        result = SQLInjectionResult.objects.create(
+            task=self.task,
+            injection_type='error_based',
+            vulnerable_parameter='q',
+            parameter_type='GET',
+            test_payload="'",
+            detection_evidence='SQL error detected',
+            reproduction_steps=steps,
+        )
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertEqual(reloaded.reproduction_steps, steps)
+
+
+# ---------------------------------------------------------------------------
+# API result schema tests
+# ---------------------------------------------------------------------------
+
+
+class APIResultSchemaTest(TestCase):
+    """Verify that api_task_detail exposes the new finding-schema fields."""
+
+    def setUp(self):
+        self.client = Client()
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/api?q=1',
+            http_method='GET',
+        )
+        SQLInjectionResult.objects.create(
+            task=self.task,
+            injection_type='error_based',
+            vulnerable_parameter='q',
+            parameter_type='GET',
+            injection_location='GET',
+            test_payload="'",
+            detection_evidence='SQL error',
+            evidence_packet={'timing_delta': 0.05},
+            confidence_score=0.90,
+            confidence_rationale='score=0.90, verdict=confirmed',
+            reproduction_steps='1. Send GET /api?q=\'',
+        )
+
+    def test_api_result_includes_injection_location(self):
+        response = self.client.get(reverse('sql_attacker:api_task_detail', args=[self.task.id]))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn('results', data)
+        result = data['results'][0]
+        self.assertIn('injection_location', result)
+        self.assertEqual(result['injection_location'], 'GET')
+
+    def test_api_result_includes_evidence_packet(self):
+        response = self.client.get(reverse('sql_attacker:api_task_detail', args=[self.task.id]))
+        data = json.loads(response.content)
+        result = data['results'][0]
+        self.assertIn('evidence_packet', result)
+        self.assertEqual(result['evidence_packet']['timing_delta'], 0.05)
+
+    def test_api_result_includes_confidence_rationale(self):
+        response = self.client.get(reverse('sql_attacker:api_task_detail', args=[self.task.id]))
+        data = json.loads(response.content)
+        result = data['results'][0]
+        self.assertIn('confidence_rationale', result)
+        self.assertIn('confirmed', result['confidence_rationale'])
+
+    def test_api_result_includes_reproduction_steps(self):
+        response = self.client.get(reverse('sql_attacker:api_task_detail', args=[self.task.id]))
+        data = json.loads(response.content)
+        result = data['results'][0]
+        self.assertIn('reproduction_steps', result)
+        self.assertIn("GET", result['reproduction_steps'])
+

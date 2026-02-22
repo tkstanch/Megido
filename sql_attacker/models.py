@@ -256,6 +256,32 @@ class SQLInjectionResult(models.Model):
     successful_payloads = models.JSONField(blank=True, null=True, help_text="All successful payloads by type")
     extracted_sensitive_data = models.JSONField(blank=True, null=True, help_text="Categorized extracted data")
 
+    # Standardised finding schema (evidence packet, location, reproducibility)
+    injection_location = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        help_text="Where the injection point was found: GET, POST, header, cookie, json",
+    )
+    evidence_packet = models.JSONField(
+        blank=True,
+        null=True,
+        help_text=(
+            "Structured evidence: normalized diff summary, matched patterns, "
+            "classifier outcome, timing delta"
+        ),
+    )
+    confidence_rationale = models.TextField(
+        blank=True,
+        default='',
+        help_text="Human-readable explanation of how the confidence score was reached",
+    )
+    reproduction_steps = models.TextField(
+        blank=True,
+        default='',
+        help_text="Safe, step-by-step instructions to reproduce the finding",
+    )
+
     # Metadata
     detected_at = models.DateTimeField(default=timezone.now, db_index=True)
     severity = models.CharField(max_length=20, default='critical',
