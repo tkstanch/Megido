@@ -72,7 +72,7 @@ class SQLAttacker:
         payloads = [
             "' OR '1'='1",
             "1' UNION SELECT NULL--",
-            "1'; DROP TABLE users--"
+            "1' AND 1=2--"
         ]
         
         for payload in payloads:
