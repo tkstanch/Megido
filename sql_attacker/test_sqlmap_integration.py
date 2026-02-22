@@ -107,7 +107,12 @@ class TestSQLMapAttacker(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures"""
-        self.config = SQLMapConfig(batch=True, verbosity=0)
+        self.config = SQLMapConfig(
+            batch=True,
+            verbosity=0,
+            authorized=True,
+            allowed_domains=["example.com"],
+        )
         self.attacker = SQLMapAttacker(config=self.config)
     
     def tearDown(self):

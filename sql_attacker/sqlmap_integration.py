@@ -24,6 +24,16 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from .guardrails import (
+    BudgetConfig,
+    RequestBudget,
+    check_authorization,
+    check_scope,
+    AuthorizationError,
+    ScopeViolationError,
+    BudgetExceededError,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +67,26 @@ class EnumerationTarget(Enum):
 @dataclass
 class SQLMapConfig:
     """Configuration for SQLMap execution"""
+    # -----------------------------------------------------------------------
+    # Safety guardrails – must be set explicitly before running active tests
+    # -----------------------------------------------------------------------
+    authorized: bool = False
+    """Explicit authorization acknowledgement.  Must be set to True (with
+    written permission from the target owner) before any active test will run.
+    Defaults to False (fail-closed)."""
+
+    allowed_domains: List[str] = field(default_factory=list)
+    """Allowlisted hostnames / wildcard patterns (e.g. ``"*.example.com"``).
+    An empty list permits any *public* host while still blocking private IPs."""
+
+    block_private_ips: bool = True
+    """Block targets whose host resolves to a private/loopback IP address.
+    Set to False only when intentionally testing an internal host that has
+    been added to *allowed_domains*."""
+
+    budget: BudgetConfig = field(default_factory=BudgetConfig)
+    """Per-target request budget and rate-limit configuration."""
+
     # Core options
     risk: SQLMapRiskLevel = SQLMapRiskLevel.LOW
     level: SQLMapLevel = SQLMapLevel.MINIMAL
@@ -147,6 +177,7 @@ class SQLMapAttacker:
         self.config = config or SQLMapConfig()
         self.sqlmap_path = sqlmap_path
         self.temp_files = []
+        self._budget = RequestBudget(self.config.budget)
         
         # Ensure output directory exists
         if self.config.output_dir:
@@ -158,6 +189,39 @@ class SQLMapAttacker:
         """Cleanup temporary files"""
         self._cleanup_temp_files()
     
+    def _check_guardrails(self, url: str) -> None:
+        """
+        Enforce authorization, scope, and budget guardrails before making
+        any active request against *url*.
+
+        Raises:
+            AuthorizationError: If ``config.authorized`` is not True.
+            ScopeViolationError: If *url* is outside the allowed scope.
+            BudgetExceededError: If the per-host request budget is exhausted.
+        """
+        check_authorization(self.config.authorized)
+        check_scope(
+            url,
+            allowed_domains=self.config.allowed_domains,
+            block_private_ips=self.config.block_private_ips,
+        )
+        from urllib.parse import urlparse
+        host = urlparse(url).hostname or ""
+        self._budget.charge(host)
+
+    def _preflight_check(self, url: str) -> None:
+        """
+        Perform authorization and scope checks without charging the request
+        budget.  Suitable for entry-point methods (like :meth:`orchestrate_attack`)
+        that delegate to other methods which each charge the budget themselves.
+        """
+        check_authorization(self.config.authorized)
+        check_scope(
+            url,
+            allowed_domains=self.config.allowed_domains,
+            block_private_ips=self.config.block_private_ips,
+        )
+
     def _cleanup_temp_files(self):
         """Remove temporary files created during execution"""
         for temp_file in self.temp_files:
@@ -453,6 +517,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with vulnerability status
         """
+        self._check_guardrails(request.url)
         logger.info(f"Testing injection on: {request.url}")
         
         cmd = self._build_command(request)
@@ -480,6 +545,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with database list
         """
+        self._check_guardrails(request.url)
         logger.info("Enumerating databases...")
         
         cmd = self._build_command(request, enumeration=EnumerationTarget.DATABASES)
@@ -509,6 +575,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with table list
         """
+        self._check_guardrails(request.url)
         logger.info(f"Enumerating tables in database: {database}")
         
         cmd = self._build_command(request, enumeration=EnumerationTarget.TABLES, database=database)
@@ -578,6 +645,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with column list
         """
+        self._check_guardrails(request.url)
         logger.info(f"Enumerating columns in {database}.{table}")
         
         cmd = self._build_command(request, enumeration=EnumerationTarget.COLUMNS, 
@@ -635,6 +703,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with dumped data
         """
+        self._check_guardrails(request.url)
         logger.info(f"Dumping data from {database}.{table}")
         
         cmd = self._build_command(request, enumeration=EnumerationTarget.DUMP,
@@ -675,6 +744,7 @@ class SQLMapAttacker:
         Returns:
             Dictionary with complete attack results
         """
+        self._preflight_check(request.url)
         logger.info("Starting orchestrated attack workflow...")
         
         attack_results = {
@@ -797,6 +867,7 @@ class SQLMapAttacker:
         Returns:
             SQLMapResult with execution output
         """
+        self._check_guardrails(request.url)
         logger.info(f"Executing custom sqlmap command with options: {extra_options}")
         
         cmd = self._build_command(request, extra_options=extra_options)
@@ -816,7 +887,9 @@ class SQLMapAttacker:
 
 # Convenience function
 def create_attacker(risk: int = 1, level: int = 1, verbosity: int = 1, 
-                   proxy: Optional[str] = None) -> SQLMapAttacker:
+                   proxy: Optional[str] = None,
+                   authorized: bool = False,
+                   allowed_domains: Optional[List[str]] = None) -> SQLMapAttacker:
     """
     Convenience function to create a SQLMapAttacker instance.
     
@@ -825,6 +898,8 @@ def create_attacker(risk: int = 1, level: int = 1, verbosity: int = 1,
         level: Test level (1-5)
         verbosity: Verbosity level (0-6)
         proxy: Proxy URL (optional)
+        authorized: Must be True to run active tests (written permission required).
+        allowed_domains: Allowlisted hostnames for scope enforcement (optional).
         
     Returns:
         Configured SQLMapAttacker instance
@@ -833,6 +908,8 @@ def create_attacker(risk: int = 1, level: int = 1, verbosity: int = 1,
         risk=SQLMapRiskLevel(risk),
         level=SQLMapLevel(level),
         verbosity=verbosity,
-        proxy=proxy
+        proxy=proxy,
+        authorized=authorized,
+        allowed_domains=allowed_domains or [],
     )
     return SQLMapAttacker(config=config)
