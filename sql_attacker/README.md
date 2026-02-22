@@ -1458,3 +1458,91 @@ print("🤖 AI-Powered scan complete - Extra much more super intelligent!")
 - Phase 2: ML-inspired adaptation
 - **Phase 3: Full AI with reinforcement learning, transfer learning, and cognitive planning**
 
+
+---
+
+## 🛡️ Response Classification & Responsible Scan Hygiene (2026)
+
+### Overview
+
+The SQL Attacker now includes a centralized HTTP utilities module (`http_utils.py`) that provides:
+
+- **Response classification** – identifies when a WAF/IDS/IPS/firewall is blocking, rate-limiting, or challenging requests
+- **Adaptive backoff** – exponential back-off on rate-limited responses
+- **Circuit breaker** – stops further tests after repeated blocks/challenges per host
+
+> **Note:** These features are designed for *authorized* testing only. No evasion or bypass techniques are included in this layer.
+
+---
+
+### Outcome Values
+
+| Outcome | Meaning |
+|---------|---------|
+| `ALLOWED` | Request processed normally |
+| `BLOCKED` | Request explicitly blocked (403/406, block-page body markers) |
+| `RATE_LIMITED` | Too many requests (429, Retry-After header, rate-limit body) |
+| `CHALLENGE` | CAPTCHA / JS challenge page detected (Cloudflare, hCaptcha, etc.) |
+| `AUTH_REQUIRED` | Authentication required (401, login-redirect body) |
+| `TRANSIENT_ERROR` | Temporary network/server error (5xx, connection failure) |
+
+Vendor detection is also performed (e.g., `akamai`, `cloudflare`, `imperva`, `aws_waf`) based on response headers.
+
+When a scan is blocked or challenged, a dedicated `protection_layer` finding is emitted instead of silently treating the endpoint as not-vulnerable.
+
+---
+
+### Configuration
+
+All settings live in the engine `config` dict passed to `SQLInjectionEngine`:
+
+```python
+config = {
+    # --- Circuit breaker ---
+    # Open after this many consecutive BLOCKED/CHALLENGE responses for the same host
+    'circuit_breaker_threshold': 5,       # default: 5
+    # Seconds before the open circuit is auto-reset (half-open)
+    'circuit_breaker_reset_after': 60.0,  # default: 60.0
+
+    # --- Adaptive backoff (rate-limit retries) ---
+    'backoff_base': 2.0,              # Base delay in seconds; default: 2.0
+    'backoff_cap': 60.0,              # Maximum delay in seconds; default: 60.0
+    'max_rate_limit_retries': 3,      # Max retries on 429; default: 3
+}
+```
+
+---
+
+### How Classification Works
+
+1. Every response from `_make_request` is classified via `classify_response()`.
+2. The classification is attached to the response as `response._megido_classification`.
+3. For `RATE_LIMITED` outcomes: the engine sleeps for `max(Retry-After, exponential_backoff)` and retries up to `max_rate_limit_retries` times.
+4. For `BLOCKED` or `CHALLENGE` outcomes: the outcome is recorded in the circuit breaker. When the threshold is reached, the circuit opens and `_make_request` returns `None` immediately (without sending further requests) until the reset timer expires.
+5. Detection routines (`test_error_based_sqli`, etc.) check the classification and emit a `protection_layer` finding rather than treating a blocked response as "not vulnerable".
+
+---
+
+### Guidance for Authorized Testing
+
+- **Always obtain written authorization** before scanning any system you do not own.
+- Use **staging environments** with allowlisted IPs where possible.
+- Configure generous backoff settings for production scanning to avoid impacting service availability.
+- If you are repeatedly blocked, work with the target team to set up an **allowlist** for your scanner IP rather than attempting to evade protections.
+- Review `protection_layer` findings in scan reports – they indicate the target has active protections that prevented a full assessment.
+
+---
+
+### Reusable HTTP Utilities (`http_utils.py`)
+
+The following can be imported by any module in the SQL Attacker:
+
+```python
+from sql_attacker.http_utils import (
+    classify_response,    # Classify a requests.Response
+    CircuitBreaker,       # Per-host circuit breaker
+    compute_backoff,      # Exponential back-off helper
+    get_retry_after,      # Parse Retry-After header
+    ALLOWED, BLOCKED, RATE_LIMITED, CHALLENGE, AUTH_REQUIRED, TRANSIENT_ERROR,
+)
+```

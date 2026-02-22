@@ -22,6 +22,8 @@ from urllib.parse import urlencode, parse_qs, urlparse, quote, quote_plus
 import requests
 from difflib import SequenceMatcher
 
+from .http_utils import classify_response, BLOCKED, CHALLENGE, RATE_LIMITED, AUTH_REQUIRED
+
 logger = logging.getLogger(__name__)
 
 
@@ -728,7 +730,21 @@ class NumericSqlInjector:
         )
         
         response_diff = 1.0 - similarity
-        
+
+        # Check if the test response was blocked/challenged by a protection layer
+        cls = classify_response(test_response)
+        if cls.outcome in (BLOCKED, CHALLENGE, RATE_LIMITED, AUTH_REQUIRED):
+            return NumericInjectionResult(
+                parameter=parameter,
+                payload=payload,
+                vulnerable=False,
+                confidence=0.0,
+                evidence=(
+                    f"Request {cls.outcome} by protection layer: {cls.reason}"
+                ),
+                response_diff=0.0,
+            )
+
         # Check for SQL errors
         sql_errors = self._check_sql_errors(test_response.text)
         
