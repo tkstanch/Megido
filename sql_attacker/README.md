@@ -139,6 +139,111 @@ score, verdict = compute_confidence_from_signals(["sql_error_pattern", "time_del
 
 ---
 
+## sqlmap_integration.py – Operation Modes and Structured Reporting
+
+`sql_attacker/sqlmap_integration.py` wraps sqlmap and exposes a high-level
+`orchestrate_attack()` method.  It now supports explicit **operation modes**
+and returns a structured :class:`OrchestrateReport` object.
+
+### Operation Modes (`AttackMode`)
+
+```python
+from sql_attacker.sqlmap_integration import AttackMode
+```
+
+| Mode | Value | Stages executed | Description |
+|---|---|---|---|
+| `AttackMode.DETECT_ONLY` | `"detect_only"` | Stage 1 only | Test for vulnerability; no enumeration or dump |
+| `AttackMode.ENUMERATE_SAFE` | `"enumerate_safe"` | Stages 1–4 | Test + enumerate databases/tables/columns; **no data dump** |
+| `AttackMode.FULL` | `"full"` | Stages 1–5 | Full workflow including data dump (default) |
+
+Modes can also be parsed from strings:
+```python
+mode = AttackMode.from_string("enumerate_safe")  # → AttackMode.ENUMERATE_SAFE
+```
+
+#### Mode gating examples
+
+```python
+from sql_attacker.sqlmap_integration import SQLMapAttacker, SQLMapConfig, HTTPRequest, AttackMode
+
+config = SQLMapConfig(authorized=True, allowed_domains=["example.com"])
+attacker = SQLMapAttacker(config=config)
+request = HTTPRequest(url="http://example.com/search?q=1")
+
+# Only test – do not enumerate or dump
+report = attacker.orchestrate_attack(request, mode=AttackMode.DETECT_ONLY)
+
+# Enumerate metadata safely – no dump
+report = attacker.orchestrate_attack(request, mode=AttackMode.ENUMERATE_SAFE)
+
+# Full exploitation (default – same behaviour as before the mode parameter was added)
+report = attacker.orchestrate_attack(request, mode=AttackMode.FULL)
+```
+
+### Structured Report (`OrchestrateReport`)
+
+`orchestrate_attack()` returns an :class:`OrchestrateReport` instead of a
+plain `dict`.  The report supports:
+
+* **Dict-style access** for backward compatibility – `report['success']`,
+  `'stages_completed' in report`.
+* **`to_dict(redact_dumps=True)`** – JSON-compatible dictionary.  Dump data
+  is redacted by default to prevent accidental leakage.
+* **`to_json(indent=2, redact_dumps=True)`** – JSON string export.
+* **`to_text()`** – Human-readable Markdown summary (dump data always redacted).
+
+```python
+report = attacker.orchestrate_attack(request, mode=AttackMode.ENUMERATE_SAFE)
+
+print(report.success)            # True / False
+print(report.mode)               # AttackMode.ENUMERATE_SAFE
+print(report.stages_completed)  # ['vulnerability_test', 'enumerate_databases', ...]
+print(report.databases)          # ['testdb', ...]
+print(report.tables)             # {'testdb': ['users', 'products']}
+print(report.columns)            # {'testdb': {'users': ['id', 'email']}}
+print(report.started_at)         # '2026-01-01T12:00:00Z'
+print(report.duration_seconds)   # 3.14
+
+# Export as JSON (dumps redacted by default)
+json_str = report.to_json()
+
+# Export with raw dump data (use with care)
+json_str_unredacted = report.to_json(redact_dumps=False)
+
+# Human-readable Markdown
+print(report.to_text())
+
+# Backward-compatible dict access
+assert report['success'] == report.success
+```
+
+#### Report schema (`to_dict`)
+
+```json
+{
+  "mode": "enumerate_safe",
+  "success": true,
+  "stages_attempted": ["vulnerability_test", "enumerate_databases", "enumerate_tables", "enumerate_columns"],
+  "stages_completed": ["vulnerability_test", "enumerate_databases", "enumerate_tables", "enumerate_columns"],
+  "per_stage_outputs": {
+    "vulnerability_test": {"vulnerable": true, "output_length": 512},
+    "enumerate_databases": {"count": 2, "names": ["testdb", "appdb"]}
+  },
+  "databases": ["testdb", "appdb"],
+  "tables": {"testdb": ["users", "orders"]},
+  "columns": {"testdb": {"users": ["id", "email", "password_hash"]}},
+  "dumps": {},
+  "vulnerability_test": null,
+  "errors": [],
+  "started_at": "2026-01-01T12:00:00Z",
+  "finished_at": "2026-01-01T12:00:03Z",
+  "duration_seconds": 3.141
+}
+```
+
+---
+
 ## Standardised Finding Schema
 
 `SQLInjectionResult` now includes four additional fields that standardise what

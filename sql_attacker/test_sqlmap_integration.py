@@ -21,6 +21,8 @@ from sql_attacker.sqlmap_integration import (
     HTTPRequest,
     EnumerationTarget,
     SQLMapResult,
+    AttackMode,
+    OrchestrateReport,
     create_attacker,
 )
 
@@ -484,6 +486,231 @@ class TestConvenienceFunction(unittest.TestCase):
         self.assertEqual(attacker.config.proxy, "http://127.0.0.1:8080")
 
 
+class TestAttackMode(unittest.TestCase):
+    """Test AttackMode enum and parsing."""
+
+    def test_enum_values(self):
+        self.assertEqual(AttackMode.DETECT_ONLY.value, "detect_only")
+        self.assertEqual(AttackMode.ENUMERATE_SAFE.value, "enumerate_safe")
+        self.assertEqual(AttackMode.FULL.value, "full")
+
+    def test_from_string_valid(self):
+        self.assertEqual(AttackMode.from_string("detect_only"), AttackMode.DETECT_ONLY)
+        self.assertEqual(AttackMode.from_string("ENUMERATE_SAFE"), AttackMode.ENUMERATE_SAFE)
+        self.assertEqual(AttackMode.from_string("  Full  "), AttackMode.FULL)
+
+    def test_from_string_invalid(self):
+        with self.assertRaises(ValueError):
+            AttackMode.from_string("unknown_mode")
+
+
+class TestOrchestrateReport(unittest.TestCase):
+    """Test OrchestrateReport serialisation, redaction, and dict-like access."""
+
+    def _make_report(self, **overrides):
+        """Helper: build a minimal OrchestrateReport for testing."""
+        defaults = dict(
+            mode=AttackMode.FULL,
+            success=True,
+            stages_attempted=["vulnerability_test", "enumerate_databases", "dump_data"],
+            stages_completed=["vulnerability_test", "enumerate_databases"],
+            per_stage_outputs={"vulnerability_test": {"vulnerable": True}},
+            databases=["testdb"],
+            tables={"testdb": ["users"]},
+            columns={"testdb": {"users": ["id", "email"]}},
+            dumps={"testdb.users": "secret_data"},
+            vulnerability_test=None,
+            errors=[],
+            started_at="2026-01-01T00:00:00Z",
+            finished_at="2026-01-01T00:00:01Z",
+            duration_seconds=1.0,
+        )
+        defaults.update(overrides)
+        return OrchestrateReport(**defaults)
+
+    def test_to_dict_contains_expected_keys(self):
+        report = self._make_report()
+        d = report.to_dict()
+        for key in ("mode", "success", "stages_attempted", "stages_completed",
+                    "databases", "tables", "columns", "dumps", "errors",
+                    "started_at", "finished_at", "duration_seconds"):
+            self.assertIn(key, d)
+
+    def test_to_dict_mode_is_string(self):
+        report = self._make_report(mode=AttackMode.DETECT_ONLY)
+        self.assertEqual(report.to_dict()["mode"], "detect_only")
+
+    def test_to_dict_redacts_dumps_by_default(self):
+        report = self._make_report()
+        d = report.to_dict()
+        # dumps value should be redacted
+        self.assertNotEqual(d["dumps"], {"testdb.users": {"testdb.users": "secret_data"}})
+        self.assertEqual(d["dumps"]["testdb.users"], "[REDACTED]")
+
+    def test_to_dict_no_redaction_when_disabled(self):
+        report = self._make_report()
+        d = report.to_dict(redact_dumps=False)
+        self.assertEqual(d["dumps"], {"testdb.users": "secret_data"})
+
+    def test_to_json_is_valid_json(self):
+        import json as _json
+        report = self._make_report()
+        raw = report.to_json()
+        parsed = _json.loads(raw)
+        self.assertEqual(parsed["mode"], "full")
+        self.assertTrue(parsed["success"])
+
+    def test_to_json_redacts_dumps_by_default(self):
+        import json as _json
+        report = self._make_report()
+        parsed = _json.loads(report.to_json())
+        self.assertEqual(parsed["dumps"]["testdb.users"], "[REDACTED]")
+
+    def test_to_json_no_redaction(self):
+        import json as _json
+        report = self._make_report()
+        parsed = _json.loads(report.to_json(redact_dumps=False))
+        self.assertNotEqual(parsed["dumps"]["testdb.users"], "[REDACTED]")
+        self.assertEqual(parsed["dumps"]["testdb.users"], "secret_data")
+
+    def test_to_text_returns_markdown(self):
+        report = self._make_report()
+        text = report.to_text()
+        self.assertIn("# SQL Attacker Orchestration Report", text)
+        self.assertIn("full", text)
+        self.assertIn("testdb", text)
+        self.assertIn("redacted", text.lower())
+
+    def test_dict_like_access(self):
+        report = self._make_report()
+        self.assertTrue(report["success"])
+        self.assertIn("testdb", report["databases"])
+
+    def test_dict_contains(self):
+        report = self._make_report()
+        self.assertIn("success", report)
+        self.assertIn("stages_completed", report)
+        self.assertNotIn("nonexistent_key", report)
+
+
+class TestOrchestrateAttackModeGating(unittest.TestCase):
+    """Test that operation modes correctly gate which stages execute."""
+
+    def setUp(self):
+        self.config = SQLMapConfig(
+            batch=True,
+            verbosity=0,
+            authorized=True,
+            allowed_domains=["example.com"],
+        )
+        self.attacker = SQLMapAttacker(config=self.config)
+        self.request = HTTPRequest(url="http://example.com/test?id=1")
+
+    def tearDown(self):
+        self.attacker._cleanup_temp_files()
+
+    def _mock_popen_side_effects(self, mock_popen, responses):
+        """Configure mock_popen to return successive responses."""
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.communicate.side_effect = responses
+        mock_popen.return_value = mock_process
+
+    @patch('subprocess.Popen')
+    def test_detect_only_stops_after_vulnerability_test(self, mock_popen):
+        """detect_only mode must not call enumeration or dump stages."""
+        self._mock_popen_side_effects(mock_popen, [
+            ("GET parameter 'id' is vulnerable", ""),
+        ])
+        report = self.attacker.orchestrate_attack(
+            self.request, mode=AttackMode.DETECT_ONLY
+        )
+        self.assertIsInstance(report, OrchestrateReport)
+        self.assertIn("vulnerability_test", report.stages_completed)
+        self.assertNotIn("enumerate_databases", report.stages_completed)
+        self.assertNotIn("enumerate_columns", report.stages_completed)
+        self.assertNotIn("dump_data", report.stages_completed)
+        # subprocess should have been called exactly once (vulnerability test)
+        self.assertEqual(mock_popen.call_count, 1)
+
+    @patch('subprocess.Popen')
+    def test_enumerate_safe_stops_before_dump(self, mock_popen):
+        """enumerate_safe mode must enumerate but must not dump."""
+        self._mock_popen_side_effects(mock_popen, [
+            ("GET parameter 'id' is vulnerable", ""),              # Stage 1
+            ("available databases [1]:\n[*] testdb", ""),          # Stage 2
+            ("Database: testdb\n[1 tables]\n[*] users", ""),       # Stage 3
+            ("Table: users\n[2 columns]\nid\nemail", ""),          # Stage 4
+        ])
+        report = self.attacker.orchestrate_attack(
+            self.request, mode=AttackMode.ENUMERATE_SAFE
+        )
+        self.assertIsInstance(report, OrchestrateReport)
+        self.assertIn("vulnerability_test", report.stages_completed)
+        self.assertIn("enumerate_databases", report.stages_completed)
+        self.assertNotIn("dump_data", report.stages_completed)
+        # dump_table should NOT have been called
+        for call_args in mock_popen.call_args_list:
+            cmd = call_args[0][0] if call_args[0] else call_args[1].get("args", [])
+            self.assertNotIn("--dump", cmd)
+
+    @patch('subprocess.Popen')
+    def test_full_mode_includes_dump(self, mock_popen):
+        """full mode must attempt the dump stage."""
+        self._mock_popen_side_effects(mock_popen, [
+            ("GET parameter 'id' is vulnerable", ""),              # Stage 1
+            ("available databases [1]:\n[*] testdb", ""),          # Stage 2
+            ("Database: testdb\n[1 tables]\n[*] users", ""),       # Stage 3
+            ("Table: users\n[2 columns]\nid\nemail", ""),          # Stage 4
+            ("Table: testdb.users\n| id | email |\n| 1 | a@b.com |", ""),  # Stage 5
+        ])
+        report = self.attacker.orchestrate_attack(
+            self.request, mode=AttackMode.FULL
+        )
+        self.assertIsInstance(report, OrchestrateReport)
+        self.assertIn("dump_data", report.stages_attempted)
+
+    @patch('subprocess.Popen')
+    def test_detect_only_not_vulnerable(self, mock_popen):
+        """detect_only mode: not-vulnerable result should set success=False."""
+        self._mock_popen_side_effects(mock_popen, [
+            ("does not appear to be vulnerable", ""),
+        ])
+        report = self.attacker.orchestrate_attack(
+            self.request, mode=AttackMode.DETECT_ONLY
+        )
+        self.assertFalse(report.success)
+        self.assertFalse(report["success"])  # dict-like access
+        self.assertIn("vulnerability_test", report.stages_completed)
+        self.assertNotIn("enumerate_databases", report.stages_completed)
+
+    @patch('subprocess.Popen')
+    def test_report_has_timestamps(self, mock_popen):
+        """OrchestrateReport should have started_at and finished_at."""
+        self._mock_popen_side_effects(mock_popen, [
+            ("does not appear to be vulnerable", ""),
+        ])
+        report = self.attacker.orchestrate_attack(
+            self.request, mode=AttackMode.DETECT_ONLY
+        )
+        self.assertRegex(report.started_at, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+        self.assertRegex(report.finished_at, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+        self.assertGreaterEqual(report.duration_seconds, 0.0)
+
+    @patch('subprocess.Popen')
+    def test_backward_compat_not_vulnerable(self, mock_popen):
+        """Existing dict-style tests still pass with new OrchestrateReport return."""
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("does not appear to be vulnerable", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        results = self.attacker.orchestrate_attack(self.request)
+        self.assertFalse(results['success'])
+        self.assertIn('vulnerability_test', results['stages_completed'])
+        self.assertEqual(len(results['databases']), 0)
+
+
 def run_tests():
     """Run all tests"""
     # Create test suite
@@ -495,6 +722,9 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestHTTPRequest))
     suite.addTests(loader.loadTestsFromTestCase(TestSQLMapAttacker))
     suite.addTests(loader.loadTestsFromTestCase(TestConvenienceFunction))
+    suite.addTests(loader.loadTestsFromTestCase(TestAttackMode))
+    suite.addTests(loader.loadTestsFromTestCase(TestOrchestrateReport))
+    suite.addTests(loader.loadTestsFromTestCase(TestOrchestrateAttackModeGating))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
