@@ -19,6 +19,8 @@ import tempfile
 import logging
 import json
 import shutil
+import time
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
@@ -144,6 +146,217 @@ class SQLMapResult:
     error: Optional[str] = None
     log_file: Optional[str] = None
     session_file: Optional[str] = None
+
+
+class AttackMode(Enum):
+    """Operation modes for :meth:`SQLMapAttacker.orchestrate_attack`.
+
+    Modes control which stages are executed and provide safety guardrails:
+
+    Attributes
+    ----------
+    DETECT_ONLY:
+        Only test for SQL injection vulnerability (Stage 1).  No enumeration
+        or data retrieval is performed.  Safest mode; suitable for quick
+        reconnaissance or CI gating.
+    ENUMERATE_SAFE:
+        Test for vulnerability and enumerate metadata (databases, tables,
+        columns) but **do not dump** table data (Stages 1–4).  Allows
+        understanding the attack surface without exfiltrating user data.
+    FULL:
+        Complete exploitation workflow including data dump (Stages 1–5).
+        Still guarded by the existing authorization/scope/budget guardrails.
+        Requires explicit authorization (``config.authorized = True``).
+    """
+
+    DETECT_ONLY = "detect_only"
+    ENUMERATE_SAFE = "enumerate_safe"
+    FULL = "full"
+
+    @classmethod
+    def from_string(cls, value: str) -> "AttackMode":
+        """Parse a mode name (case-insensitive).
+
+        Raises
+        ------
+        ValueError: If *value* is not a valid mode name.
+        """
+        try:
+            return cls(value.lower().strip())
+        except ValueError:
+            valid = ", ".join(m.value for m in cls)
+            raise ValueError(
+                f"Unknown attack mode '{value}'. Valid modes: {valid}"
+            )
+
+
+def _utcnow_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _redact_output(value: Any) -> Any:
+    """Replace potentially sensitive string output with a redaction marker.
+
+    Non-string values are returned unchanged so that lists and dicts keep
+    their structure while their leaf string values are redacted.
+    """
+    if isinstance(value, str):
+        return "[REDACTED]"
+    if isinstance(value, dict):
+        return {k: _redact_output(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return ["[REDACTED]" if isinstance(item, str) else _redact_output(item) for item in value]
+    return value
+
+
+@dataclass
+class OrchestrateReport:
+    """Structured report produced by :meth:`SQLMapAttacker.orchestrate_attack`.
+
+    Attributes
+    ----------
+    mode:
+        The :class:`AttackMode` used for this run.
+    success:
+        ``True`` when the attack reached at least two completed stages.
+    stages_attempted:
+        Ordered list of stage names that were attempted.
+    stages_completed:
+        Ordered list of stage names that completed successfully.
+    per_stage_outputs:
+        Mapping of stage name → sanitized output summary.
+    databases:
+        List of discovered database names.
+    tables:
+        Mapping of database name → list of table names.
+    columns:
+        Mapping of database name → table name → list of column names.
+    dumps:
+        Mapping of ``"db.table"`` → raw dump output (may be redacted on export).
+    vulnerability_test:
+        The raw :class:`SQLMapResult` from the vulnerability test stage, or
+        ``None`` if the stage was not attempted.
+    errors:
+        List of error messages collected during the run.
+    started_at:
+        ISO-8601 UTC timestamp when the run started.
+    finished_at:
+        ISO-8601 UTC timestamp when the run finished.
+    duration_seconds:
+        Wall-clock duration of the run in seconds.
+    """
+
+    mode: AttackMode
+    success: bool
+    stages_attempted: List[str]
+    stages_completed: List[str]
+    per_stage_outputs: Dict[str, Any]
+    databases: List[str]
+    tables: Dict[str, List[str]]
+    columns: Dict[str, Any]
+    dumps: Dict[str, Any]
+    vulnerability_test: Optional[Any]
+    errors: List[str]
+    started_at: str
+    finished_at: str
+    duration_seconds: float
+
+    # ------------------------------------------------------------------
+    # Serialisation helpers
+    # ------------------------------------------------------------------
+
+    def to_dict(self, *, redact_dumps: bool = True) -> Dict[str, Any]:
+        """Serialise to a JSON-compatible dictionary.
+
+        Parameters
+        ----------
+        redact_dumps:
+            When ``True`` (default) the ``dumps`` field is replaced with
+            ``"[REDACTED]"`` markers to prevent accidental leakage of
+            sensitive table data.
+        """
+        dumps_value = _redact_output(self.dumps) if redact_dumps else self.dumps
+        return {
+            "mode": self.mode.value,
+            "success": self.success,
+            "stages_attempted": list(self.stages_attempted),
+            "stages_completed": list(self.stages_completed),
+            "per_stage_outputs": self.per_stage_outputs,
+            "databases": list(self.databases),
+            "tables": {k: list(v) for k, v in self.tables.items()},
+            "columns": dict(self.columns),
+            "dumps": dumps_value,
+            "vulnerability_test": None,  # SQLMapResult is not JSON-serialisable directly
+            "errors": list(self.errors),
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "duration_seconds": round(self.duration_seconds, 3),
+        }
+
+    def to_json(self, *, indent: int = 2, redact_dumps: bool = True) -> str:
+        """Serialise to a JSON string.
+
+        Parameters
+        ----------
+        indent:
+            JSON indentation level.
+        redact_dumps:
+            When ``True`` (default) dump data is redacted before export.
+        """
+        return json.dumps(self.to_dict(redact_dumps=redact_dumps), indent=indent, ensure_ascii=False)
+
+    def to_text(self) -> str:
+        """Return a human-readable (Markdown-compatible) summary of the report.
+
+        Dump data is always redacted in the text export.
+        """
+        lines = [
+            "# SQL Attacker Orchestration Report",
+            "",
+            f"- **Mode**: `{self.mode.value}`",
+            f"- **Success**: {self.success}",
+            f"- **Started**: {self.started_at}",
+            f"- **Finished**: {self.finished_at}",
+            f"- **Duration**: {self.duration_seconds:.2f}s",
+            "",
+            "## Stages",
+            f"- Attempted: {', '.join(self.stages_attempted) or '(none)'}",
+            f"- Completed: {', '.join(self.stages_completed) or '(none)'}",
+        ]
+        if self.databases:
+            lines += ["", "## Databases", ""]
+            for db in self.databases:
+                lines.append(f"- `{db}`")
+        if self.tables:
+            lines += ["", "## Tables", ""]
+            for db, tbls in self.tables.items():
+                lines.append(f"**{db}**: " + ", ".join(f"`{t}`" for t in tbls))
+        if self.columns:
+            lines += ["", "## Columns", ""]
+            for db, tbl_map in self.columns.items():
+                for tbl, cols in tbl_map.items():
+                    col_list = ", ".join(f"`{c}`" for c in cols) if cols else "(none)"
+                    lines.append(f"**{db}.{tbl}**: {col_list}")
+        if self.dumps:
+            lines += ["", "## Dump Data", "", "_Dump data is redacted in this export._"]
+        if self.errors:
+            lines += ["", "## Errors", ""]
+            for err in self.errors:
+                lines.append(f"- {err}")
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Backward-compatible dict-like access
+    # ------------------------------------------------------------------
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-style access for backward compatibility."""
+        return self.to_dict(redact_dumps=False)[key]
+
+    def __contains__(self, key: str) -> bool:
+        """Support ``in`` operator for backward compatibility."""
+        return key in self.to_dict(redact_dumps=False)
 
 
 class SQLMapAttacker:
@@ -723,136 +936,235 @@ class SQLMapAttacker:
         logger.info(f"Dumped data from {database}.{table}")
         return result
     
-    def orchestrate_attack(self, request: HTTPRequest, 
-                          target_database: Optional[str] = None,
-                          target_tables: Optional[List[str]] = None) -> Dict[str, Any]:
-        """
-        High-level attack orchestration that walks through typical exploitation steps.
-        
-        This method automates the complete exploitation workflow:
-        1. Test for SQL injection vulnerability
-        2. Enumerate databases
-        3. Enumerate tables in target database(s)
-        4. Enumerate columns in target table(s)
-        5. Dump data from target table(s)
-        
+    def orchestrate_attack(
+        self,
+        request: HTTPRequest,
+        target_database: Optional[str] = None,
+        target_tables: Optional[List[str]] = None,
+        mode: AttackMode = AttackMode.FULL,
+    ) -> "OrchestrateReport":
+        """High-level attack orchestration that walks through typical exploitation steps.
+
+        The *mode* parameter controls which stages are executed:
+
+        * ``AttackMode.DETECT_ONLY`` – Stage 1 only (vulnerability test).
+        * ``AttackMode.ENUMERATE_SAFE`` – Stages 1–4 (test + enumerate
+          databases / tables / columns).  No data dump.
+        * ``AttackMode.FULL`` – All stages 1–5 including data dump.  Still
+          guarded by the existing authorization/scope/budget guardrails.
+
         Args:
-            request: HTTP request to exploit
-            target_database: Specific database to target (optional)
-            target_tables: Specific tables to target (optional)
-            
+            request: HTTP request to exploit.
+            target_database: Specific database to target (optional).
+            target_tables: Specific tables to target (optional).
+            mode: Operation mode controlling which stages run.  Defaults to
+                ``AttackMode.FULL`` for backward compatibility.
+
         Returns:
-            Dictionary with complete attack results
+            :class:`OrchestrateReport` with structured results.  The report
+            supports dict-style access (``report['success']``) for backward
+            compatibility with code that consumed the previous ``dict`` return.
         """
         self._preflight_check(request.url)
-        logger.info("Starting orchestrated attack workflow...")
-        
-        attack_results = {
-            'vulnerability_test': None,
-            'databases': [],
-            'tables': {},
-            'columns': {},
-            'dumps': {},
-            'success': False,
-            'stages_completed': [],
-            'errors': []
-        }
-        
+        logger.info(f"Starting orchestrated attack workflow (mode={mode.value})...")
+
+        started_at = _utcnow_iso()
+        _start_time = time.monotonic()
+
+        stages_attempted: List[str] = []
+        stages_completed: List[str] = []
+        per_stage_outputs: Dict[str, Any] = {}
+        errors: List[str] = []
+        databases: List[str] = []
+        tables: Dict[str, List[str]] = {}
+        columns: Dict[str, Any] = {}
+        dumps: Dict[str, Any] = {}
+        vuln_result = None
+
         # Stage 1: Test for vulnerability
         logger.info("Stage 1: Testing for SQL injection vulnerability...")
+        stages_attempted.append('vulnerability_test')
         vuln_result = self.test_injection(request)
-        attack_results['vulnerability_test'] = vuln_result
-        attack_results['stages_completed'].append('vulnerability_test')
-        
+        per_stage_outputs['vulnerability_test'] = {
+            'vulnerable': vuln_result.vulnerable,
+            'output_length': len(vuln_result.output),
+        }
+        stages_completed.append('vulnerability_test')
+
         if not vuln_result.vulnerable:
             logger.warning("No SQL injection vulnerability detected")
-            attack_results['errors'].append("No SQL injection vulnerability found")
-            return attack_results
-        
+            errors.append("No SQL injection vulnerability found")
+            return self._build_report(
+                mode, stages_attempted, stages_completed, per_stage_outputs,
+                databases, tables, columns, dumps, vuln_result, errors,
+                started_at, _start_time,
+            )
+
         logger.info("✓ SQL injection vulnerability confirmed")
-        
+
+        # Stop here in DETECT_ONLY mode
+        if mode == AttackMode.DETECT_ONLY:
+            logger.info("Mode is detect_only – skipping enumeration and dump stages.")
+            return self._build_report(
+                mode, stages_attempted, stages_completed, per_stage_outputs,
+                databases, tables, columns, dumps, vuln_result, errors,
+                started_at, _start_time,
+            )
+
         # Stage 2: Enumerate databases
         logger.info("Stage 2: Enumerating databases...")
+        stages_attempted.append('enumerate_databases')
         db_result = self.enumerate_databases(request)
-        attack_results['databases'] = db_result.databases
-        
-        if not db_result.success or not db_result.databases:
+        databases = db_result.databases
+        per_stage_outputs['enumerate_databases'] = {
+            'count': len(databases),
+            'names': list(databases),
+        }
+
+        if not db_result.success or not databases:
             logger.warning("Failed to enumerate databases")
-            attack_results['errors'].append("Database enumeration failed")
-            return attack_results
-        
-        attack_results['stages_completed'].append('enumerate_databases')
-        logger.info(f"✓ Found {len(db_result.databases)} databases: {db_result.databases}")
-        
+            errors.append("Database enumeration failed")
+            return self._build_report(
+                mode, stages_attempted, stages_completed, per_stage_outputs,
+                databases, tables, columns, dumps, vuln_result, errors,
+                started_at, _start_time,
+            )
+
+        stages_completed.append('enumerate_databases')
+        logger.info(f"✓ Found {len(databases)} databases: {databases}")
+
         # Determine target databases
         if target_database:
-            databases_to_target = [target_database] if target_database in db_result.databases else []
+            databases_to_target = [target_database] if target_database in databases else []
         else:
-            # Target non-system databases
-            system_dbs = ['information_schema', 'mysql', 'performance_schema', 'sys']
-            databases_to_target = [db for db in db_result.databases if db.lower() not in system_dbs][:3]
-        
+            system_dbs = {'information_schema', 'mysql', 'performance_schema', 'sys'}
+            databases_to_target = [db for db in databases if db.lower() not in system_dbs][:3]
+
         if not databases_to_target:
             logger.warning("No suitable target databases found")
-            attack_results['errors'].append("No target databases identified")
-            return attack_results
-        
+            errors.append("No target databases identified")
+            return self._build_report(
+                mode, stages_attempted, stages_completed, per_stage_outputs,
+                databases, tables, columns, dumps, vuln_result, errors,
+                started_at, _start_time,
+            )
+
         # Stage 3: Enumerate tables
         logger.info(f"Stage 3: Enumerating tables in {len(databases_to_target)} database(s)...")
+        stages_attempted.append('enumerate_tables')
         for db in databases_to_target:
             logger.info(f"  Enumerating tables in: {db}")
             table_result = self.enumerate_tables(request, db)
-            
             if table_result.success and table_result.tables.get(db):
-                attack_results['tables'][db] = table_result.tables[db]
+                tables[db] = table_result.tables[db]
                 logger.info(f"  ✓ Found {len(table_result.tables[db])} tables in {db}")
             else:
                 logger.warning(f"  Failed to enumerate tables in {db}")
-                attack_results['errors'].append(f"Table enumeration failed for {db}")
-        
-        if attack_results['tables']:
-            attack_results['stages_completed'].append('enumerate_tables')
-        
-        # Stage 4 & 5: Enumerate columns and dump data
-        logger.info("Stage 4-5: Enumerating columns and dumping data...")
-        
-        for db, tables in attack_results['tables'].items():
-            # Filter tables if target_tables specified
-            if target_tables:
-                tables_to_dump = [t for t in tables if t in target_tables][:2]
-            else:
-                tables_to_dump = tables[:2]  # Limit to first 2 tables per database
-            
-            for table in tables_to_dump:
-                logger.info(f"  Processing {db}.{table}")
-                
-                # Enumerate columns
+                errors.append(f"Table enumeration failed for {db}")
+
+        if tables:
+            per_stage_outputs['enumerate_tables'] = {
+                db: list(tbls) for db, tbls in tables.items()
+            }
+            stages_completed.append('enumerate_tables')
+
+        # Stage 4: Enumerate columns
+        logger.info("Stage 4: Enumerating columns...")
+        stages_attempted.append('enumerate_columns')
+        for db, db_tables in tables.items():
+            tables_to_enumerate = (
+                [t for t in db_tables if t in target_tables][:2]
+                if target_tables else db_tables[:2]
+            )
+            for table in tables_to_enumerate:
                 col_result = self.enumerate_columns(request, db, table)
                 if col_result.success:
-                    if db not in attack_results['columns']:
-                        attack_results['columns'][db] = {}
-                    attack_results['columns'][db][table] = col_result.columns.get(db, {}).get(table, [])
+                    columns.setdefault(db, {})[table] = (
+                        col_result.columns.get(db, {}).get(table, [])
+                    )
                     logger.info(f"  ✓ Enumerated columns in {db}.{table}")
-                
-                # Dump data
+
+        if columns:
+            per_stage_outputs['enumerate_columns'] = {
+                db: {tbl: list(cols) for tbl, cols in tbl_map.items()}
+                for db, tbl_map in columns.items()
+            }
+            stages_completed.append('enumerate_columns')
+
+        # Stop here in ENUMERATE_SAFE mode – no dump
+        if mode == AttackMode.ENUMERATE_SAFE:
+            logger.info("Mode is enumerate_safe – skipping data dump stage.")
+            return self._build_report(
+                mode, stages_attempted, stages_completed, per_stage_outputs,
+                databases, tables, columns, dumps, vuln_result, errors,
+                started_at, _start_time,
+            )
+
+        # Stage 5: Dump data (FULL mode only)
+        logger.info("Stage 5: Dumping data...")
+        stages_attempted.append('dump_data')
+        for db, db_tables in tables.items():
+            tables_to_dump = (
+                [t for t in db_tables if t in target_tables][:2]
+                if target_tables else db_tables[:2]
+            )
+            for table in tables_to_dump:
+                logger.info(f"  Dumping {db}.{table}")
                 dump_result = self.dump_table(request, db, table)
                 if dump_result.success:
-                    attack_results['dumps'][f"{db}.{table}"] = dump_result.dumped_data
+                    dumps[f"{db}.{table}"] = dump_result.dumped_data
                     logger.info(f"  ✓ Dumped data from {db}.{table}")
                 else:
                     logger.warning(f"  Failed to dump {db}.{table}")
-                    attack_results['errors'].append(f"Data dump failed for {db}.{table}")
-        
-        if attack_results['columns']:
-            attack_results['stages_completed'].append('enumerate_columns')
-        if attack_results['dumps']:
-            attack_results['stages_completed'].append('dump_data')
-        
-        # Mark as successful if we completed at least enumeration
-        attack_results['success'] = len(attack_results['stages_completed']) >= 2
-        
-        logger.info(f"Attack workflow completed. Stages: {attack_results['stages_completed']}")
-        return attack_results
+                    errors.append(f"Data dump failed for {db}.{table}")
+
+        if dumps:
+            per_stage_outputs['dump_data'] = {"keys": list(dumps.keys())}
+            stages_completed.append('dump_data')
+
+        report = self._build_report(
+            mode, stages_attempted, stages_completed, per_stage_outputs,
+            databases, tables, columns, dumps, vuln_result, errors,
+            started_at, _start_time,
+        )
+        logger.info(f"Attack workflow completed. Stages: {stages_completed}")
+        return report
+
+    def _build_report(
+        self,
+        mode: AttackMode,
+        stages_attempted: List[str],
+        stages_completed: List[str],
+        per_stage_outputs: Dict[str, Any],
+        databases: List[str],
+        tables: Dict[str, List[str]],
+        columns: Dict[str, Any],
+        dumps: Dict[str, Any],
+        vulnerability_test: Optional[Any],
+        errors: List[str],
+        started_at: str,
+        start_time: float,
+    ) -> "OrchestrateReport":
+        """Construct an :class:`OrchestrateReport` from collected run data."""
+        finished_at = _utcnow_iso()
+        duration = time.monotonic() - start_time
+        success = len(stages_completed) >= 2
+        return OrchestrateReport(
+            mode=mode,
+            success=success,
+            stages_attempted=stages_attempted,
+            stages_completed=stages_completed,
+            per_stage_outputs=per_stage_outputs,
+            databases=databases,
+            tables=tables,
+            columns=columns,
+            dumps=dumps,
+            vulnerability_test=vulnerability_test,
+            errors=errors,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_seconds=duration,
+        )
     
     def execute_custom_command(self, request: HTTPRequest, extra_options: List[str]) -> SQLMapResult:
         """
