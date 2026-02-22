@@ -571,6 +571,7 @@ class TestOrchestrateReport(unittest.TestCase):
         report = self._make_report()
         parsed = _json.loads(report.to_json(redact_dumps=False))
         self.assertNotEqual(parsed["dumps"]["testdb.users"], "[REDACTED]")
+        self.assertEqual(parsed["dumps"]["testdb.users"], "secret_data")
 
     def test_to_text_returns_markdown(self):
         report = self._make_report()
