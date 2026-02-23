@@ -467,10 +467,18 @@ class SQLMapAttacker:
     def _save_request_to_file(self, request: HTTPRequest) -> str:
         """
         Save HTTP request to temporary file for sqlmap -r option.
-        
+
+        The file uses CRLF line endings (as required by HTTP/1.1 spec and
+        expected by sqlmap's ``-r`` option).  Request bodies are generated for
+        POST, PUT, and PATCH methods.  When the ``Content-Type`` header
+        contains ``application/json`` the ``data`` dict is serialised as JSON;
+        otherwise it is form-encoded.  A ``Content-Length`` header is
+        automatically added when a body is present (unless the caller already
+        supplied one).
+
         Args:
             request: HTTPRequest object
-            
+
         Returns:
             Path to temporary request file
         """
@@ -481,40 +489,55 @@ class SQLMapAttacker:
             # Build HTTP request from components
             host, path = self._extract_url_parts(request.url)
             lines = [f"{request.method} {path} HTTP/1.1"]
-            
-            # Add Host header
+
+            # Add Host header (use only hostname:port, not credentials)
             lines.append(f"Host: {host}")
-            
-            # Add headers
+
+            # Add headers (skip Content-Length; we compute it below)
             for header, value in request.headers.items():
-                lines.append(f"{header}: {value}")
-            
+                if header.lower() != "content-length":
+                    lines.append(f"{header}: {value}")
+
             # Add cookies
             if request.cookies:
-                cookie_str = "; ".join([f"{k}={v}" for k, v in request.cookies.items()])
+                cookie_str = "; ".join(
+                    f"{k}={v}" for k, v in request.cookies.items()
+                )
                 lines.append(f"Cookie: {cookie_str}")
-            
-            # Add blank line before body
+
+            # Determine body for methods that carry a request body
+            method = request.method.upper()
+            body = None
+            if request.data and method in ("POST", "PUT", "PATCH"):
+                content_type = request.headers.get("Content-Type", "").lower()
+                if "application/json" in content_type:
+                    body = json.dumps(request.data)
+                else:
+                    from urllib.parse import urlencode
+                    body = urlencode(request.data)
+                # Insert Content-Length before the blank separator line
+                lines.append(f"Content-Length: {len(body.encode('utf-8'))}")
+
+            # Add blank line separating headers from body (required by HTTP spec)
             lines.append("")
-            
-            # Add POST data if present
-            if request.data and request.method.upper() == "POST":
-                from urllib.parse import urlencode
-                body = urlencode(request.data)
+
+            if body is not None:
                 lines.append(body)
-            
+
             content = "\r\n".join(lines)
-        
-        # Write to temporary file
+
+        # Write to temporary file using binary mode so CRLF bytes are
+        # preserved exactly regardless of platform or Python text-mode
+        # newline translation.
         fd, temp_path = tempfile.mkstemp(suffix=".txt", prefix="sqlmap_request_")
         os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(content)
-        
+
+        with open(temp_path, 'wb') as f:
+            f.write(content.encode('utf-8'))
+
         self.temp_files.append(temp_path)
         logger.debug(f"Saved request to: {temp_path}")
-        
+
         return temp_path
     
     def _build_command(self, request: HTTPRequest, 
@@ -665,7 +688,16 @@ class SQLMapAttacker:
             
         except subprocess.TimeoutExpired:
             logger.error("SQLMap execution timed out")
-            process.kill()
+            try:
+                process.kill()
+            except OSError:
+                # Process may have already exited; safe to ignore
+                logger.debug("SQLMap process already terminated before kill()")
+            try:
+                # Drain pipes so the process can exit cleanly (avoids zombies)
+                process.communicate()
+            except Exception as drain_exc:
+                logger.debug("Could not drain SQLMap process pipes after kill: %s", drain_exc)
             return -1, "", "Execution timed out"
         except Exception as e:
             logger.error(f"SQLMap execution failed: {e}")
@@ -674,10 +706,16 @@ class SQLMapAttacker:
     def _parse_output(self, output: str) -> Dict[str, Any]:
         """
         Parse sqlmap output to extract results.
-        
+
+        Extracts:
+        - Vulnerability flag
+        - Injection points (parameter name, HTTP method, technique type)
+        - DBMS fingerprint (name + optional version string)
+        - Enumerated databases
+
         Args:
             output: SQLMap stdout
-            
+
         Returns:
             Dictionary with parsed results
         """
@@ -688,16 +726,52 @@ class SQLMapAttacker:
             'columns': {},
             'injection_points': [],
             'dbms': None,
+            'dbms_version': None,
         }
-        
+
         # Check if vulnerable
         if "is vulnerable" in output.lower() or "sqlmap identified" in output.lower():
             results['vulnerable'] = True
-        
+
+        # Extract injection points
+        # sqlmap output format:
+        #   Parameter: <name> (<METHOD>)
+        #       Type: <technique>
+        #       ...
+        import re as _re
+        param_re = _re.compile(
+            # Match lines like:  "Parameter: id (GET)"
+            # The leading [\s\[]* handles sqlmap's log-level prefixes such as
+            # "[INFO] Parameter: ..." which begin with "[" followed by a tag.
+            r'^[\s\[]*Parameter:\s+(\S+)\s+\((\w+)\)',
+            _re.IGNORECASE | _re.MULTILINE,
+        )
+        type_re = _re.compile(r'^\s+Type:\s+(.+)', _re.IGNORECASE | _re.MULTILINE)
+
+        lines = output.split('\n')
+        for i, line in enumerate(lines):
+            param_match = param_re.match(line)
+            if param_match:
+                param_name = param_match.group(1)
+                param_method = param_match.group(2).upper()
+                # Look ahead for the technique type
+                inj_type = None
+                for j in range(i + 1, min(i + 10, len(lines))):
+                    type_match = type_re.match(lines[j])
+                    if type_match:
+                        inj_type = type_match.group(1).strip()
+                        break
+                results['injection_points'].append({
+                    'parameter': param_name,
+                    'method': param_method,
+                    'type': inj_type or 'unknown',
+                })
+                if not results['vulnerable']:
+                    results['vulnerable'] = True
+
         # Extract databases
         if "available databases" in output.lower():
             # Simple parsing - extract database names
-            lines = output.split('\n')
             in_db_section = False
             for line in lines:
                 if "available databases" in line.lower():
@@ -710,14 +784,19 @@ class SQLMapAttacker:
                             results['databases'].append(db_name)
                     elif not line.strip() or line.strip().startswith('['):
                         in_db_section = False
-        
-        # Extract DBMS
+
+        # Extract DBMS (name and optional version)
         if "back-end DBMS:" in output:
             for line in output.split('\n'):
                 if "back-end DBMS:" in line:
-                    results['dbms'] = line.split("back-end DBMS:")[1].strip()
+                    dbms_raw = line.split("back-end DBMS:")[1].strip()
+                    results['dbms'] = dbms_raw
+                    # Try to extract version string from the DBMS line
+                    version_match = _re.search(r'(\d+[\.\d]*[\w\-]*)', dbms_raw)
+                    if version_match:
+                        results['dbms_version'] = version_match.group(1)
                     break
-        
+
         return results
     
     def test_injection(self, request: HTTPRequest) -> SQLMapResult:

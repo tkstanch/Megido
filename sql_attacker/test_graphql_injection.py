@@ -211,5 +211,90 @@ class TestGraphQLInjectionContextType(unittest.TestCase):
         self.assertEqual(InjectionContextType.GRAPHQL.value, "graphql")
 
 
+class TestGraphQLStep3EvidenceExtraction(unittest.TestCase):
+    """Tests for enhanced step3_extract_evidence logic."""
+
+    def setUp(self):
+        self.module = GraphQLInjectionModule()
+
+    # ------------------------------------------------------------------
+    # JSON error message extraction
+    # ------------------------------------------------------------------
+
+    def test_json_errors_individual_messages_extracted(self):
+        """Error messages from the JSON errors array must be extracted individually."""
+        body = '{"errors":[{"message":"SQL syntax error"},{"message":"column not found"}]}'
+        evidence = self.module.step3_extract_evidence(body, [])
+        msgs = evidence["details"].get("graphql_errors", [])
+        self.assertIn("SQL syntax error", msgs)
+        self.assertIn("column not found", msgs)
+
+    def test_json_errors_capped_at_max(self):
+        """graphql_errors must be capped to avoid excessive memory use."""
+        from sql_attacker.graphql_injector import _MAX_EVIDENCE_ERRORS
+        errors = [{"message": f"error {i}"} for i in range(20)]
+        body = '{"errors":' + __import__("json").dumps(errors) + '}'
+        evidence = self.module.step3_extract_evidence(body, [])
+        msgs = evidence["details"].get("graphql_errors", [])
+        self.assertLessEqual(len(msgs), _MAX_EVIDENCE_ERRORS)
+
+    def test_json_error_sql_keyword_boosts_confidence(self):
+        """Confidence should be boosted when an error message contains SQL keywords."""
+        body = '{"errors":[{"message":"syntax error in SQL statement"}]}'
+        evidence = self.module.step3_extract_evidence(body, [])
+        self.assertGreater(evidence["confidence"], 0.60)
+
+    def test_json_error_no_sql_keyword_keeps_base_confidence(self):
+        """Non-SQL error messages should not boost confidence beyond the base."""
+        body = '{"errors":[{"message":"Not found"}]}'
+        evidence = self.module.step3_extract_evidence(body, [])
+        # Should not exceed 0.60 (base for graphql_errors)
+        self.assertLessEqual(evidence["confidence"], 0.60)
+
+    # ------------------------------------------------------------------
+    # DBMS-specific error signatures
+    # ------------------------------------------------------------------
+
+    def test_oracle_error_detected(self):
+        """ORA-XXXXX errors must be detected and mapped to Oracle DBMS."""
+        body = "ORA-01756: quoted string not properly terminated"
+        evidence = self.module.step3_extract_evidence(body, [])
+        self.assertGreater(evidence["confidence"], 0.90)
+        self.assertEqual(evidence["context_info"].get("dbms"), "Oracle")
+
+    def test_postgres_error_detected(self):
+        """PSQLException must be mapped to PostgreSQL."""
+        body = "PSQLException: ERROR: column id does not exist"
+        evidence = self.module.step3_extract_evidence(body, [])
+        self.assertGreater(evidence["confidence"], 0.80)
+        self.assertEqual(evidence["context_info"].get("dbms"), "PostgreSQL")
+
+    def test_mysql_error_detected(self):
+        """MySQL syntax errors must be detected."""
+        body = "You have an error in your SQL syntax near 'ORDER'"
+        evidence = self.module.step3_extract_evidence(body, [])
+        self.assertGreater(evidence["confidence"], 0.90)
+        self.assertEqual(evidence["context_info"].get("dbms"), "MySQL")
+
+    def test_mssql_error_detected(self):
+        """Unclosed quotation mark must be mapped to MSSQL."""
+        body = "Unclosed quotation mark after the character string 'admin'."
+        evidence = self.module.step3_extract_evidence(body, [])
+        self.assertGreater(evidence["confidence"], 0.85)
+        self.assertEqual(evidence["context_info"].get("dbms"), "MSSQL")
+
+    # ------------------------------------------------------------------
+    # Logged error content is truncated
+    # ------------------------------------------------------------------
+
+    def test_sql_error_snippet_is_limited(self):
+        """sql_error detail must not exceed _MAX_LOG_RESPONSE_CHARS characters."""
+        from sql_attacker.graphql_injector import _MAX_LOG_RESPONSE_CHARS
+        long_error = "You have an error in your SQL syntax " + "x" * 1000
+        evidence = self.module.step3_extract_evidence(long_error, [])
+        sql_error = evidence["details"].get("sql_error", "")
+        self.assertLessEqual(len(sql_error), _MAX_LOG_RESPONSE_CHARS)
+
+
 if __name__ == "__main__":
     unittest.main()

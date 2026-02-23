@@ -904,20 +904,24 @@ class SQLInjectionModule(InjectionAttackModule):
     # ========================================
     
     def step1_supply_payloads(
-        self, 
-        parameter_value: str, 
+        self,
+        parameter_value: str,
         statement_type: str = "SELECT",
         include_insert_enum: bool = False,
         max_insert_params: int = 10,
         db_hint: Optional[str] = None,
-        enable_polymorphic: Optional[bool] = None
+        enable_polymorphic: Optional[bool] = None,
+        canary_first: bool = True,
     ) -> List[str]:
         """
         Step 1: Supply unexpected syntax and context-specific payloads.
-        
-        Enhanced with adaptive payload selection and polymorphic generation.
-        Returns SQL injection payloads optimized for detected DBMS and WAF.
-        
+
+        Enhanced with adaptive payload selection, polymorphic generation, and
+        *canary-first* scheduling.  When ``canary_first=True`` (the default), a
+        small set of high-signal probes is placed at the front of the list so
+        that callers can detect vulnerability signals early and escalate to the
+        full payload set without sending unnecessary requests.
+
         Args:
             parameter_value: The original parameter value
             statement_type: Type of SQL statement (SELECT, INSERT, UPDATE, DELETE)
@@ -925,16 +929,18 @@ class SQLInjectionModule(InjectionAttackModule):
             max_insert_params: Maximum parameters to enumerate for INSERT
             db_hint: Optional hint about target DBMS
             enable_polymorphic: Override config for polymorphic generation
-            
+            canary_first: When True, prepend canary probes ahead of the full
+                          payload list (default: True).
+
         Returns:
             List of SQL injection payloads with adaptive optimization
         """
         payloads = list(self.payloads)
-        
+
         # Use adaptive strategy if available and enabled
         if self.use_adaptive and self.adaptive_strategy.detected_dbms:
             db_hint = self.adaptive_strategy.detected_dbms
-        
+
         # Add DBMS-specific payloads if hint available
         if db_hint:
             try:
@@ -943,34 +949,44 @@ class SQLInjectionModule(InjectionAttackModule):
                 payloads.extend(db_payloads[:200])  # Add subset to avoid overload
             except ImportError:
                 pass
-        
+
         # Add quote-balanced payloads
         payloads.extend(self._generate_quote_balanced_payloads(parameter_value))
-        
+
         # Add INSERT-specific payloads if requested or if statement type is INSERT
         if include_insert_enum or statement_type.upper() == "INSERT":
             payloads.extend(self._generate_insert_payloads(
                 parameter_value if parameter_value else "foo",
                 max_insert_params
             ))
-        
+
         # Generate polymorphic variants if enabled
         use_polymorphic = enable_polymorphic if enable_polymorphic is not None else self.enable_polymorphic
         if use_polymorphic:
             payloads = self._add_polymorphic_variants(payloads, db_hint)
-        
+
         # Apply adaptive encoding based on learned strategy
         if self.use_adaptive:
             payloads = self._apply_adaptive_encoding(payloads)
-        
+
         # Remove duplicates while preserving order
-        seen = set()
-        unique_payloads = []
+        seen: Set[str] = set()
+        unique_payloads: List[str] = []
         for p in payloads:
             if p not in seen:
                 seen.add(p)
                 unique_payloads.append(p)
-        
+
+        # Apply canary-first scheduling so high-signal probes are tested first
+        if canary_first:
+            try:
+                from sql_attacker.engine.baseline import CanaryScheduler
+                scheduler = CanaryScheduler()
+                canary_set, remainder = scheduler.schedule(unique_payloads)
+                unique_payloads = canary_set + remainder
+            except ImportError:
+                pass
+
         return unique_payloads[:self.max_payloads]
     
     def _add_polymorphic_variants(self, payloads: List[str], db_hint: Optional[str] = None) -> List[str]:
