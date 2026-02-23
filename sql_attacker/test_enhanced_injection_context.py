@@ -406,3 +406,285 @@ class TestCanaryFirstPayloadOrdering(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestResponseDelta(unittest.TestCase):
+    """Tests for the compute_response_delta differential scoring helper."""
+
+    def setUp(self):
+        from sql_attacker.injection_contexts.sql_context import compute_response_delta
+        self.compute = compute_response_delta
+
+    def test_identical_responses_zero_delta(self):
+        """Identical body, status, and headers should produce a zero (or near-zero) delta."""
+        delta = self.compute("same body", "same body", 200, 200)
+        self.assertEqual(delta, 0.0)
+
+    def test_different_body_nonzero_delta(self):
+        """Different normalised bodies must produce a non-zero delta."""
+        delta = self.compute("hello world page", "completely different error content xyz", 200, 200)
+        self.assertGreater(delta, 0.0)
+
+    def test_status_code_change_adds_delta(self):
+        """A status-code change must increase the delta."""
+        same_body = "page content here"
+        delta_same_status = self.compute(same_body, same_body, 200, 200)
+        delta_diff_status = self.compute(same_body, same_body, 200, 500)
+        self.assertGreater(delta_diff_status, delta_same_status)
+
+    def test_content_length_diff_adds_delta(self):
+        """A large content length difference must contribute to the delta."""
+        short_body = "hi"
+        long_body = "hi" + "x" * 500
+        delta = self.compute(short_body, long_body, 200, 200)
+        self.assertGreater(delta, 0.0)
+
+    def test_header_diff_adds_delta(self):
+        """A different interesting header value must add to the delta."""
+        body = "same content"
+        delta_no_hdr = self.compute(body, body, 200, 200)
+        delta_with_hdr = self.compute(
+            body, body, 200, 200,
+            baseline_headers={"content-type": "text/html"},
+            injected_headers={"content-type": "application/json"},
+        )
+        self.assertGreater(delta_with_hdr, delta_no_hdr)
+
+    def test_delta_bounded_zero_to_one(self):
+        """Delta must always be in [0.0, 1.0]."""
+        delta = self.compute(
+            "a" * 10000, "b" * 10000, 200, 500,
+            baseline_headers={"server": "Apache", "content-type": "text/html"},
+            injected_headers={"server": "nginx", "content-type": "application/json"},
+        )
+        self.assertGreaterEqual(delta, 0.0)
+        self.assertLessEqual(delta, 1.0)
+
+    def test_boolean_true_false_meaningful_delta(self):
+        """True-condition response vs false-condition response must yield a meaningful delta.
+
+        The threshold 0.30 matches the minimum delta required by _verify_boolean_based
+        before it confirms boolean-based SQL injection.  These two bodies have different
+        normalised fingerprints (primary contributor, weight 0.50), so the delta is well
+        above that threshold.
+        """
+        true_body = "<html><body>Welcome back, admin!</body></html>"
+        false_body = "<html><body>Invalid credentials.</body></html>"
+        delta = self.compute(false_body, true_body, 200, 200)
+        # 0.30 is the minimum delta _verify_boolean_based requires for confirmation;
+        # different normalised fingerprints alone contribute 0.50, so this passes comfortably.
+        self.assertGreater(delta, 0.30)
+
+
+class TestTimeBasedGuardrails(unittest.TestCase):
+    """Tests for _verify_time_based guardrails using mocked HTTP calls."""
+
+    def _make_module(self):
+        return SQLInjectionModule()
+
+    def test_benign_control_triggers_rejects_finding(self):
+        """When benign control also exceeds timing threshold, finding must be rejected."""
+        module = self._make_module()
+
+        call_count = [0]
+
+        def mock_get(*args, **kwargs):
+            call_count[0] += 1
+            resp = Mock()
+            resp.text = "ok"
+            resp.status_code = 200
+            resp.headers = {}
+            return resp
+
+        # Patch requests.get to always return instantly but we mock time.time to simulate delays
+        time_values = iter([
+            # 3 baseline samples (fast)
+            0.0, 0.15,
+            0.15, 0.30,
+            0.30, 0.45,
+            # 2 delay probes (both "slow" — but benign will also be "slow")
+            0.45, 3.00,
+            3.00, 6.00,
+            # 2 benign control samples (also "slow" — should trigger rejection)
+            6.00, 9.00,
+            9.00, 12.00,
+        ])
+
+        with patch('sql_attacker.injection_contexts.sql_context.time') as mock_time, \
+             patch('requests.get', side_effect=mock_get), \
+             patch('requests.post', side_effect=mock_get):
+            mock_time.time.side_effect = lambda: next(time_values)
+            confirmed, confidence, evidence = module._verify_time_based(
+                target_url="http://test.example.com/search",
+                parameter_name="q",
+                parameter_type="GET",
+                parameter_value="normal",
+                successful_payload="' AND SLEEP(5)--",
+                http_method="GET",
+                headers=None,
+                cookies=None,
+            )
+
+        self.assertFalse(confirmed, "Should be rejected when benign control also triggers")
+        self.assertIn("benign", evidence.lower())
+
+    def test_confirmed_when_only_injected_delays(self):
+        """Confirm when injected probes are slow and benign control is fast."""
+        module = self._make_module()
+
+        def mock_get(*args, **kwargs):
+            resp = Mock()
+            resp.text = "ok"
+            resp.status_code = 200
+            resp.headers = {}
+            return resp
+
+        time_values = iter([
+            # 3 baseline samples (fast: ~0.1s each)
+            0.0, 0.10,
+            0.10, 0.20,
+            0.20, 0.30,
+            # 2 delay probes (slow: ~3.5s each)
+            0.30, 3.80,
+            3.80, 7.30,
+            # 2 benign control samples (fast again: ~0.1s)
+            7.30, 7.40,
+            7.40, 7.50,
+        ])
+
+        with patch('sql_attacker.injection_contexts.sql_context.time') as mock_time, \
+             patch('requests.get', side_effect=mock_get), \
+             patch('requests.post', side_effect=mock_get):
+            mock_time.time.side_effect = lambda: next(time_values)
+            confirmed, confidence, evidence = module._verify_time_based(
+                target_url="http://test.example.com/search",
+                parameter_name="q",
+                parameter_type="GET",
+                parameter_value="normal",
+                successful_payload="' AND SLEEP(5)--",
+                http_method="GET",
+                headers=None,
+                cookies=None,
+            )
+
+        self.assertTrue(confirmed, "Should be confirmed when only injected probes are slow")
+        self.assertGreaterEqual(confidence, 0.80)
+        self.assertIn("benign control negative", evidence)
+
+
+class TestPoCGeneration(unittest.TestCase):
+    """Tests for enhanced step5_build_poc output structure and DBMS behaviour."""
+
+    def setUp(self):
+        self.module = SQLInjectionModule()
+
+    def _make_evidence(self, db_type: str, anomalies=None) -> dict:
+        return {
+            'context_info': {'database_type': db_type},
+            'details': {'anomalies': anomalies or []},
+        }
+
+    def test_poc_has_required_fields(self):
+        """PoC dict must contain all required structural fields."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MySQL"))
+        for field in ('poc_type', 'poc_payload', 'expected_result', 'safety_notes',
+                      'reproduction_steps', 'variants', 'original_payload', 'database_type'):
+            self.assertIn(field, poc, f"Missing field: {field}")
+
+    def test_poc_variants_contains_boolean_and_time(self):
+        """Variants list must include at least one boolean and one time-based entry."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MySQL"))
+        types = {v['poc_type'] for v in poc['variants']}
+        self.assertIn('boolean', types)
+        self.assertIn('time_based', types)
+
+    def test_poc_mysql_payload(self):
+        """MySQL PoC must use @@version and user()."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MySQL"))
+        self.assertIn('@@version', poc['poc_payload'])
+        self.assertIn('user()', poc['poc_payload'])
+        self.assertEqual(poc['database_type'], 'MySQL')
+
+    def test_poc_postgresql_payload(self):
+        """PostgreSQL PoC must use version() and current_user."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("PostgreSQL"))
+        self.assertIn('version()', poc['poc_payload'])
+        self.assertIn('current_user', poc['poc_payload'])
+        self.assertEqual(poc['database_type'], 'PostgreSQL')
+
+    def test_poc_mssql_payload(self):
+        """MSSQL PoC must use @@version and SYSTEM_USER."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MSSQL"))
+        self.assertIn('@@version', poc['poc_payload'])
+        self.assertIn('SYSTEM_USER', poc['poc_payload'])
+
+    def test_poc_oracle_payload(self):
+        """Oracle PoC must reference v$version."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("Oracle"))
+        self.assertIn('v$version', poc['poc_payload'])
+
+    def test_poc_sqlite_payload(self):
+        """SQLite PoC must use sqlite_version()."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("SQLite"))
+        self.assertIn('sqlite_version()', poc['poc_payload'])
+
+    def test_poc_unknown_dbms_generic_payload(self):
+        """Unknown DBMS must produce a generic safe PoC with POC_MARKER."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("Unknown"))
+        self.assertIn('POC_MARKER', poc['poc_payload'])
+
+    def test_poc_safety_notes_present(self):
+        """Safety notes must state that no data is written or modified."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MySQL"))
+        self.assertIn('metadata', poc['safety_notes'].lower())
+
+    def test_poc_type_time_based_when_anomaly_hint(self):
+        """poc_type must be 'time_based' when anomaly hints include 'time_based'."""
+        poc = self.module.step5_build_poc(
+            "id", "' AND SLEEP(5)--",
+            self._make_evidence("MySQL", anomalies=["time_based: delayed by 5s"]),
+        )
+        self.assertEqual(poc['poc_type'], 'time_based')
+
+    def test_poc_type_boolean_when_anomaly_hint(self):
+        """poc_type must be 'boolean' when anomaly hints include 'boolean'."""
+        poc = self.module.step5_build_poc(
+            "id", "' AND 1=1--",
+            self._make_evidence("MySQL", anomalies=["boolean_based: Success indicators"]),
+        )
+        self.assertEqual(poc['poc_type'], 'boolean')
+
+    def test_poc_time_based_variant_has_delay_and_control(self):
+        """Time-based variant must include both delay_payload and control_payload."""
+        poc = self.module.step5_build_poc("id", "' AND SLEEP(5)--", self._make_evidence("MySQL"))
+        time_variants = [v for v in poc['variants'] if v['poc_type'] == 'time_based']
+        self.assertTrue(time_variants, "No time_based variant found")
+        tv = time_variants[0]
+        self.assertIn('delay_payload', tv)
+        self.assertIn('control_payload', tv)
+        self.assertIn('expected_delay_seconds', tv)
+
+    def test_poc_boolean_variant_has_true_false_payloads(self):
+        """Boolean variant must include true_payload and false_payload."""
+        poc = self.module.step5_build_poc("id", "' AND 1=1--", self._make_evidence("MySQL"))
+        bool_variants = [v for v in poc['variants'] if v['poc_type'] == 'boolean']
+        self.assertTrue(bool_variants, "No boolean variant found")
+        bv = bool_variants[0]
+        self.assertIn('true_payload', bv)
+        self.assertIn('false_payload', bv)
+
+    def test_poc_original_payload_preserved(self):
+        """original_payload must match what was passed in."""
+        payload = "' UNION SELECT NULL--"
+        poc = self.module.step5_build_poc("id", payload, self._make_evidence("MySQL"))
+        self.assertEqual(poc['original_payload'], payload)
+
+    def test_poc_reproduction_steps_is_list(self):
+        """reproduction_steps must be a non-empty list."""
+        poc = self.module.step5_build_poc("id", "' OR 1=1--", self._make_evidence("MySQL"))
+        self.assertIsInstance(poc['reproduction_steps'], list)
+        self.assertGreater(len(poc['reproduction_steps']), 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
