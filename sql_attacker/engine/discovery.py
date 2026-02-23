@@ -48,13 +48,16 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from .adapters import AdapterRegistry, DBType
-from .baseline import BaselineCollector, BaselineResult
+from .adapters import AdapterRegistry, DBType, TECHNIQUE_ERROR, TECHNIQUE_BOOLEAN
+from .baseline import BaselineCollector, BaselineResult, CanaryScheduler, confirm_finding
 from .config import ScanConfig
+from .modes import ModePolicy, OperationMode
 from .normalization import normalize_response_body
 from .reporting import Evidence, Finding
 from .scoring import ScoringResult, compute_confidence
@@ -409,12 +412,19 @@ class DiscoveryScanner:
         request_fn: Callable,
         config: Optional[ScanConfig] = None,
         registry: Optional[AdapterRegistry] = None,
+        mode_policy: Optional[ModePolicy] = None,
     ) -> None:
         self._request_fn = request_fn
         self._cfg = config or ScanConfig()
         self._registry = registry or AdapterRegistry()
         self._comparator = ResponseComparator(self._cfg)
+        self._mode_policy = mode_policy or ModePolicy(OperationMode.DETECT)
+        # Thread-safe request budget tracker
         self._host_request_counts: Dict[str, int] = {}
+        self._host_request_lock = threading.Lock()
+        # Per-scan baseline deduplication cache: key → (body, status_code)
+        self._baseline_dedup: Dict[str, Tuple[str, int]] = {}
+        self._baseline_dedup_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Public API
@@ -446,6 +456,7 @@ class DiscoveryScanner:
             one per vulnerable injection point.  Empty list if none found.
         """
         self._cfg.validate()
+        self._mode_policy.assert_may_detect()
         method = method.upper()
         injection_points = self._enumerate_injection_points(
             method=method,
@@ -460,19 +471,51 @@ class DiscoveryScanner:
             return []
 
         findings: List[Finding] = []
-        for ip in injection_points:
-            finding = self._test_injection_point(
-                ip=ip,
-                url=url,
-                method=method,
-                params=params or {},
-                data=data or {},
-                json_data=json_data or {},
-                headers=headers or {},
-                cookies=cookies or {},
-            )
-            if finding is not None:
-                findings.append(finding)
+        max_workers = max(1, self._cfg.max_concurrent_requests)
+
+        if max_workers == 1:
+            # Sequential path – no threading overhead
+            for ip in injection_points:
+                finding = self._test_injection_point(
+                    ip=ip,
+                    url=url,
+                    method=method,
+                    params=params or {},
+                    data=data or {},
+                    json_data=json_data or {},
+                    headers=headers or {},
+                    cookies=cookies or {},
+                )
+                if finding is not None:
+                    findings.append(finding)
+        else:
+            # Concurrent path – bounded by max_concurrent_requests
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._test_injection_point,
+                        ip=ip,
+                        url=url,
+                        method=method,
+                        params=params or {},
+                        data=data or {},
+                        json_data=json_data or {},
+                        headers=headers or {},
+                        cookies=cookies or {},
+                    ): ip
+                    for ip in injection_points
+                }
+                for future in as_completed(futures):
+                    try:
+                        finding = future.result()
+                        if finding is not None:
+                            findings.append(finding)
+                    except Exception as exc:
+                        ip = futures[future]
+                        logger.debug(
+                            "Injection point test raised exception for %s: %s",
+                            ip.name, exc,
+                        )
 
         return findings
 
@@ -542,30 +585,46 @@ class DiscoveryScanner:
         headers: Dict[str, str],
         cookies: Dict[str, str],
     ) -> Optional[Finding]:
-        """Run the full probe sequence for a single injection point."""
+        """Run the full probe sequence for a single injection point.
+
+        Uses canary scheduling: quote-break probes run first as canaries.
+        Boolean probes only run when the canary phase detects a signal.
+        If an error signature identifies a specific DB type, DB-specific
+        payloads are substituted for the remainder phase.
+        In VERIFY mode a benign-control confirmation loop is applied to
+        ``"likely"`` findings before reporting them.
+        """
         logger.debug(
             "Testing injection point: %s @ %s [%s]",
             ip.name, url, ip.location.value,
         )
 
-        # 1. Collect baseline
-        baseline_response = self._send_request(
-            url=url,
-            method=method,
-            params=params,
-            data=data,
-            json_data=json_data,
-            headers=headers,
-            cookies=cookies,
-        )
-        if baseline_response is None:
-            logger.warning("Could not collect baseline for %s @ %s", ip.name, url)
-            return None
+        # 1. Collect baseline (dedup: reuse within same scan for same endpoint)
+        dedup_key = f"{method}:{url}"
+        with self._baseline_dedup_lock:
+            cached = self._baseline_dedup.get(dedup_key)
+        if cached is not None:
+            baseline_body, baseline_status = cached
+            logger.debug("Baseline cache hit for %s", dedup_key)
+        else:
+            baseline_response = self._send_request(
+                url=url,
+                method=method,
+                params=params,
+                data=data,
+                json_data=json_data,
+                headers=headers,
+                cookies=cookies,
+            )
+            if baseline_response is None:
+                logger.warning("Could not collect baseline for %s @ %s", ip.name, url)
+                return None
+            baseline_body = normalize_response_body(getattr(baseline_response, "text", ""))
+            baseline_status = getattr(baseline_response, "status_code", 200)
+            with self._baseline_dedup_lock:
+                self._baseline_dedup[dedup_key] = (baseline_body, baseline_status)
 
-        baseline_body = normalize_response_body(getattr(baseline_response, "text", ""))
-        baseline_status = getattr(baseline_response, "status_code", 200)
-
-        # 2. Build probe set
+        # 2. Build probe set and apply canary scheduling
         probe_set = ProbeSet.default(boolean_probe_count=self._cfg.boolean_probe_count)
 
         all_probe_payloads = (
@@ -574,80 +633,113 @@ class DiscoveryScanner:
             + [(p, "boolean_false") for p in probe_set.boolean_false]
         )
 
+        # CanaryScheduler splits the flat payload list into canary + remainder
+        scheduler = CanaryScheduler()
+        payload_strings = [p for p, _ in all_probe_payloads]
+        payload_type_map: Dict[str, str] = {p: t for p, t in all_probe_payloads}
+        canary_strings, remainder_strings = scheduler.schedule(payload_strings)
+        # Rebuild with types; canary first then remainder
+        canary_phase = [(p, payload_type_map.get(p, "quote_break")) for p in canary_strings]
+        remainder_phase = [(p, payload_type_map.get(p, "boolean_true")) for p in remainder_strings]
+
         feature_union: Dict[str, float] = {}
         evidence_list: List[Evidence] = []
         detected_db_types: List[str] = []
         matched_signature_names: List[str] = []
 
-        # 3. Send probes and collect comparison results
-        for payload, probe_type in all_probe_payloads:
-            injected_params, injected_data, injected_json, injected_headers = (
-                self._inject_payload(ip, payload, params, data, json_data, headers)
-            )
-
-            probe_response = self._send_request(
-                url=url,
-                method=method,
-                params=injected_params,
-                data=injected_data,
-                json_data=injected_json,
-                headers=injected_headers,
-                cookies=cookies,
-            )
-            if probe_response is None:
-                continue
-
-            probe_body = normalize_response_body(getattr(probe_response, "text", ""))
-            probe_status = getattr(probe_response, "status_code", 200)
-
-            cmp = self._comparator.compare(
-                baseline_body=baseline_body,
-                probe_body=probe_body,
-                baseline_status=baseline_status,
-                probe_status=probe_status,
-            )
-
-            # Merge features (take max value across probes)
-            new_features = self._comparator.to_feature_dict(cmp)
-            for feat, val in new_features.items():
-                if val > feature_union.get(feat, 0.0):
-                    feature_union[feat] = val
-
-            # Collect DB type signals from error signatures
-            for db_t in cmp.matched_db_types:
-                if db_t not in detected_db_types:
-                    detected_db_types.append(db_t)
-            for sig in cmp.matched_signatures:
-                if sig.description not in matched_signature_names:
-                    matched_signature_names.append(sig.description)
-
-            # Record evidence when any signal triggered
-            if new_features:
-                log_payload = (
-                    "<redacted>" if self._cfg.redact_payloads_in_logs else payload
+        def _run_probes(probe_list: List[Tuple[str, str]]) -> bool:
+            """Send probes, update shared state; returns True when any signal fires."""
+            any_signal = False
+            for payload, probe_type in probe_list:
+                injected_params, injected_data, injected_json, injected_headers = (
+                    self._inject_payload(ip, payload, params, data, json_data, headers)
                 )
-                body_excerpt = getattr(probe_response, "text", "")[:512]
-                evidence_list.append(Evidence(
-                    payload=payload,
-                    request_summary=self._build_request_summary(
-                        url=url,
-                        method=method,
-                        ip=ip,
-                        payload=log_payload,
-                        probe_status=probe_status,
-                    ),
-                    response_length=len(getattr(probe_response, "text", "")),
-                    response_body_excerpt=body_excerpt,
-                    technique=self._probe_type_to_technique(probe_type),
-                ))
+                probe_response = self._send_request(
+                    url=url,
+                    method=method,
+                    params=injected_params,
+                    data=injected_data,
+                    json_data=injected_json,
+                    headers=injected_headers,
+                    cookies=cookies,
+                )
+                if probe_response is None:
+                    continue
 
-            # Boolean pair differential: compare true vs false probes
-            if probe_type == "boolean_true":
-                # We'll capture the true-probe response for later comparison
-                # with the matching false probe at the same index
-                pass  # handled below via boolean_diff feature
+                probe_body = normalize_response_body(getattr(probe_response, "text", ""))
+                probe_status = getattr(probe_response, "status_code", 200)
 
-        # 4. Boolean diff signal: compare responses from true vs false pairs
+                cmp = self._comparator.compare(
+                    baseline_body=baseline_body,
+                    probe_body=probe_body,
+                    baseline_status=baseline_status,
+                    probe_status=probe_status,
+                )
+
+                new_features = self._comparator.to_feature_dict(cmp)
+                for feat, val in new_features.items():
+                    if val > feature_union.get(feat, 0.0):
+                        feature_union[feat] = val
+                        any_signal = True
+
+                for db_t in cmp.matched_db_types:
+                    if db_t not in detected_db_types:
+                        detected_db_types.append(db_t)
+                for sig in cmp.matched_signatures:
+                    if sig.description not in matched_signature_names:
+                        matched_signature_names.append(sig.description)
+
+                if new_features:
+                    log_payload = (
+                        "<redacted>" if self._cfg.redact_payloads_in_logs else payload
+                    )
+                    body_excerpt = getattr(probe_response, "text", "")[:512]
+                    evidence_list.append(Evidence(
+                        payload=payload,
+                        request_summary=self._build_request_summary(
+                            url=url,
+                            method=method,
+                            ip=ip,
+                            payload=log_payload,
+                            probe_status=probe_status,
+                        ),
+                        response_length=len(getattr(probe_response, "text", "")),
+                        response_body_excerpt=body_excerpt,
+                        technique=self._probe_type_to_technique(probe_type),
+                    ))
+            return any_signal
+
+        # 3. Phase 1 – canary probes
+        canary_signal = _run_probes(canary_phase)
+
+        if not canary_signal and not feature_union:
+            # No signal from canary set → skip remainder to save requests
+            logger.debug(
+                "Canary phase: no signal for %s @ %s; skipping remainder probes.",
+                ip.name, url,
+            )
+            return None
+
+        # 4. Phase 2 – escalate: run remainder probes
+        # If an error signature already identified the DB type, prefer DB-specific payloads
+        if detected_db_types and remainder_phase:
+            try:
+                db_enum = DBType(detected_db_types[0])
+                adapter = self._registry.get_adapter(db_enum)
+                db_payloads = adapter.get_payloads(TECHNIQUE_BOOLEAN)
+                if db_payloads:
+                    # Replace remainder with DB-specific boolean payloads
+                    remainder_phase = [(p, "boolean_true") for p in db_payloads]
+                    logger.debug(
+                        "Switched to %s-specific payloads (%d) for %s @ %s",
+                        detected_db_types[0], len(db_payloads), ip.name, url,
+                    )
+            except (ValueError, KeyError):
+                pass  # unknown DB type string; use original remainder
+
+        _run_probes(remainder_phase)
+
+        # 5. Boolean diff signal: compare responses from true vs false pairs
         boolean_diff_score = self._compute_boolean_diff(
             ip=ip,
             url=url,
@@ -660,11 +752,10 @@ class DiscoveryScanner:
             baseline_body=baseline_body,
             probe_set=probe_set,
         )
-        if boolean_diff_score > 0:
-            if boolean_diff_score > feature_union.get("boolean_diff", 0.0):
-                feature_union["boolean_diff"] = boolean_diff_score
+        if boolean_diff_score > feature_union.get("boolean_diff", 0.0):
+            feature_union["boolean_diff"] = boolean_diff_score
 
-        # 5. Score and build Finding if threshold reached
+        # 6. Score and build Finding if threshold reached
         if not feature_union:
             logger.debug("No signals for %s @ %s", ip.name, url)
             return None
@@ -676,6 +767,45 @@ class DiscoveryScanner:
                 ip.name, url, scoring_result.score,
             )
             return None
+
+        # 7. VERIFY mode: run confirmation loop for non-confirmed findings
+        confirmed_verdict = scoring_result.verdict
+        confirm_rationale: Optional[str] = None
+        if self._mode_policy.may_verify() and scoring_result.verdict in ("likely", "uncertain"):
+            best_payload = evidence_list[0].payload if evidence_list else None
+            if best_payload:
+                ip_ref = ip
+
+                def _test_fn() -> Optional[Any]:
+                    p, d, j, h = self._inject_payload(
+                        ip_ref, best_payload, params, data, json_data, headers
+                    )
+                    return self._send_request(url, method, p, d, j, h, cookies)
+
+                def _benign_fn() -> Optional[Any]:
+                    return self._send_request(
+                        url, method, params, data, json_data, headers, cookies
+                    )
+
+                def _detect_fn(resp: Any) -> bool:
+                    body = normalize_response_body(getattr(resp, "text", ""))
+                    return bool(detect_sql_errors(body)) or (
+                        abs(len(body) - len(baseline_body)) >= self._cfg.length_delta_threshold
+                    )
+
+                confirmed, confirm_rationale = confirm_finding(
+                    test_fn=_test_fn,
+                    benign_fn=_benign_fn,
+                    detect_fn=_detect_fn,
+                )
+                if not confirmed and scoring_result.verdict == "uncertain":
+                    logger.debug(
+                        "Uncertain finding NOT confirmed for %s @ %s: %s",
+                        ip.name, url, confirm_rationale,
+                    )
+                    return None
+                if confirmed and confirmed_verdict != "confirmed":
+                    confirmed_verdict = "confirmed"
 
         db_type_str = detected_db_types[0] if detected_db_types else "unknown"
         technique = self._pick_technique(feature_union)
@@ -695,20 +825,25 @@ class DiscoveryScanner:
                     technique=first_ev.technique,
                 )
 
+        # Build score rationale including top contributions for reporting
+        rationale_parts = [r for r in [scoring_result.rationale, confirm_rationale] if r]
+        score_rationale = " | ".join(rationale_parts) if rationale_parts else None
+
         finding = Finding(
             parameter=ip.name,
             technique=technique,
             db_type=db_type_str,
             confidence=scoring_result.score,
-            verdict=scoring_result.verdict,
-            evidence=evidence_list[:_MAX_EVIDENCE_ITEMS],  # cap evidence items
+            verdict=confirmed_verdict,
+            evidence=evidence_list[:_MAX_EVIDENCE_ITEMS],
             url=url,
             method=method,
+            score_rationale=score_rationale,
         )
         logger.info(
             "Finding: %s [%s] param=%s technique=%s confidence=%.3f verdict=%s db=%s",
             url, method, ip.name, technique,
-            scoring_result.score, scoring_result.verdict, db_type_str,
+            scoring_result.score, confirmed_verdict, db_type_str,
         )
         return finding
 
@@ -827,15 +962,15 @@ class DiscoveryScanner:
         from urllib.parse import urlparse
 
         host = urlparse(url).hostname or url
-        count = self._host_request_counts.get(host, 0)
-        budget = self._cfg.per_host_request_budget
-        if budget > 0 and count >= budget:
-            logger.warning(
-                "Per-host budget exhausted for %s (%d requests). Skipping.", host, count
-            )
-            return None
-
-        self._host_request_counts[host] = count + 1
+        with self._host_request_lock:
+            count = self._host_request_counts.get(host, 0)
+            budget = self._cfg.per_host_request_budget
+            if budget > 0 and count >= budget:
+                logger.warning(
+                    "Per-host budget exhausted for %s (%d requests). Skipping.", host, count
+                )
+                return None
+            self._host_request_counts[host] = count + 1
 
         # Build redacted header dict for logging
         if logger.isEnabledFor(logging.DEBUG):
