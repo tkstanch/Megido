@@ -180,6 +180,7 @@ class Finding:
     cwe: str = _CWE_SQL_INJECTION
     severity: Optional[str] = None
     finding_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    score_rationale: Optional[str] = None
 
     def __post_init__(self) -> None:
         # Clamp confidence to [0, 1]
@@ -190,7 +191,7 @@ class Finding:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
-        return {
+        d: Dict[str, Any] = {
             "finding_id": self.finding_id,
             "parameter": self.parameter,
             "url": self.url,
@@ -204,6 +205,9 @@ class Finding:
             "evidence": [e.to_dict() for e in self.evidence],
             "remediation": self.remediation,
         }
+        if self.score_rationale:
+            d["score_rationale"] = self.score_rationale
+        return d
 
 
 def _confidence_to_severity(confidence: float) -> str:
