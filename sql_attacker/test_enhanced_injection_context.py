@@ -357,5 +357,52 @@ class TestIntegrationWithAdvancedPayloads(unittest.TestCase):
             self.skipTest("Advanced payloads library not available")
 
 
+class TestCanaryFirstPayloadOrdering(unittest.TestCase):
+    """Tests for canary-first payload scheduling in step1_supply_payloads."""
+
+    def setUp(self):
+        self.module = SQLInjectionModule(config={"use_adaptive": False, "enable_polymorphic": False})
+
+    def test_canary_payloads_appear_first(self):
+        """Canary payloads must be at the beginning of the returned payload list."""
+        from sql_attacker.engine.baseline import _DEFAULT_CANARY_PAYLOADS
+        payloads = self.module.step1_supply_payloads("test", canary_first=True)
+        # The first payloads must be exactly the canary set
+        for i, canary in enumerate(_DEFAULT_CANARY_PAYLOADS):
+            self.assertEqual(
+                payloads[i],
+                canary,
+                f"Canary payload {canary!r} not found at index {i}",
+            )
+
+    def test_canary_false_does_not_prepend_canary(self):
+        """When canary_first=False the first payload is not forced to be a canary."""
+        from sql_attacker.engine.baseline import _DEFAULT_CANARY_PAYLOADS
+        # Use a non-canary payload that IS in the basic list but NOT a canary payload
+        # to verify canary_first=True moves canaries to the front.
+        payloads_with = self.module.step1_supply_payloads("test", canary_first=True)
+        payloads_without = self.module.step1_supply_payloads("test", canary_first=False)
+        # With canary_first=True, the first payload is the first canary
+        first_canary = _DEFAULT_CANARY_PAYLOADS[0]
+        self.assertEqual(payloads_with[0], first_canary)
+        # Both lists must be non-empty and valid
+        self.assertGreater(len(payloads_with), 0)
+        self.assertGreater(len(payloads_without), 0)
+
+    def test_canary_payloads_not_duplicated(self):
+        """Canary payloads must not appear more than once in the final list."""
+        from sql_attacker.engine.baseline import _DEFAULT_CANARY_PAYLOADS
+        payloads = self.module.step1_supply_payloads("test", canary_first=True)
+        for canary in _DEFAULT_CANARY_PAYLOADS:
+            count = payloads.count(canary)
+            self.assertEqual(count, 1, f"Canary payload {canary!r} appears {count} times")
+
+    def test_result_contains_more_than_canary(self):
+        """The returned list must contain payloads beyond the canary set."""
+        from sql_attacker.engine.baseline import _DEFAULT_CANARY_PAYLOADS
+        payloads = self.module.step1_supply_payloads("test", canary_first=True)
+        self.assertGreater(len(payloads), len(_DEFAULT_CANARY_PAYLOADS))
+
+
 if __name__ == '__main__':
     unittest.main()

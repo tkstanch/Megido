@@ -352,3 +352,93 @@ def run_all_tests():
 if __name__ == "__main__":
     success = run_all_tests()
     sys.exit(0 if success else 1)
+
+
+# ---------------------------------------------------------------------------
+# unittest-based tests (run by pytest)
+# ---------------------------------------------------------------------------
+
+import unittest
+
+from sql_attacker.oob_payloads import _validate_host, _validate_port
+
+
+class TestOOBInputValidation(unittest.TestCase):
+    """Tests for host/port input validation in OOBPayloadGenerator."""
+
+    # ------------------------------------------------------------------
+    # _validate_host
+    # ------------------------------------------------------------------
+
+    def test_validate_host_accepts_valid_hostname(self):
+        self.assertEqual(_validate_host("attacker.com"), "attacker.com")
+
+    def test_validate_host_strips_whitespace(self):
+        self.assertEqual(_validate_host("  attacker.com  "), "attacker.com")
+
+    def test_validate_host_rejects_empty_string(self):
+        with self.assertRaises(ValueError):
+            _validate_host("")
+
+    def test_validate_host_rejects_whitespace_only(self):
+        with self.assertRaises(ValueError):
+            _validate_host("   ")
+
+    def test_validate_host_rejects_non_string(self):
+        with self.assertRaises(ValueError):
+            _validate_host(None)  # type: ignore[arg-type]
+
+    # ------------------------------------------------------------------
+    # _validate_port
+    # ------------------------------------------------------------------
+
+    def test_validate_port_accepts_valid_port(self):
+        self.assertEqual(_validate_port(80), 80)
+        self.assertEqual(_validate_port(443), 443)
+        self.assertEqual(_validate_port(65535), 65535)
+        self.assertEqual(_validate_port(1), 1)
+
+    def test_validate_port_rejects_zero(self):
+        with self.assertRaises(ValueError):
+            _validate_port(0)
+
+    def test_validate_port_rejects_negative(self):
+        with self.assertRaises(ValueError):
+            _validate_port(-1)
+
+    def test_validate_port_rejects_too_high(self):
+        with self.assertRaises(ValueError):
+            _validate_port(65536)
+
+    def test_validate_port_rejects_non_integer(self):
+        with self.assertRaises(ValueError):
+            _validate_port("80")  # type: ignore[arg-type]
+
+    # ------------------------------------------------------------------
+    # OOBPayloadGenerator constructor validation
+    # ------------------------------------------------------------------
+
+    def test_constructor_rejects_empty_host(self):
+        with self.assertRaises(ValueError):
+            OOBPayloadGenerator("", 80)
+
+    def test_constructor_rejects_bad_port(self):
+        with self.assertRaises(ValueError):
+            OOBPayloadGenerator("attacker.com", 0)
+
+    def test_set_attacker_host_rejects_empty_host(self):
+        gen = OOBPayloadGenerator("attacker.com", 80)
+        with self.assertRaises(ValueError):
+            gen.set_attacker_host("", 80)
+
+    def test_set_attacker_host_rejects_bad_port(self):
+        gen = OOBPayloadGenerator("attacker.com", 80)
+        with self.assertRaises(ValueError):
+            gen.set_attacker_host("attacker.com", 99999)
+
+    def test_set_attacker_host_updates_correctly(self):
+        gen = OOBPayloadGenerator("old.com", 80)
+        gen.set_attacker_host("new.com", 443)
+        self.assertEqual(gen.attacker_host, "new.com")
+        self.assertEqual(gen.attacker_port, 443)
+        self.assertEqual(gen.attacker_ip, "new.com")

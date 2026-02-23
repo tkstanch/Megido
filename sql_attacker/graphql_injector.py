@@ -21,6 +21,14 @@ from .injection_contexts.base import (
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of characters from a response body that will be included
+# in log messages / evidence details to avoid leaking sensitive content.
+_MAX_LOG_RESPONSE_CHARS = 500
+
+# Maximum number of GraphQL error messages to store in evidence details
+# to avoid excessive memory usage.
+_MAX_EVIDENCE_ERRORS = 5
+
 
 # ---------------------------------------------------------------------------
 # GraphQL-Specific Payload Library (50+ payloads)
@@ -177,18 +185,32 @@ class GraphQLInjectionModule(InjectionAttackModule):
 
     def _load_detection_patterns(self) -> List[Dict[str, Any]]:
         return [
-            # SQL error patterns
+            # MySQL-specific
             {"pattern": r"sql syntax", "type": "sql_error", "confidence": 0.95},
             {"pattern": r"mysql_fetch", "type": "sql_error", "confidence": 0.95},
-            {"pattern": r"ORA-\d{5}", "type": "sql_error", "confidence": 0.98},
-            {"pattern": r"pg_query\(\)", "type": "sql_error", "confidence": 0.90},
-            {"pattern": r"SQLite3::", "type": "sql_error", "confidence": 0.90},
-            {"pattern": r"Microsoft SQL", "type": "sql_error", "confidence": 0.95},
-            {"pattern": r"syntax error.*query", "type": "sql_error", "confidence": 0.85},
-            {"pattern": r"unclosed quotation mark", "type": "sql_error", "confidence": 0.95},
-            {"pattern": r"quoted string not properly terminated", "type": "sql_error", "confidence": 0.90},
+            {"pattern": r"mysql_num_rows", "type": "sql_error", "confidence": 0.90},
+            {"pattern": r"supplied argument is not a valid MySQL", "type": "sql_error", "confidence": 0.95},
             {"pattern": r"you have an error in your sql", "type": "sql_error", "confidence": 0.98},
             {"pattern": r"warning.*mysql", "type": "sql_error", "confidence": 0.90},
+            # Oracle-specific
+            {"pattern": r"ORA-\d{5}", "type": "sql_error", "confidence": 0.98},
+            {"pattern": r"oracle\.jdbc", "type": "sql_error", "confidence": 0.90},
+            # PostgreSQL-specific
+            {"pattern": r"pg_query\(\)", "type": "sql_error", "confidence": 0.90},
+            {"pattern": r"pg_exec\(\)", "type": "sql_error", "confidence": 0.90},
+            {"pattern": r"PSQLException", "type": "sql_error", "confidence": 0.90},
+            {"pattern": r"invalid input syntax for.*integer", "type": "sql_error", "confidence": 0.85},
+            {"pattern": r"column.*does not exist", "type": "sql_error", "confidence": 0.80},
+            {"pattern": r"relation.*does not exist", "type": "sql_error", "confidence": 0.80},
+            # Microsoft SQL Server-specific
+            {"pattern": r"Microsoft SQL", "type": "sql_error", "confidence": 0.95},
+            {"pattern": r"SQLSTATE", "type": "sql_error", "confidence": 0.85},
+            {"pattern": r"unclosed quotation mark", "type": "sql_error", "confidence": 0.95},
+            # SQLite-specific
+            {"pattern": r"SQLite3::", "type": "sql_error", "confidence": 0.90},
+            # Generic
+            {"pattern": r"syntax error.*query", "type": "sql_error", "confidence": 0.85},
+            {"pattern": r"quoted string not properly terminated", "type": "sql_error", "confidence": 0.90},
             # GraphQL error patterns indicating payload reached SQL layer
             {"pattern": r"\"errors\":\[", "type": "graphql_error", "confidence": 0.60},
             {"pattern": r"internal server error", "type": "server_error", "confidence": 0.50},
@@ -372,7 +394,14 @@ class GraphQLInjectionModule(InjectionAttackModule):
         response_body: str,
         anomalies: List[str],
     ) -> Dict[str, Any]:
-        """Step 3: Extract SQL error details and confidence score."""
+        """Step 3: Extract SQL error details and confidence score.
+
+        Parses both raw SQL error strings and structured GraphQL JSON error
+        objects.  Individual error *messages* are extracted from the
+        ``errors`` array (up to :data:`_MAX_EVIDENCE_ERRORS`) so that callers
+        get actionable DBMS details without storing raw, potentially sensitive
+        response content verbatim.
+        """
         evidence: Dict[str, Any] = {
             "error_type": "graphql_sqli",
             "details": {},
@@ -380,25 +409,69 @@ class GraphQLInjectionModule(InjectionAttackModule):
             "confidence": 0.0,
         }
 
-        # Try to parse JSON errors
+        # Try to parse JSON errors – extract individual message strings
         try:
             data = json.loads(response_body)
             errors = data.get("errors", [])
             if errors:
-                evidence["details"]["graphql_errors"] = errors
+                messages = [
+                    e.get("message", "")
+                    for e in errors
+                    if isinstance(e, dict) and e.get("message")
+                ]
+                # Store a limited number of messages to avoid sensitive leakage
+                evidence["details"]["graphql_errors"] = messages[:_MAX_EVIDENCE_ERRORS]
                 evidence["confidence"] = max(evidence["confidence"], 0.60)
+                # Boost confidence when error messages contain SQL keywords
+                for msg in messages:
+                    if re.search(
+                        r"sql|syntax|query|column|table|relation|ORA-|SQLSTATE",
+                        msg,
+                        re.IGNORECASE,
+                    ):
+                        evidence["confidence"] = max(evidence["confidence"], 0.80)
+                        break
         except Exception:
             pass
 
-        # SQL error patterns
-        sql_error_match = re.search(
-            r"(you have an error in your sql|ora-\d{5}|pg_query|unclosed quotation|microsoft sql)",
-            response_body,
-            re.IGNORECASE,
-        )
-        if sql_error_match:
-            evidence["details"]["sql_error"] = sql_error_match.group(0)
-            evidence["confidence"] = max(evidence["confidence"], 0.95)
+        # SQL error patterns – DBMS-specific signatures for higher-confidence matches.
+        # Each entry is (pattern, dbms_name_or_None, confidence_score).
+        # Patterns are listed in priority order; matching stops at the first hit.
+        _DBMS_SQL_PATTERNS = [
+            # MySQL
+            (r"you have an error in your sql", "MySQL", 0.98),
+            (r"mysql_fetch", "MySQL", 0.95),
+            (r"mysql_num_rows", "MySQL", 0.92),
+            (r"warning.*mysql", "MySQL", 0.90),
+            # Oracle
+            (r"ORA-\d{5}", "Oracle", 0.98),
+            (r"oracle\.jdbc", "Oracle", 0.90),
+            # PostgreSQL
+            (r"PSQLException", "PostgreSQL", 0.92),
+            (r"pg_query\(\)", "PostgreSQL", 0.90),
+            (r"pg_exec\(\)", "PostgreSQL", 0.90),
+            (r"invalid input syntax for.*integer", "PostgreSQL", 0.85),
+            (r"column.*does not exist", "PostgreSQL", 0.80),
+            (r"relation.*does not exist", "PostgreSQL", 0.80),
+            # Microsoft SQL Server
+            (r"unclosed quotation mark", "MSSQL", 0.95),
+            (r"Microsoft SQL", "MSSQL", 0.95),
+            (r"SQLSTATE", "MSSQL", 0.85),
+            # SQLite
+            (r"SQLite3::", "SQLite", 0.90),
+            # Generic (no DBMS attribution)
+            (r"syntax error.*query", None, 0.88),
+            (r"quoted string not properly terminated", None, 0.88),
+        ]
+        for pattern, dbms_name, conf in _DBMS_SQL_PATTERNS:
+            match = re.search(pattern, response_body, re.IGNORECASE)
+            if match:
+                # Store only the matched portion (avoids storing full response)
+                evidence["details"]["sql_error"] = match.group(0)[:_MAX_LOG_RESPONSE_CHARS]
+                evidence["confidence"] = max(evidence["confidence"], conf)
+                if dbms_name:
+                    evidence["context_info"]["dbms"] = dbms_name
+                break
 
         # Version / data leak
         version_match = re.search(r"\d+\.\d+\.\d+-\w+", response_body)
@@ -648,7 +721,7 @@ class GraphQLInjectionModule(InjectionAttackModule):
                         confidence_score=evidence.get("confidence", 0.0),
                         response_time=elapsed,
                         response_status=resp.status_code,
-                        response_body=body,
+                        response_body=body[:_MAX_LOG_RESPONSE_CHARS],
                         response_headers=dict(resp.headers),
                         metadata={"anomalies": anomalies, "graphql_field": field, "graphql_arg": arg},
                     )
