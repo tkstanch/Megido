@@ -13,6 +13,11 @@ adapters       – DB-specific payload adapters (MySQL, PostgreSQL, MSSQL, SQLit
 modes          – Safe operation modes (detect / verify / demonstrate) and policy
                  enforcement.
 reporting      – Standardised JSON + SARIF reporting with evidence and remediation.
+config         – ScanConfig dataclass centralising all tunable scan parameters.
+discovery      – Multi-location injection-point discovery with baseline + differential
+                 analysis, boolean/quote-break probes, and error-signature detection.
+timeguard      – Time-based confirmation with strict per-host request budgets and
+                 configurable delay caps.
 """
 
 from .normalization import (
@@ -54,6 +59,23 @@ from .reporting import (
     Finding,
     ReportBuilder,
 )
+from .config import ScanConfig
+from .discovery import (
+    InjectionLocation,
+    InjectionPoint,
+    ProbeSet,
+    ResponseComparator,
+    ComparisonResult,
+    DiscoveryScanner,
+    detect_sql_errors,
+    ErrorSignature,
+)
+from .timeguard import (
+    TimedConfirmation,
+    TimeBasedResult,
+    PerHostBudget,
+    build_sleep_payload,
+)
 
 __all__ = [
     # normalization
@@ -89,4 +111,20 @@ __all__ = [
     "Evidence",
     "Finding",
     "ReportBuilder",
+    # config
+    "ScanConfig",
+    # discovery
+    "InjectionLocation",
+    "InjectionPoint",
+    "ProbeSet",
+    "ResponseComparator",
+    "ComparisonResult",
+    "DiscoveryScanner",
+    "detect_sql_errors",
+    "ErrorSignature",
+    # timeguard
+    "TimedConfirmation",
+    "TimeBasedResult",
+    "PerHostBudget",
+    "build_sleep_payload",
 ]
