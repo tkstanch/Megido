@@ -47,6 +47,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import random
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -652,6 +653,17 @@ class DiscoveryScanner:
         # Rebuild with types; canary first then remainder
         canary_phase = [(p, payload_type_map.get(p, "quote_break")) for p in canary_strings]
         remainder_phase = [(p, payload_type_map.get(p, "boolean_true")) for p in remainder_strings]
+
+        # Apply payload_seed and max_payloads_per_param from config.
+        # Canary probes have priority: they are included first and also capped.
+        if self._cfg.payload_seed is not None:
+            rng = random.Random(self._cfg.payload_seed)
+            rng.shuffle(remainder_phase)
+        if self._cfg.max_payloads_per_param is not None:
+            cap = self._cfg.max_payloads_per_param
+            canary_phase = canary_phase[:cap]
+            remainder_budget = max(0, cap - len(canary_phase))
+            remainder_phase = remainder_phase[:remainder_budget]
 
         feature_union: Dict[str, float] = {}
         evidence_list: List[Evidence] = []

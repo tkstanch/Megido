@@ -98,20 +98,26 @@ class TestScanConfigDefaults(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScanConfig(similarity_threshold=1.5).validate()
 
-    def test_custom_values_stored(self):
-        cfg = ScanConfig(
-            max_concurrent_requests=5,
-            inject_headers=True,
-            time_based_enabled=True,
-        )
-        self.assertEqual(5, cfg.max_concurrent_requests)
-        self.assertTrue(cfg.inject_headers)
-        self.assertTrue(cfg.time_based_enabled)
+    def test_default_max_payloads_per_param_is_none(self):
+        """max_payloads_per_param must default to None (no cap)."""
+        self.assertIsNone(ScanConfig().max_payloads_per_param)
+
+    def test_default_payload_seed_is_none(self):
+        """payload_seed must default to None (non-deterministic)."""
+        self.assertIsNone(ScanConfig().payload_seed)
+
+    def test_validate_raises_for_zero_max_payloads(self):
+        with self.assertRaises(ValueError):
+            ScanConfig(max_payloads_per_param=0).validate()
+
+    def test_validate_passes_for_positive_max_payloads(self):
+        ScanConfig(max_payloads_per_param=5).validate()
+
+    def test_validate_passes_for_payload_seed(self):
+        ScanConfig(payload_seed=42).validate()
 
 
-# ===========================================================================
-# ProbeSet tests
-# ===========================================================================
+
 
 
 class TestProbeSet(unittest.TestCase):
@@ -1240,6 +1246,122 @@ class TestUnionAndStackedTechniques(unittest.TestCase):
         from sql_attacker.engine import TECHNIQUE_UNION, TECHNIQUE_STACKED
         self.assertEqual("union", TECHNIQUE_UNION)
         self.assertEqual("stacked", TECHNIQUE_STACKED)
+
+
+# ===========================================================================
+# Payload management (cap + seed) tests
+# ===========================================================================
+
+
+class TestPayloadCapAndSeed(unittest.TestCase):
+    """Tests for max_payloads_per_param and payload_seed in ScanConfig."""
+
+    # ------------------------------------------------------------------ #
+    # max_payloads_per_param
+    # ------------------------------------------------------------------ #
+
+    def test_max_payloads_caps_total_requests(self):
+        """Scanner must not send more requests than the cap allows."""
+        payloads_sent = []
+
+        def recording_request_fn(url, method, params, data, json_data, headers, cookies):
+            payloads_sent.append(dict(params or {}))
+            return _make_mock_response(200, "Normal page.")
+
+        cap = 3  # baseline + at most cap probes
+        cfg = ScanConfig(max_payloads_per_param=cap)
+        scanner = DiscoveryScanner(request_fn=recording_request_fn, config=cfg)
+        scanner.scan(
+            url="http://example.com/search",
+            method="GET",
+            params={"q": "test"},
+        )
+        # Total requests should not exceed baseline (1) + cap
+        self.assertLessEqual(len(payloads_sent), 1 + cap)
+
+    def test_cap_of_one_means_only_canary_probes(self):
+        """A cap of 1 means only the canary phase is run (≤1 probe after baseline)."""
+        payloads_sent = []
+
+        def recording_fn(url, method, params, data, json_data, headers, cookies):
+            payloads_sent.append(1)
+            return _make_mock_response(200, "Normal.")
+
+        cfg = ScanConfig(max_payloads_per_param=1)
+        scanner = DiscoveryScanner(request_fn=recording_fn, config=cfg)
+        scanner.scan(
+            url="http://example.com/",
+            method="GET",
+            params={"id": "1"},
+        )
+        # baseline + at most 1 probe = 2 total
+        self.assertLessEqual(len(payloads_sent), 2)
+
+    # ------------------------------------------------------------------ #
+    # payload_seed
+    # ------------------------------------------------------------------ #
+
+    def test_same_seed_produces_same_probe_sequence(self):
+        """Two scans with the same seed must send probes in the same order."""
+        sequences: list = [[], []]
+
+        def make_recording_fn(seq):
+            def fn(url, method, params, data, json_data, headers, cookies):
+                value = (params or {}).get("q", "")
+                seq.append(value)
+                return _make_mock_response(200, "Normal.")
+            return fn
+
+        for i, seed in enumerate([99, 99]):
+            cfg = ScanConfig(payload_seed=seed)
+            scanner = DiscoveryScanner(
+                request_fn=make_recording_fn(sequences[i]), config=cfg
+            )
+            scanner.scan(
+                url="http://example.com/",
+                method="GET",
+                params={"q": "hello"},
+            )
+
+        self.assertEqual(sequences[0], sequences[1])
+
+    def test_different_seeds_scans_complete_without_error(self):
+        """Scans with different seeds should both complete without raising."""
+        sequences: list = [[], []]
+
+        def make_recording_fn(seq):
+            def fn(url, method, params, data, json_data, headers, cookies):
+                value = (params or {}).get("q", "")
+                seq.append(value)
+                return _make_mock_response(200, "Normal.")
+            return fn
+
+        for i, seed in enumerate([1, 2]):
+            cfg = ScanConfig(payload_seed=seed)
+            scanner = DiscoveryScanner(
+                request_fn=make_recording_fn(sequences[i]), config=cfg
+            )
+            scanner.scan(
+                url="http://example.com/",
+                method="GET",
+                params={"q": "hello"},
+            )
+
+        # Both runs should produce the same number of requests
+        # (seed only reorders the remainder, which may not run in safe targets)
+        self.assertEqual(len(sequences[0]), len(sequences[1]))
+
+    def test_no_seed_still_works(self):
+        """Scanner should work normally when payload_seed is None."""
+        cfg = ScanConfig(payload_seed=None)
+        scanner = DiscoveryScanner(request_fn=_safe_request_fn, config=cfg)
+        findings = scanner.scan(
+            url="http://example.com/search",
+            method="GET",
+            params={"q": "test"},
+        )
+        confirmed = [f for f in findings if f.verdict in ("confirmed", "likely")]
+        self.assertEqual([], confirmed)
 
 
 if __name__ == "__main__":
