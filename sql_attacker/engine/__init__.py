@@ -48,6 +48,8 @@ from .adapters import (
     TECHNIQUE_ERROR,
     TECHNIQUE_BOOLEAN,
     TECHNIQUE_TIME,
+    TECHNIQUE_UNION,
+    TECHNIQUE_STACKED,
 )
 from .modes import (
     OperationMode,
@@ -103,6 +105,8 @@ __all__ = [
     "TECHNIQUE_ERROR",
     "TECHNIQUE_BOOLEAN",
     "TECHNIQUE_TIME",
+    "TECHNIQUE_UNION",
+    "TECHNIQUE_STACKED",
     # modes
     "OperationMode",
     "ModePolicy",

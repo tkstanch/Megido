@@ -443,7 +443,7 @@ class TestDiscoveryScannerPayloadInjection(unittest.TestCase):
 
     def test_inject_query_param(self):
         ip = InjectionPoint("id", InjectionLocation.QUERY_PARAM, "1")
-        p, d, j, h = self.scanner._inject_payload(
+        p, d, j, h, c = self.scanner._inject_payload(
             ip, "PAYLOAD", {"id": "1", "page": "2"}, {}, {}, {}
         )
         self.assertEqual("PAYLOAD", p["id"])
@@ -451,21 +451,21 @@ class TestDiscoveryScannerPayloadInjection(unittest.TestCase):
 
     def test_inject_form_param(self):
         ip = InjectionPoint("username", InjectionLocation.FORM_PARAM, "admin")
-        p, d, j, h = self.scanner._inject_payload(
+        p, d, j, h, c = self.scanner._inject_payload(
             ip, "PAYLOAD", {}, {"username": "admin"}, {}, {}
         )
         self.assertEqual("PAYLOAD", d["username"])
 
     def test_inject_json_param(self):
         ip = InjectionPoint("q", InjectionLocation.JSON_PARAM, "search")
-        p, d, j, h = self.scanner._inject_payload(
+        p, d, j, h, c = self.scanner._inject_payload(
             ip, "PAYLOAD", {}, {}, {"q": "search"}, {}
         )
         self.assertEqual("PAYLOAD", j["q"])
 
     def test_inject_header(self):
         ip = InjectionPoint("X-Forwarded-For", InjectionLocation.HEADER, "1.2.3.4")
-        p, d, j, h = self.scanner._inject_payload(
+        p, d, j, h, c = self.scanner._inject_payload(
             ip, "PAYLOAD", {}, {}, {}, {"X-Forwarded-For": "1.2.3.4"}
         )
         self.assertEqual("PAYLOAD", h["X-Forwarded-For"])
@@ -473,7 +473,7 @@ class TestDiscoveryScannerPayloadInjection(unittest.TestCase):
     def test_original_values_unchanged(self):
         ip = InjectionPoint("id", InjectionLocation.QUERY_PARAM, "1")
         original_params = {"id": "1", "page": "2"}
-        p, d, j, h = self.scanner._inject_payload(ip, "PAYLOAD", original_params, {}, {}, {})
+        p, d, j, h, c = self.scanner._inject_payload(ip, "PAYLOAD", original_params, {}, {}, {})
         # Original dict should not be mutated
         self.assertEqual("1", original_params["id"])
 
@@ -958,6 +958,288 @@ class TestTimedConfirmationDelayFactor(unittest.TestCase):
             rationale="disabled",
         )
         self.assertEqual(0.0, result.delay_factor)
+
+
+# ===========================================================================
+# Cookie injection tests
+# ===========================================================================
+
+
+class TestCookieInjection(unittest.TestCase):
+    """Tests for cookie parameter injection support."""
+
+    def setUp(self):
+        self.scanner = DiscoveryScanner(request_fn=_safe_request_fn)
+
+    def test_cookie_location_enum_exists(self):
+        """InjectionLocation.COOKIE_PARAM must exist."""
+        self.assertEqual("cookie_param", InjectionLocation.COOKIE_PARAM.value)
+
+    def test_inject_cookie_param(self):
+        ip = InjectionPoint("session_id", InjectionLocation.COOKIE_PARAM, "abc123")
+        p, d, j, h, c = self.scanner._inject_payload(
+            ip, "PAYLOAD", {}, {}, {}, {}, {"session_id": "abc123"}
+        )
+        self.assertEqual("PAYLOAD", c["session_id"])
+        self.assertEqual({}, p)
+        self.assertEqual({}, d)
+        self.assertEqual({}, j)
+        self.assertEqual({}, h)
+
+    def test_inject_cookie_does_not_mutate_original(self):
+        ip = InjectionPoint("token", InjectionLocation.COOKIE_PARAM, "orig")
+        original_cookies = {"token": "orig"}
+        p, d, j, h, c = self.scanner._inject_payload(
+            ip, "PAYLOAD", {}, {}, {}, {}, original_cookies
+        )
+        self.assertEqual("orig", original_cookies["token"])
+        self.assertEqual("PAYLOAD", c["token"])
+
+    def test_enumerate_cookie_points_when_enabled(self):
+        cfg = ScanConfig(inject_cookies=True)
+        scanner = DiscoveryScanner(request_fn=_safe_request_fn, config=cfg)
+        points = scanner._enumerate_injection_points(
+            method="GET",
+            params={},
+            data={},
+            json_data={},
+            headers={},
+            cookies={"session": "abc", "user_id": "1"},
+        )
+        locations = [p.location for p in points]
+        self.assertIn(InjectionLocation.COOKIE_PARAM, locations)
+        names = [p.name for p in points]
+        self.assertIn("session", names)
+        self.assertIn("user_id", names)
+
+    def test_enumerate_no_cookie_points_when_disabled(self):
+        cfg = ScanConfig(inject_cookies=False)
+        scanner = DiscoveryScanner(request_fn=_safe_request_fn, config=cfg)
+        points = scanner._enumerate_injection_points(
+            method="GET",
+            params={},
+            data={},
+            json_data={},
+            headers={},
+            cookies={"session": "abc"},
+        )
+        locations = [p.location for p in points]
+        self.assertNotIn(InjectionLocation.COOKIE_PARAM, locations)
+
+    def test_scan_with_cookie_injection_enabled(self):
+        """DiscoveryScanner.scan() should enumerate cookie params when enabled."""
+        cfg = ScanConfig(inject_cookies=True)
+        scanner = DiscoveryScanner(request_fn=_safe_request_fn, config=cfg)
+        findings = scanner.scan(
+            url="http://example.com/",
+            method="GET",
+            params={},
+            cookies={"session": "abc"},
+        )
+        self.assertIsInstance(findings, list)
+
+    def test_cookie_finding_has_correct_parameter_location(self):
+        """A finding from a cookie injection point must report cookie_param location."""
+
+        def _cookie_error_fn(url, method, params, data, json_data, headers, cookies):
+            resp = MagicMock()
+            cookie_val = (cookies or {}).get("token", "")
+            if "'" in cookie_val:
+                resp.text = (
+                    "You have an error in your SQL syntax; check the manual "
+                    "that corresponds to your MySQL server version"
+                )
+            else:
+                resp.text = "Welcome"
+            resp.status_code = 200
+            return resp
+
+        cfg = ScanConfig(inject_cookies=True)
+        scanner = DiscoveryScanner(request_fn=_cookie_error_fn, config=cfg)
+        findings = scanner.scan(
+            url="http://example.com/",
+            method="GET",
+            params={},
+            cookies={"token": "abc"},
+        )
+        cookie_findings = [f for f in findings if f.parameter_location == "cookie_param"]
+        self.assertGreater(len(cookie_findings), 0, "Expected a cookie-based finding")
+
+
+# ===========================================================================
+# WAF / lockout detection tests
+# ===========================================================================
+
+
+class TestWAFDetection(unittest.TestCase):
+    """Tests for WAF/lockout auto-abort safety guardrail."""
+
+    def test_waf_detection_enabled_by_default(self):
+        self.assertTrue(ScanConfig().waf_detection_enabled)
+
+    def test_waf_abort_threshold_default(self):
+        self.assertGreaterEqual(ScanConfig().waf_abort_threshold, 1)
+
+    def test_validate_rejects_zero_threshold(self):
+        with self.assertRaises(ValueError):
+            ScanConfig(waf_abort_threshold=0).validate()
+
+    def test_scanner_aborts_on_repeated_403(self):
+        """Scanner must stop probing early when receiving consecutive 403 responses."""
+        request_count = [0]
+
+        def _waf_403_fn(url, method, params, data, json_data, headers, cookies):
+            request_count[0] += 1
+            resp = MagicMock()
+            resp.status_code = 403
+            resp.text = "Forbidden"
+            return resp
+
+        cfg = ScanConfig(waf_detection_enabled=True, waf_abort_threshold=3)
+        scanner = DiscoveryScanner(request_fn=_waf_403_fn, config=cfg)
+        scanner.scan(
+            url="http://example.com/",
+            method="GET",
+            params={"id": "1", "name": "test"},
+        )
+        # Should be bounded; 2 params × (1 baseline + a small number of probes)
+        self.assertLessEqual(request_count[0], 100,
+                             "Scanner made too many requests despite WAF signals")
+
+    def test_waf_detection_disabled_does_not_abort(self):
+        """When waf_detection_enabled=False the scanner must not abort early on 403s."""
+        request_count = [0]
+
+        def _always_403_fn(url, method, params, data, json_data, headers, cookies):
+            request_count[0] += 1
+            resp = MagicMock()
+            resp.status_code = 403
+            resp.text = "Blocked"
+            return resp
+
+        cfg = ScanConfig(waf_detection_enabled=False, waf_abort_threshold=2)
+        scanner = DiscoveryScanner(request_fn=_always_403_fn, config=cfg)
+        scanner.scan(
+            url="http://example.com/",
+            method="GET",
+            params={"q": "test"},
+        )
+        # With WAF detection disabled, all canary+remainder probes should fire
+        self.assertGreater(request_count[0], cfg.waf_abort_threshold)
+
+
+# ===========================================================================
+# parameter_location in findings
+# ===========================================================================
+
+
+class TestParameterLocationInFinding(unittest.TestCase):
+    """Tests that Finding.parameter_location is populated correctly."""
+
+    def test_finding_has_parameter_location_field(self):
+        from sql_attacker.engine.reporting import Finding
+        f = Finding(
+            parameter="q",
+            technique="error",
+            db_type="mysql",
+            confidence=0.9,
+            verdict="confirmed",
+            parameter_location="query_param",
+        )
+        self.assertEqual("query_param", f.parameter_location)
+
+    def test_finding_parameter_location_in_to_dict(self):
+        from sql_attacker.engine.reporting import Finding
+        f = Finding(
+            parameter="q",
+            technique="error",
+            db_type="mysql",
+            confidence=0.9,
+            verdict="confirmed",
+            parameter_location="json_param",
+        )
+        d = f.to_dict()
+        self.assertIn("parameter_location", d)
+        self.assertEqual("json_param", d["parameter_location"])
+
+    def test_finding_parameter_location_default_is_unknown(self):
+        from sql_attacker.engine.reporting import Finding
+        f = Finding(
+            parameter="q",
+            technique="error",
+            db_type="mysql",
+            confidence=0.9,
+            verdict="confirmed",
+        )
+        self.assertEqual("unknown", f.parameter_location)
+
+    def test_scan_finding_includes_query_param_location(self):
+        scanner = DiscoveryScanner(request_fn=_error_request_fn)
+        findings = scanner.scan(
+            url="http://example.com/search",
+            method="GET",
+            params={"q": "hello"},
+        )
+        for f in findings:
+            self.assertEqual("query_param", f.parameter_location)
+
+
+# ===========================================================================
+# TECHNIQUE_UNION and TECHNIQUE_STACKED constants
+# ===========================================================================
+
+
+class TestUnionAndStackedTechniques(unittest.TestCase):
+    """Tests for TECHNIQUE_UNION and TECHNIQUE_STACKED in the adapter registry."""
+
+    def setUp(self):
+        from sql_attacker.engine.adapters import AdapterRegistry, DBType
+        from sql_attacker.engine.adapters import TECHNIQUE_UNION, TECHNIQUE_STACKED
+        self.registry = AdapterRegistry()
+        self.DBType = DBType
+        self.TECHNIQUE_UNION = TECHNIQUE_UNION
+        self.TECHNIQUE_STACKED = TECHNIQUE_STACKED
+
+    def test_technique_union_constant(self):
+        from sql_attacker.engine.adapters import TECHNIQUE_UNION
+        self.assertEqual("union", TECHNIQUE_UNION)
+
+    def test_technique_stacked_constant(self):
+        from sql_attacker.engine.adapters import TECHNIQUE_STACKED
+        self.assertEqual("stacked", TECHNIQUE_STACKED)
+
+    def test_union_payloads_exist_for_known_dbs(self):
+        for db_type in (
+            self.DBType.MYSQL, self.DBType.POSTGRESQL, self.DBType.MSSQL,
+            self.DBType.SQLITE, self.DBType.ORACLE,
+        ):
+            adapter = self.registry.get_adapter(db_type)
+            payloads = adapter.get_payloads(self.TECHNIQUE_UNION)
+            self.assertGreater(len(payloads), 0, f"No UNION payloads for {db_type}")
+
+    def test_stacked_payloads_exist_for_known_dbs(self):
+        for db_type in (
+            self.DBType.MYSQL, self.DBType.POSTGRESQL, self.DBType.MSSQL,
+            self.DBType.SQLITE, self.DBType.ORACLE,
+        ):
+            adapter = self.registry.get_adapter(db_type)
+            payloads = adapter.get_payloads(self.TECHNIQUE_STACKED)
+            self.assertGreater(len(payloads), 0, f"No STACKED payloads for {db_type}")
+
+    def test_union_payloads_for_unknown_db(self):
+        adapter = self.registry.get_adapter(self.DBType.UNKNOWN)
+        payloads = adapter.get_payloads(self.TECHNIQUE_UNION)
+        self.assertGreater(len(payloads), 0)
+
+    def test_stacked_payloads_for_unknown_db(self):
+        adapter = self.registry.get_adapter(self.DBType.UNKNOWN)
+        payloads = adapter.get_payloads(self.TECHNIQUE_STACKED)
+        self.assertGreater(len(payloads), 0)
+
+    def test_engine_init_exports_union_and_stacked(self):
+        from sql_attacker.engine import TECHNIQUE_UNION, TECHNIQUE_STACKED
+        self.assertEqual("union", TECHNIQUE_UNION)
+        self.assertEqual("stacked", TECHNIQUE_STACKED)
 
 
 if __name__ == "__main__":

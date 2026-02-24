@@ -93,6 +93,7 @@ class InjectionLocation(Enum):
     FORM_PARAM = "form_param"
     JSON_PARAM = "json_param"
     HEADER = "header"
+    COOKIE_PARAM = "cookie_param"
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +465,7 @@ class DiscoveryScanner:
             data=data or {},
             json_data=json_data or {},
             headers=headers or {},
+            cookies=cookies or {},
         )
 
         if not injection_points:
@@ -530,6 +532,7 @@ class DiscoveryScanner:
         data: Dict[str, str],
         json_data: Dict[str, Any],
         headers: Dict[str, str],
+        cookies: Dict[str, str] = None,
     ) -> List[InjectionPoint]:
         """Enumerate all injection points based on request and config."""
         points: List[InjectionPoint] = []
@@ -567,6 +570,14 @@ class DiscoveryScanner:
                         location=InjectionLocation.HEADER,
                         original_value=str(headers[header_name]),
                     ))
+
+        if self._cfg.inject_cookies and cookies:
+            for name, value in cookies.items():
+                points.append(InjectionPoint(
+                    name=name,
+                    location=InjectionLocation.COOKIE_PARAM,
+                    original_value=str(value),
+                ))
 
         return points
 
@@ -650,9 +661,10 @@ class DiscoveryScanner:
         def _run_probes(probe_list: List[Tuple[str, str]]) -> bool:
             """Send probes, update shared state; returns True when any signal fires."""
             any_signal = False
+            waf_consecutive = 0
             for payload, probe_type in probe_list:
-                injected_params, injected_data, injected_json, injected_headers = (
-                    self._inject_payload(ip, payload, params, data, json_data, headers)
+                injected_params, injected_data, injected_json, injected_headers, injected_cookies = (
+                    self._inject_payload(ip, payload, params, data, json_data, headers, cookies)
                 )
                 probe_response = self._send_request(
                     url=url,
@@ -661,13 +673,26 @@ class DiscoveryScanner:
                     data=injected_data,
                     json_data=injected_json,
                     headers=injected_headers,
-                    cookies=cookies,
+                    cookies=injected_cookies,
                 )
                 if probe_response is None:
                     continue
 
                 probe_body = normalize_response_body(getattr(probe_response, "text", ""))
                 probe_status = getattr(probe_response, "status_code", 200)
+
+                # WAF / lockout detection: abort early on repeated 403/429
+                if self._cfg.waf_detection_enabled and probe_status in (403, 429):
+                    waf_consecutive += 1
+                    if waf_consecutive >= self._cfg.waf_abort_threshold:
+                        logger.warning(
+                            "WAF/lockout detected (%d consecutive %d responses) for %s @ %s. "
+                            "Aborting remaining probes.",
+                            waf_consecutive, probe_status, ip.name, url,
+                        )
+                        break
+                else:
+                    waf_consecutive = 0
 
                 cmp = self._comparator.compare(
                     baseline_body=baseline_body,
@@ -777,10 +802,10 @@ class DiscoveryScanner:
                 ip_ref = ip
 
                 def _test_fn() -> Optional[Any]:
-                    p, d, j, h = self._inject_payload(
-                        ip_ref, best_payload, params, data, json_data, headers
+                    p, d, j, h, c = self._inject_payload(
+                        ip_ref, best_payload, params, data, json_data, headers, cookies
                     )
-                    return self._send_request(url, method, p, d, j, h, cookies)
+                    return self._send_request(url, method, p, d, j, h, c)
 
                 def _benign_fn() -> Optional[Any]:
                     return self._send_request(
@@ -838,6 +863,7 @@ class DiscoveryScanner:
             evidence=evidence_list[:_MAX_EVIDENCE_ITEMS],
             url=url,
             method=method,
+            parameter_location=ip.location.value,
             score_rationale=score_rationale,
         )
         logger.info(
@@ -878,22 +904,22 @@ class DiscoveryScanner:
         true_payload = probe_set.boolean_true[0]
         false_payload = probe_set.boolean_false[0]
 
-        true_params, true_data, true_json, true_headers = self._inject_payload(
-            ip, true_payload, params, data, json_data, headers
+        true_params, true_data, true_json, true_headers, true_cookies = self._inject_payload(
+            ip, true_payload, params, data, json_data, headers, cookies
         )
-        false_params, false_data, false_json, false_headers = self._inject_payload(
-            ip, false_payload, params, data, json_data, headers
+        false_params, false_data, false_json, false_headers, false_cookies = self._inject_payload(
+            ip, false_payload, params, data, json_data, headers, cookies
         )
 
         true_response = self._send_request(
             url=url, method=method,
             params=true_params, data=true_data, json_data=true_json,
-            headers=true_headers, cookies=cookies,
+            headers=true_headers, cookies=true_cookies,
         )
         false_response = self._send_request(
             url=url, method=method,
             params=false_params, data=false_data, json_data=false_json,
-            headers=false_headers, cookies=cookies,
+            headers=false_headers, cookies=false_cookies,
         )
 
         if true_response is None or false_response is None:
@@ -923,12 +949,14 @@ class DiscoveryScanner:
         data: Dict[str, str],
         json_data: Dict[str, Any],
         headers: Dict[str, str],
-    ) -> Tuple[Dict, Dict, Dict, Dict]:
-        """Return modified (params, data, json_data, headers) with *payload* injected."""
+        cookies: Dict[str, str] = None,
+    ) -> Tuple[Dict, Dict, Dict, Dict, Dict]:
+        """Return modified (params, data, json_data, headers, cookies) with *payload* injected."""
         new_params = dict(params)
         new_data = dict(data)
         new_json = dict(json_data)
         new_headers = dict(headers)
+        new_cookies = dict(cookies) if cookies else {}
 
         if ip.location == InjectionLocation.QUERY_PARAM:
             new_params[ip.name] = payload
@@ -938,8 +966,10 @@ class DiscoveryScanner:
             new_json[ip.name] = payload
         elif ip.location == InjectionLocation.HEADER:
             new_headers[ip.name] = payload
+        elif ip.location == InjectionLocation.COOKIE_PARAM:
+            new_cookies[ip.name] = payload
 
-        return new_params, new_data, new_json, new_headers
+        return new_params, new_data, new_json, new_headers, new_cookies
 
     # ------------------------------------------------------------------
     # HTTP request with budget tracking
