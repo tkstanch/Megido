@@ -174,6 +174,20 @@ class ScanConfig:
     error_detection_enabled: bool = True
 
     # ------------------------------------------------------------------ #
+    # Payload management                                                   #
+    # ------------------------------------------------------------------ #
+    max_payloads_per_param: Optional[int] = None
+    """Cap on the total number of injection payloads sent to a single
+    parameter.  Canary probes are always included first; the remainder is
+    trimmed to stay within this budget.  ``None`` (default) means no cap."""
+
+    payload_seed: Optional[int] = None
+    """Integer seed for deterministic payload selection.  When set, the
+    remainder payload list is shuffled with ``random.Random(payload_seed)``
+    before capping, so repeated runs with the same seed produce identical
+    probe sequences – useful for reproducible CI pipelines."""
+
+    # ------------------------------------------------------------------ #
     # WAF / lockout detection (safety guardrail)                          #
     # ------------------------------------------------------------------ #
     waf_detection_enabled: bool = True
@@ -204,3 +218,5 @@ class ScanConfig:
             raise ValueError("similarity_threshold must be in [0, 1]")
         if self.waf_abort_threshold < 1:
             raise ValueError("waf_abort_threshold must be >= 1")
+        if self.max_payloads_per_param is not None and self.max_payloads_per_param < 1:
+            raise ValueError("max_payloads_per_param must be >= 1 when set")

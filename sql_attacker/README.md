@@ -1929,6 +1929,31 @@ cfg = ScanConfig(
 )
 ```
 
+#### Payload Management
+
+Cap the number of payloads sent per injection point and optionally seed the
+probe order for deterministic, reproducible runs:
+
+```python
+cfg = ScanConfig(
+    # Limit to at most 5 probes per parameter (canaries always included first)
+    max_payloads_per_param=5,
+
+    # Fix the random seed so repeated runs probe in the same order
+    # (useful for CI pipelines and regression comparison)
+    payload_seed=42,
+)
+```
+
+- **`max_payloads_per_param`** (`int | None`, default `None`): When set, the
+  scanner sends at most this many injection payloads to each parameter.  Canary
+  probes are always prioritised and included first; the remainder is trimmed to
+  fit within the budget.
+- **`payload_seed`** (`int | None`, default `None`): When set, the *remainder*
+  payload list is shuffled with `random.Random(payload_seed)` before capping,
+  guaranteeing the same probe sequence across runs when combined with a fixed
+  cap.  Leave as `None` for non-deterministic ordering.
+
 #### Authorization Gate
 
 ```python
