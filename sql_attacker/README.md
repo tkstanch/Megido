@@ -1812,3 +1812,217 @@ from sql_attacker.http_utils import (
     ALLOWED, BLOCKED, RATE_LIMITED, CHALLENGE, AUTH_REQUIRED, TRANSIENT_ERROR,
 )
 ```
+
+---
+
+## SQL Injection Assessment Module – Defensive Scanning Reference
+
+### Scan Modes
+
+Every scan operates under an explicit **operation mode** enforced by `ModePolicy`.
+The default is `detect` (safest – no confirmation loops, no data retrieval).
+
+| Mode | What it does |
+|------|-------------|
+| `detect` | Send probes, analyse responses for injection signals. No exploitation. |
+| `verify` | Repeat the best candidate probe + benign control to confirm reproducibility. No data exfiltration. |
+| `demonstrate` | Retrieve the DB version string (only) to prove exploitability. Output is truncated and redacted. Unrestricted exfiltration is **never** permitted. |
+
+```python
+from sql_attacker.engine import OperationMode, ModePolicy
+
+# Safest (default)
+policy = ModePolicy(OperationMode.DETECT)
+
+# Confirm findings reproducibly
+policy = ModePolicy(OperationMode.VERIFY)
+
+# Bounded proof of exploitability (version string only, redacted)
+policy = ModePolicy(OperationMode.DEMONSTRATE)
+```
+
+### Detection Techniques
+
+| Technique | Constant | Description |
+|-----------|----------|-------------|
+| Error-based | `TECHNIQUE_ERROR` | Trigger DB error messages via syntax-breaking payloads |
+| Boolean-based blind | `TECHNIQUE_BOOLEAN` | Stable response diffing using true/false probe pairs |
+| Time-based blind | `TECHNIQUE_TIME` | Latency modelling (SLEEP/WAITFOR) with jitter-tolerant confirmation |
+| UNION-based | `TECHNIQUE_UNION` | Column-count discovery and marker reflection |
+| Stacked queries | `TECHNIQUE_STACKED` | Safe side-effect-free stacked query detection |
+
+```python
+from sql_attacker.engine import (
+    TECHNIQUE_ERROR, TECHNIQUE_BOOLEAN, TECHNIQUE_TIME,
+    TECHNIQUE_UNION, TECHNIQUE_STACKED,
+    get_adapter, DBType,
+)
+
+adapter = get_adapter(DBType.MYSQL)
+union_payloads   = adapter.get_payloads(TECHNIQUE_UNION)
+stacked_payloads = adapter.get_payloads(TECHNIQUE_STACKED)
+```
+
+### Parameter Injection Locations
+
+The `DiscoveryScanner` can inject into all of these locations:
+
+| Location | `InjectionLocation` value | Enabled by default |
+|----------|--------------------------|-------------------|
+| URL query parameters | `query_param` | ✅ |
+| Form-encoded body | `form_param` | ✅ (POST only) |
+| JSON body | `json_param` | ✅ (POST only) |
+| HTTP headers | `header` | ❌ (opt-in: `inject_headers=True`) |
+| Cookies | `cookie_param` | ❌ (opt-in: `inject_cookies=True`) |
+
+Each `Finding` now includes a `parameter_location` field that records exactly where the injection point was discovered.
+
+```python
+from sql_attacker.engine import ScanConfig, DiscoveryScanner
+
+cfg = ScanConfig(
+    inject_query_params=True,
+    inject_cookies=True,         # opt-in: cookie injection
+    inject_headers=False,        # off by default
+)
+
+scanner = DiscoveryScanner(request_fn=my_request_fn, config=cfg)
+findings = scanner.scan(
+    url="https://example.com/search",
+    params={"q": "test"},
+    cookies={"session": "abc123"},
+)
+
+for f in findings:
+    print(f.parameter, f.parameter_location, f.technique, f.verdict)
+```
+
+### Safety Guardrails
+
+#### WAF / Lockout Detection
+
+The scanner automatically detects WAF blocking or rate-limiting signals and
+aborts further probing of the current injection point rather than hammering
+a protected endpoint:
+
+```python
+from sql_attacker.engine import ScanConfig
+
+cfg = ScanConfig(
+    waf_detection_enabled=True,   # Default: True
+    waf_abort_threshold=3,        # Abort after 3 consecutive 403/429 responses
+)
+```
+
+When `waf_detection_enabled=True` and the scanner receives `waf_abort_threshold`
+consecutive `HTTP 403` or `HTTP 429` responses for a single injection point, it
+logs a warning and skips remaining payloads for that point. Other injection
+points continue normally.
+
+#### Request Budgets
+
+```python
+cfg = ScanConfig(
+    per_host_request_budget=200,          # Max total requests per host
+    max_concurrent_requests=1,            # Sequential (safest)
+    time_based_max_requests_per_host=20,  # Time-based probe budget
+)
+```
+
+#### Authorization Gate
+
+```python
+from sql_attacker.guardrails import check_authorization, check_scope
+
+check_authorization(authorized=True)   # Raises AuthorizationError when False
+check_scope(url, allowed_domains=["example.com"])  # Raises ScopeViolationError when out of scope
+```
+
+### Confidence Scoring
+
+Findings carry a numeric confidence score (0–1) and a verdict:
+
+| Verdict | Condition |
+|---------|-----------|
+| `confirmed` | ≥ 2 active features AND score ≥ 0.70 |
+| `likely` | score ≥ 0.45 |
+| `uncertain` | score < 0.45 |
+
+Only findings at or above the `uncertain` threshold with supporting evidence are
+reported. Enable `VERIFY` mode to automatically confirm `likely`/`uncertain`
+findings before reporting them.
+
+### Evidence-Rich Reporting
+
+Every `Finding` contains:
+- `parameter` – name of the vulnerable parameter
+- `parameter_location` – where the parameter lives (`query_param`, `form_param`, `json_param`, `header`, `cookie_param`)
+- `technique` – detection technique used
+- `db_type` – detected DBMS
+- `confidence` – numeric score
+- `verdict` – `confirmed` / `likely` / `uncertain`
+- `evidence` – list of `Evidence` objects with exact payload, request summary, and response excerpt
+- `score_rationale` – human-readable explanation of scoring
+
+```python
+from sql_attacker.engine import ReportBuilder
+
+builder = ReportBuilder(target_url="https://example.com")
+for finding in findings:
+    builder.add_finding(finding)
+builder.finish()
+
+# JSON report
+print(builder.to_json())
+
+# SARIF 2.1.0 (compatible with GitHub Advanced Security)
+print(builder.to_sarif())
+```
+
+### Running the Scanner
+
+```python
+import requests
+from sql_attacker.engine import ScanConfig, DiscoveryScanner, OperationMode, ModePolicy
+
+def request_fn(url, method, params, data, json_data, headers, cookies):
+    return requests.request(
+        method, url,
+        params=params, data=data, json=json_data,
+        headers=headers, cookies=cookies,
+        timeout=10,
+    )
+
+cfg = ScanConfig(
+    inject_query_params=True,
+    inject_cookies=True,
+    waf_detection_enabled=True,
+    waf_abort_threshold=3,
+    per_host_request_budget=200,
+)
+
+scanner = DiscoveryScanner(
+    request_fn=request_fn,
+    config=cfg,
+    mode_policy=ModePolicy(OperationMode.VERIFY),
+)
+
+findings = scanner.scan(
+    url="https://example.com/search",
+    method="GET",
+    params={"q": "test", "page": "1"},
+    cookies={"session": "your-session-token"},
+)
+
+for f in findings:
+    print(f"[{f.verdict.upper()}] {f.parameter} ({f.parameter_location}) "
+          f"– {f.technique} – {f.db_type} – confidence={f.confidence:.0%}")
+```
+
+### Interpreting Output
+
+- **confirmed**: High-confidence injection. The probe consistently triggers a distinguishable signal (error, boolean diff, timing delta) and a benign control did NOT trigger the same signal.
+- **likely**: Moderate-confidence. The probe triggered a signal but the confidence did not reach the confirmation threshold.
+- **uncertain**: Low-confidence. Reported only when supporting evidence was collected (e.g. a partial error match).
+
+Review the `evidence` list in each finding for the exact payload, request, and response excerpt that substantiated the signal.

@@ -65,6 +65,9 @@ class ScanConfig:
         Whether to inject into selected HTTP headers.  This is **opt-in** and
         disabled by default because header injection is noisier and has higher
         false-positive risk.  Default: False.
+    inject_cookies:
+        Whether to inject into HTTP cookies.  This is **opt-in** and disabled
+        by default.  Default: False.
     injectable_headers:
         The specific header names to test when ``inject_headers`` is True.
         Default: ``["X-Forwarded-For", "User-Agent", "Referer", "X-Custom-IP-Authorization"]``.
@@ -128,6 +131,7 @@ class ScanConfig:
     inject_form_params: bool = True
     inject_json_params: bool = True
     inject_headers: bool = False  # explicit opt-in
+    inject_cookies: bool = False  # explicit opt-in
     injectable_headers: List[str] = field(
         default_factory=lambda: [
             "X-Forwarded-For",
@@ -169,6 +173,17 @@ class ScanConfig:
     similarity_threshold: float = 0.10
     error_detection_enabled: bool = True
 
+    # ------------------------------------------------------------------ #
+    # WAF / lockout detection (safety guardrail)                          #
+    # ------------------------------------------------------------------ #
+    waf_detection_enabled: bool = True
+    """Automatically abort scanning for an endpoint when WAF/lockout signals
+    are detected (spikes in HTTP 403/429 or captcha-like pages)."""
+
+    waf_abort_threshold: int = 3
+    """Number of consecutive 403/429 responses before the scanner aborts
+    further probing of the current injection point."""
+
     def validate(self) -> None:
         """Raise ``ValueError`` if any configuration value is out of range."""
         if self.baseline_samples < 1:
@@ -187,3 +202,5 @@ class ScanConfig:
             raise ValueError("length_delta_threshold must be >= 0")
         if not 0.0 <= self.similarity_threshold <= 1.0:
             raise ValueError("similarity_threshold must be in [0, 1]")
+        if self.waf_abort_threshold < 1:
+            raise ValueError("waf_abort_threshold must be >= 1")

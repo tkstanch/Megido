@@ -159,6 +159,9 @@ class Finding:
         multiple endpoints are tested).
     method:
         HTTP method used (``"GET"`` or ``"POST"``).
+    parameter_location:
+        Location where the parameter lives: ``"query_param"``, ``"form_param"``,
+        ``"json_param"``, ``"header"``, ``"cookie_param"``, or ``"unknown"``.
     cwe:
         CWE identifier (defaults to ``"CWE-89"``).
     severity:
@@ -177,6 +180,7 @@ class Finding:
     remediation: str = _DEFAULT_REMEDIATION
     url: Optional[str] = None
     method: str = "GET"
+    parameter_location: str = "unknown"
     cwe: str = _CWE_SQL_INJECTION
     severity: Optional[str] = None
     finding_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -196,6 +200,7 @@ class Finding:
             "parameter": self.parameter,
             "url": self.url,
             "method": self.method,
+            "parameter_location": self.parameter_location,
             "technique": self.technique,
             "db_type": self.db_type,
             "confidence": round(self.confidence, 4),
@@ -437,6 +442,7 @@ def _sarif_result(f: Finding) -> Dict[str, Any]:
         "properties": {
             "findingId": f.finding_id,
             "parameter": f.parameter,
+            "parameterLocation": f.parameter_location,
             "dbType": f.db_type,
             "technique": f.technique,
             "confidence": round(f.confidence, 4),
