@@ -103,6 +103,9 @@
                 <button class="tab-link" data-tab-target="union-poc-evidence">
                     🔬 Union PoC Evidence
                 </button>
+                <button class="tab-link" data-tab-target="oob-findings">
+                    📡 OOB Findings
+                </button>
             </nav>
         </div>
 
@@ -168,6 +171,8 @@
                                     <th>Target URL</th>
                                     <th>Method</th>
                                     <th>Status</th>
+                                    <th>Worker Job</th>
+                                    <th>OOB</th>
                                     <th>Vulnerabilities</th>
                                     <th>Created</th>
                                     <th>Actions</th>
@@ -198,8 +203,24 @@
                                         </span>
                                         {% else %}
                                         <span class="badge badge-warning">
-                                            ⏳ Pending
+                                            ⏳ {{ task.get_status_display }}
                                         </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                        {% if task.celery_task_id %}
+                                        <span title="{{ task.celery_task_id }}">{{ task.celery_task_id|truncatechars:16 }}</span>
+                                        {% else %}
+                                        <span class="text-gray-400">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.enable_oob %}
+                                        <span class="badge badge-info" title="OOB enabled{% if task.oob_attacker_host %}: {{ task.oob_attacker_host }}{% endif %}">
+                                            📡 On
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">Off</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -845,6 +866,95 @@
                         <div class="text-6xl mb-4">🔬</div>
                         <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Union-Based Findings Yet</h4>
                         <p class="text-gray-600 dark:text-gray-400 mb-4">Run attack tasks with exploitation enabled to capture union-based SQL injection proof-of-concept evidence</p>
+                        <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary">
+                            ➕ Create Attack Task
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- OOB Findings Tab -->
+            <div class="tab-content hidden" id="oob-findings">
+                <div class="space-y-6">
+                    <!-- Disclaimer -->
+                    <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg flex items-start gap-3">
+                        <span class="text-2xl">📡</span>
+                        <div>
+                            <h5 class="font-semibold text-yellow-900 dark:text-yellow-200">Out-of-Band (OOB) SQL Injection – Generated Payloads</h5>
+                            <p class="text-sm text-yellow-800 dark:text-yellow-300 mt-1">
+                                The payloads below were <strong>generated but not automatically sent</strong>. To use them, configure an
+                                attacker-controlled listener (HTTP/DNS/SMB) and inject the payload into the vulnerable parameter.
+                                Only use against targets for which you have <strong>explicit written authorisation</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if oob_results %}
+                    <div class="space-y-6">
+                        {% for result in oob_results %}
+                        <div class="card border-l-4 border-yellow-500">
+                            <div class="card-body">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div>
+                                        <div class="flex items-center gap-3 mb-1">
+                                            <h4 class="text-lg font-semibold text-gray-900 dark:text-white">📡 OOB Payloads – {{ result.get_injection_type_display }}</h4>
+                                            <span class="badge badge-warning">{{ result.database_type|upper|default:"Unknown DB" }}</span>
+                                        </div>
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                                            <strong>Parameter:</strong>
+                                            <code class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">{{ result.vulnerable_parameter }}</code>
+                                            <strong class="ml-4">Task:</strong>
+                                            <a href="{% url 'sql_attacker:task_detail' result.task.id %}"
+                                               class="text-primary-600 dark:text-primary-400 hover:underline">#{{ result.task.id }}</a>
+                                            {% if result.task.oob_attacker_host %}
+                                            <strong class="ml-4">Attacker Host:</strong>
+                                            <code class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">{{ result.task.oob_attacker_host }}</code>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="text-right text-sm text-gray-500 dark:text-gray-400">
+                                        {{ result.detected_at|date:"Y-m-d H:i:s" }}
+                                    </div>
+                                </div>
+
+                                <!-- OOB Payloads List -->
+                                {% if result.oob_findings %}
+                                <div class="space-y-2 mt-3">
+                                    {% for oob in result.oob_findings %}
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="badge badge-info text-xs">{{ oob.technique }}</span>
+                                            <span class="badge badge-secondary text-xs">{{ oob.listener_type }}</span>
+                                            {% if oob.requires_privileges %}
+                                            <span class="badge badge-warning text-xs" title="{{ oob.privilege_level }}">Requires Privileges</span>
+                                            {% endif %}
+                                        </div>
+                                        <code class="block text-xs text-gray-800 dark:text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap break-all">{{ oob.payload }}</code>
+                                        {% if oob.description %}
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ oob.description }}</p>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <div class="flex gap-2 mt-4">
+                                    <a href="{% url 'sql_attacker:result_detail' result.id %}" class="btn btn-sm btn-primary">
+                                        👁️ View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">📡</div>
+                        <h4 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No OOB Findings Yet</h4>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Run attack tasks with OOB enabled and vulnerabilities detected to see generated OOB payloads here.
+                        </p>
                         <a href="{% url 'sql_attacker:task_create' %}" class="btn btn-primary">
                             ➕ Create Attack Task
                         </a>

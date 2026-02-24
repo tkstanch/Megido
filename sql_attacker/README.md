@@ -1,6 +1,110 @@
 # SQL Injection Attacker App
 
-## Engine Architecture (engine/ package)
+## Celery Setup (Background Task Execution)
+
+SQL injection tasks run as Celery background jobs so the web server stays
+responsive.  A Redis broker is used by default.
+
+### Required services
+
+| Service | Purpose | Default URL |
+|---|---|---|
+| Redis | Message broker + result backend | `redis://localhost:6379/0` |
+| Celery worker | Executes SQL injection tasks | – |
+
+### Starting the worker locally
+
+```bash
+# Start Redis (Docker)
+docker run -d -p 6379:6379 redis:7-alpine
+
+# Start the Celery worker (from the project root)
+celery -A megido_security worker --loglevel=info
+
+# Optional: Celery Beat scheduler (if periodic tasks are added)
+celery -A megido_security beat --loglevel=info
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Broker URL |
+| `CELERY_RESULT_BACKEND` | `redis://localhost:6379/0` | Result backend URL |
+| `CELERY_TASK_ALWAYS_EAGER` | `False` | Set `True` in tests to run tasks inline |
+
+Example `.env` snippet:
+```dotenv
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+```
+
+### How tasks flow
+
+1. User creates / submits an attack task from the UI or API.
+2. The view calls `sql_injection_task.delay(task.id)` – no threads are spawned.
+3. The Celery worker picks up the job, stores the `celery_task_id` on the
+   `SQLInjectionTask` record, and sets status → `running`.
+4. On completion the status is updated to `completed` or `failed` and results
+   are persisted in `SQLInjectionResult`.
+5. The dashboard displays the Celery job ID under the **Worker Job** column so
+   you can correlate with worker logs.
+
+---
+
+## Out-of-Band (OOB) SQL Injection
+
+OOB techniques are **enabled by default** for every attack task.  When a
+vulnerability is detected, the engine generates OOB payloads for the detected
+database type and stores them alongside the result.
+
+### How it works
+
+1. After a vulnerability is confirmed the engine calls `OOBPayloadGenerator`
+   with the detected database type.
+2. Generated payloads (truncated to 200 chars each) are stored in
+   `SQLInjectionResult.oob_findings` as a JSON array.
+3. The **📡 OOB Findings** tab on the dashboard lists all results that have
+   generated OOB payloads.
+
+> **Important – Authorised use only.**  OOB payloads trigger outbound
+> connections from the *target server* to the attacker-controlled listener.
+> Only test against targets for which you have explicit written authorisation.
+
+### Task configuration options
+
+| Field | Default | Description |
+|---|---|---|
+| `enable_oob` | `True` | Enable/disable OOB payload generation |
+| `oob_attacker_host` | `''` | Hostname/IP of your listener (e.g. Burp Collaborator) |
+| `oob_max_payloads` | `5` | Maximum OOB payloads generated per task (rate-limiting cap) |
+| `oob_max_retries` | `2` | Maximum retry attempts per OOB payload |
+| `oob_exfil_expression` | `''` | SQL expression to exfiltrate; blank = safe per-DB default (`user` / `@@version`) |
+
+### Disabling OOB
+
+Set `enable_oob = False` when creating a task via the form or API:
+
+```python
+# API
+POST /sql-attacker/api/tasks/
+{"target_url": "...", "enable_oob": false}
+```
+
+Or uncheck **Enable OOB** on the task creation form.
+
+### Safety limits
+
+* Payload count is capped at `oob_max_payloads` (default 5) across all findings
+  in a single task run.
+* Payloads are stored truncated (≤ 200 chars) to avoid excessive data in the DB.
+* Default exfiltration expressions are minimal proof-of-concept only
+  (`user` for Oracle, `@@version` for MySQL/MSSQL).
+* Redaction rules from `SQLMapConfig` / `OrchestrateReport` still apply when
+  forwarding to `response_analyser`.
+
+---
+
 
 The `sql_attacker/engine/` package contains focused sub-modules extracted from
 `sqli_engine.py` to improve maintainability, testability, and accuracy.

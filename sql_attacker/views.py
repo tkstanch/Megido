@@ -27,6 +27,10 @@ from .client_side.orchestrator import ScanResults
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Maximum length for OOB payload strings stored in the database.
+# Keeps stored evidence concise and prevents overly large DB entries.
+_OOB_PAYLOAD_MAX_STORE_LENGTH = 200
+
 
 def _get_default_data_to_exfiltrate(db_type):
     """
@@ -50,6 +54,27 @@ def _get_default_data_to_exfiltrate(db_type):
         return 'user'
     
     return DEFAULT_EXFIL_EXPRESSIONS.get(db_type, 'user')
+
+
+def _db_type_to_oob_db_type(db_type_str: str):
+    """
+    Map a free-form database type string (as stored in SQLInjectionResult.database_type)
+    to an OOBDatabaseType enum value, or None if unrecognised.
+
+    Args:
+        db_type_str: String such as 'mysql', 'mssql', 'oracle', 'unknown', etc.
+
+    Returns:
+        OOBDatabaseType enum member, or None.
+    """
+    mapping = {
+        'mysql': OOBDatabaseType.MYSQL,
+        'mariadb': OOBDatabaseType.MYSQL,
+        'mssql': OOBDatabaseType.MSSQL,
+        'sqlserver': OOBDatabaseType.MSSQL,
+        'oracle': OOBDatabaseType.ORACLE,
+    }
+    return mapping.get((db_type_str or '').lower().strip())
 
 
 def dashboard(request):
@@ -84,6 +109,14 @@ def dashboard(request):
         .order_by('-detected_at')[:20]
     )
 
+    # Results with OOB findings generated
+    oob_results = (
+        SQLInjectionResult.objects
+        .select_related('task')
+        .exclude(oob_findings__isnull=True)
+        .order_by('-detected_at')[:20]
+    )
+
     # Injection type statistics
     injection_stats = SQLInjectionResult.objects.values('injection_type').annotate(
         count=Count('id')
@@ -100,6 +133,7 @@ def dashboard(request):
         'exploitable_vulns': exploitable_vulns,
         'recent_results': recent_results,
         'union_poc_results': union_poc_results,
+        'oob_results': oob_results,
         'injection_stats': injection_stats,
         'status_choices': SQLInjectionTask.STATUS_CHOICES,
     }
@@ -155,6 +189,12 @@ def task_create(request):
             enable_jitter=request.POST.get('enable_jitter', 'on') == 'on',
             max_requests_per_minute=int(request.POST.get('max_requests_per_minute', 20)),
             max_retries=int(request.POST.get('max_retries', 3)),
+            # OOB configuration (enabled by default)
+            enable_oob=request.POST.get('enable_oob', 'on') == 'on',
+            oob_attacker_host=request.POST.get('oob_attacker_host', '').strip(),
+            oob_max_payloads=int(request.POST.get('oob_max_payloads', 5)),
+            oob_max_retries=int(request.POST.get('oob_max_retries', 2)),
+            oob_exfil_expression=request.POST.get('oob_exfil_expression', '').strip(),
         )
         
         # Execute task in background if requested
@@ -322,6 +362,7 @@ def execute_task(task_id):
 
         # Store results
         vulnerabilities_count = 0
+        oob_payloads_generated = 0  # rate-limit counter across all findings
         for finding in findings:
             exploitation = finding.pop('exploitation', {})
             impact_analysis = finding.pop('impact_analysis', {})
@@ -382,6 +423,45 @@ def execute_task(task_id):
 
             result = SQLInjectionResult.objects.create(**create_kwargs)
             vulnerabilities_count += 1
+
+            # Generate OOB payloads for this finding if OOB is enabled.
+            # Payloads are stored as evidence; they are NOT automatically
+            # injected – a listener must be set up by the tester first.
+            if task.enable_oob and oob_payloads_generated < task.oob_max_payloads:
+                try:
+                    oob_db_type = _db_type_to_oob_db_type(finding.get('database_type', ''))
+                    exfil_expr = (
+                        task.oob_exfil_expression.strip()
+                        or _get_default_data_to_exfiltrate(oob_db_type)
+                    )
+                    oob_host = task.oob_attacker_host.strip() or 'ATTACKER_HOST_PLACEHOLDER'
+                    oob_gen = OOBPayloadGenerator(attacker_host=oob_host, attacker_port=80)
+                    raw_payloads = oob_gen.generate_all_payloads(oob_db_type, exfil_expr)
+                    slots_remaining = task.oob_max_payloads - oob_payloads_generated
+                    oob_findings_list = []
+                    for _db, pl_list in raw_payloads.items():
+                        for pl in pl_list[:slots_remaining]:
+                            oob_findings_list.append({
+                                'technique': pl.technique.value,
+                                # Truncate payload to avoid storing excessive data
+                                'payload': pl.payload[:_OOB_PAYLOAD_MAX_STORE_LENGTH],
+                                'listener_type': pl.listener_type,
+                                'requires_privileges': pl.requires_privileges,
+                                'privilege_level': pl.privilege_level,
+                                'description': pl.description[:_OOB_PAYLOAD_MAX_STORE_LENGTH],
+                            })
+                            oob_payloads_generated += 1
+                            if oob_payloads_generated >= task.oob_max_payloads:
+                                break
+                        if oob_payloads_generated >= task.oob_max_payloads:
+                            break
+                    if oob_findings_list:
+                        result.oob_findings = oob_findings_list
+                        result.save(update_fields=['oob_findings'])
+                except Exception as oob_exc:
+                    logger.warning(
+                        "OOB payload generation failed for result %s: %s", result.id, oob_exc
+                    )
 
             # Generate union-based PoC HTML evidence if applicable
             if (
