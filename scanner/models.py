@@ -61,6 +61,7 @@ class Vulnerability(models.Model):
         ('open_redirect', 'Open Redirect'),
         ('ssrf', 'Server-Side Request Forgery'),
         ('info_disclosure', 'Information Disclosure'),
+        ('clickjacking', 'UI Redress (Clickjacking)'),
         ('other', 'Other'),
     ]
     
