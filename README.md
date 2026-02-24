@@ -8,6 +8,31 @@ The `sql_attacker/engine/` package provides a focused, modular engine for
 accurate SQL injection testing.  It is designed to reduce false positives,
 operate safely by default, and produce machine-readable reports.
 
+### Verification Profiles
+
+The simplest way to control scan invasiveness is via a **verification profile**
+(the recommended user-facing API):
+
+| Profile | Maps to mode | Payloads sent | Verification loop | Demonstration |
+|---------|-------------|--------------|-------------------|---------------|
+| `detect_only` | `detect` | ✅ | ❌ | ❌ |
+| `verify_safe` | `verify` | ✅ | ✅ | ❌ |
+
+```python
+from sql_attacker.engine import VerificationProfile, ModePolicy
+
+# Safest default — detection only, no confirmation loops
+profile = VerificationProfile.DETECT_ONLY
+policy = ModePolicy(profile.to_operation_mode())
+
+# Confirm findings with repeated benign-control probes
+profile = VerificationProfile.VERIFY_SAFE
+policy = ModePolicy(profile.to_operation_mode())
+
+# Parse from config / CLI
+profile = VerificationProfile.from_string("verify_safe")
+```
+
 ### Operation Modes
 
 Every test run operates under an explicit **mode** that controls what the
@@ -40,6 +65,158 @@ policy = ModePolicy(OperationMode.DEMONSTRATE)
 policy.assert_may_detect()       # always passes
 policy.assert_may_verify()       # raises ModeViolationError in DETECT mode
 policy.assert_may_exfiltrate()   # ALWAYS raises ModeViolationError
+```
+
+### Safety Budgets
+
+`ScanConfig` enforces strict safety budgets to prevent unintentional
+denial-of-service or account lockout:
+
+```python
+from sql_attacker.engine import ScanConfig
+
+cfg = ScanConfig(
+    # Per-host cap: abort after 200 requests to any single host
+    per_host_request_budget=200,
+
+    # Global session cap: abort the entire scan after 1000 total requests
+    global_request_cap=1000,
+
+    # Kill-switch: abort after 10 consecutive 5xx/429/WAF-challenge responses
+    error_spike_abort_threshold=10,
+
+    # Concurrency cap (default: 1 = sequential/safest)
+    max_concurrent_requests=2,
+
+    # WAF lockout detection: abort an endpoint after 3 consecutive 403/429s
+    waf_abort_threshold=3,
+)
+cfg.validate()  # raises ValueError if any value is out of range
+```
+
+### Injection Vector Coverage
+
+All injection locations are **opt-in** except query params and body params:
+
+```python
+cfg = ScanConfig(
+    inject_query_params=True,   # default: on
+    inject_form_params=True,    # default: on
+    inject_json_params=True,    # default: on
+    inject_headers=False,       # opt-in (noisier, higher FP risk)
+    inject_cookies=False,       # opt-in
+    inject_path_segments=False, # opt-in (may cause 404s)
+    inject_graphql_vars=False,  # opt-in (requires inject_json_params=True)
+)
+```
+
+### Deterministic / Reproducible Payload Selection
+
+Build on PR #172's `payload_seed` and `max_payloads_per_param` to produce
+identical probe sequences across runs:
+
+```python
+cfg = ScanConfig(
+    max_payloads_per_param=20,
+    payload_seed=42,
+)
+```
+
+### EvidencePack – Client-ready PoC Evidence
+
+Every confirmed finding can be captured as a self-contained
+:class:`~sql_attacker.engine.evidence_pack.EvidencePack`:
+
+```python
+from sql_attacker.engine import EvidencePack, RequestSpec, TimingStats
+
+pack = EvidencePack(
+    finding_id="abc-123",
+    url="https://example.com/search",
+    request=RequestSpec(
+        method="GET",
+        url="https://example.com/search",
+        params={"q": "' OR 1=1--"},
+        headers={"Authorization": "Bearer <token>"},  # redacted on save
+    ),
+    baseline_signature="aabbcc112233",     # SHA-256 fingerprint of baseline body
+    mutated_signature="ddeeff445566",      # SHA-256 fingerprint of injected body
+    diff_summary={
+        "changed": True,
+        "ratio": 0.42,
+        "length_delta": 312,
+        "summary": "Substantial difference detected.",
+    },
+    timing_stats=TimingStats(samples_ms=[120.0, 118.5, 122.0]),  # median/mean/stddev
+    payload_ids=["sqli-bool-mysql-001"],
+    deterministic_seed=42,
+    parameter="q",
+    parameter_location="query_param",
+    technique="boolean",
+    db_type="mysql",
+)
+
+# Persist to disk as JSON (parent dirs created automatically)
+pack.save("/var/megido/evidence/finding_abc-123.json")
+
+# Load back
+loaded = EvidencePack.load("/var/megido/evidence/finding_abc-123.json")
+
+# Auto-generated reproduction scripts (secrets redacted)
+print(pack.to_curl())
+print(pack.to_python_repro())
+```
+
+**EvidencePack JSON schema (v1.0):**
+```json
+{
+  "schema_version": "1.0",
+  "finding_id": "<uuid>",
+  "url": "https://...",
+  "parameter": "q",
+  "technique": "boolean",
+  "db_type": "mysql",
+  "captured_at": "2026-01-01T00:00:00Z",
+  "request": { "method": "GET", "url": "...", "params": {...}, "headers": {...} },
+  "baseline_signature": "aabbcc112233",
+  "mutated_signature":  "ddeeff445566",
+  "diff_summary": { "changed": true, "ratio": 0.42, "length_delta": 312 },
+  "timing_stats": { "samples_ms": [...], "median_ms": 120.0, "mean_ms": 120.2, "stddev_ms": 1.8 },
+  "payload_ids": ["sqli-bool-mysql-001"],
+  "deterministic_seed": 42,
+  "repro": {
+    "curl": "curl -s ... 'https://example.com/search?q=...'",
+    "python": "#!/usr/bin/env python3\n..."
+  }
+}
+```
+
+### Evidence Storage
+
+Use `LocalFileStorage` to persist packs to disk:
+
+```python
+from sql_attacker.engine import LocalFileStorage
+
+store = LocalFileStorage("/var/megido/evidence")
+store.save(pack)                     # writes finding_<id>.json
+store.load("abc-123")               # returns EvidencePack
+store.list_all()                    # → [EvidencePack, ...] sorted by captured_at
+store.delete("abc-123")             # removes the file
+```
+
+Custom back-ends (e.g. a hosted service) can be added by subclassing
+`EvidenceStorage`:
+
+```python
+from sql_attacker.engine import EvidenceStorage, EvidencePack
+from typing import List
+
+class MyRemoteStorage(EvidenceStorage):
+    def save(self, pack: EvidencePack) -> str: ...
+    def load(self, finding_id: str) -> EvidencePack: ...
+    def list_all(self) -> List[EvidencePack]: ...
+    def delete(self, finding_id: str) -> bool: ...
 ```
 
 ### Confidence Levels

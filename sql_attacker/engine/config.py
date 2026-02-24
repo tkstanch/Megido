@@ -198,6 +198,34 @@ class ScanConfig:
     """Number of consecutive 403/429 responses before the scanner aborts
     further probing of the current injection point."""
 
+    # ------------------------------------------------------------------ #
+    # Global safety budget                                                 #
+    # ------------------------------------------------------------------ #
+    global_request_cap: Optional[int] = None
+    """Maximum total HTTP requests for the entire scan session across all
+    hosts and endpoints.  ``None`` (default) means no global cap; only the
+    per-host budget applies.  Set to a positive integer to enforce a hard
+    session-wide limit."""
+
+    error_spike_abort_threshold: int = 10
+    """Number of 5xx / 429 / WAF-challenge responses within a single scan
+    session that triggers an automatic kill-switch, aborting all further
+    probing.  This guards against unintentional DoS or lockout.  Set to 0
+    to disable the kill-switch."""
+
+    # ------------------------------------------------------------------ #
+    # Extended injection locations                                         #
+    # ------------------------------------------------------------------ #
+    inject_path_segments: bool = False
+    """Whether to inject into URL path segments (e.g. ``/api/item/<id>``).
+    Disabled by default because path injection is noisier and more likely
+    to cause 404s."""
+
+    inject_graphql_vars: bool = False
+    """Whether to inject into GraphQL variable values in JSON-encoded
+    ``variables`` objects.  Requires ``inject_json_params`` to be True.
+    Disabled by default."""
+
     def validate(self) -> None:
         """Raise ``ValueError`` if any configuration value is out of range."""
         if self.baseline_samples < 1:
@@ -220,3 +248,7 @@ class ScanConfig:
             raise ValueError("waf_abort_threshold must be >= 1")
         if self.max_payloads_per_param is not None and self.max_payloads_per_param < 1:
             raise ValueError("max_payloads_per_param must be >= 1 when set")
+        if self.global_request_cap is not None and self.global_request_cap < 1:
+            raise ValueError("global_request_cap must be >= 1 when set")
+        if self.error_spike_abort_threshold < 0:
+            raise ValueError("error_spike_abort_threshold must be >= 0")
