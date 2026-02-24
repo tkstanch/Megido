@@ -76,6 +76,44 @@ class SQLInjectionTask(models.Model):
     selected_params = models.JSONField(blank=True, null=True,
                                       help_text="Manually selected parameters to test")
     
+    # OOB (Out-of-Band) configuration – enabled by default; requires an
+    # attacker-controlled listener to receive DNS/HTTP callbacks.
+    enable_oob = models.BooleanField(
+        default=True,
+        help_text="Enable OOB payload generation (requires oob_attacker_host to attempt callbacks)",
+    )
+    oob_attacker_host = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Attacker-controlled hostname/IP for OOB callbacks (e.g. burpcollaborator.net subdomain)",
+    )
+    oob_max_payloads = models.IntegerField(
+        default=5,
+        help_text="Maximum number of OOB payloads to attempt per task (rate-limiting cap)",
+    )
+    oob_max_retries = models.IntegerField(
+        default=2,
+        help_text="Maximum retry attempts per OOB payload",
+    )
+    oob_exfil_expression = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text=(
+            "SQL expression to exfiltrate via OOB (e.g. @@version, user). "
+            "Leave blank to use the safe per-DB default (user/version)."
+        ),
+    )
+
+    # Celery integration
+    celery_task_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Celery task ID for the background worker job",
+    )
+
     # Status and tracking
     status = models.CharField(max_length=21, choices=STATUS_CHOICES, default='pending', 
                              db_index=True)
@@ -280,6 +318,16 @@ class SQLInjectionResult(models.Model):
         blank=True,
         default='',
         help_text="Safe, step-by-step instructions to reproduce the finding",
+    )
+
+    # OOB findings – payloads generated for this result, stored for dashboard display
+    oob_findings = models.JSONField(
+        blank=True,
+        null=True,
+        help_text=(
+            "OOB payloads generated for this finding. Each entry contains technique, "
+            "payload (redacted to first 200 chars), listener_type, and requires_privileges."
+        ),
     )
 
     # Union-based SQL injection PoC HTML evidence

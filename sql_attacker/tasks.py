@@ -28,6 +28,16 @@ def sql_injection_task(self, task_id: int) -> Dict[str, Any]:
     logger.info(f"Starting sql_injection_task for task {task_id} (celery_task_id: {celery_task_id})")
 
     try:
+        # Persist the Celery task ID on the SQLInjectionTask record so the
+        # dashboard can display which worker job is handling the task.
+        from .models import SQLInjectionTask
+        try:
+            task_obj = SQLInjectionTask.objects.get(id=task_id)
+            task_obj.celery_task_id = celery_task_id
+            task_obj.save(update_fields=['celery_task_id'])
+        except SQLInjectionTask.DoesNotExist:
+            logger.warning(f"SQLInjectionTask {task_id} not found when storing celery_task_id")
+
         from .views import execute_task
         execute_task(task_id)
         logger.info(f"sql_injection_task for task {task_id} completed successfully.")
@@ -55,6 +65,15 @@ def sql_injection_task_with_selection(self, task_id: int) -> Dict[str, Any]:
     logger.info(f"Starting sql_injection_task_with_selection for task {task_id} (celery_task_id: {celery_task_id})")
 
     try:
+        # Persist the Celery task ID on the SQLInjectionTask record.
+        from .models import SQLInjectionTask
+        try:
+            task_obj = SQLInjectionTask.objects.get(id=task_id)
+            task_obj.celery_task_id = celery_task_id
+            task_obj.save(update_fields=['celery_task_id'])
+        except SQLInjectionTask.DoesNotExist:
+            logger.warning(f"SQLInjectionTask {task_id} not found when storing celery_task_id")
+
         from .views import execute_task_with_selection
         execute_task_with_selection(task_id)
         logger.info(f"sql_injection_task_with_selection for task {task_id} completed successfully.")
