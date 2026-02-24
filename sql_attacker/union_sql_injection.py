@@ -468,6 +468,87 @@ class UnionSQLInjectionAttacker:
         logger.info(f"Extracted {len(data)} rows from {table}")
         return data
     
+    @staticmethod
+    def generate_html_evidence_table(
+        extracted_data: List[Dict[str, str]],
+        table_name: str = "Unknown",
+        columns: Optional[List[str]] = None,
+        db_info: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Generate an HTML evidence table from extracted data.
+
+        Creates a formatted HTML snippet suitable for embedding in the dashboard
+        as proof-of-concept evidence for a successful union-based SQL injection.
+
+        This method only presents data retrieved via non-destructive SELECT/UNION
+        payloads.  No data is modified, deleted, or disrupted.
+
+        Args:
+            extracted_data: Rows returned by :meth:`extract_data`.
+            table_name: Name of the table from which data was extracted.
+            columns: Column names to display (defaults to keys from first row).
+            db_info: Optional dict with database metadata (version, user, etc.).
+
+        Returns:
+            HTML string with a PoC evidence card that includes a disclaimer
+            banner, optional database metadata, and a formatted data table.
+        """
+        if not extracted_data:
+            return (
+                "<p class='poc-empty'>No data extracted – UNION payload succeeded "
+                "but result set was empty.</p>"
+            )
+
+        if not columns:
+            columns = list(extracted_data[0].keys())
+
+        rows_html = ""
+        for row in extracted_data:
+            cells = "".join(
+                f"<td class='poc-td'>{str(row.get(col, ''))}</td>"
+                for col in columns
+            )
+            rows_html += f"<tr class='poc-tr'>{cells}</tr>\n"
+
+        headers_html = "".join(
+            f"<th class='poc-th'>{col}</th>" for col in columns
+        )
+
+        db_meta_html = ""
+        if db_info:
+            meta_items = "".join(
+                f"<li><strong>{k}:</strong> {v}</li>"
+                for k, v in db_info.items()
+                if v
+            )
+            if meta_items:
+                db_meta_html = (
+                    f"<ul class='poc-meta-list'>{meta_items}</ul>"
+                )
+
+        html = (
+            f'<div class="poc-evidence-card" data-table="{table_name}">'
+            f'<div class="poc-disclaimer">'
+            f'&#x26A0;&#xFE0F; <strong>Proof-of-Concept Only</strong> – '
+            f'Non-destructive UNION SELECT attack. '
+            f'No data was modified, deleted, or disrupted. '
+            f'This evidence is for demonstration purposes only.'
+            f'</div>'
+            f'{db_meta_html}'
+            f'<div class="poc-table-label">'
+            f'Extracted from table: <code>{table_name}</code>'
+            f'</div>'
+            f'<div class="poc-table-wrapper">'
+            f'<table class="poc-table">'
+            f'<thead><tr>{headers_html}</tr></thead>'
+            f'<tbody>{rows_html}</tbody>'
+            f'</table>'
+            f'</div>'
+            f'</div>'
+        )
+        return html
+
     def search_sensitive_columns(self, patterns: List[str] = None) -> Dict[str, List[Dict]]:
         """
         Search for potentially sensitive columns across all tables.
