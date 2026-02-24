@@ -359,6 +359,98 @@ class CircuitOpenError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Per-endpoint WAF/block window tracker
+# ---------------------------------------------------------------------------
+
+
+class WafBlockWindow:
+    """Track WAF/block responses within a rolling request window per injection point.
+
+    Unlike :class:`CircuitBreaker` (which tracks consecutive adverse outcomes
+    at the host level), ``WafBlockWindow`` operates per injection point and
+    uses a fixed-size window of the last ``window_size`` requests to decide
+    when to abort testing for that point.
+
+    This implements the consulting-safe abort behaviour: when the server
+    appears to be blocking or rate-limiting probes for a specific parameter,
+    further testing is stopped with a clear human-readable reason—rather than
+    attempting to escalate or bypass the protection.
+
+    Args:
+        window_size: Number of recent requests to keep in the window.
+                     Default: 10.
+        block_threshold: Number of adverse outcomes within the window that
+                         triggers an abort.  Default: 3.
+        count_outcomes: Set of outcome strings that count as adverse.
+                        Defaults to ``{BLOCKED, CHALLENGE, RATE_LIMITED}``.
+
+    Example::
+
+        tracker = WafBlockWindow(window_size=10, block_threshold=3)
+        for payload in payloads:
+            response = send_request(payload)
+            tracker.record(classify_response(response).outcome)
+            if tracker.should_abort():
+                logger.warning("Aborting: %s", tracker.abort_reason)
+                break
+    """
+
+    def __init__(
+        self,
+        window_size: int = 10,
+        block_threshold: int = 3,
+        count_outcomes: Optional[set] = None,
+    ) -> None:
+        self.window_size = max(1, window_size)
+        self.block_threshold = max(1, block_threshold)
+        self.count_outcomes = (
+            count_outcomes if count_outcomes is not None
+            else {BLOCKED, CHALLENGE, RATE_LIMITED}
+        )
+        self._history: List[str] = []
+        self._abort_reason: Optional[str] = None
+
+    def record(self, outcome: str) -> None:
+        """Record one request outcome.
+
+        Args:
+            outcome: One of the outcome constants (e.g. ``BLOCKED``, ``ALLOWED``).
+        """
+        self._history.append(outcome)
+        # Keep only the last window_size outcomes
+        if len(self._history) > self.window_size:
+            self._history = self._history[-self.window_size:]
+
+    def should_abort(self) -> bool:
+        """Return True when the block threshold has been exceeded in the current window.
+
+        Sets :attr:`abort_reason` with a human-readable explanation when
+        returning True.
+        """
+        window = self._history[-self.window_size:]
+        block_count = sum(1 for o in window if o in self.count_outcomes)
+        if block_count >= self.block_threshold:
+            self._abort_reason = (
+                f"Aborting: {block_count} block/rate-limit responses "
+                f"in the last {len(window)} request(s) "
+                f"(threshold={self.block_threshold}/{self.window_size}). "
+                "The target appears to be blocking probes for this injection point."
+            )
+            return True
+        return False
+
+    @property
+    def abort_reason(self) -> Optional[str]:
+        """Human-readable reason for the abort decision, or None if not aborted."""
+        return self._abort_reason
+
+    def reset(self) -> None:
+        """Reset the window (call when moving to a new injection point)."""
+        self._history.clear()
+        self._abort_reason = None
+
+
+# ---------------------------------------------------------------------------
 # Adaptive Backoff
 # ---------------------------------------------------------------------------
 

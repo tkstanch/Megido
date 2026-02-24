@@ -69,6 +69,64 @@ _DEFAULT_REMEDIATION = (
     "See OWASP SQL Injection Prevention Cheat Sheet for detailed guidance."
 )
 
+# Default maximum length for stored response body excerpts.
+_DEFAULT_BODY_EXCERPT_MAX_LENGTH: int = 512
+
+# Suffix appended to truncated body excerpts.  Fixed length so that the total
+# output length never exceeds max_length.
+_TRUNCATION_SUFFIX: str = "...[truncated]"
+
+# ---------------------------------------------------------------------------
+# Redaction helpers
+# ---------------------------------------------------------------------------
+
+# Compiled patterns for sensitive material that must be redacted from
+# stored/logged request and response artifacts.
+_REDACT_COMPILED = [
+    # JWT tokens: three base64url segments separated by dots
+    (re.compile(r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'), '<JWT_REDACTED>'),
+    # Authorization header values
+    (re.compile(r'(?i)(Authorization\s*[:=]\s*)[^\r\n]+'), r'\1<REDACTED>'),
+    # Cookie header line values
+    (re.compile(r'(?i)(Cookie\s*[:=]\s*)[^\r\n]+'), r'\1<REDACTED>'),
+    # Bearer tokens
+    (re.compile(r'(?i)(Bearer\s+)[A-Za-z0-9+/._-]{16,}'), r'\1<REDACTED>'),
+    # API keys in common key=value patterns
+    (re.compile(r'(?i)((?:api[_-]?key|apikey|api_token|access_token)\s*[=:]\s*)[^\s"&<>]+'), r'\1<REDACTED>'),
+]
+
+
+def redact_response_body(text: str, max_length: int = _DEFAULT_BODY_EXCERPT_MAX_LENGTH) -> str:
+    """Redact sensitive patterns and truncate a response body for safe storage.
+
+    Applies redaction of JWT tokens, Authorization values, Cookie header
+    values, bearer tokens, and common API key patterns before truncating to
+    *max_length* characters.  The total output length (including the
+    ``"...[truncated]"`` suffix when applied) never exceeds *max_length*.
+
+    This function is safe to call on any string; it never raises.
+
+    Args:
+        text:       Raw response body or excerpt text.
+        max_length: Maximum number of characters to return.  Set to 0 for no
+                    truncation (useful when storing full bodies explicitly).
+                    Default: 512.
+
+    Returns:
+        Redacted and optionally truncated string.
+    """
+    if not text:
+        return text
+    for pattern, replacement in _REDACT_COMPILED:
+        try:
+            text = pattern.sub(replacement, text)
+        except Exception:  # noqa: BLE001 – never let redaction crash a scan
+            pass
+    if max_length > 0 and len(text) > max_length:
+        cut = max(0, max_length - len(_TRUNCATION_SUFFIX))
+        text = text[:cut] + _TRUNCATION_SUFFIX
+    return text
+
 
 # ---------------------------------------------------------------------------
 # Evidence
@@ -90,10 +148,12 @@ class Evidence:
     response_length:
         Length of the response body in bytes.
     response_body_excerpt:
-        Short excerpt (≤ 512 chars) from the response that confirms the
-        signal (e.g. the matched error string or the differing fragment).
-        Sensitive user data must be redacted by the caller before setting
-        this field.
+        Short excerpt from the response that confirms the signal (e.g. the
+        matched error string or the differing fragment).  Secrets and
+        sensitive patterns are automatically redacted when serialising via
+        :meth:`to_dict`.  The default storage limit is
+        ``_DEFAULT_BODY_EXCERPT_MAX_LENGTH`` (512 chars); set
+        ``include_full_body=True`` on :meth:`to_dict` to override.
     timing_samples_ms:
         For time-based evidence: list of observed response times in
         milliseconds across repeated trials.
@@ -111,8 +171,16 @@ class Evidence:
     baseline_median_ms: Optional[float] = None
     technique: str = "error"
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialise to a JSON-compatible dictionary."""
+    def to_dict(self, *, include_full_body: bool = False) -> Dict[str, Any]:
+        """Serialise to a JSON-compatible dictionary.
+
+        Args:
+            include_full_body: When True the response body excerpt is stored
+                in full (after redaction) rather than being truncated to
+                ``_DEFAULT_BODY_EXCERPT_MAX_LENGTH`` characters.  Defaults to
+                False.  **Use with caution** – full bodies may be large and
+                could contain sensitive data not caught by redaction patterns.
+        """
         d: Dict[str, Any] = {
             "payload": self.payload,
             "request_summary": self.request_summary,
@@ -120,7 +188,10 @@ class Evidence:
             "response_length": self.response_length,
         }
         if self.response_body_excerpt:
-            d["response_body_excerpt"] = self.response_body_excerpt[:512]
+            max_len = 0 if include_full_body else _DEFAULT_BODY_EXCERPT_MAX_LENGTH
+            d["response_body_excerpt"] = redact_response_body(
+                self.response_body_excerpt, max_length=max_len
+            )
         if self.timing_samples_ms:
             d["timing_samples_ms"] = self.timing_samples_ms
         if self.baseline_median_ms is not None:

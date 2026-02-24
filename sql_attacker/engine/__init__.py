@@ -60,6 +60,7 @@ from .reporting import (
     Evidence,
     Finding,
     ReportBuilder,
+    redact_response_body,
 )
 from .config import ScanConfig
 from .discovery import (
@@ -115,6 +116,7 @@ __all__ = [
     "Evidence",
     "Finding",
     "ReportBuilder",
+    "redact_response_body",
     # config
     "ScanConfig",
     # discovery
