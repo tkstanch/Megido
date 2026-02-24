@@ -91,6 +91,26 @@ findings = xss_scanner.scan('https://example.com')
 **Vulnerability Types**: `info_disclosure`, `other`  
 **Severity**: Medium
 
+### 4. Clickjacking / UI Redress Detector (`clickjacking_detector`)
+**Purpose**: Detect UI redress (clickjacking) exposure via anti-framing headers
+
+**What it checks**:
+- `Content-Security-Policy: frame-ancestors` directive
+- `X-Frame-Options` header
+
+**Classification**:
+- *Protected*: CSP `frame-ancestors 'none'` / restrictive allowlist, or XFO `DENY` / `SAMEORIGIN`
+- *Weak*: XFO `ALLOW-FROM` (obsolete, emits low-severity finding)
+- *Vulnerable*: Neither protection present, or CSP `frame-ancestors *`
+
+**Vulnerability Types**: `clickjacking`  
+**Severity**: Medium (missing protection), Low (weak ALLOW-FROM only)  
+**CWE**: CWE-1021
+
+**Remediation**: Set `Content-Security-Policy: frame-ancestors 'none'` (or a restrictive
+allowlist) and, for legacy browser support, also set `X-Frame-Options: DENY` or
+`SAMEORIGIN`.
+
 ## Creating New Plugins
 
 See [SCANNER_PLUGIN_GUIDE.md](../../SCANNER_PLUGIN_GUIDE.md) for complete documentation.
