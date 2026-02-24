@@ -76,6 +76,14 @@ def dashboard(request):
     # Get recent results
     recent_results = SQLInjectionResult.objects.select_related('task').order_by('-detected_at')[:10]
     
+    # Union-based PoC results with stored HTML evidence
+    union_poc_results = (
+        SQLInjectionResult.objects
+        .select_related('task')
+        .filter(injection_type='union_based')
+        .order_by('-detected_at')[:20]
+    )
+
     # Injection type statistics
     injection_stats = SQLInjectionResult.objects.values('injection_type').annotate(
         count=Count('id')
@@ -91,6 +99,7 @@ def dashboard(request):
         'total_vulns': total_vulns,
         'exploitable_vulns': exploitable_vulns,
         'recent_results': recent_results,
+        'union_poc_results': union_poc_results,
         'injection_stats': injection_stats,
         'status_choices': SQLInjectionTask.STATUS_CHOICES,
     }
@@ -373,7 +382,39 @@ def execute_task(task_id):
 
             result = SQLInjectionResult.objects.create(**create_kwargs)
             vulnerabilities_count += 1
-            
+
+            # Generate union-based PoC HTML evidence if applicable
+            if (
+                result.injection_type == 'union_based'
+                and result.is_exploitable
+                and result.extracted_data
+            ):
+                try:
+                    from .union_sql_injection import UnionSQLInjectionAttacker
+                    db_info = {}
+                    if result.database_version:
+                        db_info['Database Version'] = result.database_version
+                    if result.current_database:
+                        db_info['Current Database'] = result.current_database
+                    if result.current_user:
+                        db_info['Database User'] = result.current_user
+                    extracted = result.extracted_data
+                    if isinstance(extracted, list) and extracted and isinstance(extracted[0], dict):
+                        table_name = (
+                            result.extracted_tables[0]
+                            if isinstance(result.extracted_tables, list) and result.extracted_tables
+                            else 'Unknown'
+                        )
+                        poc_html = UnionSQLInjectionAttacker.generate_html_evidence_table(
+                            extracted_data=extracted,
+                            table_name=table_name,
+                            db_info=db_info if db_info else None,
+                        )
+                        result.union_poc_html = poc_html
+                        result.save(update_fields=['union_poc_html'])
+                except Exception as exc:
+                    logger.warning("Could not generate union PoC HTML for result %s: %s", result.id, exc)
+
             # Forward to response_analyser
             try:
                 forward_to_response_analyser(task, result)
@@ -836,6 +877,75 @@ def api_results(request):
     } for result in results]
     
     return Response(data)
+
+
+@api_view(['GET'])
+def api_union_poc_evidence(request, result_id):
+    """
+    Return the union-based SQL injection proof-of-concept HTML evidence for a result.
+
+    This endpoint delivers captured visual evidence (an HTML evidence table) for
+    a specific union-based SQL injection result.  The evidence is non-destructive:
+    it was produced using SELECT/UNION payloads only – no data was modified or
+    deleted.
+
+    Response:
+    {
+        "result_id": 42,
+        "html_evidence": "<div class='poc-evidence-card'>...</div>",
+        "is_exploitable": true,
+        "injection_type": "union_based",
+        "target_url": "https://example.com/page",
+        "vulnerable_parameter": "id"
+    }
+    """
+    try:
+        result = SQLInjectionResult.objects.select_related('task').get(
+            pk=result_id, injection_type='union_based'
+        )
+
+        html = result.union_poc_html or ""
+
+        # Generate dynamically if not pre-stored but data is available
+        if not html and result.extracted_data:
+            try:
+                from .union_sql_injection import UnionSQLInjectionAttacker
+                db_info = {}
+                if result.database_version:
+                    db_info['Database Version'] = result.database_version
+                if result.current_database:
+                    db_info['Current Database'] = result.current_database
+                if result.current_user:
+                    db_info['Database User'] = result.current_user
+                extracted = result.extracted_data
+                if isinstance(extracted, list) and extracted and isinstance(extracted[0], dict):
+                    table_name = (
+                        result.extracted_tables[0]
+                        if isinstance(result.extracted_tables, list) and result.extracted_tables
+                        else 'Unknown'
+                    )
+                    html = UnionSQLInjectionAttacker.generate_html_evidence_table(
+                        extracted_data=extracted,
+                        table_name=table_name,
+                        db_info=db_info if db_info else None,
+                    )
+            except Exception as exc:
+                logger.warning("Dynamic PoC HTML generation failed: %s", exc)
+
+        return Response({
+            'result_id': result_id,
+            'html_evidence': html,
+            'is_exploitable': result.is_exploitable,
+            'injection_type': result.injection_type,
+            'target_url': result.task.target_url,
+            'vulnerable_parameter': result.vulnerable_parameter,
+        })
+
+    except SQLInjectionResult.DoesNotExist:
+        return Response(
+            {'error': 'Result not found or not a union-based finding'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
 
 @api_view(['POST'])

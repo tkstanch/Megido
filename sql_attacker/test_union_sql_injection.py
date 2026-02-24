@@ -540,6 +540,62 @@ class TestUnionSQLInjectionAttacker(unittest.TestCase):
         
         self.assertIsInstance(results, list)
 
+    def test_generate_html_evidence_table_with_data(self):
+        """Test HTML evidence table generation with extracted data."""
+        extracted_data = [
+            {'username': 'admin', 'email': 'admin@example.com'},
+            {'username': 'user1', 'email': 'user1@example.com'},
+        ]
+        html = self.attacker.generate_html_evidence_table(
+            extracted_data=extracted_data,
+            table_name='users',
+        )
+        self.assertIn('poc-evidence-card', html)
+        self.assertIn('poc-disclaimer', html)
+        self.assertIn('Proof-of-Concept Only', html)
+        self.assertIn('Non-destructive', html)
+        self.assertIn('users', html)
+        self.assertIn('admin', html)
+        self.assertIn('username', html)
+        self.assertIn('email', html)
+
+    def test_generate_html_evidence_table_empty_data(self):
+        """Test HTML evidence table generation with empty data."""
+        html = self.attacker.generate_html_evidence_table(extracted_data=[])
+        self.assertIn('poc-empty', html)
+        self.assertNotIn('poc-table', html)
+
+    def test_generate_html_evidence_table_with_db_info(self):
+        """Test HTML evidence table includes database metadata."""
+        extracted_data = [{'id': '1', 'name': 'test'}]
+        db_info = {
+            'Database Version': '8.0.28',
+            'Current Database': 'app_db',
+            'Database User': 'root@localhost',
+        }
+        html = self.attacker.generate_html_evidence_table(
+            extracted_data=extracted_data,
+            table_name='test_table',
+            db_info=db_info,
+        )
+        self.assertIn('poc-meta-list', html)
+        self.assertIn('8.0.28', html)
+        self.assertIn('app_db', html)
+        self.assertIn('root@localhost', html)
+
+    def test_generate_html_evidence_table_explicit_columns(self):
+        """Test HTML evidence table respects explicit column list."""
+        extracted_data = [{'username': 'admin', 'password': 'secret', 'email': 'a@b.com'}]
+        html = self.attacker.generate_html_evidence_table(
+            extracted_data=extracted_data,
+            table_name='users',
+            columns=['username', 'email'],
+        )
+        self.assertIn('username', html)
+        self.assertIn('email', html)
+        # 'password' column was not requested
+        self.assertNotIn('<th class=\'poc-th\'>password</th>', html)
+
 
 class TestExampleFunctions(unittest.TestCase):
     """Test example usage functions."""
