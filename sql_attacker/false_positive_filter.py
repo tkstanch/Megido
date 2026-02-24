@@ -3,18 +3,183 @@ False Positive Reduction Module for SQL Injection Detection
 
 Implements various techniques to reduce false positives:
 - Response similarity analysis
-- Baseline comparison
+- Baseline comparison (single-sample and multi-sample)
 - Multiple payload confirmation
 - Content-length variance analysis
 - Confidence scoring
+- Jitter-aware timing comparisons via BaselineSampler
 """
 
+import hashlib
 import re
 import difflib
+import statistics
 from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Response normalisation helpers (for comparison purposes only)
+# ---------------------------------------------------------------------------
+
+_VOLATILE_PATTERNS_FP = [
+    re.compile(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?'),
+    re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'),
+    re.compile(r'\b[0-9a-fA-F]{16,}\b'),
+    re.compile(r'\b\d{10,13}\b'),
+]
+
+
+def _normalize_for_fp(text: str) -> str:
+    """Strip volatile tokens (timestamps, UUIDs, hex blobs) before comparison."""
+    for pattern in _VOLATILE_PATTERNS_FP:
+        text = pattern.sub('', text)
+    return text
+
+
+# ---------------------------------------------------------------------------
+# BaselineSampler
+# ---------------------------------------------------------------------------
+
+
+class BaselineSampler:
+    """Multi-sample baseline collector for jitter-aware false-positive reduction.
+
+    Collects 2–3 baseline responses and records timing distribution (mean and
+    standard deviation) plus a stable content fingerprint.  The resulting
+    statistics are used by :class:`FalsePositiveFilter` to distinguish genuine
+    injection signals from normal dynamic-content variation.
+
+    Usage::
+
+        sampler = BaselineSampler(n_samples=3)
+        for resp, t in baseline_observations:
+            sampler.add_sample(resp.text, t)
+
+        fp_filter = FalsePositiveFilter()
+        fp_filter.set_baseline(last_baseline_response, sampler=sampler)
+
+        # Later, when evaluating a probe:
+        if fp_filter.is_timing_anomaly(probe_time):
+            ...
+    """
+
+    def __init__(self, n_samples: int = 3) -> None:
+        self._n_samples = max(2, n_samples)
+        self._times: List[float] = []
+        self._bodies: List[str] = []
+
+    # ------------------------------------------------------------------
+    # Mutators
+    # ------------------------------------------------------------------
+
+    def add_sample(self, response_text: str, response_time: float) -> None:
+        """Add one baseline observation.
+
+        Args:
+            response_text: Raw HTTP response body text.
+            response_time: Elapsed time for this response in seconds.
+        """
+        self._times.append(response_time)
+        self._bodies.append(response_text)
+
+    # ------------------------------------------------------------------
+    # Accessors
+    # ------------------------------------------------------------------
+
+    @property
+    def sample_count(self) -> int:
+        """Number of samples collected so far."""
+        return len(self._times)
+
+    @property
+    def timing_mean(self) -> Optional[float]:
+        """Mean of baseline response times, or None if no samples."""
+        if not self._times:
+            return None
+        return statistics.mean(self._times)
+
+    @property
+    def timing_stddev(self) -> Optional[float]:
+        """Sample standard deviation of baseline response times, or None if < 2 samples."""
+        if len(self._times) < 2:
+            return None
+        return statistics.stdev(self._times)
+
+    @property
+    def body_fingerprint(self) -> Optional[str]:
+        """16-char SHA-256 hex digest of the most representative normalised body.
+
+        Returns None if no samples have been collected.
+        """
+        if not self._bodies:
+            return None
+        normalised = [_normalize_for_fp(b) for b in self._bodies]
+        # Use the most common body (or the first if all differ)
+        from collections import Counter
+        most_common = Counter(normalised).most_common(1)[0][0]
+        return hashlib.sha256(most_common.encode('utf-8', errors='replace')).hexdigest()[:16]
+
+    # ------------------------------------------------------------------
+    # Jitter-aware checks
+    # ------------------------------------------------------------------
+
+    def is_timing_anomaly(self, test_time: float, stddev_multiplier: float = 2.5) -> bool:
+        """Return True when *test_time* exceeds the baseline by more than expected jitter.
+
+        The threshold is ``mean + stddev_multiplier * stddev``.  When fewer
+        than 2 samples exist (no stddev), falls back to a fixed 4-second
+        headroom above the mean.
+
+        Args:
+            test_time: Observed response time to evaluate (seconds).
+            stddev_multiplier: Number of standard deviations above the mean
+                               that constitutes an anomaly.  Default: 2.5.
+
+        Returns:
+            True when the timing looks like a genuine time-based delay.
+        """
+        mean = self.timing_mean
+        if mean is None:
+            return False
+        stddev = self.timing_stddev
+        if stddev is None or stddev < 0.05:
+            return test_time > (mean + 4.0)
+        threshold = mean + stddev_multiplier * stddev
+        return test_time > threshold
+
+    def is_content_anomaly(self, test_body: str, similarity_threshold: float = 0.95) -> bool:
+        """Return True when *test_body* is substantially different from baseline bodies.
+
+        Uses SequenceMatcher similarity on normalised (volatile-token-stripped)
+        bodies.  A result below *similarity_threshold* indicates a meaningful
+        content change.
+
+        Args:
+            test_body: Response body to evaluate.
+            similarity_threshold: Responses more similar than this are considered
+                                  unchanged.  Default: 0.95.
+
+        Returns:
+            True when the content change is likely significant.
+        """
+        if not self._bodies:
+            return False
+        # Use the longest body as the most representative baseline
+        baseline_text = max(self._bodies, key=len)
+        ratio = difflib.SequenceMatcher(
+            None,
+            _normalize_for_fp(baseline_text),
+            _normalize_for_fp(test_body),
+        ).ratio()
+        return ratio < similarity_threshold
+
+
+# ---------------------------------------------------------------------------
+# FalsePositiveFilter
+# ---------------------------------------------------------------------------
 
 
 class FalsePositiveFilter:
@@ -25,7 +190,8 @@ class FalsePositiveFilter:
         self.baseline_length = 0
         self.baseline_status = 0
         self.baseline_headers = {}
-        
+        self._sampler: Optional[BaselineSampler] = None
+
         # Common false positive patterns
         self.false_positive_patterns = [
             r"404.*Not Found",
@@ -41,13 +207,22 @@ class FalsePositiveFilter:
             r"Access Denied",
         ]
     
-    def set_baseline(self, response):
-        """Set baseline response for comparison"""
+    def set_baseline(self, response, sampler: Optional[BaselineSampler] = None):
+        """Set baseline response for comparison.
+
+        Args:
+            response: HTTP response object used as the single-sample baseline.
+            sampler: Optional :class:`BaselineSampler` containing multi-sample
+                     statistics.  When provided, its jitter-aware timing and
+                     content-fingerprint data take precedence over single-sample
+                     comparisons.
+        """
         if response:
             self.baseline_response = response.text
             self.baseline_length = len(response.text)
             self.baseline_status = response.status_code
             self.baseline_headers = dict(response.headers)
+            self._sampler = sampler
             logger.info(f"Baseline set: status={self.baseline_status}, length={self.baseline_length}")
     
     def calculate_similarity(self, text1: str, text2: str) -> float:
@@ -79,8 +254,14 @@ class FalsePositiveFilter:
                 logger.debug(f"False positive pattern matched: {pattern}")
                 return True
         
-        # Check if response is too similar to baseline (no change)
-        if self.baseline_response:
+        # Check if response is too similar to baseline (no change).
+        # When a multi-sample BaselineSampler is available, use its normalised
+        # content fingerprint for a more jitter-tolerant comparison.
+        if self._sampler and self._sampler.sample_count >= 2:
+            if not self._sampler.is_content_anomaly(response.text, similarity_threshold=0.95):
+                logger.debug("Response not a content anomaly per baseline sampler")
+                return True
+        elif self.baseline_response:
             similarity = self.calculate_similarity(response.text, self.baseline_response)
             if similarity > 0.95:  # 95% similar = likely not vulnerable
                 logger.debug(f"Response too similar to baseline: {similarity:.2%}")
@@ -300,3 +481,23 @@ class FalsePositiveFilter:
             'response_lengths': lengths,
             'analysis': f'Average variance: {avg_variance:.0f} bytes from baseline {baseline_length}'
         }
+
+    def is_timing_anomaly(self, test_time: float, expected_delay: float = 5.0) -> bool:
+        """Evaluate whether *test_time* represents a genuine time-based injection signal.
+
+        When a :class:`BaselineSampler` with at least 2 samples has been
+        attached via :meth:`set_baseline`, the sampler's jitter-aware
+        statistics (mean ± 2.5 σ) are used.  Otherwise, falls back to the
+        legacy ``analyze_timing_variance`` logic.
+
+        Args:
+            test_time: Observed response time in seconds.
+            expected_delay: Expected injected delay in seconds (legacy fallback).
+
+        Returns:
+            True when the timing is anomalously long.
+        """
+        if self._sampler and self._sampler.sample_count >= 2:
+            return self._sampler.is_timing_anomaly(test_time)
+        # Legacy fallback
+        return self.analyze_timing_variance([test_time], expected_delay)

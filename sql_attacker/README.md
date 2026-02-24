@@ -2026,3 +2026,144 @@ for f in findings:
 - **uncertain**: Low-confidence. Reported only when supporting evidence was collected (e.g. a partial error match).
 
 Review the `evidence` list in each finding for the exact payload, request, and response excerpt that substantiated the signal.
+
+---
+
+## Safe Mode, Guardrails, and Evidence Collection
+
+This section describes the consulting-safe defaults and the guardrails that
+prevent accidental or unauthorised testing.
+
+### Authorization gate (fail-closed)
+
+All active test methods require **explicit authorization** to be set.  Calling
+any scan without confirming authorization raises `AuthorizationError`
+immediately.
+
+```python
+from sql_attacker.sqlmap_integration import SQLMapConfig, SQLMapAttacker
+
+# MUST set authorized=True only when you have written permission to test
+config = SQLMapConfig(authorized=True, allowed_domains=["example.com"])
+```
+
+### Scope enforcement
+
+The `allowed_domains` list in `SQLMapConfig` / `guardrails.check_scope()`
+restricts testing to authorised targets.  Private/loopback IP addresses are
+blocked by default.  Wildcard patterns (`*.example.com`) are supported.
+
+### Request budget
+
+Each scan has a per-host request cap (`max_requests_per_target`, default 200).
+Exceeding the cap raises `BudgetExceededError` so scans cannot run unbounded.
+
+### WAF/block abort behaviour
+
+The engine detects likely WAF or lockout responses (HTTP 403/429, known block
+page body markers, challenge pages) and aborts further probing of the affected
+injection point with a clear, logged reason.  There is **no bypass or
+escalation** behaviour.
+
+Two complementary mechanisms are available:
+
+| Component | Location | Behaviour |
+|---|---|---|
+| `CircuitBreaker` | `http_utils.py` | Opens after N consecutive BLOCKED/CHALLENGE responses **per host**, preventing further requests to that host until `reset_after` seconds elapse. |
+| `WafBlockWindow` | `http_utils.py` | Tracks BLOCKED/CHALLENGE/RATE_LIMITED within a rolling window of M requests **per injection point**; aborts when N adverse outcomes occur within the window. |
+| `ScanConfig.waf_abort_threshold` | `engine/config.py` | Stops probing a parameter after this many consecutive 403/429 responses (used by `DiscoveryScanner`). |
+
+```python
+from sql_attacker.http_utils import WafBlockWindow, BLOCKED, CHALLENGE
+
+tracker = WafBlockWindow(window_size=10, block_threshold=3)
+for payload in payloads:
+    response = send_request(url, payload)
+    tracker.record(classify_response(response).outcome)
+    if tracker.should_abort():
+        logger.warning("Aborting: %s", tracker.abort_reason)
+        break
+```
+
+### Baseline sampling and jitter-aware comparisons
+
+The `BaselineSampler` class in `false_positive_filter.py` collects 2–3 benign
+responses before probing begins and records:
+- **timing mean and standard deviation** – used to detect genuine time-based
+  delays (probe time > mean + 2.5 σ) rather than flagging normal network jitter
+- **stable content fingerprint** – volatile tokens (timestamps, UUIDs, CSRF
+  tokens) are stripped before fingerprinting, so dynamic pages do not produce
+  false positives
+
+```python
+from sql_attacker.false_positive_filter import BaselineSampler, FalsePositiveFilter
+
+sampler = BaselineSampler(n_samples=3)
+for resp, elapsed in baseline_observations:
+    sampler.add_sample(resp.text, elapsed)
+
+fp_filter = FalsePositiveFilter()
+fp_filter.set_baseline(last_baseline_response, sampler=sampler)
+
+# Later, when evaluating a probe response:
+if fp_filter.is_timing_anomaly(probe_elapsed):
+    # Genuine time-based delay detected
+    ...
+```
+
+### Evidence bundles and safe logging
+
+Each `Finding` contains an `evidence` list of `Evidence` objects that record:
+- The injection payload used
+- A human-readable request summary (no auth material)
+- Response length and a **redacted, truncated** body excerpt
+- Baseline timing statistics for time-based findings
+
+**Redaction** is applied automatically when serialising evidence via
+`Evidence.to_dict()`.  The following patterns are redacted from response body
+excerpts before storage:
+
+| Pattern | Replacement |
+|---|---|
+| JWT tokens (three base64url segments) | `<JWT_REDACTED>` |
+| Authorization header values | `Authorization: <REDACTED>` |
+| Cookie header values | `Cookie: <REDACTED>` |
+| Bearer tokens | `Bearer <REDACTED>` |
+| Common API key patterns | `api_key=<REDACTED>` |
+
+Response body excerpts are **truncated to 512 characters** by default.  To
+store the full (post-redaction) body for forensic purposes, pass
+`include_full_body=True` to `Evidence.to_dict()` and mark the output as
+sensitive in your evidence management system.
+
+```python
+from sql_attacker.engine.reporting import Evidence, redact_response_body
+
+# Standalone redaction utility
+safe_excerpt = redact_response_body(raw_body, max_length=512)
+
+# Automatic redaction + truncation via Evidence.to_dict()
+ev = Evidence(payload="'", request_summary="GET /search?q='",
+              response_body_excerpt=raw_body)
+d = ev.to_dict()               # truncated + redacted (default)
+d_full = ev.to_dict(include_full_body=True)  # full body, post-redaction only
+```
+
+### Unified injection point model
+
+The `engine/discovery.py` module provides a unified injection point abstraction
+that correctly isolates modifications to a single location without affecting
+any other location in the request:
+
+| Location | Enum value | Notes |
+|---|---|---|
+| URL query parameter | `InjectionLocation.QUERY_PARAM` | Appended to URL query string |
+| Form-encoded body | `InjectionLocation.FORM_PARAM` | `application/x-www-form-urlencoded` POST body |
+| JSON body | `InjectionLocation.JSON_PARAM` | Top-level keys in a JSON POST body |
+| HTTP header | `InjectionLocation.HEADER` | Selected headers only (opt-in, default off) |
+| Cookie | `InjectionLocation.COOKIE_PARAM` | Structured cookie jar (opt-in, default off) |
+
+Cookie injection uses structured `cookies=` dict (not raw `Cookie:` header
+injection) so values are safely encoded by the HTTP client.  Header injection
+for `Authorization` and `Cookie` headers is disabled by default to avoid
+leaking credentials; enable it only with care.
