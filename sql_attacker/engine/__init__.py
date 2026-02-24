@@ -55,6 +55,7 @@ from .modes import (
     OperationMode,
     ModePolicy,
     ModeViolationError,
+    VerificationProfile,
 )
 from .reporting import (
     Evidence,
@@ -78,6 +79,15 @@ from .timeguard import (
     TimeBasedResult,
     PerHostBudget,
     build_sleep_payload,
+)
+from .evidence_pack import (
+    EvidencePack,
+    RequestSpec,
+    TimingStats,
+)
+from .storage import (
+    EvidenceStorage,
+    LocalFileStorage,
 )
 
 __all__ = [
@@ -112,6 +122,7 @@ __all__ = [
     "OperationMode",
     "ModePolicy",
     "ModeViolationError",
+    "VerificationProfile",
     # reporting
     "Evidence",
     "Finding",
@@ -133,4 +144,11 @@ __all__ = [
     "TimeBasedResult",
     "PerHostBudget",
     "build_sleep_payload",
+    # evidence_pack
+    "EvidencePack",
+    "RequestSpec",
+    "TimingStats",
+    # storage
+    "EvidenceStorage",
+    "LocalFileStorage",
 ]

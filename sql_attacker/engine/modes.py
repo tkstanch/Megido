@@ -41,6 +41,52 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
+# VerificationProfile
+# ---------------------------------------------------------------------------
+
+
+class VerificationProfile(Enum):
+    """High-level scanning profiles that map to an :class:`OperationMode`.
+
+    These profiles are the primary user-facing knob for controlling scan
+    invasiveness.  The default is :attr:`DETECT_ONLY` (safest).
+
+    Attributes
+    ----------
+    DETECT_ONLY:
+        Send anomaly probes and analyse responses.  No confirmation loops,
+        no demonstration.  Equivalent to :attr:`OperationMode.DETECT`.
+    VERIFY_SAFE:
+        Confirm candidate findings with repeated benign-control probes.
+        Still read-only — no data exfiltration.  Equivalent to
+        :attr:`OperationMode.VERIFY`.
+    """
+
+    DETECT_ONLY = "detect_only"
+    VERIFY_SAFE = "verify_safe"
+
+    def to_operation_mode(self) -> "OperationMode":
+        """Return the corresponding :class:`OperationMode`."""
+        return _PROFILE_TO_MODE[self]
+
+    @classmethod
+    def from_string(cls, value: str) -> "VerificationProfile":
+        """Parse a profile name (case-insensitive).
+
+        Raises
+        ------
+        ValueError: If *value* is not a valid profile name.
+        """
+        try:
+            return cls(value.lower().strip())
+        except ValueError:
+            valid = ", ".join(p.value for p in cls)
+            raise ValueError(
+                f"Unknown verification profile '{value}'. Valid profiles: {valid}"
+            )
+
+
+# ---------------------------------------------------------------------------
 # OperationMode
 # ---------------------------------------------------------------------------
 
@@ -80,6 +126,16 @@ class OperationMode(Enum):
             raise ValueError(
                 f"Unknown operation mode '{value}'. Valid modes: {valid}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Profile → Mode mapping (defined after OperationMode)
+# ---------------------------------------------------------------------------
+
+_PROFILE_TO_MODE: dict = {
+    VerificationProfile.DETECT_ONLY: OperationMode.DETECT,
+    VerificationProfile.VERIFY_SAFE: OperationMode.VERIFY,
+}
 
 
 # ---------------------------------------------------------------------------
