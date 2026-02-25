@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Example Silverlight client access policy with various risk levels.
+     Used as a test fixture for the SilverlightClientAccessDetectorPlugin.
+
+     Risk breakdown:
+       - first policy: uri="*" and http-request-headers="*" → critical + medium
+       - second policy: uri="*.example.com"                 → high (wildcard subdomain)
+       - third policy: uri="trusted.example.com"            → benign
+-->
+<access-policy>
+    <cross-domain-access>
+        <policy>
+            <allow-from http-request-headers="*">
+                <domain uri="*"/>
+            </allow-from>
+            <grant-to>
+                <resource path="/" include-subpaths="true"/>
+            </grant-to>
+        </policy>
+        <policy>
+            <allow-from http-request-headers="X-Requested-With">
+                <domain uri="*.example.com"/>
+            </allow-from>
+            <grant-to>
+                <resource path="/api/" include-subpaths="true"/>
+            </grant-to>
+        </policy>
+        <policy>
+            <allow-from http-request-headers="X-Requested-With">
+                <domain uri="trusted.example.com"/>
+            </allow-from>
+            <grant-to>
+                <resource path="/safe/" include-subpaths="false"/>
+            </grant-to>
+        </policy>
+    </cross-domain-access>
+</access-policy>

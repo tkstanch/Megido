@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<!-- Example Flash cross-domain policy with various risk levels.
+     Used as a test fixture for the FlashCrossdomainDetectorPlugin.
+
+     Risk breakdown:
+       - domain="*"           → critical (wildcard)
+       - domain="*.safe.com"  → high    (wildcard subdomain)
+       - domain="10.0.0.5"    → informational (internal IP)
+       - domain="trusted.com" → benign
+       - site-control all     → medium  (permissive meta-policy)
+-->
+<cross-domain-policy>
+    <site-control permitted-cross-domain-policies="all"/>
+    <allow-access-from domain="*" secure="false"/>
+    <allow-access-from domain="*.safe.com"/>
+    <allow-access-from domain="trusted.com"/>
+    <allow-access-from domain="10.0.0.5"/>
+</cross-domain-policy>
