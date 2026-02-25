@@ -91,7 +91,34 @@ findings = xss_scanner.scan('https://example.com')
 **Vulnerability Types**: `info_disclosure`, `other`  
 **Severity**: Medium
 
-### 4. Clickjacking / UI Redress Detector (`clickjacking_detector`)
+### 4. JavaScript Hijacking / JSONP Data Exposure Detector (`javascript_hijacking_detector`)
+**Purpose**: Detect endpoints that expose user-specific sensitive data in a
+JavaScript-executable context, enabling cross-domain data theft via `<script src=...>`.
+
+**What it checks**:
+- **JSONP / callback wrappers**: responses like `userDataCb({"csrfToken":"..."})` that
+  wrap JSON in a function call (readable cross-domain via `<script src=...>`).
+- **JS variable assignments**: `var csrfToken = '...';` / `window.__DATA__ = {...}` served
+  with a JS MIME type.
+- **Plain JSON with JS MIME type**: JSON arrays/objects served as `application/javascript`
+  or `text/javascript` without an XSSI protection prefix.
+
+**Detection modes**:
+1. *Discovery mode*: when the target URL returns HTML, same-origin `<script src>` URLs and
+   inline `fetch()` / `$.getJSON()` / `XMLHttpRequest.open('GET',...)` targets are
+   extracted and probed.
+2. *Heuristic probing mode*: when the URL has a query string or an API-like path,
+   `?callback=megidoCb` and `?jsonp=megidoCb` variants are also probed.
+
+**Vulnerability Types**: `js_hijacking`  
+**Severity**: High/Critical (tokens, passwords, session, CSRF), Medium (PII), Low (generic config)  
+**CWE**: CWE-346 (Origin Validation Error) / CWE-345
+
+**Remediation**: Replace JSONP with CORS-protected JSON APIs; prefix JSON responses with an
+XSSI guard (`)]}\n` or `while(1);`); never return secrets in script-executable responses;
+use `SameSite=Strict` cookies; validate/allowlist the `callback` parameter.
+
+### 5. Clickjacking / UI Redress Detector (`clickjacking_detector`)
 **Purpose**: Detect UI redress (clickjacking) exposure via anti-framing headers
 
 **What it checks**:
