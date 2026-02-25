@@ -105,6 +105,38 @@ Or uncheck **Enable OOB** on the task creation form.
 
 ---
 
+## Visual Proof of Concept (VPoC)
+
+Visual evidence (screenshots, animated GIF, attack timeline) is captured during
+the attack and stored **only for verified findings** – i.e. results where
+`verified = True`.  A result is marked verified when exploitation succeeds
+(`is_exploitable = True`).
+
+### What is stored
+
+| Field | Description |
+|---|---|
+| `screenshots` | Array of screenshot file paths captured during the attack |
+| `gif_evidence` | Path to an animated GIF summarising the attack sequence |
+| `evidence_timeline` | Timestamped list of attack steps |
+| `visual_proof_path` | Path to the primary visual artefact (GIF preferred over screenshot) |
+| `visual_proof_type` | `'gif'` or `'screenshot'` |
+| `visual_proof_size` | File size in bytes of the primary artefact |
+
+### Configuration
+
+| Setting | Default | Description |
+|---|---|---|
+| `SQL_ATTACKER_ENABLE_VISUAL_EVIDENCE` | `True` | Enable/disable browser-based capture |
+| `SQL_ATTACKER_HEADLESS_BROWSER` | `True` | Run Chrome in headless mode |
+| `SQL_ATTACKER_EVIDENCE_DIR` | temp dir | Directory for saved screenshots / GIFs |
+
+Visual capture requires Selenium and a compatible ChromeDriver.  If they are
+unavailable the attack runs normally and `verified` results are saved without
+visual fields – no exception is raised.
+
+---
+
 
 The `sql_attacker/engine/` package contains focused sub-modules extracted from
 `sqli_engine.py` to improve maintainability, testability, and accuracy.
