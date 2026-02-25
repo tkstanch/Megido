@@ -56,6 +56,50 @@ def _get_default_data_to_exfiltrate(db_type):
     return DEFAULT_EXFIL_EXPRESSIONS.get(db_type, 'user')
 
 
+def _map_visual_evidence_to_fields(visual_evidence: dict) -> dict:
+    """
+    Map a ``visual_evidence`` package (as returned by
+    :meth:`~sql_attacker.evidence_capture.VisualEvidenceCapture.get_evidence_package`)
+    to :class:`~sql_attacker.models.SQLInjectionResult` model field values.
+
+    This adapter is only intended to be applied to **verified** results.
+    Callers are responsible for gating on ``verified=True`` before calling this
+    function.
+
+    Returns a dict suitable for passing to ``SQLInjectionResult.objects.create``
+    or for updating an existing instance.
+    """
+    screenshots = visual_evidence.get('screenshots', []) or []
+    gif_path = visual_evidence.get('gif')
+    timeline = visual_evidence.get('timeline', []) or []
+
+    fields: dict = {
+        'screenshots': screenshots or None,
+        'evidence_timeline': timeline or None,
+    }
+
+    # Choose the primary visual artifact deterministically: prefer GIF over a
+    # raw screenshot because it conveys the full attack sequence.
+    if gif_path:
+        fields['gif_evidence'] = gif_path
+        fields['visual_proof_path'] = gif_path
+        fields['visual_proof_type'] = 'gif'
+        try:
+            fields['visual_proof_size'] = os.path.getsize(gif_path)
+        except OSError:
+            pass
+    elif screenshots:
+        primary = screenshots[0]
+        fields['visual_proof_path'] = primary
+        fields['visual_proof_type'] = 'screenshot'
+        try:
+            fields['visual_proof_size'] = os.path.getsize(primary)
+        except OSError:
+            pass
+
+    return fields
+
+
 def _db_type_to_oob_db_type(db_type_str: str):
     """
     Map a free-form database type string (as stored in SQLInjectionResult.database_type)
@@ -384,11 +428,11 @@ def execute_task(task_id):
             risk_score = finding.get('risk_score', impact_analysis.get('risk_score', 50))
             confidence_score = finding.get('confidence_score', 0.7)
 
-            # Build visual evidence data for this result
-            screenshots_data = visual_evidence.get('screenshots', [])
-            gif_path = visual_evidence.get('gif')
-            timeline_data = visual_evidence.get('timeline', [])
-            
+            is_exploitable = exploitation.get('is_exploitable', False) or impact_analysis.get('exploitable', False)
+            # A result is *verified* when exploitation succeeds – only verified
+            # results receive visual proof-of-concept evidence.
+            verified = bool(is_exploitable)
+
             create_kwargs = dict(
                 task=task,
                 injection_type=finding.get('injection_type', 'error_based'),
@@ -399,7 +443,8 @@ def execute_task(task_id):
                 detection_evidence=finding.get('detection_evidence', ''),
                 request_data=finding.get('request_data', {}),
                 response_data=finding.get('response_data', {}),
-                is_exploitable=exploitation.get('is_exploitable', False) or impact_analysis.get('exploitable', False),
+                is_exploitable=is_exploitable,
+                verified=verified,
                 database_type=finding.get('database_type', 'unknown'),
                 database_version=exploitation.get('database_version', '') or impact_analysis.get('extracted_info', {}).get('database_version', ''),
                 current_database=exploitation.get('current_database', '') or impact_analysis.get('extracted_info', {}).get('current_database', ''),
@@ -411,15 +456,14 @@ def execute_task(task_id):
                 risk_score=risk_score,
                 impact_analysis=impact_analysis,
                 proof_of_concept=impact_analysis.get('proof_of_concept', []),
-                # New visual evidence and comprehensive data fields
-                screenshots=screenshots_data or None,
-                evidence_timeline=timeline_data or None,
                 all_injection_points=all_injection_points or None,
                 successful_payloads=successful_payloads or None,
                 extracted_sensitive_data=extracted_sensitive_data or None,
             )
-            if gif_path:
-                create_kwargs['gif_evidence'] = gif_path
+
+            # Attach visual proof-of-concept only for verified (exploited) findings.
+            if verified:
+                create_kwargs.update(_map_visual_evidence_to_fields(visual_evidence))
 
             result = SQLInjectionResult.objects.create(**create_kwargs)
             vulnerabilities_count += 1

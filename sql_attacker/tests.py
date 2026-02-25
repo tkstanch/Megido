@@ -918,3 +918,132 @@ class APIResultSchemaTest(TestCase):
         self.assertIn('reproduction_steps', result)
         self.assertIn("GET", result['reproduction_steps'])
 
+
+# ---------------------------------------------------------------------------
+# VPoC evidence mapping tests
+# ---------------------------------------------------------------------------
+
+
+class MapVisualEvidenceToFieldsTest(TestCase):
+    """Unit tests for the _map_visual_evidence_to_fields adapter."""
+
+    def _import(self):
+        from sql_attacker.views import _map_visual_evidence_to_fields
+        return _map_visual_evidence_to_fields
+
+    def test_empty_evidence_returns_none_fields(self):
+        fn = self._import()
+        result = fn({})
+        self.assertIsNone(result['screenshots'])
+        self.assertIsNone(result['evidence_timeline'])
+        self.assertNotIn('gif_evidence', result)
+        self.assertNotIn('visual_proof_path', result)
+        self.assertNotIn('visual_proof_type', result)
+
+    def test_gif_becomes_primary_artifact(self):
+        fn = self._import()
+        result = fn({'screenshots': ['/tmp/s1.png'], 'gif': '/tmp/attack.gif', 'timeline': []})
+        self.assertEqual(result['visual_proof_path'], '/tmp/attack.gif')
+        self.assertEqual(result['visual_proof_type'], 'gif')
+        self.assertEqual(result['gif_evidence'], '/tmp/attack.gif')
+
+    def test_screenshot_becomes_primary_when_no_gif(self):
+        fn = self._import()
+        result = fn({'screenshots': ['/tmp/s1.png', '/tmp/s2.png'], 'gif': None, 'timeline': []})
+        self.assertEqual(result['visual_proof_path'], '/tmp/s1.png')
+        self.assertEqual(result['visual_proof_type'], 'screenshot')
+        self.assertNotIn('gif_evidence', result)
+
+    def test_screenshots_and_timeline_populated(self):
+        fn = self._import()
+        timeline = [{'step': 'baseline', 'timestamp': '2026-01-01T00:00:00+00:00'}]
+        result = fn({'screenshots': ['/tmp/s1.png'], 'gif': None, 'timeline': timeline})
+        self.assertEqual(result['screenshots'], ['/tmp/s1.png'])
+        self.assertEqual(result['evidence_timeline'], timeline)
+
+    def test_missing_size_does_not_raise(self):
+        """visual_proof_size is omitted gracefully when the file does not exist."""
+        fn = self._import()
+        result = fn({'screenshots': ['/nonexistent/path.png'], 'gif': None, 'timeline': []})
+        self.assertNotIn('visual_proof_size', result)
+
+
+class VerifiedResultGetsVPoCTest(TestCase):
+    """
+    Verify that SQLInjectionResult persistence attaches visual evidence only
+    for verified (exploitable) findings and leaves it empty for unverified ones.
+    """
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/test?id=1',
+            http_method='GET',
+        )
+
+    def _make_result(self, is_exploitable, visual_evidence=None):
+        """Helper: create a SQLInjectionResult mimicking the views.py logic."""
+        from sql_attacker.views import _map_visual_evidence_to_fields
+
+        verified = bool(is_exploitable)
+        kwargs = dict(
+            task=self.task,
+            injection_type='error_based',
+            vulnerable_parameter='id',
+            parameter_type='GET',
+            test_payload="'",
+            detection_evidence='SQL error detected',
+            is_exploitable=is_exploitable,
+            verified=verified,
+        )
+        if verified and visual_evidence:
+            kwargs.update(_map_visual_evidence_to_fields(visual_evidence))
+        return SQLInjectionResult.objects.create(**kwargs)
+
+    def test_verified_result_has_evidence_fields(self):
+        evidence = {
+            'screenshots': ['/tmp/s1.png'],
+            'gif': None,
+            'timeline': [{'step': 'baseline'}],
+        }
+        result = self._make_result(is_exploitable=True, visual_evidence=evidence)
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertTrue(reloaded.verified)
+        self.assertEqual(reloaded.screenshots, ['/tmp/s1.png'])
+        self.assertEqual(reloaded.evidence_timeline, [{'step': 'baseline'}])
+        self.assertEqual(reloaded.visual_proof_path, '/tmp/s1.png')
+        self.assertEqual(reloaded.visual_proof_type, 'screenshot')
+
+    def test_verified_result_with_gif_uses_gif_as_primary(self):
+        evidence = {
+            'screenshots': ['/tmp/s1.png'],
+            'gif': '/tmp/attack.gif',
+            'timeline': [],
+        }
+        result = self._make_result(is_exploitable=True, visual_evidence=evidence)
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertTrue(reloaded.verified)
+        self.assertEqual(reloaded.visual_proof_path, '/tmp/attack.gif')
+        self.assertEqual(reloaded.visual_proof_type, 'gif')
+
+    def test_unverified_result_has_no_visual_evidence(self):
+        evidence = {
+            'screenshots': ['/tmp/s1.png'],
+            'gif': '/tmp/attack.gif',
+            'timeline': [{'step': 'baseline'}],
+        }
+        result = self._make_result(is_exploitable=False, visual_evidence=evidence)
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertFalse(reloaded.verified)
+        self.assertIsNone(reloaded.screenshots)
+        self.assertIsNone(reloaded.evidence_timeline)
+        self.assertIsNone(reloaded.visual_proof_path)
+        self.assertIsNone(reloaded.visual_proof_type)
+
+    def test_verified_without_evidence_does_not_crash(self):
+        """Verified result with empty evidence package is saved without visual fields."""
+        result = self._make_result(is_exploitable=True, visual_evidence={})
+        reloaded = SQLInjectionResult.objects.get(pk=result.pk)
+        self.assertTrue(reloaded.verified)
+        self.assertIsNone(reloaded.screenshots)
+        self.assertIsNone(reloaded.visual_proof_path)
+
