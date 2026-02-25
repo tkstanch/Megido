@@ -37,6 +37,7 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc import VPoCEvidence, build_curl_command, redact_sensitive_headers, truncate_body
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,80 @@ def _cookies_rotated(before: Dict[str, str], after: Dict[str, str]) -> Tuple[boo
             unchanged.append(name)
     rotated = len(unchanged) == 0
     return rotated, unchanged
+
+
+def _build_session_fixation_vpoc(
+    response: Any,
+    login_url: str,
+    payload_description: str,
+    confidence: float,
+    reproduction_steps: str,
+) -> Optional['VPoCEvidence']:
+    """
+    Build a VPoCEvidence from an HTTP response produced during a session
+    fixation test scenario.
+
+    The outgoing request and received response are both sanitized (sensitive
+    headers redacted, large bodies truncated) before being stored.
+
+    Returns None if evidence cannot be captured (e.g., no valid response).
+    """
+    try:
+        req = getattr(response, 'request', None)
+        http_request: Optional[Dict[str, Any]] = None
+        if req is not None:
+            try:
+                req_headers: Dict[str, str] = {
+                    str(k): str(v) for k, v in (req.headers or {}).items()
+                }
+            except Exception:
+                req_headers = {}
+            req_body = req.body or ''
+            if isinstance(req_body, bytes):
+                req_body = req_body.decode('utf-8', errors='replace')
+            http_request = {
+                'method': str(req.method or 'POST'),
+                'url': str(req.url or login_url),
+                'headers': redact_sensitive_headers(req_headers),
+                'body': truncate_body(str(req_body)),
+            }
+
+        try:
+            resp_headers: Dict[str, str] = {
+                str(k): str(v) for k, v in (response.headers or {}).items()
+            }
+        except Exception:
+            resp_headers = {}
+        http_response: Dict[str, Any] = {
+            'status_code': int(response.status_code),
+            'headers': redact_sensitive_headers(resp_headers),
+            'body': truncate_body(str(response.text or '')),
+        }
+
+        curl_cmd: Optional[str] = None
+        if http_request is not None:
+            try:
+                curl_cmd = build_curl_command(
+                    http_request['url'],
+                    method=http_request['method'],
+                    headers=http_request['headers'],
+                    body=http_request['body'] or None,
+                )
+            except Exception:
+                pass
+
+        return VPoCEvidence(
+            plugin_name='session_fixation_detector',
+            target_url=login_url,
+            payload=payload_description,
+            confidence=confidence,
+            http_request=http_request,
+            http_response=http_response,
+            reproduction_steps=reproduction_steps,
+            curl_command=curl_cmd,
+        )
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +394,23 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     f"Login POST to: {login_url}. "
                     f"Response status: {post_resp.status_code}."
                 )
+                confidence = 0.75
+                vpoc = _build_session_fixation_vpoc(
+                    response=post_resp,
+                    login_url=login_url,
+                    payload_description=(
+                        f'Login credentials submitted via POST; session cookie(s) '
+                        f'{unchanged!r} not rotated'
+                    ),
+                    confidence=confidence,
+                    reproduction_steps=(
+                        f'1. Send a GET request to {login_url} to obtain a session cookie.\n'
+                        f'2. Note the value of cookie(s): {unchanged!r}.\n'
+                        f'3. POST login credentials to {login_url}.\n'
+                        f'4. Observe that the session cookie value is unchanged after '
+                        f'successful authentication – session fixation is present.'
+                    ),
+                )
                 findings.append(VulnerabilityFinding(
                     vulnerability_type='session_fixation',
                     severity='medium',
@@ -329,8 +421,9 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     ),
                     evidence=evidence,
                     remediation=_REMEDIATION,
-                    confidence=0.75,
+                    confidence=confidence,
                     cwe_id='CWE-384',
+                    vpoc=vpoc,
                 ))
                 logger.info("Scenario 1 fixation found: unchanged cookies %s", unchanged)
 
@@ -413,6 +506,25 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     f"Login POST to: {login_url}. "
                     f"Response status: {resp_b.status_code}."
                 )
+                confidence = 0.80
+                vpoc = _build_session_fixation_vpoc(
+                    response=resp_b,
+                    login_url=login_url,
+                    payload_description=(
+                        f'User-swap: login as {username2!r} using session cookie(s) '
+                        f'originally issued to {username!r}; cookie(s) {unchanged!r} '
+                        f'not reissued'
+                    ),
+                    confidence=confidence,
+                    reproduction_steps=(
+                        f'1. Login as user "{username}" via POST to {login_url}.\n'
+                        f'2. Note the value of cookie(s): {unchanged!r}.\n'
+                        f'3. Without discarding the session, POST new login credentials '
+                        f'for user "{username2}" to {login_url}.\n'
+                        f'4. Observe that cookie(s) {unchanged!r} still carry the same '
+                        f'value – the identity changed but the session was not reissued.'
+                    ),
+                )
                 findings.append(VulnerabilityFinding(
                     vulnerability_type='session_fixation',
                     severity='medium',
@@ -424,8 +536,9 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     ),
                     evidence=evidence,
                     remediation=_REMEDIATION,
-                    confidence=0.80,
+                    confidence=confidence,
                     cwe_id='CWE-384',
+                    vpoc=vpoc,
                 ))
                 logger.info("Scenario 2 fixation found: unchanged cookies %s", unchanged)
 
@@ -566,6 +679,24 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     f"the review page at '{review_url}' (HTTP {review_resp.status_code}) "
                     f"after the submission was completed."
                 )
+                confidence = 0.65
+                vpoc = _build_session_fixation_vpoc(
+                    response=review_resp,
+                    login_url=base_url,
+                    payload_description=(
+                        f'Pre-flow session cookie(s) {list(pre_cookies.keys())} used to '
+                        f'access review page at {review_url!r} after submission'
+                    ),
+                    confidence=confidence,
+                    reproduction_steps=(
+                        f'1. Visit {base_url} and note the session cookie value.\n'
+                        f'2. Complete the sensitive submission flow.\n'
+                        f'3. Replay a GET request to the review page {review_url!r} '
+                        f'using the *pre-submission* session cookie.\n'
+                        f'4. Observe a {review_resp.status_code} response – the old '
+                        f'session token is still accepted on the review page.'
+                    ),
+                )
                 findings.append(VulnerabilityFinding(
                     vulnerability_type='session_fixation',
                     severity='medium',
@@ -577,8 +708,9 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     ),
                     evidence=evidence,
                     remediation=_REMEDIATION,
-                    confidence=0.65,
+                    confidence=confidence,
                     cwe_id='CWE-384',
+                    vpoc=vpoc,
                 ))
                 logger.info("Scenario 3 sensitive-flow fixation found")
 
@@ -630,7 +762,7 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
             crafted_session.cookies.set(target_cookie_name, _CRAFTED_TOKEN)
 
             try:
-                crafted_session.post(
+                login_resp = crafted_session.post(
                     login_url,
                     data={username_field: username, password_field: password},
                     verify=verify_ssl,
@@ -650,6 +782,23 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     f"This confirms that the server does not validate session identifiers "
                     f"against a server-side store, making session fixation trivially exploitable."
                 )
+                confidence = 0.90
+                vpoc = _build_session_fixation_vpoc(
+                    response=login_resp,
+                    login_url=login_url,
+                    payload_description=(
+                        f'Attacker-crafted cookie {target_cookie_name!r}={_CRAFTED_TOKEN!r} '
+                        f'sent before login; server preserved the value after authentication'
+                    ),
+                    confidence=confidence,
+                    reproduction_steps=(
+                        f'1. Before visiting the login page, set the cookie '
+                        f'"{target_cookie_name}={_CRAFTED_TOKEN}" in your browser.\n'
+                        f'2. POST login credentials to {login_url}.\n'
+                        f'3. Inspect the session cookie after login – the attacker-chosen '
+                        f'value is still present, confirming arbitrary token acceptance.'
+                    ),
+                )
                 findings.append(VulnerabilityFinding(
                     vulnerability_type='session_fixation',
                     severity='high',
@@ -662,9 +811,10 @@ class SessionFixationDetectorPlugin(BaseScanPlugin):
                     ),
                     evidence=evidence,
                     remediation=_REMEDIATION_ARBITRARY,
-                    confidence=0.90,
+                    confidence=confidence,
                     cwe_id='CWE-384',
                     verified=True,
+                    vpoc=vpoc,
                 ))
                 logger.info("Scenario 4: arbitrary token accepted for cookie '%s'", target_cookie_name)
 
