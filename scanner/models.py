@@ -62,6 +62,7 @@ class Vulnerability(models.Model):
         ('ssrf', 'Server-Side Request Forgery'),
         ('info_disclosure', 'Information Disclosure'),
         ('clickjacking', 'UI Redress (Clickjacking)'),
+        ('js_hijacking', 'JavaScript Hijacking / JSONP Data Exposure'),
         ('other', 'Other'),
     ]
     
