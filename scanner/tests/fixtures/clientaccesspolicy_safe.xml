@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Example restrictive Silverlight client access policy.
+     Used as a test fixture for the SilverlightClientAccessDetectorPlugin.
+
+     This policy is well-configured:
+       - Only an explicit, known domain is trusted.
+       - Only specific request headers are permitted.
+       - No wildcards.
+-->
+<access-policy>
+    <cross-domain-access>
+        <policy>
+            <allow-from http-request-headers="X-Requested-With">
+                <domain uri="trusted.example.com"/>
+            </allow-from>
+            <grant-to>
+                <resource path="/api/" include-subpaths="true"/>
+            </grant-to>
+        </policy>
+    </cross-domain-access>
+</access-policy>

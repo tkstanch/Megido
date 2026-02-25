@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<!-- Example restrictive Flash cross-domain policy.
+     Used as a test fixture for the FlashCrossdomainDetectorPlugin.
+
+     This policy is well-configured:
+       - Only explicit, known domains are trusted.
+       - site-control is set to master-only.
+       - No wildcards or internal IPs.
+-->
+<cross-domain-policy>
+    <site-control permitted-cross-domain-policies="master-only"/>
+    <allow-access-from domain="trusted.example.com" secure="true"/>
+    <allow-access-from domain="api.example.com" secure="true"/>
+</cross-domain-policy>
