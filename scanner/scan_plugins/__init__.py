@@ -24,6 +24,13 @@ Usage:
 
 from .base_scan_plugin import BaseScanPlugin, VulnerabilityFinding, ScanSeverity, create_repeater_request
 from .scan_plugin_registry import ScanPluginRegistry, get_scan_registry
+from .vpoc import (
+    VPoCEvidence,
+    redact_sensitive_headers,
+    truncate_body,
+    build_curl_command,
+    capture_request_response_evidence,
+)
 
 __all__ = [
     'BaseScanPlugin',
@@ -32,4 +39,9 @@ __all__ = [
     'ScanPluginRegistry',
     'get_scan_registry',
     'create_repeater_request',
+    'VPoCEvidence',
+    'redact_sensitive_headers',
+    'truncate_body',
+    'build_curl_command',
+    'capture_request_response_evidence',
 ]

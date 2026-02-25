@@ -905,7 +905,102 @@ gif_path = capture.capture_xss_proof(
 
 
 
-## ⚙️ Production Deployment Notes
+## 🔍 Visual Proof of Concept (VPoC) Evidence
+
+Exploit-capable scanner plugins attach a consistent **VPoC evidence artifact**
+to every finding that actively verifies a vulnerability.  This makes all
+exploit-capable findings fully reproducible and auditable.
+
+### VPoC evidence fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `plugin_name` | `str` | Plugin that produced the finding |
+| `target_url` | `str` | Targeted URL (without injected payload) |
+| `payload` | `str` | The payload or crafted input that triggered the finding |
+| `confidence` | `float` | Confidence score `[0.0, 1.0]` |
+| `http_request` | `dict` | Sanitized outgoing HTTP request (method, url, headers, body) |
+| `http_response` | `dict` | Sanitized HTTP response (status_code, headers, body) |
+| `reproduction_steps` | `str` | Step-by-step human-readable reproduction guide |
+| `redirect_chain` | `list[str]` | Ordered redirect URLs (open-redirect findings) |
+| `curl_command` | `str` | Ready-to-run `curl` command for manual reproduction |
+| `screenshots` | `list[str]` | Paths to screenshot files (when browser context available) |
+| `timestamp` | `str` | ISO-8601 UTC timestamp of evidence capture |
+
+### Security: sanitization and bounding
+
+All VPoC artifacts are sanitized before storage:
+
+- **Headers redacted** – `Authorization`, `Cookie`, `Set-Cookie`, `X-Auth-Token`,
+  `X-Api-Key`, `Proxy-Authorization`, `WWW-Authenticate`, `X-Amz-Security-Token`,
+  `X-CSRF-Token`, `X-XSRF-Token` values are replaced with `[REDACTED]`.
+- **Bodies truncated** – Request/response bodies are capped at **4 096 characters**
+  and a truncation notice (`... [truncated] ...`) is appended when shortened.
+
+### Plugins that emit VPoC evidence
+
+| Plugin | Vulnerability type | VPoC attached |
+|--------|--------------------|---------------|
+| `open_redirect_detector` | `open_redirect` | ✅ (includes redirect chain) |
+| `session_fixation_detector` | `session_fixation` | ✅ (all 4 scenarios) |
+
+### Accessing VPoC in code
+
+```python
+from scanner.scan_plugins import get_scan_registry
+
+registry = get_scan_registry()
+plugin = registry.get_plugin('open_redirect_detector')
+findings = plugin.scan('https://example.com/redirect?next=https://evil.com')
+
+for finding in findings:
+    if finding.vpoc:
+        print("Plugin:", finding.vpoc.plugin_name)
+        print("Payload:", finding.vpoc.payload)
+        print("Curl command:", finding.vpoc.curl_command)
+        print("Steps:", finding.vpoc.reproduction_steps)
+        # Serialise to JSON-safe dict (suitable for reports)
+        import json
+        print(json.dumps(finding.to_dict(), indent=2))
+```
+
+### Shared helpers
+
+The helpers live in `scanner/scan_plugins/vpoc.py` and can be imported from
+the `scanner.scan_plugins` package:
+
+```python
+from scanner.scan_plugins import (
+    VPoCEvidence,
+    redact_sensitive_headers,
+    truncate_body,
+    build_curl_command,
+    capture_request_response_evidence,
+)
+
+# Redact a headers dict
+safe = redact_sensitive_headers({'Authorization': 'Bearer secret', 'Content-Type': 'application/json'})
+# → {'Authorization': '[REDACTED]', 'Content-Type': 'application/json'}
+
+# Truncate a large body
+body = truncate_body(huge_html_body)
+
+# Build a curl command
+cmd = build_curl_command('https://example.com/', method='POST', body='key=value')
+
+# Build complete VPoC from a requests.Response
+vpoc = capture_request_response_evidence(
+    response=resp,
+    plugin_name='my_plugin',
+    payload='injected_value',
+    confidence=0.9,
+    target_url='https://example.com/',
+)
+```
+
+
+
+
 
 ### Worker Timeout Configuration
 

@@ -38,6 +38,7 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc import capture_request_response_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -233,10 +234,28 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
         Inspect a response for any open redirect mechanism and return a finding
         if an external redirect is detected.
         """
+        _PLUGIN_NAME = 'open_redirect_detector'
+
         # 1. HTTP 3xx Location header
         if response.status_code in (301, 302, 303, 307, 308):
             location = response.headers.get('Location', '')
             if location and _is_external_redirect(location, original_host):
+                confidence = 0.9
+                redirect_chain = [url, location]
+                vpoc = capture_request_response_evidence(
+                    response=response,
+                    plugin_name=_PLUGIN_NAME,
+                    payload=payload,
+                    confidence=confidence,
+                    target_url=url,
+                    redirect_chain=redirect_chain,
+                    reproduction_steps=(
+                        f'1. Send a GET request to {url} with parameter '
+                        f'"{param_name}" set to {payload!r}.\n'
+                        f'2. Observe the HTTP {response.status_code} response '
+                        f'with Location header pointing to an external host: {location}'
+                    ),
+                )
                 return VulnerabilityFinding(
                     vulnerability_type='open_redirect',
                     severity='medium',
@@ -245,8 +264,9 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                     evidence=f'Payload: {payload!r} | Response status: {response.status_code} | Location: {location}',
                     remediation=_REMEDIATION,
                     parameter=param_name,
-                    confidence=0.9,
+                    confidence=confidence,
                     cwe_id='CWE-601',
+                    vpoc=vpoc,
                 )
 
         body = response.text or ''
@@ -256,6 +276,21 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
         if refresh_header:
             refresh_url = self._extract_refresh_url(refresh_header)
             if refresh_url and _is_external_redirect(refresh_url, original_host):
+                confidence = 0.85
+                vpoc = capture_request_response_evidence(
+                    response=response,
+                    plugin_name=_PLUGIN_NAME,
+                    payload=payload,
+                    confidence=confidence,
+                    target_url=url,
+                    redirect_chain=[url, refresh_url],
+                    reproduction_steps=(
+                        f'1. Send a GET request to {url} with parameter '
+                        f'"{param_name}" set to {payload!r}.\n'
+                        f'2. Observe the Refresh response header redirecting to '
+                        f'an external host: {refresh_url}'
+                    ),
+                )
                 return VulnerabilityFinding(
                     vulnerability_type='open_redirect',
                     severity='medium',
@@ -264,13 +299,29 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                     evidence=f'Payload: {payload!r} | Refresh header: {refresh_header!r} | Redirect target: {refresh_url}',
                     remediation=_REMEDIATION,
                     parameter=param_name,
-                    confidence=0.85,
+                    confidence=confidence,
                     cwe_id='CWE-601',
+                    vpoc=vpoc,
                 )
 
         # 3. HTML meta refresh
         meta_url = self._extract_meta_refresh_url(body)
         if meta_url and _is_external_redirect(meta_url, original_host):
+            confidence = 0.80
+            vpoc = capture_request_response_evidence(
+                response=response,
+                plugin_name=_PLUGIN_NAME,
+                payload=payload,
+                confidence=confidence,
+                target_url=url,
+                redirect_chain=[url, meta_url],
+                reproduction_steps=(
+                    f'1. Send a GET request to {url} with parameter '
+                    f'"{param_name}" set to {payload!r}.\n'
+                    f'2. Observe the HTML meta refresh tag redirecting to '
+                    f'an external host: {meta_url}'
+                ),
+            )
             return VulnerabilityFinding(
                 vulnerability_type='open_redirect',
                 severity='medium',
@@ -279,13 +330,29 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                 evidence=f'Payload: {payload!r} | Meta refresh target: {meta_url}',
                 remediation=_REMEDIATION,
                 parameter=param_name,
-                confidence=0.80,
+                confidence=confidence,
                 cwe_id='CWE-601',
+                vpoc=vpoc,
             )
 
         # 4. JavaScript-based redirects
         js_target = self._extract_js_redirect_url(body)
         if js_target and _is_external_redirect(js_target, original_host):
+            confidence = 0.75
+            vpoc = capture_request_response_evidence(
+                response=response,
+                plugin_name=_PLUGIN_NAME,
+                payload=payload,
+                confidence=confidence,
+                target_url=url,
+                redirect_chain=[url, js_target],
+                reproduction_steps=(
+                    f'1. Send a GET request to {url} with parameter '
+                    f'"{param_name}" set to {payload!r}.\n'
+                    f'2. Observe the JavaScript redirect in the response body '
+                    f'pointing to an external host: {js_target}'
+                ),
+            )
             return VulnerabilityFinding(
                 vulnerability_type='open_redirect',
                 severity='medium',
@@ -294,8 +361,9 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                 evidence=f'Payload: {payload!r} | JavaScript redirect target: {js_target}',
                 remediation=_REMEDIATION,
                 parameter=param_name,
-                confidence=0.75,
+                confidence=confidence,
                 cwe_id='CWE-601',
+                vpoc=vpoc,
             )
 
         return None

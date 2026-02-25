@@ -9,9 +9,12 @@ Note: This is separate from ExploitPlugin which handles exploitation of known vu
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, Dict, List, Any, Optional
+from dataclasses import dataclass, field
 from enum import Enum
+
+if TYPE_CHECKING:
+    from scanner.scan_plugins.vpoc import VPoCEvidence
 
 
 class ScanSeverity(Enum):
@@ -45,7 +48,10 @@ class VulnerabilityFinding:
     successful_payloads: Optional[List[str]] = None  # Payloads that succeeded
     repeater_requests: Optional[List[Dict[str, Any]]] = None  # Copy-paste ready request data
     http_traffic: Optional[Dict[str, Any]] = None  # HTTP request/response traffic capture
-    
+
+    # Visual Proof of Concept evidence (populated by exploit-capable plugins)
+    vpoc: Optional['VPoCEvidence'] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         result = {
@@ -60,17 +66,20 @@ class VulnerabilityFinding:
             'cwe_id': self.cwe_id,
             'verified': self.verified,
         }
-        
+
         # Include enhanced fields if present
         if self.successful_payloads:
             result['successful_payloads'] = self.successful_payloads
-        
+
         if self.repeater_requests:
             result['repeater_requests'] = self.repeater_requests
-        
+
         if self.http_traffic:
             result['http_traffic'] = self.http_traffic
-            
+
+        if self.vpoc is not None:
+            result['vpoc'] = self.vpoc.to_dict()
+
         return result
 
 
