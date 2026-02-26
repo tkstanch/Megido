@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Launch Campaign - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:campaign_list' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Campaigns</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">New Campaign</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-1">Launch Attack Campaign</h2>
+        <p class="text-gray-600 dark:text-gray-400">Configure and launch a fully automated exploitation campaign.</p>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">Target Configuration</h3></div>
+            <div class="card-body space-y-4">
+                <div>
+                    <label class="label">Campaign Name</label>
+                    <input type="text" name="name" class="input" placeholder="My Campaign" value="Campaign">
+                </div>
+                <div>
+                    <label class="label">Target URL <span class="text-red-500">*</span></label>
+                    <input type="url" name="target_url" class="input" placeholder="https://example.com" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Mode</label>
+                        <select name="mode" class="input">
+                            <option value="auto">Fully Automatic</option>
+                            <option value="semi">Semi-Automatic</option>
+                            <option value="manual">Manual Payloads Only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Manipulation Level</label>
+                        <select name="manipulation_level" class="input">
+                            <option value="minimal">Minimal</option>
+                            <option value="moderate" selected>Moderate</option>
+                            <option value="aggressive">Aggressive</option>
+                            <option value="maximum">Maximum</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Concurrency (threads)</label>
+                        <input type="number" name="concurrency" class="input" value="10" min="1" max="20">
+                    </div>
+                    <div>
+                        <label class="label">Max Crawl Depth</label>
+                        <input type="number" name="max_depth" class="input" value="5" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">Injection Options</h3></div>
+            <div class="card-body space-y-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="include_headers" checked class="rounded">
+                    <span class="text-gray-700 dark:text-gray-300">Test HTTP Headers</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="include_cookies" checked class="rounded">
+                    <span class="text-gray-700 dark:text-gray-300">Test Cookies</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="use_builtin_payloads" checked class="rounded">
+                    <span class="text-gray-700 dark:text-gray-300">Use Built-in Payload Library</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="use_custom_payloads" class="rounded">
+                    <span class="text-gray-700 dark:text-gray-300">Use Custom Payloads (below)</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">Vulnerability Types to Test</h3></div>
+            <div class="card-body">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {% for vuln in vulnerabilities %}
+                <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <input type="checkbox" name="vuln_types" value="{{ vuln.name }}" checked class="rounded">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ vuln.name }}</span>
+                </label>
+                {% endfor %}
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Leave all unchecked to test all types.</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">Custom Payloads (optional)</h3></div>
+            <div class="card-body">
+                <textarea name="custom_payload_text" class="input font-mono text-sm" rows="6"
+                    placeholder="One payload per line. Lines starting with # are ignored.&#10;' OR 1=1--&#10;<script>alert(1)</script>"></textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary flex-1">⚡ Launch Campaign</button>
+            <a href="{% url 'manipulator:campaign_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

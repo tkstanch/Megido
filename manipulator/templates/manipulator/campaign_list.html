@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Attack Campaigns - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Attack Campaigns</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-1">Attack Campaigns</h2>
+            <p class="text-gray-600 dark:text-gray-400">Automated exploitation engine — crawl, inject, and report.</p>
+        </div>
+        <a href="{% url 'manipulator:campaign_start' %}" class="btn btn-primary">
+            ⚡ New Campaign
+        </a>
+    </div>
+
+    {% if campaigns %}
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Campaign</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Target</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Status</th>
+                        <th class="px-4 py-3 text-right text-gray-600 dark:text-gray-400 font-medium">Exploits</th>
+                        <th class="px-4 py-3 text-right text-gray-600 dark:text-gray-400 font-medium">Requests</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Created</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for campaign in campaigns %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ campaign.name }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{{ campaign.target_url }}</td>
+                    <td class="px-4 py-3">
+                        {% if campaign.status == 'completed' %}
+                            <span class="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">✓ Completed</span>
+                        {% elif campaign.status == 'crawling' %}
+                            <span class="badge bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">🕷 Crawling</span>
+                        {% elif campaign.status == 'injecting' %}
+                            <span class="badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">💉 Injecting</span>
+                        {% elif campaign.status == 'failed' %}
+                            <span class="badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">✗ Failed</span>
+                        {% elif campaign.status == 'paused' %}
+                            <span class="badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">⏸ Paused</span>
+                        {% else %}
+                            <span class="badge bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if campaign.successful_exploits > 0 %}
+                            <span class="font-bold text-red-600 dark:text-red-400">{{ campaign.successful_exploits }}</span>
+                        {% else %}
+                            <span class="text-gray-400">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{{ campaign.total_requests_sent }}</td>
+                    <td class="px-4 py-3 text-gray-500 dark:text-gray-500 text-xs">{{ campaign.created_at|date:"Y-m-d H:i" }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <a href="{% url 'manipulator:campaign_detail' campaign.id %}" class="btn btn-sm btn-secondary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-16">
+            <div class="text-6xl mb-4">🎯</div>
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No campaigns yet</h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">Launch your first automated attack campaign to discover vulnerabilities.</p>
+            <a href="{% url 'manipulator:campaign_start' %}" class="btn btn-primary">⚡ Launch Campaign</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

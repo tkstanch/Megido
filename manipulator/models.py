@@ -144,3 +144,114 @@ class CraftedPayload(models.Model):
     
     def __str__(self):
         return f"Crafted from {self.base_payload.name} at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class AttackCampaign(models.Model):
+    name = models.CharField(max_length=200)
+    target_url = models.URLField()
+    target_scope = models.TextField(blank=True)
+    status = models.CharField(max_length=20, default='pending',
+        choices=[('pending','Pending'),('crawling','Crawling'),('injecting','Injecting'),
+                 ('completed','Completed'),('paused','Paused'),('failed','Failed')])
+    mode = models.CharField(max_length=20, default='auto',
+        choices=[('auto','Fully Automatic'),('semi','Semi-Automatic'),('manual','Manual Payloads Only')])
+    concurrency = models.IntegerField(default=10)
+    follow_redirects = models.BooleanField(default=True)
+    max_depth = models.IntegerField(default=5)
+    include_headers = models.BooleanField(default=True)
+    include_cookies = models.BooleanField(default=True)
+    custom_headers = models.JSONField(default=dict)
+    authentication = models.JSONField(default=dict)
+    use_builtin_payloads = models.BooleanField(default=True)
+    use_custom_payloads = models.BooleanField(default=True)
+    custom_payload_text = models.TextField(blank=True)
+    vuln_types_to_test = models.JSONField(default=list)
+    manipulation_level = models.CharField(max_length=20, default='moderate',
+        choices=[('minimal','Minimal'),('moderate','Moderate'),('aggressive','Aggressive'),('maximum','Maximum')])
+    total_injection_points = models.IntegerField(default=0)
+    total_payloads_tested = models.IntegerField(default=0)
+    total_requests_sent = models.IntegerField(default=0)
+    successful_exploits = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} -> {self.target_url}"
+
+
+class DiscoveredInjectionPoint(models.Model):
+    campaign = models.ForeignKey(AttackCampaign, on_delete=models.CASCADE, related_name='injection_points')
+    url = models.URLField(max_length=2000)
+    parameter_name = models.CharField(max_length=500)
+    parameter_type = models.CharField(max_length=20,
+        choices=[('GET','GET'),('POST','POST'),('header','Header'),('cookie','Cookie'),
+                 ('json','JSON'),('xml','XML'),('file','File'),('websocket','WebSocket')])
+    injection_location = models.CharField(max_length=200, blank=True)
+    original_value = models.TextField(blank=True)
+    form_action = models.URLField(blank=True, max_length=2000)
+    form_method = models.CharField(max_length=10, blank=True)
+    discovered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-discovered_at']
+
+    def __str__(self):
+        return f"{self.parameter_type}:{self.parameter_name} @ {self.url}"
+
+
+class InjectionResult(models.Model):
+    campaign = models.ForeignKey(AttackCampaign, on_delete=models.CASCADE, related_name='results')
+    injection_point = models.ForeignKey(DiscoveredInjectionPoint, on_delete=models.CASCADE)
+    payload = models.ForeignKey(Payload, on_delete=models.SET_NULL, null=True, blank=True)
+    payload_text = models.TextField()
+    manipulations_applied = models.JSONField(default=list)
+    encodings_applied = models.JSONField(default=list)
+    request_method = models.CharField(max_length=10)
+    request_url = models.URLField(max_length=2000)
+    request_headers = models.JSONField(default=dict)
+    request_body = models.TextField(blank=True)
+    response_status = models.IntegerField(null=True, blank=True)
+    response_headers = models.JSONField(default=dict)
+    response_body = models.TextField(blank=True)
+    response_time_ms = models.IntegerField(null=True, blank=True)
+    is_successful = models.BooleanField(default=False)
+    vulnerability_type = models.CharField(max_length=100, blank=True)
+    detection_method = models.CharField(max_length=100, blank=True)
+    confidence = models.FloatField(default=0.0)
+    evidence = models.TextField(blank=True)
+    poc_curl_command = models.TextField(blank=True)
+    poc_python_script = models.TextField(blank=True)
+    poc_report = models.TextField(blank=True)
+    severity = models.CharField(max_length=20, default='info',
+        choices=[('critical','Critical'),('high','High'),('medium','Medium'),('low','Low'),('info','Info')])
+    tested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-tested_at']
+
+    def __str__(self):
+        return f"{'✓' if self.is_successful else '✗'} {self.vulnerability_type} @ {self.request_url}"
+
+
+class PayloadSource(models.Model):
+    name = models.CharField(max_length=200)
+    source_type = models.CharField(max_length=20,
+        choices=[('builtin','Built-in'),('user','User Provided'),('discovered','Auto-Discovered'),('imported','Imported')])
+    vulnerability_type = models.ForeignKey(VulnerabilityType, on_delete=models.CASCADE)
+    payloads_text = models.TextField()
+    description = models.TextField(blank=True)
+    effectiveness_score = models.FloatField(default=0.0)
+    times_used = models.IntegerField(default=0)
+    times_successful = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-effectiveness_score', '-times_successful']
+
+    def __str__(self):
+        return f"{self.name} ({self.source_type})"
