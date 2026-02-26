@@ -8,13 +8,19 @@ these functions so that workers never need to import Django view code.
 
 import logging
 import os
+from typing import Callable, Dict, Optional
 
+import requests as _requests_lib
+from django.conf import settings as _dj_settings
 from django.utils import timezone
 
 from .models import SQLInjectionTask, SQLInjectionResult
 from .sqli_engine import SQLInjectionEngine
 from .param_discovery import ParameterDiscoveryEngine
 from .oob_payloads import OOBPayloadGenerator, DatabaseType as OOBDatabaseType
+from .engine.config import ScanConfig
+from .engine.discovery import DiscoveryScanner
+from .engine.reporting import Finding
 from response_analyser.analyse import save_vulnerability
 
 logger = logging.getLogger(__name__)
@@ -26,6 +32,154 @@ _OOB_PAYLOAD_MAX_STORE_LENGTH = 200
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _map_param_type_to_location(param_type: str) -> str:
+    """Map a parameter_type string (GET, POST, header, cookie, json) to a
+    standardised injection_location field value."""
+    return {
+        'GET': 'GET',
+        'POST': 'POST',
+        'HEADER': 'header',
+        'COOKIE': 'cookie',
+        'JSON': 'json',
+    }.get((param_type or '').upper(), param_type or 'GET')
+
+
+def _make_discovery_request_fn(
+    extra_headers: Optional[Dict[str, str]],
+    cookies: Optional[Dict[str, str]],
+    verify_ssl: bool,
+) -> Callable:
+    """Return a ``request_fn`` compatible with :class:`~.engine.discovery.DiscoveryScanner`.
+
+    Sensitive header/cookie values are never logged.  Connect timeouts short-circuit
+    immediately (no retry) and all other :class:`requests.RequestException` failures
+    return ``None`` so the scanner can proceed gracefully.
+    """
+    session = _requests_lib.Session()
+    # Redact sensitive header names from being logged.
+    _SENSITIVE_HEADERS = frozenset({
+        'authorization', 'cookie', 'x-auth-token', 'x-api-key',
+        'proxy-authorization',
+    })
+
+    def _request_fn(url, method, params, data, json_data, headers, cookies_arg):
+        connect_timeout = getattr(_dj_settings, 'NETWORK_CONNECT_TIMEOUT', 10)
+        read_timeout = getattr(_dj_settings, 'NETWORK_READ_TIMEOUT', 30)
+        merged_headers = {**(extra_headers or {}), **(headers or {})}
+        merged_cookies = {**(cookies or {}), **(cookies_arg or {})}
+        try:
+            return session.request(
+                method=method.upper(),
+                url=url,
+                params=params,
+                data=data,
+                json=json_data,
+                headers=merged_headers,
+                cookies=merged_cookies,
+                timeout=(connect_timeout, read_timeout),
+                verify=verify_ssl,
+            )
+        except _requests_lib.exceptions.ConnectTimeout:
+            logger.warning(
+                "DiscoveryScanner: connect timeout for %s (connect_timeout=%ss)",
+                url, connect_timeout,
+            )
+            return None
+        except _requests_lib.exceptions.RequestException as exc:
+            logger.debug("DiscoveryScanner: request error for %s: %s", url, exc)
+            return None
+
+    return _request_fn
+
+
+def _run_discovery_scan(
+    task: "SQLInjectionTask",
+    params: Dict[str, str],
+    data: Dict[str, str],
+    headers: Dict[str, str],
+    cookies: Dict[str, str],
+) -> Dict[str, object]:
+    """Run :class:`~.engine.discovery.DiscoveryScanner` for baseline-aware,
+    verification-first detection.
+
+    Returns a dict mapping ``parameter_name → Finding`` for each vulnerable
+    parameter.  Returns an empty dict on any failure so callers are never
+    interrupted.
+    """
+    try:
+        request_fn = _make_discovery_request_fn(headers, cookies, verify_ssl=False)
+
+        cfg = ScanConfig(
+            baseline_samples=3,
+            max_concurrent_requests=1,
+            request_timeout_seconds=float(
+                getattr(_dj_settings, 'NETWORK_CONNECT_TIMEOUT', 10)
+            ),
+            retry_max_attempts=min(
+                int(getattr(_dj_settings, 'NETWORK_MAX_RETRIES', 2)), 2
+            ),
+            per_host_request_budget=100,
+            inject_query_params=True,
+            inject_form_params=True,
+            inject_json_params=True,
+            inject_headers=False,   # safe default: header injection is noisier
+            inject_cookies=False,   # safe default: opt-in required
+            max_payloads_per_param=10,
+            error_detection_enabled=True,
+        )
+
+        scanner = DiscoveryScanner(request_fn=request_fn, config=cfg)
+        findings = scanner.scan(
+            url=task.target_url,
+            method=task.http_method,
+            params=params or {},
+            data=data or {},
+            headers={},   # headers already baked into request_fn via _make_discovery_request_fn
+            cookies={},   # cookies already baked into request_fn
+        )
+        logger.info(
+            "DiscoveryScanner: %d finding(s) for task %s",
+            len(findings), task.id,
+        )
+        return {f.parameter: f for f in findings}
+    except Exception as exc:
+        logger.warning(
+            "DiscoveryScanner failed for task %s, continuing without structured evidence: %s",
+            task.id, exc,
+        )
+        return {}
+
+
+def _build_evidence_packet(discovery_finding: Optional[Finding]) -> Optional[Dict]:
+    """Build a JSON-serialisable evidence packet from a DiscoveryScanner Finding."""
+    if discovery_finding is None:
+        return None
+    return {
+        'finding_id': discovery_finding.finding_id,
+        'technique': discovery_finding.technique,
+        'db_type': discovery_finding.db_type,
+        'confidence': discovery_finding.confidence,
+        'verdict': discovery_finding.verdict,
+        'evidence': [e.to_dict() for e in discovery_finding.evidence[:3]],
+    }
+
+
+def _build_reproduction_steps(task: "SQLInjectionTask", param_name: str, discovery_finding: Optional[Finding]) -> str:
+    """Generate safe, step-by-step reproduction instructions from a Finding."""
+    if discovery_finding is None or not discovery_finding.evidence:
+        return ''
+    evidence = discovery_finding.evidence[0]
+    payload = evidence.payload
+    return (
+        f"1. Send a {task.http_method} request to: {task.target_url}\n"
+        f"2. Set parameter '{param_name}' to: {payload!r}\n"
+        f"3. Observe the response for SQL error signatures or content differences.\n"
+        f"   Technique: {discovery_finding.technique} | "
+        f"DB: {discovery_finding.db_type} | "
+        f"Confidence: {discovery_finding.confidence:.0%} ({discovery_finding.verdict})"
+    )
 
 def _get_default_data_to_exfiltrate(db_type):
     """Return the default SQL expression to exfiltrate for a given OOB DB type."""
@@ -181,8 +335,10 @@ def execute_task(task_id: int) -> None:
         if task.auto_discover_params:
             try:
                 logger.info(f"Starting parameter discovery for {task.target_url}")
+                _conn_to = getattr(_dj_settings, 'NETWORK_CONNECT_TIMEOUT', 10)
+                _read_to = getattr(_dj_settings, 'NETWORK_READ_TIMEOUT', 30)
                 discovery_engine = ParameterDiscoveryEngine(
-                    timeout=30,
+                    timeout=(_conn_to, _read_to),
                     verify_ssl=False,
                 )
 
@@ -223,6 +379,11 @@ def execute_task(task_id: int) -> None:
                 logger.error(f"Parameter discovery failed: {e}", exc_info=True)
 
         merged_params_dict = {**params, **data}
+
+        # Run DiscoveryScanner for verification-first, baseline-aware detection.
+        # Results enrich each finding with structured evidence, confidence rationale,
+        # and reproduction steps stored in the new schema fields.
+        discovery_findings_by_param = _run_discovery_scan(task, params, data, headers, cookies)
 
         evidence_result = engine.execute_attack_with_evidence(
             task=task,
@@ -286,6 +447,19 @@ def execute_task(task_id: int) -> None:
                 all_injection_points=all_injection_points or None,
                 successful_payloads=successful_payloads or None,
                 extracted_sensitive_data=extracted_sensitive_data or None,
+                # New schema fields populated from DiscoveryScanner
+                injection_location=_map_param_type_to_location(param_method),
+                evidence_packet=_build_evidence_packet(
+                    discovery_findings_by_param.get(param_name)
+                ),
+                confidence_rationale=(
+                    discovery_findings_by_param[param_name].score_rationale or ''
+                    if param_name in discovery_findings_by_param
+                    else f'confidence_score={confidence_score:.2f}'
+                ),
+                reproduction_steps=_build_reproduction_steps(
+                    task, param_name, discovery_findings_by_param.get(param_name)
+                ),
             )
 
             if verified:
@@ -389,25 +563,9 @@ def execute_task_with_selection(task_id: int) -> None:
     """
     Execute a SQL injection task using only the manually selected parameters.
 
-    Delegates to :func:`execute_task` after reconstructing the parameter list
-    from ``task.selected_params``.
+    Delegates to :func:`execute_task` which owns the full DB lifecycle
+    (``status``, ``started_at``, ``completed_at``, ``error_message``).
+    Running lifecycle management here as well would set those fields twice and
+    mask the actual start time recorded by ``execute_task``.
     """
-    try:
-        task = SQLInjectionTask.objects.get(id=task_id)
-        task.status = 'running'
-        task.started_at = timezone.now()
-        task.save()
-
-        execute_task(task_id)
-
-    except Exception as e:
-        logger.error(f"Error executing task with selection {task_id}: {e}", exc_info=True)
-        try:
-            task = SQLInjectionTask.objects.get(id=task_id)
-        except SQLInjectionTask.DoesNotExist:
-            logger.error(f"SQLInjectionTask {task_id} not found when recording failure")
-            return
-        task.status = 'failed'
-        task.error_message = str(e)
-        task.completed_at = timezone.now()
-        task.save()
+    execute_task(task_id)

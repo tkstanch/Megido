@@ -52,7 +52,154 @@ CELERY_RESULT_BACKEND=redis://redis:6379/0
 
 ---
 
-## Out-of-Band (OOB) SQL Injection
+## Verification-First Detection Engine
+
+The SQL attacker uses a two-layer detection approach to minimise false positives
+and generate reproducible findings for authorised defensive testing:
+
+1. **DiscoveryScanner** (primary) – a baseline-aware engine that normalises
+   responses, diffs probe results against a clean baseline, and produces
+   confidence-scored findings with structured evidence.
+2. **SQLInjectionEngine** (secondary) – the original engine that performs deeper
+   detection and exploitation.
+
+Both results are merged into each `SQLInjectionResult` record.
+
+### How detection works
+
+```
+Target URL
+    │
+    ▼
+DiscoveryScanner (engine/discovery.py)
+    ├── Collect baseline (3 requests, median/IQR timing)
+    ├── Canary probes (5 high-signal payloads)
+    │      └─ No signal → stop (few requests, no noise)
+    │      └─ Signal   → run remainder probes + confirmation
+    └── Returns: Finding[] with confidence score, verdict, evidence
+
+SQLInjectionEngine (sqli_engine.py)
+    └── Deeper payload library, exploitation, OOB generation
+
+Results merged → SQLInjectionResult (DB)
+    ├── injection_location  – where the injection point was found
+    ├── evidence_packet     – normalised diff, matched signatures, confidence
+    ├── confidence_rationale – per-feature score breakdown
+    └── reproduction_steps  – step-by-step cURL/instructions
+```
+
+### Interpreting finding fields
+
+| Field | Description | Example |
+|---|---|---|
+| `injection_location` | Where the vulnerable parameter lives | `GET`, `POST`, `json`, `header`, `cookie` |
+| `evidence_packet` | Structured JSON evidence from DiscoveryScanner | See below |
+| `confidence_rationale` | Human-readable confidence score breakdown | `score=0.920, verdict=confirmed, active_features=2 (top: sql_error_pattern, repeatability)` |
+| `reproduction_steps` | Safe step-by-step instructions to reproduce the finding | `1. Send GET request to … 2. Set 'id' to: "'" 3. Observe SQL error` |
+| `confidence_score` | Numeric score in [0, 1] from the primary engine | `0.85` |
+| `verified` | True when exploitation was confirmed | `True` |
+
+#### evidence_packet JSON schema
+
+```json
+{
+  "finding_id": "<uuid>",
+  "technique": "error",
+  "db_type": "mysql",
+  "confidence": 0.92,
+  "verdict": "confirmed",
+  "evidence": [
+    {
+      "payload": "'",
+      "request_summary": "GET /search?q=%27 HTTP/1.1",
+      "technique": "error",
+      "response_length": 1234,
+      "response_body_excerpt": "...MySQL syntax error...[truncated]"
+    }
+  ]
+}
+```
+
+#### Verdict meanings
+
+| Verdict | Meaning |
+|---|---|
+| `confirmed` | Score ≥ 0.70 and ≥ 2 independent signals fired |
+| `likely`    | Score ≥ 0.45 but not enough corroborating signals |
+| `uncertain` | Score < 0.45; low-confidence candidate finding |
+
+Only `confirmed` and `likely` findings are stored as `SQLInjectionResult` records.
+
+### Network timeout configuration
+
+All HTTP timeouts are driven by Django settings (configurable via environment variables):
+
+| Django setting | Env variable | Default | Purpose |
+|---|---|---|---|
+| `NETWORK_CONNECT_TIMEOUT` | `MEGIDO_CONNECT_TIMEOUT` | `10`s | TCP connection timeout; ConnectTimeout aborts immediately without retry |
+| `NETWORK_READ_TIMEOUT`    | `MEGIDO_READ_TIMEOUT`    | `30`s | Socket read timeout |
+| `NETWORK_MAX_RETRIES`     | `MEGIDO_MAX_RETRIES`     | `3`    | Max retry attempts for transient errors (NOT applied to ConnectTimeout) |
+
+Example `.env` override for faster scans:
+```dotenv
+MEGIDO_CONNECT_TIMEOUT=5
+MEGIDO_READ_TIMEOUT=15
+MEGIDO_MAX_RETRIES=2
+```
+
+### Safe-by-default scanner configuration
+
+The DiscoveryScanner is initialised with conservative defaults:
+
+| Setting | Default | Rationale |
+|---|---|---|
+| `baseline_samples` | 3 | Enough to compute median/IQR timing without excessive traffic |
+| `per_host_request_budget` | 100 | Hard cap on total requests per host per scan |
+| `max_payloads_per_param` | 10 | Canary-first; stops after first signal |
+| `inject_headers` | `False` | Header injection is noisier; must be explicitly opted in |
+| `inject_cookies` | `False` | Cookie injection is riskier; must be explicitly opted in |
+| `inject_query_params` | `True` | Core coverage |
+| `inject_form_params` | `True` | Core coverage |
+| `inject_json_params` | `True` | REST API coverage |
+| `time_based_enabled` | `False` | Time-based probes disabled by default (high noise) |
+
+### Running the scanner from the API
+
+```python
+# Create a detection-only task (no exploitation)
+POST /sql-attacker/api/tasks/
+{
+    "target_url": "https://target.example.com/search?q=test",
+    "http_method": "GET",
+    "enable_exploitation": false,
+    "auto_discover_params": true
+}
+```
+
+### Running the scanner from the CLI
+
+```bash
+# Run with Celery (async)
+python manage.py shell -c "
+from sql_attacker.models import SQLInjectionTask
+from sql_attacker.tasks import sql_injection_task
+task = SQLInjectionTask.objects.create(
+    target_url='https://target.example.com/search',
+    http_method='GET',
+    get_params={'q': 'test'},
+)
+sql_injection_task.delay(task.id)
+print('Task enqueued:', task.id)
+"
+
+# Run synchronously (for development)
+CELERY_TASK_ALWAYS_EAGER=True python manage.py shell -c "
+from sql_attacker.services import execute_task
+execute_task(<task_id>)
+"
+```
+
+---
 
 OOB techniques are **enabled by default** for every attack task.  When a
 vulnerability is detected, the engine generates OOB payloads for the detected
