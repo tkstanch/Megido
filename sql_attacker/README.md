@@ -1079,6 +1079,24 @@ Full API documentation is available through Django REST Framework's browsable AP
 - Try adjusting stealth settings
 - Check if WAF is blocking requests
 
+### Parameter discovery skipped – target resolves to a private IP
+If you see a log message such as:
+
+```
+Parameter discovery skipped: <hostname> resolves to private IP <ip>. Ensure appropriate network access (e.g. VPN) is configured.
+```
+
+the target hostname resolved to an RFC1918 / private / loopback address that
+is unreachable from the current network.  To resolve this:
+
+- Connect to the required VPN or internal network before running the scan.
+- Confirm that DNS is returning the correct (routable) address for the target.
+- If the private IP is intentional (e.g. testing against a local lab), run
+  the tool from a host that has direct network access to that range.
+
+Parameter discovery will be skipped automatically in this case; you can still
+provide parameters manually via the task configuration.
+
 ### Integration issues with response_analyser
 - Ensure response_analyser app is installed and migrated
 - Check that the app has proper database access

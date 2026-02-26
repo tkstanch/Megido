@@ -8,7 +8,9 @@ Automatically discovers all possible parameters from:
 """
 
 import re
+import ipaddress
 import logging
+import socket
 from typing import Dict, List, Set, Tuple, Optional
 from urllib.parse import urlparse, parse_qs, urljoin
 from bs4 import BeautifulSoup
@@ -69,6 +71,29 @@ class ParameterDiscoveryEngine:
         self.verify_ssl = verify_ssl
         self.session = requests.Session()
     
+    def _check_private_ip(self, url: str) -> Optional[str]:
+        """
+        Resolve the hostname from ``url`` and return the resolved IP address if it
+        is a private/non-public address (RFC1918, loopback, link-local, etc.).
+
+        Returns the resolved IP string when the address is non-public, or
+        ``None`` when the address is public (safe to proceed).
+
+        DNS resolution failures (``socket.gaierror``) are silently ignored and
+        ``None`` is returned so that the HTTP layer can handle the error itself.
+        """
+        try:
+            hostname = urlparse(url).hostname
+            if not hostname:
+                return None
+            resolved_ip = socket.gethostbyname(hostname)
+            addr = ipaddress.ip_address(resolved_ip)
+            if not addr.is_global:
+                return resolved_ip
+        except (socket.gaierror, ValueError):
+            pass
+        return None
+
     def discover_parameters(self, url: str, method: str = 'GET',
                           headers: Optional[Dict] = None) -> Tuple[Dict, List[DiscoveredParameter]]:
         """
@@ -83,7 +108,19 @@ class ParameterDiscoveryEngine:
             Tuple of (merged_params_dict, list of DiscoveredParameter objects)
         """
         discovered_params = []
-        
+
+        # Fail fast if the hostname resolves to a private/non-routable IP
+        private_ip = self._check_private_ip(url)
+        if private_ip is not None:
+            hostname = urlparse(url).hostname
+            logger.warning(
+                "Parameter discovery skipped: %s resolves to private IP %s. "
+                "Ensure appropriate network access (e.g. VPN) is configured.",
+                hostname,
+                private_ip,
+            )
+            return {}, []
+
         try:
             # Fetch the target page
             response = self.session.get(
@@ -119,7 +156,35 @@ class ParameterDiscoveryEngine:
             logger.info(f"Discovered {len(unique_params)} unique parameters from {url}")
             
             return merged_params, unique_params
-            
+
+        except requests.exceptions.ConnectTimeout:
+            logger.warning(
+                "Parameter discovery timed out connecting to %s (timeout=%ss).",
+                url,
+                self.timeout,
+            )
+            return {}, []
+        except requests.exceptions.ReadTimeout:
+            logger.warning(
+                "Parameter discovery read timed out for %s (timeout=%ss).",
+                url,
+                self.timeout,
+            )
+            return {}, []
+        except requests.exceptions.SSLError as e:
+            logger.warning(
+                "Parameter discovery SSL error for %s: %s",
+                url,
+                e,
+            )
+            return {}, []
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(
+                "Parameter discovery connection error for %s: %s",
+                url,
+                e,
+            )
+            return {}, []
         except Exception as e:
             logger.error(f"Error discovering parameters from {url}: {e}", exc_info=True)
             return {}, []
