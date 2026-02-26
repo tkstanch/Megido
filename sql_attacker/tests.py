@@ -1047,3 +1047,131 @@ class VerifiedResultGetsVPoCTest(TestCase):
         self.assertIsNone(reloaded.screenshots)
         self.assertIsNone(reloaded.visual_proof_path)
 
+
+class ServiceExecuteTaskLifecycleTest(TestCase):
+    """
+    Tests for sql_attacker.services.execute_task covering status lifecycle
+    and error persistence (including network ConnectTimeout).
+    """
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/test?id=1',
+            http_method='GET',
+            get_params={'id': '1'},
+            enable_error_based=True,
+        )
+
+    def test_execute_task_sets_failed_status_on_engine_exception(self):
+        """
+        When the SQL injection engine raises an unexpected exception,
+        execute_task must persist status='failed', error_message, and completed_at.
+        """
+        from unittest.mock import patch
+        from sql_attacker.services import execute_task
+
+        with patch(
+            'sql_attacker.services.SQLInjectionEngine.execute_attack_with_evidence',
+            side_effect=RuntimeError('engine boom'),
+        ):
+            execute_task(self.task.id)
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'failed')
+        self.assertIn('engine boom', self.task.error_message)
+        self.assertIsNotNone(self.task.completed_at)
+
+    def test_execute_task_sets_failed_on_connect_timeout(self):
+        """
+        A requests.exceptions.ConnectTimeout raised by the engine should result
+        in status='failed' with an error_message and completed_at set.
+        """
+        from unittest.mock import patch
+        import requests.exceptions
+        from sql_attacker.services import execute_task
+
+        with patch(
+            'sql_attacker.services.SQLInjectionEngine.execute_attack_with_evidence',
+            side_effect=requests.exceptions.ConnectTimeout(
+                'HTTPSConnectionPool(host=\'example.com\', port=443): '
+                'Max retries exceeded with url: /test'
+            ),
+        ):
+            execute_task(self.task.id)
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'failed')
+        self.assertIsNotNone(self.task.error_message)
+        self.assertIsNotNone(self.task.completed_at)
+
+    def test_execute_task_missing_task_does_not_raise(self):
+        """execute_task with a non-existent task_id must not propagate an exception."""
+        from sql_attacker.services import execute_task
+        # Should not raise
+        try:
+            execute_task(999999)
+        except Exception as exc:
+            self.fail(f"execute_task raised unexpectedly: {exc}")
+
+
+class TasksMarkFailedTest(TestCase):
+    """Tests for tasks._mark_task_failed helper."""
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/test?id=1',
+            http_method='GET',
+        )
+
+    def test_mark_task_failed_sets_all_fields(self):
+        from sql_attacker.tasks import _mark_task_failed
+        _mark_task_failed(self.task.id, 'Task exceeded time limit')
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, 'failed')
+        self.assertEqual(self.task.error_message, 'Task exceeded time limit')
+        self.assertIsNotNone(self.task.completed_at)
+
+    def test_mark_task_failed_nonexistent_id_does_not_raise(self):
+        """_mark_task_failed with unknown id must not propagate an exception."""
+        from sql_attacker.tasks import _mark_task_failed
+        try:
+            _mark_task_failed(999999, 'some error')
+        except Exception as exc:
+            self.fail(f"_mark_task_failed raised unexpectedly: {exc}")
+
+
+class MakeRequestConnectTimeoutTest(TestCase):
+    """
+    Tests for SQLInjectionEngine._make_request handling of ConnectTimeout:
+    the method must return None immediately without retrying.
+    """
+
+    def _make_engine(self):
+        from sql_attacker.sqli_engine import SQLInjectionEngine
+        return SQLInjectionEngine({
+            'use_random_delays': False,
+            'randomize_user_agent': False,
+            'use_payload_obfuscation': False,
+            'verify_ssl': False,
+            'enable_stealth': False,
+        })
+
+    def test_connect_timeout_returns_none_without_retry(self):
+        import requests.exceptions
+        from unittest.mock import patch, MagicMock
+
+        engine = self._make_engine()
+        call_count = [0]
+
+        def fake_get(*args, **kwargs):
+            call_count[0] += 1
+            raise requests.exceptions.ConnectTimeout('connect timed out')
+
+        with patch.object(engine.session, 'get', side_effect=fake_get):
+            result = engine._make_request('https://192.0.2.1/test', method='GET')
+
+        self.assertIsNone(result)
+        # Must not retry on ConnectTimeout
+        self.assertEqual(call_count[0], 1)
+
+
