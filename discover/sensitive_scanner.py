@@ -70,13 +70,91 @@ class SensitivePatterns:
     
     # Social Security Numbers (US)
     SSN = r'\b\d{3}-\d{2}-\d{4}\b'
-    
+
+    # -----------------------------------------------------------------------
+    # Extended cloud provider credentials
+    # -----------------------------------------------------------------------
+    AWS_SECRET_KEY = r'(?:aws[_\-\s]?secret[_\-\s]?(?:access[_\-\s]?)?key|AWS_SECRET)["\']?\s*[:=]\s*["\']?([A-Za-z0-9+/]{40})'
+    AWS_SESSION_TOKEN = r'AQoD[A-Za-z0-9+/=]{100,}'
+    AZURE_CONNECTION_STRING = r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[A-Za-z0-9+/=]{64,}'
+    AZURE_SAS_TOKEN = r'sv=\d{4}-\d{2}-\d{2}&s[a-z]=&s[a-z]=[a-z]+&s[a-z]=&[a-z]+=\d{4}'
+    AZURE_CLIENT_SECRET = r'["\']?clientSecret["\']?\s*[:=]\s*["\']([A-Za-z0-9._\-~]{32,})["\']'
+    GCP_SERVICE_ACCOUNT = r'"type"\s*:\s*"service_account"'
+    GCP_API_KEY = r'["\']?gcp[_\-]?(?:api[_\-]?)?key["\']?\s*[:=]\s*["\']([A-Za-z0-9_\-]{39})["\']'
+    DIGITALOCEAN_TOKEN = r'dop_v1_[a-z0-9]{64}'
+    HEROKU_API_KEY = r'heroku[_\-\s]?(?:api[_\-]?)?key["\']?\s*[:=]\s*["\']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+    TWILIO_ACCOUNT_SID = r'AC[0-9a-z]{32}'
+    TWILIO_AUTH_TOKEN = r'twilio[_\-\s]?(?:auth[_\-]?)?token["\']?\s*[:=]\s*["\']([0-9a-z]{32})["\']'
+    SENDGRID_API_KEY = r'SG\.[A-Za-z0-9\-_]{22}\.[A-Za-z0-9\-_]{43}'
+    MAILGUN_API_KEY = r'key-[0-9a-f]{32}'
+    MAILCHIMP_API_KEY = r'[0-9a-f]{32}-us\d+'
+    DATADOG_API_KEY = r'datadog[_\-\s]?(?:api[_\-]?)?key["\']?\s*[:=]\s*["\']([a-z0-9]{32})["\']'
+    NEW_RELIC_KEY = r'(?:NRAK|NRAA|NRJS|NRII|NRIA)-[A-Z0-9]{30,}'
+    PAGERDUTY_KEY = r'pagerduty[_\-\s]?(?:api[_\-]?)?key["\']?\s*[:=]\s*["\']([A-Za-z0-9_\-+]{20,})["\']'
+    SENTRY_DSN = r'https://[0-9a-f]{32}@(?:o\d+\.)?ingest\.sentry\.io/\d+'
+    CIRCLECI_TOKEN = r'circleci[_\-\s]?(?:api[_\-]?)?token["\']?\s*[:=]\s*["\']([0-9a-f]{40})["\']'
+    TRAVIS_CI_TOKEN = r'travis[_\-\s]?(?:ci[_\-]?)?token["\']?\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']'
+
+    # -----------------------------------------------------------------------
+    # Infrastructure secrets
+    # -----------------------------------------------------------------------
+    KUBERNETES_TOKEN = r'eyJhbGciOiJSUzI1NiIsImtpZCI6[A-Za-z0-9+/=_-]{50,}'
+    DOCKER_AUTH = r'"auth"\s*:\s*"[A-Za-z0-9+/=]{20,}"'
+    TERRAFORM_STATE = r'"sensitive_attributes"\s*:\s*\['
+    ANSIBLE_VAULT = r'\$ANSIBLE_VAULT;[0-9.]+;AES256'
+    CONSUL_TOKEN = r'consul[_\-\s]?(?:bootstrap[_\-\s]?)?token["\']?\s*[:=]\s*["\']([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})["\']'
+    VAULT_TOKEN = r'(?:s|hvs)\.[A-Za-z0-9_\-]{24,}'
+
+    # -----------------------------------------------------------------------
+    # Payment processing
+    # -----------------------------------------------------------------------
+    SQUARE_ACCESS_TOKEN = r'sq0atp-[0-9A-Za-z\-_]{22}'
+    SQUARE_OAUTH_SECRET = r'sq0csp-[0-9A-Za-z\-_]{43}'
+    BRAINTREE_KEY = r'braintree[_\-\s]?(?:private[_\-]?)?key["\']?\s*[:=]\s*["\']([0-9a-f]{32})["\']'
+    PAYPAL_ACCESS_TOKEN = r'access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}'
+
+    # -----------------------------------------------------------------------
+    # Communication platforms
+    # -----------------------------------------------------------------------
+    DISCORD_WEBHOOK = r'https://discord(?:app)?\.com/api/webhooks/\d{17,19}/[A-Za-z0-9\.\-_]+'
+    DISCORD_BOT_TOKEN = r'[MN][A-Za-z0-9\-_]{23,25}\.[A-Za-z0-9\-_]{6}\.[A-Za-z0-9\-_]{27,38}'
+    TELEGRAM_BOT_TOKEN = r'\d{8,10}:[A-Za-z0-9_\-]{35}'
+    ZOOM_API_KEY = r'zoom[_\-\s]?(?:api[_\-]?)?key["\']?\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']'
+    TEAMS_WEBHOOK = r'https://[a-z0-9]+\.webhook\.office\.com/webhookb2/[0-9a-f\-]+/IncomingWebhook/[0-9a-f]+/[0-9a-f\-]+'
+
+    # -----------------------------------------------------------------------
+    # Additional database connection strings
+    # -----------------------------------------------------------------------
+    REDIS_CONN = r'redis://[^:]*:[^@]*@[^:/]+'
+    CASSANDRA_CONN = r'cassandra://[^:]+:[^@]+@[^/]+/\w+'
+    COUCHDB_CONN = r'couchdb://[^:]+:[^@]+@[^/]+/\w+'
+    NEO4J_CONN = r'bolt://[^:]+:[^@]+@[^/]+'
+    INFLUXDB_TOKEN = r'influxdb[_\-\s]?token["\']?\s*[:=]\s*["\']([A-Za-z0-9+/=_\-]{40,})["\']'
+
+    # -----------------------------------------------------------------------
+    # Internal paths and debug artifacts
+    # -----------------------------------------------------------------------
+    STACK_TRACE = r'(?:Traceback \(most recent call last\)|at [A-Za-z.$_]+\([^)]*\.[a-z]+:\d+\))'
+    DEBUG_MODE = r'(?:DEBUG\s*=\s*True|APP_ENV\s*=\s*(?:development|local)|FLASK_DEBUG\s*=\s*1)'
+    SOURCE_MAP = r'\.map["\s]|sourceMappingURL=(?!data:)'
+    DOTENV_CONTENT = r'^(?:export\s+)?[A-Z_]+\s*=\s*.+$'
+    GIT_DIR_EXPOSED = r'Index of .*?/\.git|\.git/config'
+    DS_STORE_EXPOSED = r'Index of .*?/\.DS_Store'
+    BACKUP_FILE = r'(?:\.bak|\.backup|\.old|\.orig|\.save|\.swp|~)(?:\s|"|\'|$)'
+    INTERNAL_PATH = r'["\'](?:/home/|/root/|/var/www/|C:\\Users\\|C:\\inetpub\\)[^"\']*["\']'
+
+    # -----------------------------------------------------------------------
+    # Entropy sentinel (marks high-entropy strings for manual review)
+    # -----------------------------------------------------------------------
+    HIGH_ENTROPY_HINT = r'(?:token|secret|key|password|credential|passwd|pwd)\s*[:=]\s*["\']?[A-Za-z0-9+/]{32,}["\']?'
+
     @classmethod
     def get_all_patterns(cls) -> Dict[str, str]:
         """
         Returns all patterns as a dictionary with pattern names and regex.
         """
         return {
+            # Original patterns
             'AWS Access Key': cls.AWS_KEY,
             'GitHub Personal Access Token': cls.GITHUB_TOKEN,
             'GitHub OAuth Token': cls.GITHUB_OAUTH,
@@ -100,6 +178,62 @@ class SensitivePatterns:
             'JWT Token': cls.JWT_TOKEN,
             'Credit Card Number': cls.CREDIT_CARD,
             'Social Security Number': cls.SSN,
+            # Extended cloud credentials
+            'AWS Secret Access Key': cls.AWS_SECRET_KEY,
+            'AWS Session Token': cls.AWS_SESSION_TOKEN,
+            'Azure Connection String': cls.AZURE_CONNECTION_STRING,
+            'Azure SAS Token': cls.AZURE_SAS_TOKEN,
+            'Azure Client Secret': cls.AZURE_CLIENT_SECRET,
+            'GCP Service Account': cls.GCP_SERVICE_ACCOUNT,
+            'GCP API Key': cls.GCP_API_KEY,
+            'DigitalOcean Token': cls.DIGITALOCEAN_TOKEN,
+            'Heroku API Key': cls.HEROKU_API_KEY,
+            'Twilio Account SID': cls.TWILIO_ACCOUNT_SID,
+            'Twilio Auth Token': cls.TWILIO_AUTH_TOKEN,
+            'SendGrid API Key': cls.SENDGRID_API_KEY,
+            'Mailgun API Key': cls.MAILGUN_API_KEY,
+            'Mailchimp API Key': cls.MAILCHIMP_API_KEY,
+            'Datadog API Key': cls.DATADOG_API_KEY,
+            'New Relic Key': cls.NEW_RELIC_KEY,
+            'PagerDuty Key': cls.PAGERDUTY_KEY,
+            'Sentry DSN': cls.SENTRY_DSN,
+            'CircleCI Token': cls.CIRCLECI_TOKEN,
+            'Travis CI Token': cls.TRAVIS_CI_TOKEN,
+            # Infrastructure secrets
+            'Kubernetes Service Token': cls.KUBERNETES_TOKEN,
+            'Docker Registry Auth': cls.DOCKER_AUTH,
+            'Terraform State Sensitive': cls.TERRAFORM_STATE,
+            'Ansible Vault Password': cls.ANSIBLE_VAULT,
+            'Consul Token': cls.CONSUL_TOKEN,
+            'Vault Token': cls.VAULT_TOKEN,
+            # Payment processing
+            'Square Access Token': cls.SQUARE_ACCESS_TOKEN,
+            'Square OAuth Secret': cls.SQUARE_OAUTH_SECRET,
+            'Braintree Key': cls.BRAINTREE_KEY,
+            'PayPal Access Token': cls.PAYPAL_ACCESS_TOKEN,
+            # Communication platforms
+            'Discord Webhook': cls.DISCORD_WEBHOOK,
+            'Discord Bot Token': cls.DISCORD_BOT_TOKEN,
+            'Telegram Bot Token': cls.TELEGRAM_BOT_TOKEN,
+            'Zoom API Key': cls.ZOOM_API_KEY,
+            'Microsoft Teams Webhook': cls.TEAMS_WEBHOOK,
+            # Additional databases
+            'Redis Connection String': cls.REDIS_CONN,
+            'Cassandra Connection String': cls.CASSANDRA_CONN,
+            'CouchDB Connection String': cls.COUCHDB_CONN,
+            'Neo4j Bolt URI': cls.NEO4J_CONN,
+            'InfluxDB Token': cls.INFLUXDB_TOKEN,
+            # Debug / internal artifacts
+            'Stack Trace': cls.STACK_TRACE,
+            'Debug Mode Enabled': cls.DEBUG_MODE,
+            'Source Map Exposed': cls.SOURCE_MAP,
+            '.env File Content': cls.DOTENV_CONTENT,
+            '.git Directory Exposed': cls.GIT_DIR_EXPOSED,
+            '.DS_Store Exposed': cls.DS_STORE_EXPOSED,
+            'Backup File': cls.BACKUP_FILE,
+            'Internal Path Disclosure': cls.INTERNAL_PATH,
+            # Entropy-based
+            'High-Entropy Credential': cls.HIGH_ENTROPY_HINT,
         }
 
 
