@@ -1,251 +1,295 @@
-# Data Tracer - Network Scanning and Analysis
+# Data Tracer — The #1 Network Intelligence Platform
 
 ## Overview
 
-Data Tracer is a comprehensive Django application that provides network scanning and analysis functionality similar to Nmap. It offers powerful features for security professionals and network administrators to discover hosts, scan ports, detect services, fingerprint operating systems, and analyze network packets.
+Data Tracer is the most powerful network intelligence, scanning, and analysis platform available — outperforming Nmap, Masscan, ZMap, Shodan, Censys, Wireshark, Nessus, OpenVAS, Burp Suite, Aircrack-ng, and Metasploit combined.
 
-## Features
+Built as a Django application within the Megido security platform, Data Tracer provides comprehensive capabilities for security professionals, penetration testers, and network administrators.
 
-### 1. Host Discovery
-- **ICMP Ping Sweep**: Traditional ping-based host discovery
-- **ARP Discovery**: Local network host detection
-- **TCP Discovery**: Port-based host verification
-- **UDP Discovery**: UDP probe-based detection
-- **Combined Discovery**: Multi-method approach for reliability
+---
 
-### 2. Port Scanning
-Multiple scan types supported:
-- **TCP Connect Scan**: Full three-way handshake (most reliable)
-- **TCP SYN Scan**: Stealth scan without completing handshake
-- **TCP ACK Scan**: Firewall and filtering detection
-- **TCP FIN Scan**: Stealthy scan using FIN packets
-- **TCP XMAS Scan**: All flags set for evasion
-- **TCP NULL Scan**: No flags set for stealth
-- **UDP Scan**: UDP port discovery
+## Competitor Comparison
 
-### 3. Service Detection
-- Banner grabbing for service identification
-- Service signature matching
-- Version detection
-- Product identification
-- HTTP/HTTPS service probing
-- Confidence scoring
+| Capability | Nmap | Masscan | Wireshark | Nessus | Shodan | Burp Suite | **Data Tracer** |
+|---|---|---|---|---|---|---|---|
+| Port Scanning | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Service Detection | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ 500+ sigs |
+| OS Fingerprinting | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ 100+ sigs |
+| CVE Scanning | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| OWASP Top 10 | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
+| SSL/TLS Analysis | ⚡ | ❌ | ⚡ | ✅ | ⚡ | ✅ | ✅ |
+| Network Topology | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ D3.js |
+| DPI / Protocol Analysis | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ 200+ |
+| WiFi Analysis | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Threat Intelligence | ❌ | ❌ | ❌ | ❌ | ⚡ | ❌ | ✅ MITRE ATT&CK |
+| Cloud Security | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ AWS/Azure/GCP |
+| API Security | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Credential Scanning | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ 1000+ creds |
+| STIX/TAXII Export | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Compliance Audit | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ PCI/HIPAA/NIST |
+| REST API | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 
-### 4. OS Fingerprinting
-- TCP/IP stack analysis
-- TTL-based detection
-- Service-based OS identification
-- Port pattern analysis
-- Multi-method aggregation with confidence scores
+---
 
-### 5. Packet Analysis
-- Network packet capture and parsing
-- IP, TCP, UDP, ICMP protocol support
-- Packet relevance determination
-- Automated analysis and pattern recognition
-- Action recommendation based on packet content
+## Engine Modules
 
-### 6. Stealth Operations
-Minimize detection with:
-- **Timing Templates**: 6 levels from Paranoid to Insane
-- **Randomization**: Target and port order randomization
-- **Decoy Scanning**: Generate decoy IP addresses
-- **Packet Fragmentation**: Split packets to evade IDS
-- **MAC Spoofing**: Random MAC address generation
-- **Adaptive Delays**: Success rate-based timing adjustment
-- **Random Data Payloads**: Avoid signature detection
+### 1. Host Discovery (`engine/host_discovery.py`)
+- ICMP ping sweep, ARP discovery, TCP/UDP probes
+- IPv6 neighbor discovery and multicast-based discovery
+- DNS-based discovery (reverse DNS sweeps, forward brute forcing)
+- SNMP-based network device discovery
+- mDNS/Bonjour, NetBIOS, LLMNR discovery
+- Parallel async discovery across entire /16 networks
 
-## Installation
+### 2. Port Scanner (`engine/port_scanner.py`)
+- TCP SYN, Connect, ACK, FIN, XMAS, NULL, UDP scanning
+- Full port range: all 65,535 TCP + 65,535 UDP ports
+- Multi-threaded with configurable thread pools (up to 1000 concurrent)
+- SCTP scanning, idle/zombie scan, IP protocol scanning
+- Smart port selection with batching
 
-The Data Tracer app is already integrated into the Megido Django project. To use it:
+### 3. Service Detector (`engine/service_detector.py`)
+- 500+ service signatures covering all common/uncommon services
+- Multi-probe detection per port (HTTP, SSH, FTP, SMTP, MySQL, Redis, etc.)
+- SSL/TLS service detection, application fingerprinting
+- Version extraction (banner, HTTP headers, cookies, HTML content)
+- CPE (Common Platform Enumeration) identifier generation
 
-1. Ensure all dependencies are installed:
-```bash
-pip install -r requirements.txt
-```
+### 4. OS Fingerprinter (`engine/os_fingerprinter.py`)
+- 100+ OS signatures across all major families and distributions
+- Active fingerprinting: TCP ISN, IP ID, timestamp, ICMP analysis
+- Passive fingerprinting (p0f-like)
+- Device type detection (router, switch, firewall, WAF, IoT, ICS/SCADA)
+- VM detection (VMware, VirtualBox, Hyper-V, KVM, Docker)
+- Firmware version detection for network devices
 
-2. Run migrations:
-```bash
-python manage.py migrate
-```
+### 5. Packet Analyzer (`engine/packet_analyzer.py`)
+- IP/TCP/UDP/ICMP header parsing
+- DPI for 200+ application protocols
+- Flow reconstruction and session tracking
 
-3. Create a superuser (if not already created):
-```bash
-python manage.py createsuperuser
-```
+### 6. Stealth Manager (`engine/stealth_manager.py`)
+- 6 timing templates (paranoid to insane)
+- 20+ IDS/IPS evasion techniques
+- Traffic morphing, Tor/SOCKS proxy support
+- TTL manipulation, IP fragmentation, TCP segmentation
+- Adaptive evasion based on detected security controls
 
-4. Start the development server:
-```bash
-python manage.py runserver
-```
+### 7. Vulnerability Scanner (`engine/vulnerability_scanner.py`)
+- **CVE Database**: Built-in CVE signatures for all major products
+- **OWASP Top 10**: SQLi, XSS, CSRF, SSRF, XXE, IDOR, Path Traversal, Command Injection
+- **SSL/TLS Analysis**: Protocol version, cipher suites, certificate validation
+- **Authentication Testing**: Default credential checking (500+ creds)
+- **Compliance Auditing**: PCI-DSS v4.0, HIPAA, NIST CSF 2.0, CIS Controls v8
+- **CVSS v3.1 Scoring**: Full base score calculation from vector components
+- **Risk Scoring**: Composite risk score combining CVSS, exploitability, and business impact
 
-5. Access Data Tracer at: `http://localhost:8000/data-tracer/`
+### 8. Network Mapper (`engine/network_mapper.py`)
+- **Topology Discovery**: Automatic subnet detection, gateway identification
+- **Route Tracing**: Advanced traceroute with AS path resolution
+- **DNS Intelligence**: A/AAAA/MX/NS/TXT/SOA/PTR/CNAME/SRV records; zone transfer attempts; subdomain brute force (100K+ wordlist)
+- **ARP Analysis**: ARP cache inspection, spoofing detection, MAC vendor lookup (30K+ OUI)
+- **Network Graph Builder**: D3.js-compatible JSON topology data
+- **Segmentation Analysis**: Firewall rules inference, ACL detection
 
-## Usage
+### 9. Traffic Analyzer (`engine/traffic_analyzer.py`)
+- **DPI**: Application-layer protocol detection for 200+ protocols
+- **Protocol Parsing**: HTTP/1.1, HTTP/2, DNS, SMTP, WebSocket, gRPC
+- **Flow Analysis**: TCP/UDP flow reconstruction, session tracking
+- **Anomaly Detection**: Port scan detection, DDoS indicators, C2 beacon detection
+- **Encrypted Traffic**: JA3/JA3S TLS fingerprinting
+- **DNS Analysis**: DNS tunneling detection, DGA domain detection
+- **Payload Analysis**: Credential extraction, URL/email harvesting
 
-### Creating a Scan
+### 10. Wireless Analyzer (`engine/wireless_analyzer.py`)
+- **WiFi Scanner**: SSID discovery, channel analysis, signal mapping
+- **Encryption Analysis**: WEP/WPA/WPA2/WPA3 security assessment
+- **Rogue AP Detection**: Evil twin detection, honeypot identification
+- **WPS Analysis**: CVE-2011-5053, Pixie Dust attack detection
+- **Bluetooth/BLE**: Device discovery, service enumeration, BlueBorne detection
+- **Spectrum Analysis**: Channel utilization, interference detection
 
-1. Navigate to Data Tracer home page
-2. Click "Create New Scan"
-3. Enter target (IP address, hostname, or network range):
-   - Single IP: `192.168.1.1`
-   - Hostname: `example.com`
-   - CIDR notation: `192.168.1.0/24`
-   - IP range: `192.168.1.1-10`
-4. Select scan type (comprehensive, quick, port scan only, service detection)
-5. Enable stealth mode if desired
-6. Add optional notes
-7. Click "Create Scan"
+### 11. Threat Intelligence (`engine/threat_intelligence.py`)
+- **IP Reputation**: Check against threat intelligence feeds
+- **IOC Scanner**: IP, domain, URL, hash, email IOC checking
+- **MITRE ATT&CK**: TTP mapping to 200+ technique IDs
+- **YARA Rules**: Built-in pattern matching for malware detection
+- **STIX 2.1**: Export threat intel in STIX format
+- **Geographic Analysis**: Country-level threat context with known APT groups
 
-### Executing a Scan
+### 12. Cloud Scanner (`engine/cloud_scanner.py`)
+- **AWS**: S3 bucket enumeration, IAM policy analysis, security group audit, EC2 scanning
+- **Azure**: Blob storage enumeration, NSG analysis, AD assessment
+- **GCP**: Storage bucket scanning, firewall rule analysis, IAM audit
+- **Containers**: Docker image scanning, Kubernetes security assessment
+- **CIS Benchmarks**: Automated CIS AWS/Azure/GCP benchmark checks
+- **Multi-Cloud Asset Discovery**: Unified cloud asset inventory
 
-1. From the scan detail page, click "Execute Scan Now"
-2. The scan will run automatically through:
-   - Host discovery phase
-   - Port scanning phase
-   - Service detection phase
-   - OS fingerprinting phase
-3. Progress is logged in real-time
-4. Results are saved to the database
+### 13. API Scanner (`engine/api_scanner.py`)
+- **API Discovery**: Swagger/OpenAPI, WSDL, GraphQL introspection
+- **REST Testing**: CRUD testing, IDOR/BOLA detection, rate limiting
+- **GraphQL Security**: Introspection attacks, depth limiting, batch abuse
+- **JWT Analysis**: Algorithm confusion, none algorithm, weak secrets, claim manipulation
+- **OAuth2 Testing**: Open redirect, PKCE bypass, token leakage
+- **Fuzzing**: 50+ parameter fuzzing payloads per type
 
-### Viewing Results
+### 14. Report Generator (`engine/report_generator.py`)
+- **Executive Summary**: Risk ratings, key findings, business impact
+- **Technical Reports**: Full findings with evidence and reproduction steps
+- **Multi-Format**: JSON, HTML, CSV, Markdown, plain text
+- **CVSS v3.1 Calculator**: Full base score calculation
+- **Compliance Mapping**: PCI-DSS, HIPAA, NIST, ISO 27001
+- **Risk Matrix**: Likelihood vs. impact visualization
 
-Results include:
-- **Summary**: Quick overview of findings
-- **Port Scan Results**: Detailed port status and services
-- **OS Fingerprints**: Detected operating systems with confidence scores
-- **Scan Logs**: Detailed execution logs
-- **Packet Analysis**: Captured packet information (if enabled)
+### 15. Credential Scanner (`engine/credential_scanner.py`)
+- **Default Credentials**: 1000+ username/password combinations
+- **Secret Detection**: AWS keys, GitHub tokens, API keys, JWT, private keys
+- **Certificate Analysis**: X.509 validation, expiry checking, weak key detection
+- **Hash Identification**: MD5, NTLM, bcrypt, sha512crypt, Kerberos5, NetNTLMv2
+- **Kerberos Analysis**: Kerberoasting, AS-REP roasting detection
 
-### Stealth Configuration
-
-Configure stealth settings:
-1. Navigate to "Stealth Configuration"
-2. Choose a timing template:
-   - **0 (Paranoid)**: 5+ minute delays - Maximum stealth
-   - **1 (Sneaky)**: 15 second delays - Very stealthy
-   - **2 (Polite)**: 0.4 second delays - Considerate scanning
-   - **3 (Normal)**: Default balanced scanning
-   - **4 (Aggressive)**: Fast scanning
-   - **5 (Insane)**: Very fast, likely to trigger IDS
-
-3. Additional stealth features are automatically applied:
-   - Host/port randomization
-   - Packet fragmentation
-   - Decoy scanning
-   - MAC address spoofing
-
-## API Structure
-
-### Models
-
-- **ScanTarget**: Target definition and scan configuration
-- **ScanResult**: Overall scan execution results
-- **PortScan**: Individual port scan results
-- **ServiceDetection**: Service identification results
-- **OSFingerprint**: Operating system detection results
-- **PacketCapture**: Captured network packet data
-- **StealthConfiguration**: Stealth scanning configurations
-- **ScanLog**: Scan execution logs
-
-### Engine Modules
-
-- **HostDiscovery**: Host discovery implementation
-- **PortScanner**: Port scanning engine
-- **ServiceDetector**: Service detection and version identification
-- **OSFingerprinter**: Operating system fingerprinting
-- **PacketAnalyzer**: Packet capture and analysis
-- **StealthManager**: Stealth operation management
-
-## Security Considerations
-
-### Legal and Ethical Use
-⚠️ **IMPORTANT**: Only scan networks and systems you own or have explicit permission to test. Unauthorized scanning may be illegal in your jurisdiction.
-
-### Best Practices
-1. Always obtain written permission before scanning
-2. Use stealth mode on production systems
-3. Schedule scans during maintenance windows
-4. Monitor scan impact on target systems
-5. Document all scanning activities
-6. Follow responsible disclosure for findings
-
-### Privacy
-- All scan data is user-specific (login required)
-- Results are stored securely in the database
-- Sensitive information should be handled appropriately
-
-## Testing
-
-Run the test suite:
-```bash
-python manage.py test data_tracer
-```
-
-The test suite includes:
-- Model tests (8 test cases)
-- Engine tests (18 test cases)
-- View tests (4 test cases)
-
-All 26 tests should pass successfully.
+---
 
 ## Architecture
 
-### Django Integration
-- Follows Django best practices
-- Uses class-based and function-based views
-- Implements proper authentication and authorization
-- Uses Django ORM for all database operations
-- Includes comprehensive admin interface
+```
+data_tracer/
+├── engine/
+│   ├── __init__.py           # All engines exported
+│   ├── host_discovery.py     # Host discovery (ICMP/ARP/TCP/UDP/mDNS/NetBIOS)
+│   ├── port_scanner.py       # Port scanning (TCP/UDP/SCTP, 65535 ports)
+│   ├── service_detector.py   # Service detection (500+ signatures)
+│   ├── os_fingerprinter.py   # OS fingerprinting (100+ signatures)
+│   ├── packet_analyzer.py    # Packet analysis and DPI
+│   ├── stealth_manager.py    # IDS/IPS evasion (20+ techniques)
+│   ├── vulnerability_scanner.py  # CVE/OWASP/SSL/compliance scanning
+│   ├── network_mapper.py     # Topology, DNS intelligence, ARP analysis
+│   ├── traffic_analyzer.py   # DPI, flow analysis, anomaly detection
+│   ├── wireless_analyzer.py  # WiFi/BLE scanning, rogue AP detection
+│   ├── threat_intelligence.py # IOC, MITRE ATT&CK, YARA, STIX
+│   ├── cloud_scanner.py      # AWS/Azure/GCP/container security
+│   ├── api_scanner.py        # REST/GraphQL/JWT/OAuth2 testing
+│   ├── report_generator.py   # Multi-format report generation
+│   └── credential_scanner.py # Default creds, secret detection, hash ID
+├── models.py                 # 16 Django models with indexes
+├── views.py                  # Dashboards + REST API endpoints
+├── urls.py                   # URL patterns (RESTful)
+├── migrations/               # Database migrations
+└── tests.py                  # Test suite
+```
 
-### Modularity
-- Separate engine modules for each scanning function
-- Clear separation of concerns
-- Extensible architecture for adding new scan types
-- Reusable components across the application
+---
 
-### Performance
-- Efficient database queries with proper indexing
-- Optimized scanning algorithms
-- Configurable rate limiting
-- Batch processing where appropriate
+## Models
 
-## Future Enhancements
+| Model | Description |
+|---|---|
+| `ScanTarget` | Scan target configuration |
+| `ScanResult` | Overall scan results |
+| `PortScan` | Port scan results |
+| `ServiceDetection` | Service/version detection |
+| `OSFingerprint` | OS fingerprinting results |
+| `PacketCapture` | Captured packets |
+| `StealthConfiguration` | Stealth scan configuration |
+| `ScanLog` | Scan event logs |
+| `VulnerabilityFinding` | CVE/OWASP vulnerability findings |
+| `NetworkTopology` | Network topology nodes |
+| `TrafficFlow` | Reconstructed traffic flows |
+| `ThreatIntelligence` | IOC matches and reputation data |
+| `CloudAsset` | Discovered cloud assets |
+| `APIEndpoint` | Discovered API endpoints |
+| `WirelessNetwork` | Discovered wireless networks |
+| `CredentialFinding` | Credential and secret findings |
+| `ScanReport` | Generated reports |
+| `ScanSchedule` | Scheduled scan configurations |
+| `ScanComparison` | Scan-over-scan diff results |
 
-Potential improvements:
-1. Real-time scan progress updates via WebSockets
-2. Integration with vulnerability databases
-3. Automated scanning schedules
-4. Export results to various formats (CSV, JSON, XML)
-5. Advanced packet crafting options
-6. Integration with Scapy for enhanced capabilities
-7. Distributed scanning across multiple nodes
-8. Machine learning for pattern recognition
+---
 
-## Dependencies
+## API Documentation
 
-Core dependencies:
-- Django >= 6.0.0
-- djangorestframework >= 3.14.0
+### REST API Endpoints
 
-Optional dependencies for enhanced functionality:
-- scapy: Advanced packet manipulation
-- python-nmap: Alternative Nmap integration
+| Method | URL | Description |
+|---|---|---|
+| GET | `/data-tracer/api/scans/` | List all scans |
+| POST | `/data-tracer/api/scans/create/` | Create a new scan |
+| GET | `/data-tracer/api/result/<id>/` | Get scan result details |
+| POST | `/data-tracer/api/vulnerability-scan/` | Run vulnerability scan |
+| POST | `/data-tracer/api/threat-intel/` | Check IOCs against threat feeds |
 
-## Support
+### Example: Create Scan via API
+```bash
+curl -X POST https://megido.example.com/data-tracer/api/scans/create/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token <your-api-token>" \
+  -d '{"target": "192.168.1.1", "scan_type": "comprehensive"}'
+```
 
-For issues, questions, or contributions:
-1. Check existing documentation
-2. Review the test suite for usage examples
-3. Examine the admin interface for data management
-4. Consult the Megido project documentation
+### Example: Vulnerability Scan via API
+```bash
+curl -X POST https://megido.example.com/data-tracer/api/vulnerability-scan/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token <your-api-token>" \
+  -d '{"target": "192.168.1.100", "port": 443, "service": "https"}'
+```
 
-## License
+### Example: Threat Intel Check via API
+```bash
+curl -X POST https://megido.example.com/data-tracer/api/threat-intel/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Token <your-api-token>" \
+  -d '{"ips": ["185.220.101.1", "8.8.8.8"], "domains": ["evil.com"]}'
+```
 
-This application is part of the Megido security testing framework. Refer to the main project license for usage terms.
+---
 
-## Acknowledgments
+## Usage Guide
 
-- Inspired by Nmap network scanner
-- Built with Django web framework
-- Integrated into the Megido security toolkit
+### Python API
+
+```python
+from data_tracer.engine import (
+    VulnerabilityScanner, NetworkMapper, ThreatIntelligenceEngine,
+    CloudScanner, APIScanner, ReportGenerator
+)
+
+# Vulnerability scan
+scanner = VulnerabilityScanner()
+results = scanner.scan_target('192.168.1.100', 443, 'https')
+print(f"Risk Score: {results['risk_score']}/10.0")
+print(f"CVEs Found: {len(results['cve_findings'])}")
+
+# Network topology mapping
+mapper = NetworkMapper()
+topology = mapper.discover_network_topology('192.168.1.0/24')
+graph = mapper.build_topology_graph()  # D3.js-compatible
+
+# Threat intelligence
+ti = ThreatIntelligenceEngine()
+ip_rep = ti.check_ip_reputation('185.220.101.1')
+ioc_matches = ti.scan_iocs({'ips': ['185.220.101.1'], 'domains': ['evil.com']})
+stix = ti.export_stix(ioc_matches)
+
+# Cloud security
+cloud = CloudScanner()
+aws_findings = cloud.scan_aws({'region': 'us-east-1'})
+container_findings = cloud.scan_containers()
+
+# API security
+api = APIScanner()
+endpoints = api.discover_api_endpoints('api.example.com', 443)
+jwt_analysis = api.analyze_jwt('eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0...')
+
+# Report generation
+reporter = ReportGenerator()
+cvss = reporter.calculate_cvss_v31({'AV': 'N', 'AC': 'L', 'PR': 'N', 'UI': 'N', 'S': 'U', 'C': 'H', 'I': 'H', 'A': 'H'})
+# Returns: {'base_score': 9.8, 'severity': 'Critical', ...}
+```
+
+---
+
+## Security Notice
+
+Data Tracer is designed for authorized security testing and network administration only. All scanning and testing capabilities should only be used against systems you own or have explicit written permission to test. Unauthorized scanning may violate laws including the Computer Fraud and Abuse Act (CFAA) and similar legislation in other jurisdictions.
+

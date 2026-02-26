@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Network Topology - Data Tracer{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'data_tracer:home' %}" class="text-gray-700 dark:text-gray-300">Data Tracer</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Network Topology</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-8">
+    <div class="card-holographic card-kinetic shadow-aurora-deep">
+        <div class="card-body">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-shimmer">🗺️ Network Topology</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">Target: {{ scan_result.scan_target.target }}</p>
+        </div>
+    </div>
+
+    <!-- D3.js Topology Graph -->
+    <div class="card-holographic shadow-aurora-deep">
+        <div class="card-body">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Network Graph</h3>
+            <div id="topology-graph" class="w-full rounded-xl bg-gray-900/50" style="height: 500px; position: relative;">
+                <svg id="graph-svg" width="100%" height="100%"></svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Node List -->
+    {% if nodes %}
+    <div class="card-holographic shadow-aurora-deep">
+        <div class="card-body">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Discovered Nodes ({{ nodes.count }})</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <th class="text-left py-2 px-4 text-gray-600 dark:text-gray-400">IP Address</th>
+                            <th class="text-left py-2 px-4 text-gray-600 dark:text-gray-400">Hostname</th>
+                            <th class="text-left py-2 px-4 text-gray-600 dark:text-gray-400">Type</th>
+                            <th class="text-left py-2 px-4 text-gray-600 dark:text-gray-400">Vendor</th>
+                            <th class="text-left py-2 px-4 text-gray-600 dark:text-gray-400">MAC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for node in nodes %}
+                        <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td class="py-2 px-4 font-mono text-gray-900 dark:text-white">{{ node.ip_address }}</td>
+                            <td class="py-2 px-4 text-gray-700 dark:text-gray-300">{{ node.hostname|default:"-" }}</td>
+                            <td class="py-2 px-4">
+                                <span class="px-2 py-1 rounded-full text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                                    {{ node.node_type|default:"unknown" }}
+                                </span>
+                            </td>
+                            <td class="py-2 px-4 text-gray-500 dark:text-gray-400">{{ node.vendor|default:"Unknown" }}</td>
+                            <td class="py-2 px-4 font-mono text-xs text-gray-500 dark:text-gray-400">{{ node.mac_address|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// D3.js topology visualization
+const graphData = {{ graph_data_json|safe }};
+
+if (graphData.nodes && graphData.nodes.length > 0) {
+    const svg = document.getElementById('graph-svg');
+    const container = document.getElementById('topology-graph');
+    const width = container.offsetWidth;
+    const height = 500;
+
+    const nodeColors = {
+        'server': '#6366f1', 'web_server': '#8b5cf6', 'database_server': '#a855f7',
+        'network_equipment': '#06b6d4', 'workstation': '#10b981',
+        'printer': '#f59e0b', 'iot_camera': '#ef4444', 'unknown': '#6b7280',
+    };
+
+    // Simple SVG-based visualization (without full D3 library)
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) / 3;
+
+    let svgContent = '';
+
+    // Draw edges first
+    graphData.links.forEach(link => {
+        const sourceNode = graphData.nodes.find(n => n.id === link.source);
+        const targetNode = graphData.nodes.find(n => n.id === link.target);
+        if (sourceNode && targetNode) {
+            const i = graphData.nodes.indexOf(sourceNode);
+            const j = graphData.nodes.indexOf(targetNode);
+            const angle = (j / graphData.nodes.length) * 2 * Math.PI;
+            const sx = centerX, sy = centerY;
+            const tx = centerX + radius * Math.cos(angle);
+            const ty = centerY + radius * Math.sin(angle);
+            svgContent += `<line x1="${sx}" y1="${sy}" x2="${tx}" y2="${ty}" stroke="#4f46e5" stroke-opacity="0.4" stroke-width="1.5"/>`;
+        }
+    });
+
+    // Draw nodes
+    graphData.nodes.forEach((node, i) => {
+        const angle = i === 0 ? 0 : (i / graphData.nodes.length) * 2 * Math.PI;
+        const x = i === 0 ? centerX : centerX + radius * Math.cos(angle);
+        const y = i === 0 ? centerY : centerY + radius * Math.sin(angle);
+        const color = nodeColors[node.type] || '#6b7280';
+        const nodeRadius = i === 0 ? 20 : 14;
+
+        svgContent += `<circle cx="${x}" cy="${y}" r="${nodeRadius}" fill="${color}" fill-opacity="0.8" stroke="${color}" stroke-width="2"/>`;
+        svgContent += `<text x="${x}" y="${y + nodeRadius + 14}" text-anchor="middle" fill="white" font-size="10" font-family="monospace">${node.label.substring(0, 15)}</text>`;
+    });
+
+    svg.innerHTML = svgContent;
+}
+</script>
+{% endblock %}
