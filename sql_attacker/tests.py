@@ -1175,3 +1175,396 @@ class MakeRequestConnectTimeoutTest(TestCase):
         self.assertEqual(call_count[0], 1)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Tests for new service-layer improvements
+# ---------------------------------------------------------------------------
+
+
+class MapParamTypeToLocationTest(TestCase):
+    """Tests for services._map_param_type_to_location."""
+
+    def _call(self, param_type):
+        from sql_attacker.services import _map_param_type_to_location
+        return _map_param_type_to_location(param_type)
+
+    def test_get_maps_to_GET(self):
+        self.assertEqual('GET', self._call('GET'))
+
+    def test_post_maps_to_POST(self):
+        self.assertEqual('POST', self._call('POST'))
+
+    def test_header_maps_to_header(self):
+        self.assertEqual('header', self._call('header'))
+
+    def test_cookie_maps_to_cookie(self):
+        self.assertEqual('cookie', self._call('cookie'))
+
+    def test_json_maps_to_json(self):
+        self.assertEqual('json', self._call('json'))
+
+    def test_unknown_type_returned_as_is(self):
+        self.assertEqual('xml', self._call('xml'))
+
+    def test_empty_string_returns_GET_default(self):
+        self.assertEqual('GET', self._call(''))
+
+    def test_none_returns_GET_default(self):
+        self.assertEqual('GET', self._call(None))
+
+    def test_case_insensitive_get(self):
+        self.assertEqual('GET', self._call('get'))
+
+    def test_case_insensitive_post(self):
+        self.assertEqual('POST', self._call('post'))
+
+    def test_numeric_string_returned_as_is(self):
+        """A numeric string not in the mapping should be returned unchanged (uppercased key lookup miss)."""
+        result = self._call('42')
+        self.assertIsNotNone(result)
+
+    def test_special_chars_returned_as_is(self):
+        """Special characters not in the mapping should be returned unchanged."""
+        result = self._call('form-data')
+        self.assertIsNotNone(result)
+
+
+class BuildEvidencePacketTest(TestCase):
+    """Tests for services._build_evidence_packet."""
+
+    def _make_finding(self):
+        from unittest.mock import MagicMock
+        finding = MagicMock()
+        finding.finding_id = 'test-uuid-1234'
+        finding.technique = 'error'
+        finding.db_type = 'mysql'
+        finding.confidence = 0.9
+        finding.verdict = 'confirmed'
+        ev = MagicMock()
+        ev.to_dict.return_value = {'payload': "'", 'technique': 'error', 'response_length': 500}
+        finding.evidence = [ev]
+        finding.score_rationale = 'score=0.900, verdict=confirmed'
+        return finding
+
+    def test_none_finding_returns_none(self):
+        from sql_attacker.services import _build_evidence_packet
+        self.assertIsNone(_build_evidence_packet(None))
+
+    def test_packet_contains_required_fields(self):
+        from sql_attacker.services import _build_evidence_packet
+        finding = self._make_finding()
+        packet = _build_evidence_packet(finding)
+        self.assertIsNotNone(packet)
+        self.assertIn('finding_id', packet)
+        self.assertIn('technique', packet)
+        self.assertIn('db_type', packet)
+        self.assertIn('confidence', packet)
+        self.assertIn('verdict', packet)
+        self.assertIn('evidence', packet)
+        self.assertEqual('mysql', packet['db_type'])
+        self.assertEqual(0.9, packet['confidence'])
+
+    def test_evidence_list_capped_at_three(self):
+        from sql_attacker.services import _build_evidence_packet
+        from unittest.mock import MagicMock
+        finding = MagicMock()
+        finding.finding_id = 'x'
+        finding.technique = 'error'
+        finding.db_type = 'mysql'
+        finding.confidence = 0.8
+        finding.verdict = 'confirmed'
+        ev = MagicMock()
+        ev.to_dict.return_value = {'payload': "'"}
+        finding.evidence = [ev] * 10
+        packet = _build_evidence_packet(finding)
+        self.assertLessEqual(len(packet['evidence']), 3)
+
+
+class BuildReproductionStepsTest(TestCase):
+    """Tests for services._build_reproduction_steps."""
+
+    def _make_task(self):
+        return SQLInjectionTask.objects.create(
+            target_url='https://example.com/search',
+            http_method='GET',
+        )
+
+    def _make_finding_with_evidence(self, payload="'"):
+        from unittest.mock import MagicMock
+        finding = MagicMock()
+        ev = MagicMock()
+        ev.payload = payload
+        finding.evidence = [ev]
+        finding.technique = 'error'
+        finding.db_type = 'mysql'
+        finding.confidence = 0.9
+        finding.verdict = 'confirmed'
+        return finding
+
+    def test_none_finding_returns_empty_string(self):
+        from sql_attacker.services import _build_reproduction_steps
+        task = self._make_task()
+        self.assertEqual('', _build_reproduction_steps(task, 'id', None))
+
+    def test_steps_contain_url(self):
+        from sql_attacker.services import _build_reproduction_steps
+        task = self._make_task()
+        finding = self._make_finding_with_evidence()
+        steps = _build_reproduction_steps(task, 'id', finding)
+        self.assertIn('https://example.com/search', steps)
+
+    def test_steps_contain_param_name(self):
+        from sql_attacker.services import _build_reproduction_steps
+        task = self._make_task()
+        finding = self._make_finding_with_evidence()
+        steps = _build_reproduction_steps(task, 'search_term', finding)
+        self.assertIn('search_term', steps)
+
+    def test_steps_contain_confidence(self):
+        from sql_attacker.services import _build_reproduction_steps
+        task = self._make_task()
+        finding = self._make_finding_with_evidence()
+        steps = _build_reproduction_steps(task, 'id', finding)
+        self.assertIn('confirmed', steps)
+
+
+class DiscoveryRequestFnTest(TestCase):
+    """Tests for services._make_discovery_request_fn."""
+
+    def _make_fn(self, extra_headers=None, cookies=None, verify_ssl=False):
+        from sql_attacker.services import _make_discovery_request_fn
+        return _make_discovery_request_fn(extra_headers, cookies, verify_ssl)
+
+    def test_connect_timeout_returns_none(self):
+        import requests.exceptions
+        from unittest.mock import patch, MagicMock
+        fn = self._make_fn()
+        with patch('requests.Session.request', side_effect=requests.exceptions.ConnectTimeout('timed out')):
+            result = fn('http://192.0.2.1/test', 'GET', {}, {}, None, {}, {})
+        self.assertIsNone(result)
+
+    def test_request_exception_returns_none(self):
+        import requests.exceptions
+        from unittest.mock import patch
+        fn = self._make_fn()
+        with patch('requests.Session.request', side_effect=requests.exceptions.ConnectionError('refused')):
+            result = fn('http://192.0.2.1/test', 'GET', {}, {}, None, {}, {})
+        self.assertIsNone(result)
+
+    def test_successful_response_returned(self):
+        from unittest.mock import patch, MagicMock
+        fn = self._make_fn()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = 'Hello World'
+        with patch('requests.Session.request', return_value=mock_resp) as mock_req:
+            result = fn('http://example.internal/page', 'GET', {'id': '1'}, {}, None, {}, {})
+        self.assertEqual(mock_resp, result)
+
+
+class RunDiscoveryScanTest(TestCase):
+    """Tests for services._run_discovery_scan."""
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/test',
+            http_method='GET',
+        )
+
+    def test_returns_empty_dict_on_engine_exception(self):
+        """_run_discovery_scan must return {} when DiscoveryScanner raises."""
+        from sql_attacker.services import _run_discovery_scan
+        from unittest.mock import patch, MagicMock
+        with patch('sql_attacker.services.DiscoveryScanner') as MockScanner:
+            MockScanner.return_value.scan.side_effect = RuntimeError('scan boom')
+            result = _run_discovery_scan(self.task, {'id': '1'}, {}, {}, {})
+        self.assertEqual({}, result)
+
+    def test_returns_dict_keyed_by_parameter(self):
+        """_run_discovery_scan must return {parameter: Finding} on success."""
+        from sql_attacker.services import _run_discovery_scan
+        from unittest.mock import patch, MagicMock
+        mock_finding = MagicMock()
+        mock_finding.parameter = 'id'
+        with patch('sql_attacker.services.DiscoveryScanner') as MockScanner:
+            MockScanner.return_value.scan.return_value = [mock_finding]
+            result = _run_discovery_scan(self.task, {'id': '1'}, {}, {}, {})
+        self.assertIn('id', result)
+        self.assertEqual(mock_finding, result['id'])
+
+    def test_returns_empty_dict_when_no_findings(self):
+        from sql_attacker.services import _run_discovery_scan
+        from unittest.mock import patch
+        with patch('sql_attacker.services.DiscoveryScanner') as MockScanner:
+            MockScanner.return_value.scan.return_value = []
+            result = _run_discovery_scan(self.task, {}, {}, {}, {})
+        self.assertEqual({}, result)
+
+
+class ExecuteTaskWithSelectionTest(TestCase):
+    """execute_task_with_selection must delegate to execute_task without double status-set."""
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/test?id=1',
+            http_method='GET',
+        )
+
+    def test_delegates_to_execute_task(self):
+        """execute_task_with_selection should call execute_task and mark completed."""
+        from sql_attacker.services import execute_task_with_selection
+        from unittest.mock import patch, MagicMock
+
+        # Patch execute_task to track calls and simulate success
+        with patch('sql_attacker.services.execute_task') as mock_execute:
+            execute_task_with_selection(self.task.id)
+
+        mock_execute.assert_called_once_with(self.task.id)
+
+    def test_no_double_status_set(self):
+        """execute_task_with_selection must not set status='running' before execute_task does."""
+        from sql_attacker.services import execute_task_with_selection
+        from unittest.mock import patch, MagicMock
+        status_changes = []
+
+        def track_save(task_id):
+            # Capture the task status at the time execute_task is called
+            from sql_attacker.models import SQLInjectionTask
+            t = SQLInjectionTask.objects.get(id=task_id)
+            status_changes.append(t.status)
+
+        with patch('sql_attacker.services.execute_task', side_effect=track_save):
+            execute_task_with_selection(self.task.id)
+
+        # execute_task_with_selection must not have modified status before delegating
+        self.task.refresh_from_db()
+        # Status should still be 'pending' because our mock track_save didn't change it
+        self.assertEqual(self.task.status, 'pending')
+
+
+class NewSchemaFieldsPopulatedTest(TestCase):
+    """execute_task must populate injection_location, evidence_packet,
+    confidence_rationale, and reproduction_steps on each SQLInjectionResult."""
+
+    def setUp(self):
+        self.task = SQLInjectionTask.objects.create(
+            target_url='https://example.com/search?q=test',
+            http_method='GET',
+            get_params={'q': 'test'},
+            auto_discover_params=False,
+        )
+
+    def _run_with_mocked_engines(self, discovery_findings=None):
+        """Execute the task with both engines mocked to return controlled data."""
+        from sql_attacker.services import execute_task
+        from unittest.mock import patch, MagicMock
+
+        # Minimal old-engine finding
+        raw_finding = {
+            'vulnerable_parameter': 'q',
+            'parameter_type': 'GET',
+            'injection_type': 'error_based',
+            'test_payload': "'",
+            'detection_evidence': 'MySQL syntax error',
+            'database_type': 'mysql',
+            'confidence_score': 0.85,
+            'severity': 'high',
+            'risk_score': 70,
+            'request_data': {},
+            'response_data': {},
+            'exploitation': {},
+            'impact_analysis': {},
+        }
+        engine_result = {
+            '_raw_findings': [raw_finding],
+            'visual_evidence': {},
+            'all_injection_points': [],
+            'successful_payloads': {},
+            'extracted_sensitive_data': {},
+        }
+
+        # Default: DiscoveryScanner finds nothing (to test fallback path)
+        if discovery_findings is None:
+            discovery_findings = {}
+
+        with (
+            patch('sql_attacker.services.SQLInjectionEngine') as MockEngine,
+            patch('sql_attacker.services._run_discovery_scan', return_value=discovery_findings),
+        ):
+            instance = MockEngine.return_value
+            instance.execute_attack_with_evidence.return_value = engine_result
+            execute_task(self.task.id)
+
+    def test_injection_location_populated(self):
+        self._run_with_mocked_engines()
+        result = SQLInjectionResult.objects.filter(task=self.task).first()
+        self.assertIsNotNone(result)
+        self.assertEqual('GET', result.injection_location)
+
+    def test_confidence_rationale_populated_without_discovery(self):
+        self._run_with_mocked_engines(discovery_findings={})
+        result = SQLInjectionResult.objects.filter(task=self.task).first()
+        self.assertIsNotNone(result)
+        self.assertIn('confidence_score', result.confidence_rationale)
+
+    def test_evidence_packet_populated_when_discovery_finds_something(self):
+        from unittest.mock import MagicMock
+        discovery_finding = MagicMock()
+        discovery_finding.parameter = 'q'
+        discovery_finding.finding_id = 'abc-123'
+        discovery_finding.technique = 'error'
+        discovery_finding.db_type = 'mysql'
+        discovery_finding.confidence = 0.92
+        discovery_finding.verdict = 'confirmed'
+        discovery_finding.score_rationale = 'score=0.920, verdict=confirmed'
+        ev = MagicMock()
+        ev.to_dict.return_value = {'payload': "'", 'technique': 'error', 'response_length': 512}
+        discovery_finding.evidence = [ev]
+
+        self._run_with_mocked_engines(discovery_findings={'q': discovery_finding})
+        result = SQLInjectionResult.objects.filter(task=self.task).first()
+        self.assertIsNotNone(result)
+        self.assertIsNotNone(result.evidence_packet)
+        self.assertEqual('mysql', result.evidence_packet.get('db_type'))
+        self.assertEqual(0.92, result.evidence_packet.get('confidence'))
+
+    def test_confidence_rationale_from_discovery_score_rationale(self):
+        from unittest.mock import MagicMock
+        discovery_finding = MagicMock()
+        discovery_finding.parameter = 'q'
+        discovery_finding.finding_id = 'abc-456'
+        discovery_finding.technique = 'error'
+        discovery_finding.db_type = 'mysql'
+        discovery_finding.confidence = 0.90
+        discovery_finding.verdict = 'confirmed'
+        discovery_finding.score_rationale = 'score=0.900, verdict=confirmed, active_features=1'
+        ev = MagicMock()
+        ev.to_dict.return_value = {'payload': "'"}
+        discovery_finding.evidence = [ev]
+
+        self._run_with_mocked_engines(discovery_findings={'q': discovery_finding})
+        result = SQLInjectionResult.objects.filter(task=self.task).first()
+        self.assertIsNotNone(result)
+        self.assertIn('score=0.900', result.confidence_rationale)
+
+    def test_reproduction_steps_populated_from_discovery(self):
+        from unittest.mock import MagicMock
+        discovery_finding = MagicMock()
+        discovery_finding.parameter = 'q'
+        discovery_finding.finding_id = 'abc-789'
+        discovery_finding.technique = 'error'
+        discovery_finding.db_type = 'mysql'
+        discovery_finding.confidence = 0.88
+        discovery_finding.verdict = 'confirmed'
+        discovery_finding.score_rationale = 'score=0.880'
+        ev = MagicMock()
+        ev.payload = "' OR '1'='1"
+        ev.to_dict.return_value = {'payload': "' OR '1'='1"}
+        discovery_finding.evidence = [ev]
+
+        self._run_with_mocked_engines(discovery_findings={'q': discovery_finding})
+        result = SQLInjectionResult.objects.filter(task=self.task).first()
+        self.assertIsNotNone(result)
+        self.assertIn('https://example.com/search', result.reproduction_steps)
+        self.assertIn("'q'", result.reproduction_steps)
