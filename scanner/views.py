@@ -78,44 +78,110 @@ def start_scan(request, target_id):
         return Response({'error': f'Failed to start scan: {str(e)}'}, status=500)
 
 
-def perform_basic_scan(scan, url):
+def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_first=False):
     """
     Perform basic vulnerability scanning using the plugin-based scan engine.
-    
+
     This function has been refactored to use the modular plugin architecture.
     The old hardcoded checks have been moved into individual scan plugins.
-    
+
+    Args:
+        scan: Scan model instance.
+        url: Target URL string.
+        scan_profile: Optional profile name (``quick``, ``standard``, ``full``,
+            ``api``, ``owasp_top10``, ``stealth``).  When provided the profile
+            config is merged with the base scan config.
+        use_async: If True, use AsyncScanEngine for concurrent plugin execution.
+        crawl_first: If True, crawl the target URL and scan all discovered pages.
+
     Note: This maintains backward compatibility with existing scan API and UI.
     """
     # Get SSL verification setting from environment (default to False for security testing)
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
-    
+
     try:
-        # Use the new plugin-based scan engine
-        from scanner.scan_engine import get_scan_engine
-        
-        engine = get_scan_engine()
-        
-        # Configure the scan - merge with defaults
+        # Build base config
         config = get_default_proof_config()
         config.update({
             'verify_ssl': verify_ssl,
             'timeout': 10,
         })
-        
-        # Run the scan using all available plugins
-        findings = engine.scan(url, config)
-        
+
+        # Merge scan profile overrides (if requested)
+        if scan_profile:
+            try:
+                from scanner.scan_profiles import get_profile
+                profile_config = get_profile(scan_profile)
+                config.update(profile_config)
+            except Exception as e:
+                logger.warning(f"Could not load scan profile '{scan_profile}': {e}")
+
+        # Choose engine
+        if use_async:
+            try:
+                from scanner.async_scan_engine import AsyncScanEngine
+                engine = AsyncScanEngine(
+                    max_concurrent_plugins=config.get('max_concurrent_plugins', 5),
+                    max_concurrent_requests=config.get('max_concurrent_requests', 10),
+                )
+            except Exception as e:
+                logger.warning(f"AsyncScanEngine unavailable ({e}), using ScanEngine")
+                from scanner.scan_engine import get_scan_engine
+                engine = get_scan_engine()
+        else:
+            from scanner.scan_engine import get_scan_engine
+            engine = get_scan_engine()
+
+        # Optionally crawl first and scan every discovered URL
+        all_findings = []
+        urls_to_scan = [url]
+
+        if crawl_first:
+            try:
+                from scanner.crawler import Crawler
+                crawler = Crawler(
+                    max_depth=config.get('crawl_depth', 2),
+                    max_urls=config.get('crawl_max_urls', 50),
+                    verify_ssl=verify_ssl,
+                )
+                crawl_result = crawler.crawl(url, config)
+                if crawl_result.discovered_urls:
+                    urls_to_scan = crawl_result.discovered_urls
+                    logger.info(
+                        f"Crawler discovered {len(urls_to_scan)} URL(s) — scanning all."
+                    )
+            except Exception as e:
+                logger.warning(f"Crawler failed ({e}), scanning seed URL only")
+
+        # Run the scan on each URL
+        enabled_plugins = config.get('enabled_plugins')
+        for target_url in urls_to_scan:
+            try:
+                if enabled_plugins:
+                    findings = engine.scan_with_plugins(target_url, enabled_plugins, config)
+                else:
+                    findings = engine.scan(target_url, config)
+                all_findings.extend(findings)
+            except Exception as e:
+                logger.error(f"Error scanning {target_url}: {e}")
+
+        # Deduplicate and correlate findings
+        try:
+            from scanner.deduplication import deduplicate_and_correlate
+            all_findings = deduplicate_and_correlate(all_findings)
+        except Exception as e:
+            logger.warning(f"Deduplication failed ({e}), using raw findings")
+
         # Save findings to database
-        engine.save_findings_to_db(scan, findings)
-        
+        engine.save_findings_to_db(scan, all_findings)
+
         # Apply advanced features to all vulnerabilities after scanning
         try:
             from scanner.exploit_integration import apply_advanced_features_to_scan
             apply_advanced_features_to_scan(scan.id)
         except Exception as e:
             print(f"Warning: Could not apply advanced features: {e}")
-            
+
     except Exception as e:
         print(f"Error during scan: {e}")
         # Re-raise exception for upstream handling
