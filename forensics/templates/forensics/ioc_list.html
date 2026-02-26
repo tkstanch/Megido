@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}IOC Indicators - Digital Forensics - Megido Security{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <a href="{% url 'forensics:dashboard' %}" class="text-blue-600 hover:text-blue-800 inline-flex items-center mb-2">
+          <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+          Dashboard
+        </a>
+        <h1 class="text-3xl font-bold text-gray-900">IOC Indicators</h1>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'forensics:ioc_export' %}?format=json" class="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Export JSON</a>
+        <a href="{% url 'forensics:ioc_export' %}?format=csv" class="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">Export CSV</a>
+        <a href="{% url 'forensics:ioc_export' %}?format=stix" class="px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">Export STIX</a>
+      </div>
+    </div>
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+      <form method="get" class="flex flex-wrap gap-4 items-end">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Filter by Type</label>
+          <select name="type" class="border border-gray-300 rounded px-3 py-2 text-sm">
+            <option value="">All Types</option>
+            {% for val, label in ioc_types %}
+            <option value="{{ val }}" {% if ioc_type_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
+          <input type="text" name="q" value="{{ search_q|default:'' }}" class="border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Search IOC value...">
+        </div>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Filter</button>
+        <a href="{% url 'forensics:ioc_list' %}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">Clear</a>
+      </form>
+    </div>
+    {% if page_obj %}
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confidence</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">MITRE</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">First Seen</th>
+          </tr></thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for ioc in page_obj %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ ioc.ioc_type }}</td>
+              <td class="px-6 py-4 text-sm font-mono text-gray-700 break-all max-w-xs">{{ ioc.ioc_value|truncatechars:100 }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="px-2 py-1 rounded text-xs {% if ioc.confidence == 'high' %}bg-red-100 text-red-800{% elif ioc.confidence == 'medium' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}">{{ ioc.confidence }}</span></td>
+              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{{ ioc.source }}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">{{ ioc.mitre_technique|default:"-" }}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ ioc.first_seen|date:"Y-m-d" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page_obj.has_other_pages %}
+      <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+        <span class="text-sm text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if ioc_type_filter %}&type={{ ioc_type_filter }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Previous</a>{% endif %}
+          {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if ioc_type_filter %}&type={{ ioc_type_filter }}{% endif %}{% if search_q %}&q={{ search_q }}{% endif %}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">Next</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">No IOCs found.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}YARA Rules - Digital Forensics - Megido Security{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-6">
+      <a href="{% url 'forensics:dashboard' %}" class="text-blue-600 hover:text-blue-800 inline-flex items-center mb-2">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Dashboard
+      </a>
+      <h1 class="text-3xl font-bold text-gray-900">YARA Rules</h1>
+    </div>
+    {% if rules %}
+    <div class="space-y-4">
+      {% for rule in rules %}
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">{{ rule.name }}</h2>
+            {% if rule.author %}<p class="text-xs text-gray-500">Author: {{ rule.author }}</p>{% endif %}
+            {% if rule.description %}<p class="text-sm text-gray-600 mt-1">{{ rule.description }}</p>{% endif %}
+          </div>
+          <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+        </div>
+        <div class="p-4">
+          <pre class="bg-gray-900 text-green-400 p-4 rounded text-xs font-mono overflow-auto max-h-48">{{ rule.rule_content }}</pre>
+          {% if rule.tags %}<p class="text-xs text-gray-500 mt-2">Tags: {{ rule.tags }}</p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+      <p class="text-gray-500 mb-4">No active YARA rules configured.</p>
+      <p class="text-sm text-gray-400">Add rules via the admin interface.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
