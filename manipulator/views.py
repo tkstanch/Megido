@@ -421,11 +421,13 @@ def campaign_export(request, campaign_id):
     campaign = get_object_or_404(AttackCampaign, id=campaign_id)
     export_format = request.GET.get('format', 'json')
 
+    _CSV_HEADERS = ['ID', 'URL', 'Parameter', 'Type', 'Payload', 'Vuln Type', 'Severity', 'Success', 'Confidence', 'Tested At']
+
     if export_format == 'csv':
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="campaign_{campaign_id}_results.csv"'
         writer = csv.writer(response)
-        writer.writerow(['ID', 'URL', 'Parameter', 'Type', 'Payload', 'Vuln Type', 'Severity', 'Success', 'Confidence', 'Tested At'])
+        writer.writerow(_CSV_HEADERS)
         for r in campaign.results.all():
             writer.writerow([
                 r.id, r.request_url, r.injection_point.parameter_name,

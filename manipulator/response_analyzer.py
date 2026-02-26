@@ -6,9 +6,10 @@ import re
 import time
 from typing import Dict, List, Optional, Tuple
 
-# Minimum response delay (ms) to classify as a time-based injection
+# Minimum response delay (ms) to classify as a time-based injection.
+# Set to 4500ms (4.5s) to account for typical 5-second sleep payloads
+# while allowing a 0.5s margin for network jitter and processing overhead.
 TIME_BASED_DELAY_THRESHOLD_MS = 4500
-
 
 
 # SQL error signatures for different databases

@@ -29,6 +29,9 @@ class AutoInjector:
     Tests payload variants against discovered injection points.
     """
 
+    # Maximum number of chars to store from a response body
+    RESPONSE_BODY_LIMIT = 5000
+
     def __init__(self, concurrency: int = 10, timeout: int = 15,
                  custom_headers: Optional[Dict] = None,
                  auth_cookies: Optional[Dict] = None,
@@ -96,7 +99,7 @@ class AutoInjector:
             elapsed_ms = int((time.time() - start) * 1000)
             return {
                 'status': resp.status_code,
-                'body': resp.text[:5000],
+                'body': resp.text[:self.RESPONSE_BODY_LIMIT],
                 'time_ms': elapsed_ms,
             }
         except Exception as e:
@@ -172,7 +175,7 @@ class AutoInjector:
             elapsed_ms = int((time.time() - start) * 1000)
             self._request_count += 1
 
-            response_body = resp.text[:10000]
+            response_body = resp.text[:self.RESPONSE_BODY_LIMIT * 2]
 
             if self.analyzer.check_waf_block(resp.status_code, response_body):
                 return {
@@ -211,7 +214,7 @@ class AutoInjector:
                 'request_body': request_body,
                 'response_status': resp.status_code,
                 'response_headers': dict(resp.headers),
-                'response_body': response_body[:5000],
+                'response_body': response_body[:self.RESPONSE_BODY_LIMIT],
                 'response_time_ms': elapsed_ms,
                 'is_successful': analysis['is_successful'],
                 'vulnerability_type': analysis['vulnerability_type'],

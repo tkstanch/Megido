@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Maximum character length used for auto-generated payload names in the DB
+PAYLOAD_NAME_MAX_LENGTH = 50
 
 CLASSIFICATION_PATTERNS = {
     'XSS': [
@@ -207,7 +209,7 @@ class PayloadLearner:
 
                 Payload.objects.create(
                     vulnerability=vuln_type,
-                    name=payload_text[:50] + ('...' if len(payload_text) > 50 else ''),
+                    name=payload_text[:PAYLOAD_NAME_MAX_LENGTH] + ('...' if len(payload_text) > PAYLOAD_NAME_MAX_LENGTH else ''),
                     payload_text=payload_text,
                     description=f'Imported from {source_name}',
                     is_custom=True,

