@@ -74,17 +74,26 @@ def upload_file(request):
                 forensic_file.save()
                 try:
                     ioc_results = extract_iocs(raw_data)
+                    existing_keys = set(
+                        IOCIndicator.objects.filter(
+                            ioc_type__in=ioc_results.keys()
+                        ).values_list('ioc_type', 'ioc_value')
+                    )
+                    new_iocs = []
                     for ioc_type, ioc_list in ioc_results.items():
                         for ioc_val in ioc_list[:50]:
-                            IOCIndicator.objects.get_or_create(
-                                ioc_type=ioc_type,
-                                ioc_value=str(ioc_val)[:500],
-                                defaults={
-                                    'source': forensic_file.original_filename,
-                                    'forensic_file': forensic_file,
-                                    'confidence': 'medium',
-                                }
-                            )
+                            val = str(ioc_val)[:500]
+                            if (ioc_type, val) not in existing_keys:
+                                existing_keys.add((ioc_type, val))
+                                new_iocs.append(IOCIndicator(
+                                    ioc_type=ioc_type,
+                                    ioc_value=val,
+                                    source=forensic_file.original_filename,
+                                    forensic_file=forensic_file,
+                                    confidence='medium',
+                                ))
+                    if new_iocs:
+                        IOCIndicator.objects.bulk_create(new_iocs, ignore_conflicts=True)
                 except Exception:
                     pass
                 messages.success(request, f'File "{uploaded_file.name}" uploaded and analyzed successfully!')

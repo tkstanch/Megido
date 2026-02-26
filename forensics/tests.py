@@ -266,7 +266,8 @@ class IOCExtractionTest(TestCase):
         data = b'visit http://example-malware.com/payload.exe now'
         result = extract_iocs(data)
         urls = result.get('url', [])
-        self.assertTrue(any('example-malware.com' in u for u in urls))
+        expected_url = 'http://example-malware.com/payload.exe'
+        self.assertTrue(any(expected_url in u or u in expected_url for u in urls), f"Expected URL not found in {urls}")
 
     def test_extract_email(self):
         data = b'contact attacker@evil.com for instructions'

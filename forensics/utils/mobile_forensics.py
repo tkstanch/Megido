@@ -19,7 +19,7 @@ def analyze_android_backup(file_path: str) -> dict:
         if b'ANDROID BACKUP' in header:
             result['format_detected'] = True
         else:
-            result['error'] = 'Not a recognised Android backup format'
+            result['error'] = 'Not a recognized Android backup format'
     except Exception as e:
         result['error'] = str(e)
     return result
