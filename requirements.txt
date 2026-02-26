@@ -26,6 +26,7 @@ playwright>=1.40.0
 Flask>=3.0.0
 imageio>=2.33.0
 imageio-ffmpeg>=0.4.9
+jsbeautifier>=1.14.0
 # Malware analysis dependencies (optional - installed with graceful fallback)
 pefile>=2023.2.7
 yara-python>=4.3.0

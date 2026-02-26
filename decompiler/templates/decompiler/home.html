@@ -23,15 +23,152 @@
     </div>
 
     <!-- Development Notice -->
-    <div class="card border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+    <div class="card border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20">
         <div class="card-body">
-            <h3 class="text-xl font-semibold text-yellow-800 dark:text-yellow-200 mb-3">⚠️ Development Notice</h3>
-            <p class="text-yellow-700 dark:text-yellow-300">
-                This app is currently in development. The functionality is scaffolded with stub implementations and detailed documentation. 
-                All features are marked with TODOs for future implementation.
+            <h3 class="text-xl font-semibold text-green-800 dark:text-green-200 mb-3">✅ Production Ready</h3>
+            <p class="text-green-700 dark:text-green-300">
+                All decompilation, analysis, and traffic-inspection features are fully implemented and ready to use.
+                Supports 14 extension formats including Chrome CRX, Firefox XPI, WASM, Electron ASAR, userscripts, and more.
             </p>
         </div>
     </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-4xl font-bold text-primary-600 dark:text-primary-400">{{ total_packages }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">Extension Packages</div>
+                <a href="{% url 'decompiler:list_packages' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">View all →</a>
+            </div>
+        </div>
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-4xl font-bold text-green-600 dark:text-green-400">{{ jobs_by_status.completed|default:0 }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">Completed Jobs</div>
+                {% if jobs_by_status.in_progress %}
+                <div class="text-sm text-yellow-600 dark:text-yellow-400">{{ jobs_by_status.in_progress }} in progress</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="text-4xl font-bold text-blue-600 dark:text-blue-400">{{ total_analyses }}</div>
+                <div class="text-gray-600 dark:text-gray-400 mt-1">Analyses Completed</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Quick Actions</h2>
+        </div>
+        <div class="card-body flex flex-wrap gap-3">
+            <a href="{% url 'decompiler:upload_package' %}"
+               class="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 font-medium">
+                ⬆ Upload Extension
+            </a>
+            <a href="{% url 'decompiler:list_packages' %}"
+               class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 font-medium">
+                📦 Browse Packages
+            </a>
+            <a href="{% url 'decompiler:list_traffic' %}"
+               class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 font-medium">
+                🌐 Traffic Intercepts
+            </a>
+            <a href="{% url 'decompiler:list_techniques' %}"
+               class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 font-medium">
+                🔍 Obfuscation Techniques
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Packages -->
+    {% if recent_packages %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Packages</h2>
+        </div>
+        <div class="card-body">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                        <th class="pb-2">Name</th>
+                        <th class="pb-2">Type</th>
+                        <th class="pb-2">Status</th>
+                        <th class="pb-2">Uploaded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for pkg in recent_packages %}
+                    <tr class="border-b dark:border-gray-700">
+                        <td class="py-2">
+                            <a href="{% url 'decompiler:get_package' pkg.package_id %}"
+                               class="text-primary-600 dark:text-primary-400 hover:underline">
+                                {{ pkg.name|truncatechars:40 }}
+                            </a>
+                        </td>
+                        <td class="py-2">
+                            <span class="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-800">
+                                {{ pkg.extension_type }}
+                            </span>
+                        </td>
+                        <td class="py-2">
+                            <span class="px-2 py-1 rounded-full text-xs
+                                {% if pkg.status == 'analyzed' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                                {% elif pkg.status == 'failed' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                {% else %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400{% endif %}">
+                                {{ pkg.status }}
+                            </span>
+                        </td>
+                        <td class="py-2 text-gray-500 dark:text-gray-400">{{ pkg.downloaded_at|date:"Y-m-d" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Jobs -->
+    {% if recent_jobs %}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Jobs</h2>
+        </div>
+        <div class="card-body">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                        <th class="pb-2">Package</th>
+                        <th class="pb-2">Tool</th>
+                        <th class="pb-2">Status</th>
+                        <th class="pb-2">Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for job in recent_jobs %}
+                    <tr class="border-b dark:border-gray-700">
+                        <td class="py-2">{{ job.extension_package.name|truncatechars:30 }}</td>
+                        <td class="py-2 text-gray-500 dark:text-gray-400">{{ job.decompiler_tool }}</td>
+                        <td class="py-2">
+                            <span class="px-2 py-1 rounded-full text-xs
+                                {% if job.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                                {% elif job.status == 'failed' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                {% elif job.status == 'in_progress' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
+                                {% else %}bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                                {{ job.status }}
+                            </span>
+                        </td>
+                        <td class="py-2 text-gray-500 dark:text-gray-400">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Key Features -->
     <div class="card">
@@ -219,82 +356,41 @@
         </div>
         <div class="card-body">
             <p class="text-gray-700 dark:text-gray-300 mb-4">
-                The following endpoints are available (all return 501 Not Implemented in the current stub version):
+                All endpoints are fully implemented and ready to use:
             </p>
             <ul class="space-y-2 font-mono text-sm">
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/packages/upload/</code> - Upload extension package
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/packages/upload/</code> — Upload extension package
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/packages/</code> - List extension packages
+                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/packages/</code> — List extension packages
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/jobs/start/</code> - Start decompilation job
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/jobs/start/</code> — Start decompilation job
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/jobs/&lt;job_id&gt;/status/</code> - Get job status
+                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/jobs/&lt;job_id&gt;/status/</code> — Get job status
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/analyze/</code> - Analyze decompiled code
+                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/jobs/&lt;job_id&gt;/source/view/</code> — View source code
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/obfuscation/detect/</code> - Detect obfuscation
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/analyze/</code> — Analyze decompiled code
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/hooks/inject/</code> - Inject JavaScript hook
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/obfuscation/detect/</code> — Detect obfuscation
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/traffic/</code> - List intercepted traffic
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/hooks/inject/</code> — Inject JavaScript hook
                 </li>
                 <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/interact/</code> - Interact with web app
+                    <code class="text-primary-600 dark:text-primary-400">GET /decompiler/traffic/</code> — List intercepted traffic
                 </li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- Next Steps -->
-    <div class="card">
-        <div class="card-header">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">Next Steps for Developers</h2>
-        </div>
-        <div class="card-body">
-            <ul class="space-y-3">
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <div class="text-gray-700 dark:text-gray-300">
-                        Implement decompiler tool integration in <code class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm">engine.py</code>
-                    </div>
+                <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/traffic/capture/</code> — Capture traffic
                 </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <div class="text-gray-700 dark:text-gray-300">
-                        Add actual file upload handling in <code class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm">views.py</code>
-                    </div>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Implement obfuscation detection algorithms</span>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Create static analysis engine for code analysis</span>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Integrate traffic interception with proxy tools</span>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Implement recompilation pipelines for each extension type</span>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Add frontend UI for visualizing analysis results</span>
-                </li>
-                <li class="flex items-start gap-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <span class="text-primary-600 dark:text-primary-400 font-bold text-lg">▸</span>
-                    <span class="text-gray-700 dark:text-gray-300">Write comprehensive tests for all functionality</span>
+                <li class="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                    <code class="text-primary-600 dark:text-primary-400">POST /decompiler/interact/</code> — Interact with web app
                 </li>
             </ul>
         </div>
