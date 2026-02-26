@@ -48,6 +48,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
+from urllib.parse import quote, urlparse, urlencode
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -71,6 +72,54 @@ _DEFAULT_REMEDIATION = (
 
 # Default maximum length for stored response body excerpts.
 _DEFAULT_BODY_EXCERPT_MAX_LENGTH: int = 512
+
+# ---------------------------------------------------------------------------
+# CVSS v3.1 base score constants
+# ---------------------------------------------------------------------------
+
+# CVSS v3.1 base scores by technique and impact level.
+# Scores are approximate based on FIRST.org calculator defaults for SQLi.
+_CVSS_SCORES: Dict[str, float] = {
+    "error": 9.8,       # Error-based: full confidentiality/integrity/availability
+    "union": 9.8,       # UNION-based: data extraction
+    "boolean": 8.8,     # Boolean blind: slower but same impact
+    "time": 7.5,        # Time-based: limited impact, harder to exploit
+    "second_order": 8.8,  # Second-order: deferred execution
+    "stacked": 9.8,     # Stacked queries: command execution possible
+    "oob": 8.1,         # Out-of-band: network-dependent
+}
+
+# CVSS v3.1 vector strings by technique.
+_CVSS_VECTORS: Dict[str, str] = {
+    "error": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "union": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "boolean": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
+    "time": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "second_order": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+    "stacked": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "oob": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+}
+
+# ---------------------------------------------------------------------------
+# Compliance mapping constants
+# ---------------------------------------------------------------------------
+
+# Compliance framework references per injection technique.
+_COMPLIANCE_REFS: Dict[str, Dict[str, List[str]]] = {
+    "owasp_top10": {
+        "default": ["A03:2021 – Injection"],
+    },
+    "cwe": {
+        "default": ["CWE-89: SQL Injection"],
+        "second_order": ["CWE-89: SQL Injection", "CWE-501: Trust Boundary Violation"],
+    },
+    "pci_dss": {
+        "default": ["PCI-DSS v4.0 Req 6.2.4 – Prevent SQL injection"],
+    },
+    "nist": {
+        "default": ["NIST SP 800-53 SI-10: Information Input Validation"],
+    },
+}
 
 # Suffix appended to truncated body excerpts.  Fixed length so that the total
 # output length never exceeds max_length.
@@ -256,6 +305,13 @@ class Finding:
     severity: Optional[str] = None
     finding_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     score_rationale: Optional[str] = None
+    # Enhanced reporting fields
+    cvss: Optional[Dict[str, Any]] = None
+    compliance: Optional[Dict[str, List[str]]] = None
+    curl_command: Optional[str] = None
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
 
     def __post_init__(self) -> None:
         # Clamp confidence to [0, 1]
@@ -263,6 +319,22 @@ class Finding:
         # Derive severity from confidence if not explicitly set
         if self.severity is None:
             self.severity = _confidence_to_severity(self.confidence)
+        # Auto-populate CVSS if not provided
+        if self.cvss is None:
+            self.cvss = compute_cvss_score(self.technique, self.confidence)
+        # Auto-populate compliance refs if not provided
+        if self.compliance is None:
+            self.compliance = get_compliance_refs(self.technique)
+        # Auto-generate cURL command from first evidence payload if not provided
+        if self.curl_command is None and self.evidence and self.url:
+            first_ev = self.evidence[0]
+            self.curl_command = build_curl_command(
+                url=self.url,
+                method=self.method,
+                parameter=self.parameter,
+                payload=first_ev.payload,
+                parameter_location=self.parameter_location,
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
@@ -280,9 +352,16 @@ class Finding:
             "cwe": self.cwe,
             "evidence": [e.to_dict() for e in self.evidence],
             "remediation": self.remediation,
+            "timestamp": self.timestamp,
         }
         if self.score_rationale:
             d["score_rationale"] = self.score_rationale
+        if self.cvss:
+            d["cvss_v31"] = self.cvss
+        if self.compliance:
+            d["compliance"] = self.compliance
+        if self.curl_command:
+            d["curl_command"] = self.curl_command
         return d
 
 
@@ -295,6 +374,120 @@ def _confidence_to_severity(confidence: float) -> str:
     if confidence >= 0.35:
         return "low"
     return "informational"
+
+
+# ---------------------------------------------------------------------------
+# cURL reproduction helpers
+# ---------------------------------------------------------------------------
+
+
+def build_curl_command(
+    url: str,
+    method: str,
+    parameter: str,
+    payload: str,
+    parameter_location: str = "query_param",
+    headers: Optional[Dict[str, str]] = None,
+) -> str:
+    """Build a cURL command that reproduces the injection request.
+
+    The command is safe to copy-paste into a terminal.  Sensitive header
+    values are never included; the caller is responsible for substituting
+    authentication material.
+
+    Args:
+        url:                The target URL (without the injected parameter).
+        method:             HTTP method (``"GET"`` or ``"POST"``).
+        parameter:          Name of the injected parameter.
+        payload:            The injection payload string.
+        parameter_location: Where the parameter lives (``"query_param"``,
+                            ``"form_param"``, ``"json_param"``).
+        headers:            Optional additional headers to include.
+
+    Returns:
+        A multi-line cURL command string.
+    """
+    method = (method or "GET").upper()
+    encoded_payload = quote(payload, safe="")
+    parts = [f"curl -v -X {method}"]
+
+    if headers:
+        for k, v in headers.items():
+            parts.append(f"  -H '{k}: {v}'")
+
+    if parameter_location in ("query_param",):
+        sep = "&" if "?" in url else "?"
+        full_url = f"{url}{sep}{parameter}={encoded_payload}"
+        parts.append(f"  '{full_url}'")
+    elif parameter_location in ("form_param",):
+        parts.append(f"  -H 'Content-Type: application/x-www-form-urlencoded'")
+        parts.append(f"  --data-urlencode '{parameter}={payload}'")
+        parts.append(f"  '{url}'")
+    elif parameter_location in ("json_param",):
+        json_body = json.dumps({parameter: payload})
+        parts.append(f"  -H 'Content-Type: application/json'")
+        parts.append(f"  -d '{json_body}'")
+        parts.append(f"  '{url}'")
+    else:
+        sep = "&" if "?" in url else "?"
+        full_url = f"{url}{sep}{parameter}={encoded_payload}"
+        parts.append(f"  '{full_url}'")
+
+    return " \\\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# CVSS v3.1 helpers
+# ---------------------------------------------------------------------------
+
+
+def compute_cvss_score(technique: str, confidence: float) -> Dict[str, Any]:
+    """Compute a CVSS v3.1 base score for a finding.
+
+    The base score is adjusted downward slightly for lower-confidence findings
+    to reflect uncertainty.  The vector string is technique-specific.
+
+    Args:
+        technique:  Detection technique (``"error"``, ``"union"``, etc.).
+        confidence: Confidence score in ``[0, 1]``.
+
+    Returns:
+        Dict with keys ``"score"``, ``"vector"``, ``"severity"``.
+    """
+    base = _CVSS_SCORES.get(technique, 7.5)
+    # Discount score proportionally for confidence < 0.7
+    adjusted = base * min(1.0, max(0.3, confidence / 0.7))
+    adjusted = round(adjusted, 1)
+    vector = _CVSS_VECTORS.get(technique, "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N")
+    if adjusted >= 9.0:
+        sev = "critical"
+    elif adjusted >= 7.0:
+        sev = "high"
+    elif adjusted >= 4.0:
+        sev = "medium"
+    else:
+        sev = "low"
+    return {"score": adjusted, "vector": vector, "severity": sev}
+
+
+# ---------------------------------------------------------------------------
+# Compliance mapping helpers
+# ---------------------------------------------------------------------------
+
+
+def get_compliance_refs(technique: str) -> Dict[str, List[str]]:
+    """Return compliance framework references for a given injection technique.
+
+    Args:
+        technique: Detection technique string.
+
+    Returns:
+        Dict mapping framework name → list of reference strings.
+    """
+    result: Dict[str, List[str]] = {}
+    for framework, refs in _COMPLIANCE_REFS.items():
+        result[framework] = refs.get(technique, refs["default"])
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +623,69 @@ class ReportBuilder:
         """Primary target URL."""
         return self._target_url
 
+    def executive_summary(self) -> str:
+        """Generate a plain-text executive summary of the scan findings.
+
+        Returns a human-readable string suitable for including in reports
+        or emails to non-technical stakeholders.
+        """
+        total = len(self._findings)
+        if total == 0:
+            return (
+                f"SQL injection scan of {self._target_url or 'target'} completed. "
+                "No SQL injection vulnerabilities were detected."
+            )
+        high = sum(1 for f in self._findings if (f.severity or "") in ("high", "critical"))
+        med = sum(1 for f in self._findings if (f.severity or "") == "medium")
+        low = sum(1 for f in self._findings if (f.severity or "") in ("low", "informational"))
+        confirmed = sum(1 for f in self._findings if f.verdict == "confirmed")
+        top_cvss = max((f.cvss or {}).get("score", 0.0) for f in self._findings)
+        techniques = sorted({f.technique for f in self._findings})
+        lines = [
+            f"EXECUTIVE SUMMARY — SQL Injection Scan",
+            f"Target:    {self._target_url or 'N/A'}",
+            f"Scan ID:   {self._scan_id}",
+            f"Started:   {self._started_at}",
+            f"Completed: {self._finished_at or _utcnow_iso()}",
+            "",
+            f"Total findings:  {total}",
+            f"  Confirmed:     {confirmed}",
+            f"  High/Critical: {high}",
+            f"  Medium:        {med}",
+            f"  Low:           {low}",
+            f"Highest CVSS v3.1 score: {top_cvss:.1f}",
+            f"Techniques detected: {', '.join(techniques) or 'none'}",
+            "",
+            "RISK RATING: " + _risk_rating(top_cvss, confirmed),
+            "",
+            "RECOMMENDATION:",
+            _DEFAULT_REMEDIATION,
+        ]
+        return "\n".join(lines)
+
+    def attack_timeline(self) -> List[Dict[str, Any]]:
+        """Return an ordered timeline of findings by timestamp.
+
+        Each entry contains the finding ID, timestamp, technique, parameter,
+        and verdict.  Useful for understanding the progression of an attack.
+
+        Returns:
+            List of dicts ordered by ``timestamp`` ascending.
+        """
+        events = []
+        for f in self._findings:
+            events.append({
+                "timestamp": f.timestamp,
+                "finding_id": f.finding_id,
+                "parameter": f.parameter,
+                "technique": f.technique,
+                "db_type": f.db_type,
+                "verdict": f.verdict,
+                "severity": f.severity,
+            })
+        events.sort(key=lambda e: e["timestamp"])
+        return events
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -550,3 +806,25 @@ def _severity_to_sarif_level(severity: str) -> str:
         "low": "note",
         "informational": "note",
     }.get(severity, "warning")
+
+
+def _risk_rating(top_cvss: float, confirmed: int) -> str:
+    """Derive an executive risk rating from CVSS score and confirmed findings.
+
+    Args:
+        top_cvss:  Highest CVSS v3.1 base score across all findings.
+        confirmed: Number of findings with verdict ``"confirmed"``.
+
+    Returns:
+        A single-word risk label: ``"CRITICAL"``, ``"HIGH"``, ``"MEDIUM"``,
+        ``"LOW"``, or ``"INFORMATIONAL"``.
+    """
+    if top_cvss >= 9.0 or (confirmed >= 1 and top_cvss >= 7.0):
+        return "CRITICAL"
+    if top_cvss >= 7.0:
+        return "HIGH"
+    if top_cvss >= 4.0:
+        return "MEDIUM"
+    if top_cvss >= 0.1:
+        return "LOW"
+    return "INFORMATIONAL"
