@@ -8,7 +8,7 @@ these functions so that workers never need to import Django view code.
 
 import logging
 import os
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import requests as _requests_lib
 from django.conf import settings as _dj_settings
@@ -569,3 +569,212 @@ def execute_task_with_selection(task_id: int) -> None:
     mask the actual start time recorded by ``execute_task``.
     """
     execute_task(task_id)
+
+
+# ---------------------------------------------------------------------------
+# New advanced-module orchestration helpers
+# ---------------------------------------------------------------------------
+
+
+def run_payload_chain(
+    target_url: str,
+    parameter: str,
+    method: str = "GET",
+    authorized: bool = False,
+    extra_headers: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
+    enable_exploitation: bool = False,
+) -> Dict[str, Any]:
+    """Run the full :class:`~.payload_chainer.PayloadChainer` decision tree.
+
+    Chains Error-based → UNION → Boolean-blind → Time-based → OOB techniques,
+    sharing context (e.g. discovered DB type) between stages.
+
+    Args:
+        target_url:          Target URL to test.
+        parameter:           HTTP parameter name to inject into.
+        method:              HTTP method (``"GET"`` or ``"POST"``).
+        authorized:          Must be ``True`` to send any requests (fail-closed).
+        extra_headers:       Optional headers to include in every request.
+        cookies:             Optional cookies to include in every request.
+        enable_exploitation: Enable exploitation payloads (default: False).
+
+    Returns:
+        Serialised :class:`~.payload_chainer.ChainResult` dict.
+    """
+    try:
+        from .payload_chainer import PayloadChainer
+    except ImportError:
+        logger.warning("PayloadChainer not available")
+        return {}
+
+    request_fn = _make_discovery_request_fn(extra_headers, cookies, verify_ssl=False)
+    cfg = ScanConfig(
+        time_based_enabled=True,
+        per_host_request_budget=150,
+        max_concurrent_requests=1,
+    )
+    chainer = PayloadChainer(
+        config=cfg,
+        request_fn=request_fn,
+        authorized=authorized,
+        enable_exploitation=enable_exploitation,
+    )
+    try:
+        result = chainer.run_chain(target_url, parameter, method)
+        return {
+            "url": result.url,
+            "parameter": result.parameter,
+            "best_technique": result.best_technique,
+            "findings": [f.to_dict() for f in result.findings],
+            "context": {
+                "db_type": result.context.db_type,
+                "column_count": result.context.column_count,
+                "waf_vendor": result.context.waf_vendor,
+                "confirmed_techniques": result.context.confirmed_techniques,
+            } if result.context else {},
+            "extraction_results": result.extraction_results,
+            "completed_at": result.completed_at,
+        }
+    except Exception as exc:
+        logger.warning("run_payload_chain failed: %s", exc)
+        return {"error": str(exc)}
+
+
+def run_waf_fingerprint(
+    target_url: str,
+    parameter: str = "id",
+    authorized: bool = False,
+    extra_headers: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """Fingerprint the WAF protecting a target URL.
+
+    Args:
+        target_url:   URL to fingerprint.
+        parameter:    Parameter to use as probe injection point.
+        authorized:   Must be ``True`` to send any requests (fail-closed).
+        extra_headers: Optional headers to include.
+        cookies:      Optional cookies to include.
+
+    Returns:
+        Serialised :class:`~.waf_profiler.WAFProfile` dict with vendor,
+        confidence, bypass_chain, and response evidence.
+    """
+    try:
+        from .waf_profiler import WAFProfiler
+    except ImportError:
+        logger.warning("WAFProfiler not available")
+        return {}
+
+    def _simple_request_fn(url: str) -> Dict[str, Any]:
+        session = _requests_lib.Session()
+        try:
+            resp = session.get(
+                url,
+                headers=extra_headers or {},
+                cookies=cookies or {},
+                timeout=(10, 20),
+                verify=False,
+            )
+            return {
+                "status": resp.status_code,
+                "headers": dict(resp.headers),
+                "body": resp.text[:4096],
+                "elapsed_ms": resp.elapsed.total_seconds() * 1000,
+            }
+        except Exception:
+            return {"status": 0, "headers": {}, "body": ""}
+
+    cfg = ScanConfig(per_host_request_budget=30)
+    profiler = WAFProfiler(
+        config=cfg,
+        request_fn=_simple_request_fn,
+        authorized=authorized,
+    )
+    try:
+        profile = profiler.fingerprint(target_url, parameter)
+        return {
+            "vendor": profile.vendor.value,
+            "confidence": profile.confidence,
+            "bypass_chain": profile.bypass_chain,
+            "response_codes": profile.response_codes,
+            "evidence": profile.evidence,
+        }
+    except Exception as exc:
+        logger.warning("run_waf_fingerprint failed: %s", exc)
+        return {"error": str(exc)}
+
+
+def run_schema_dump(
+    target_url: str,
+    parameter: str,
+    db_type: str = "mysql",
+    method: str = "GET",
+    authorized: bool = False,
+    enable_extraction: bool = False,
+    extra_headers: Optional[Dict[str, str]] = None,
+    cookies: Optional[Dict[str, str]] = None,
+    max_tables: int = 20,
+    max_rows: int = 50,
+) -> Dict[str, Any]:
+    """Run the automated schema dumping pipeline.
+
+    Detects, fingerprints, enumerates tables/columns, and (optionally)
+    extracts data.  Extraction requires ``enable_extraction=True`` and
+    ``authorized=True``.
+
+    Args:
+        target_url:        Target URL.
+        parameter:         Injection parameter.
+        db_type:           Assumed DBMS (``"mysql"``, ``"postgresql"``, etc.).
+        method:            HTTP method.
+        authorized:        Must be ``True`` to send requests.
+        enable_extraction: Enable data extraction (default: False).
+        extra_headers:     Optional headers.
+        cookies:           Optional cookies.
+        max_tables:        Maximum tables to enumerate (default: 20).
+        max_rows:          Maximum rows to extract per table (default: 50).
+
+    Returns:
+        Serialised :class:`~.schema_dumper.DumpResult` dict.
+    """
+    try:
+        from .schema_dumper import SchemaDumper
+    except ImportError:
+        logger.warning("SchemaDumper not available")
+        return {}
+
+    request_fn = _make_discovery_request_fn(extra_headers, cookies, verify_ssl=False)
+    cfg = ScanConfig(per_host_request_budget=300, max_concurrent_requests=1)
+    dumper = SchemaDumper(
+        config=cfg,
+        request_fn=request_fn,
+        authorized=authorized,
+        enable_extraction=enable_extraction,
+        max_tables=max_tables,
+        max_rows=max_rows,
+    )
+    try:
+        result = dumper.dump(target_url, parameter, db_type, method)
+        return {
+            "db_type": result.db_type,
+            "database_name": result.database_name,
+            "tables": [
+                {
+                    "name": t.name,
+                    "columns": t.columns,
+                    "row_count": t.row_count,
+                    "priority": t.priority,
+                }
+                for t in result.tables
+            ],
+            "total_rows_extracted": result.total_rows_extracted,
+            "extraction_results": result.extraction_results,
+            "started_at": result.started_at,
+            "finished_at": result.finished_at,
+            "report_markdown": dumper.to_markdown(result),
+        }
+    except Exception as exc:
+        logger.warning("run_schema_dump failed: %s", exc)
+        return {"error": str(exc)}
