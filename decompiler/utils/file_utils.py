@@ -150,6 +150,11 @@ def calculate_checksums(file_path: str) -> Dict[str, str]:
     }
 
 
+def _is_safe_path(target: str, base_dir: str) -> bool:
+    """Return True if target path is safely within base_dir (no zip-slip)."""
+    return target.startswith(base_dir + os.sep) or target == base_dir
+
+
 def safe_extract_zip(zip_path: str, output_dir: str, max_size: int = 500 * 1024 * 1024) -> Tuple[bool, str]:
     """
     Safely extract a ZIP archive, guarding against zip-slip and bombs.
@@ -161,10 +166,10 @@ def safe_extract_zip(zip_path: str, output_dir: str, max_size: int = 500 * 1024 
             total_size = sum(info.file_size for info in zf.infolist())
             if total_size > max_size:
                 return False, f"Extracted size {total_size} exceeds limit {max_size}"
+            base_real = os.path.realpath(output_dir)
             for member in zf.infolist():
                 target = os.path.realpath(os.path.join(output_dir, member.filename))
-                if not target.startswith(os.path.realpath(output_dir) + os.sep) and \
-                        target != os.path.realpath(output_dir):
+                if not _is_safe_path(target, base_real):
                     return False, f"Zip slip detected: {member.filename}"
             zf.extractall(output_dir)
         return True, ''

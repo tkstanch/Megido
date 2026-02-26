@@ -432,7 +432,7 @@ class CodeAnalyzerTest(TestCase):
         '''
         endpoints = self.analyzer.extract_api_endpoints(code)
         urls = [e["url"] for e in endpoints]
-        self.assertTrue(any("api.example.com" in u for u in urls))
+        self.assertIn("https://api.example.com/v1/users", urls)
 
     def test_extract_api_endpoints_websocket(self):
         code = 'var ws = new WebSocket("wss://stream.example.com/live");'

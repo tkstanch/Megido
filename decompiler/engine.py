@@ -22,7 +22,7 @@ import requests
 
 from .config import (
     TOOL_PATHS, DOWNLOAD_TIMEOUT, DECOMPILE_TIMEOUT,
-    MAX_DOWNLOAD_RETRIES, DOWNLOAD_CHUNK_SIZE,
+    MAX_DOWNLOAD_RETRIES, DOWNLOAD_CHUNK_SIZE, SHORT_NAME_RATIO_THRESHOLD,
 )
 from .utils.file_utils import (
     detect_type_from_magic, calculate_checksums,
@@ -566,7 +566,7 @@ class ObfuscationDetector:
         avg_len = sum(len(i) for i in identifiers) / len(identifiers)
         confidence = 0.0
         evidence_parts = []
-        if ratio > 0.60:
+        if ratio > SHORT_NAME_RATIO_THRESHOLD:
             confidence += 0.5
             evidence_parts.append(f"{ratio:.0%} short identifiers")
         if avg_len < 4:

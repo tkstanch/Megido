@@ -40,13 +40,47 @@ from .engine import (
 from .config import MAX_UPLOAD_SIZE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from .utils.file_utils import calculate_checksums, detect_type_from_magic
 
+import ipaddress
+import urllib.parse
+
+
+def _validate_url(url: str) -> bool:
+    """
+    Validate that a URL is safe to request (no SSRF to internal resources).
+
+    Returns True if the URL is safe, False otherwise.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        # Block private/loopback/link-local IP addresses
+        try:
+            addr = ipaddress.ip_address(hostname)
+            if addr.is_private or addr.is_loopback or addr.is_link_local:
+                return False
+        except ValueError:
+            # Not an IP address — check for localhost/internal hostnames
+            blocked = ("localhost", "169.254.", "metadata.google")
+            if any(hostname == b or hostname.endswith("." + b) for b in blocked):
+                return False
+        return True
+    except Exception:
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _paginate(queryset, request, default_size=DEFAULT_PAGE_SIZE):
-    page = max(1, int(request.GET.get("page", 1)))
+    try:
+        page = max(1, int(request.GET.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
     try:
         page_size = min(MAX_PAGE_SIZE, max(1, int(request.GET.get("page_size", default_size))))
     except (ValueError, TypeError):
@@ -63,9 +97,10 @@ def _paginate(queryset, request, default_size=DEFAULT_PAGE_SIZE):
     }
 
 
-# ---------------------------------------------------------------------------
-# Extension Package Management
-# ---------------------------------------------------------------------------
+_ALLOWED_PACKAGE_SORTS = [
+    "name", "-name", "downloaded_at", "-downloaded_at",
+    "file_size", "-file_size", "extension_type",
+]
 
 @login_required
 @csrf_protect
@@ -154,9 +189,7 @@ def list_extension_packages(request):
         qs = qs.filter(Q(name__icontains=search) | Q(download_url__icontains=search))
 
     sort = request.GET.get("sort", "-downloaded_at")
-    allowed_sorts = ["name", "-name", "downloaded_at", "-downloaded_at",
-                     "file_size", "-file_size", "extension_type"]
-    if sort in allowed_sorts:
+    if sort in _ALLOWED_PACKAGE_SORTS:
         qs = qs.order_by(sort)
 
     page_obj, pagination = _paginate(qs, request)
@@ -964,10 +997,16 @@ def replay_traffic(request):
 
     # Apply optional modifications
     url = body.get("url", traffic.request_url)
+    if not _validate_url(url):
+        return JsonResponse({"error": "URL is not allowed (blocked or invalid)"}, status=400)
     method = body.get("method", traffic.request_method).upper()
     headers = {**traffic.request_headers, **body.get("headers", {})}
-    data = body.get("body", bytes(traffic.request_body).decode("utf-8", errors="replace")
-                   if traffic.request_body else None)
+    data = body.get("body")
+    if data is None and traffic.request_body:
+        try:
+            data = bytes(traffic.request_body).decode("utf-8", errors="replace")
+        except (TypeError, ValueError):
+            data = None
 
     try:
         resp = req_lib.request(method, url, headers=headers, data=data, timeout=30)
@@ -1015,6 +1054,8 @@ def interact_with_webapp(request):
                 return JsonResponse({"error": "No API endpoints discovered"}, status=400)
             url = endpoints[0].get("url", "")
 
+        if not _validate_url(url):
+            return JsonResponse({"error": "URL is not allowed (blocked or invalid)"}, status=400)
         method = interaction_data.get("method", "GET").upper()
         headers = interaction_data.get("headers", {})
         payload = interaction_data.get("body")
