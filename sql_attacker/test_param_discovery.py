@@ -2,8 +2,10 @@
 Tests for Parameter Discovery Engine
 """
 
+import socket
 from django.test import TestCase
 from unittest.mock import Mock, patch
+import requests
 from sql_attacker.param_discovery import ParameterDiscoveryEngine, DiscoveredParameter
 
 
@@ -367,6 +369,128 @@ class ParameterDiscoveryEngineTest(TestCase):
         # Should return empty results for non-200
         self.assertEqual(len(discovered_params), 0)
         self.assertEqual(merged_params, {})
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_private_ip_skips_request(self, mock_dns):
+        """Hostname resolving to an RFC1918 private IP should fast-fail without an HTTP request"""
+        mock_dns.return_value = '10.15.250.220'  # RFC1918 address
+
+        url = 'https://internal.example.com/page?id=1'
+        with patch.object(self.engine.session, 'get') as mock_get:
+            merged_params, discovered_params = self.engine.discover_parameters(url)
+            mock_get.assert_not_called()
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_loopback_ip_skips_request(self, mock_dns):
+        """Hostname resolving to loopback (127.x) should fast-fail"""
+        mock_dns.return_value = '127.0.0.1'
+
+        url = 'http://localhost/page'
+        with patch.object(self.engine.session, 'get') as mock_get:
+            merged_params, discovered_params = self.engine.discover_parameters(url)
+            mock_get.assert_not_called()
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_public_ip_proceeds(self, mock_dns):
+        """Hostname resolving to a public IP should proceed with the HTTP request"""
+        mock_dns.return_value = '93.184.216.34'  # example.com public IP
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body></body></html>'
+
+        with patch.object(self.engine.session, 'get', return_value=mock_response) as mock_get:
+            merged_params, discovered_params = self.engine.discover_parameters(
+                'http://example.com/page?id=1'
+            )
+            mock_get.assert_called_once()
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_connect_timeout(self, mock_dns):
+        """ConnectTimeout should be handled gracefully and return empty results"""
+        mock_dns.return_value = '93.184.216.34'
+
+        with patch.object(
+            self.engine.session,
+            'get',
+            side_effect=requests.exceptions.ConnectTimeout(),
+        ):
+            merged_params, discovered_params = self.engine.discover_parameters(
+                'https://example.com/page'
+            )
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_read_timeout(self, mock_dns):
+        """ReadTimeout should be handled gracefully and return empty results"""
+        mock_dns.return_value = '93.184.216.34'
+
+        with patch.object(
+            self.engine.session,
+            'get',
+            side_effect=requests.exceptions.ReadTimeout(),
+        ):
+            merged_params, discovered_params = self.engine.discover_parameters(
+                'https://example.com/page'
+            )
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_connection_error(self, mock_dns):
+        """ConnectionError should be handled gracefully and return empty results"""
+        mock_dns.return_value = '93.184.216.34'
+
+        with patch.object(
+            self.engine.session,
+            'get',
+            side_effect=requests.exceptions.ConnectionError('refused'),
+        ):
+            merged_params, discovered_params = self.engine.discover_parameters(
+                'https://example.com/page'
+            )
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_ssl_error(self, mock_dns):
+        """SSLError should be handled gracefully and return empty results"""
+        mock_dns.return_value = '93.184.216.34'
+
+        with patch.object(
+            self.engine.session,
+            'get',
+            side_effect=requests.exceptions.SSLError('cert verify failed'),
+        ):
+            merged_params, discovered_params = self.engine.discover_parameters(
+                'https://example.com/page'
+            )
+
+        self.assertEqual(merged_params, {})
+        self.assertEqual(discovered_params, [])
+
+    @patch('sql_attacker.param_discovery.socket.gethostbyname')
+    def test_discover_parameters_dns_failure_proceeds(self, mock_dns):
+        """If DNS resolution fails, discovery should proceed (let requests handle it)"""
+        mock_dns.side_effect = socket.gaierror('Name or service not known')
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body></body></html>'
+
+        with patch.object(self.engine.session, 'get', return_value=mock_response) as mock_get:
+            self.engine.discover_parameters('http://nonexistent.invalid/page')
+            mock_get.assert_called_once()
 
 
 class ParameterDiscoveryComplexCasesTest(TestCase):
