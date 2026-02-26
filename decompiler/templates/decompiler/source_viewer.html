@@ -1,72 +1,125 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Source Code Viewer - Decompiler{% endblock %}
+{% block title %}Source Code Viewer - {{ job.extension_package.name }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
+<div class="max-w-7xl mx-auto space-y-4">
     <!-- Breadcrumb -->
     <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
         <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
         <span>/</span>
-        <a href="/decompiler/" class="hover:text-primary-600 dark:hover:text-primary-400">Decompiler</a>
+        <a href="{% url 'decompiler:home' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Decompiler</a>
         <span>/</span>
         <span class="text-gray-900 dark:text-white font-medium">Source Viewer</span>
+        {% if job %}
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">{{ job.extension_package.name|truncatechars:30 }}</span>
+        {% endif %}
     </nav>
 
-    <!-- Hero Section -->
+    <!-- Header -->
     <div class="card bg-gradient-to-br from-gray-700 to-gray-900 text-white">
-        <div class="card-body text-center">
-            <h1 class="text-3xl font-bold mb-2">📄 Decompiled Source Code Viewer</h1>
-            <p class="text-gray-300">View and analyze decompiled source code</p>
+        <div class="card-body flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold">📄 Source Code Viewer</h1>
+                {% if job %}
+                <p class="text-gray-300 text-sm mt-1">
+                    {{ job.extension_package.name }} &bull; {{ job.extension_package.extension_type }} &bull;
+                    {{ file_tree|length }} file{{ file_tree|length|pluralize }}
+                </p>
+                {% endif %}
+            </div>
+            {% if job %}
+            <div class="flex gap-2">
+                <a href="{% url 'decompiler:download_source' job.job_id %}"
+                   class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm">
+                    ⬇ Download ZIP
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    {% if error %}
-        <!-- Error Message -->
-        <div class="card border-l-4 border-red-600 bg-red-50 dark:bg-red-900/20">
-            <div class="card-body">
-                <h2 class="text-2xl font-semibold text-red-800 dark:text-red-200 mb-3">{{ error }}</h2>
-                <p class="text-red-700 dark:text-red-300">{{ message }}</p>
+    {% if job and file_tree %}
+    <!-- Two-column layout: file tree + code viewer -->
+    <div class="flex gap-4" style="min-height: 600px;">
+
+        <!-- File Tree -->
+        <div class="w-72 flex-shrink-0 card overflow-y-auto" style="max-height: 700px;">
+            <div class="card-header py-2 px-3">
+                <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Files</h2>
+            </div>
+            <div class="p-2">
+                {% for f in file_tree %}
+                <a href="?file={{ f.path|urlencode }}"
+                   class="flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-gray-100 dark:hover:bg-gray-800
+                          {% if selected_file == f.path %}bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300{% else %}text-gray-700 dark:text-gray-300{% endif %}
+                          truncate" title="{{ f.path }}">
+                    <span>
+                        {% if f.language == 'javascript' %}📜
+                        {% elif f.language == 'java' %}☕
+                        {% elif f.language == 'csharp' %}🔷
+                        {% elif f.language == 'json' %}{ }
+                        {% elif f.language == 'html' %}🌐
+                        {% elif f.type == 'manifest' %}📋
+                        {% else %}📄{% endif %}
+                    </span>
+                    <span class="truncate">{{ f.path }}</span>
+                </a>
+                {% endfor %}
             </div>
         </div>
+
+        <!-- Code Viewer -->
+        <div class="flex-1 card overflow-hidden">
+            {% if selected_file %}
+            <div class="card-header py-2 px-3 flex items-center justify-between border-b dark:border-gray-700">
+                <span class="text-sm font-mono text-gray-700 dark:text-gray-300">{{ selected_file }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ selected_language }}</span>
+            </div>
+            <div class="overflow-auto" style="max-height: 660px;">
+                <!-- Syntax-highlighted code using Prism.js CDN -->
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+                <pre class="m-0" style="border-radius: 0;"><code class="language-{{ selected_language }}">{{ selected_content }}</code></pre>
+            </div>
+            {% else %}
+            <div class="card-body text-center text-gray-500 dark:text-gray-400 py-16">
+                <p class="text-4xl mb-4">📂</p>
+                <p>Select a file from the tree to view its contents.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
     {% else %}
-        <!-- Stub Notice -->
-        <div class="card border-l-4 border-orange-500 bg-orange-50 dark:bg-orange-900/20">
-            <div class="card-body">
-                <h2 class="text-2xl font-semibold text-orange-800 dark:text-orange-200 mb-4">Feature Not Implemented</h2>
-                <p class="text-orange-700 dark:text-orange-300 mb-4">
-                    The source code viewer is currently a stub. Future implementation will include:
-                </p>
-                <ul class="space-y-2 text-orange-700 dark:text-orange-300">
-                    <li class="flex items-start gap-3">
-                        <span class="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                        <span>File tree navigation</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <span class="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                        <span>Syntax highlighting for multiple languages</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <span class="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                        <span>Search within source code</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <span class="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                        <span>Cross-reference navigation</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <span class="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                        <span>Line numbers and annotations</span>
-                    </li>
-                </ul>
-            </div>
+    <!-- No artifacts yet -->
+    <div class="card border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+        <div class="card-body">
+            <h2 class="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">No Source Files Available</h2>
+            <p class="text-yellow-700 dark:text-yellow-300">
+                {% if job %}
+                    The decompilation job status is <strong>{{ job.status }}</strong>.
+                    {% if job.status == 'failed' %}
+                        Error: {{ job.error_message }}
+                    {% elif job.status != 'completed' %}
+                        Please wait for the job to complete.
+                    {% else %}
+                        No artifacts were saved. The decompilation may not have produced output files.
+                    {% endif %}
+                {% else %}
+                    No decompilation job found.
+                {% endif %}
+            </p>
         </div>
+    </div>
     {% endif %}
 
-    <!-- Actions -->
     <div class="text-center">
-        <a href="/decompiler/" class="btn btn-primary">← Back to Decompiler</a>
+        <a href="{% url 'decompiler:home' %}" class="text-primary-600 dark:text-primary-400 hover:underline">← Back to Decompiler</a>
     </div>
 </div>
 {% endblock %}

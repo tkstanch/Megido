@@ -4,12 +4,15 @@ Configuration for the Decompiler app.
 All settings are configurable via Django settings or environment variables.
 """
 import os
-from django.conf import settings
 
 
 def _get(setting_name, default):
     """Get a decompiler setting from Django settings or return default."""
-    return getattr(settings, f'DECOMPILER_{setting_name}', default)
+    try:
+        from django.conf import settings
+        return getattr(settings, f'DECOMPILER_{setting_name}', default)
+    except Exception:
+        return default
 
 
 # File size limits
