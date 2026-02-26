@@ -24,10 +24,20 @@ class ExtensionPackage(models.Model):
     """
     
     EXTENSION_TYPES = [
+        ('chrome_crx', 'Chrome Extension (.crx)'),
+        ('firefox_xpi', 'Firefox Extension (.xpi)'),
+        ('edge_msix', 'Edge Extension (.msix)'),
+        ('safari_appex', 'Safari App Extension'),
+        ('webextension', 'Generic WebExtension (manifest.json)'),
+        ('electron_asar', 'Electron ASAR Package'),
+        ('wasm', 'WebAssembly Module (.wasm)'),
+        ('pwa', 'Progressive Web App'),
         ('java_applet', 'Java Applet (.jar/.class)'),
         ('flash', 'Flash/ActionScript (.swf)'),
         ('silverlight', 'Silverlight (.xap)'),
         ('javascript', 'JavaScript Extension'),
+        ('browser_addon', 'Generic Browser Add-on'),
+        ('userscript', 'Userscript (Tampermonkey/Greasemonkey)'),
         ('unknown', 'Unknown Type'),
     ]
     
@@ -40,7 +50,7 @@ class ExtensionPackage(models.Model):
     
     package_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
     name = models.CharField(max_length=255, help_text="Name of the extension package")
-    extension_type = models.CharField(max_length=20, choices=EXTENSION_TYPES, default='unknown')
+    extension_type = models.CharField(max_length=30, choices=EXTENSION_TYPES, default='unknown')
     
     # Download and source information
     download_url = models.URLField(
@@ -432,3 +442,186 @@ class TrafficInterception(models.Model):
     
     def __str__(self):
         return f"{self.protocol.upper()} {self.request_method} {self.request_url[:50]}"
+
+
+class DecompilerTool(models.Model):
+    """Track available decompiler backends, their versions and capabilities."""
+
+    tool_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    version = models.CharField(max_length=50, blank=True)
+    executable_path = models.CharField(max_length=512, blank=True)
+    is_available = models.BooleanField(default=False)
+    supported_types = models.JSONField(default=list, blank=True,
+                                       help_text="List of extension types this tool can handle")
+    capabilities = models.JSONField(default=dict, blank=True)
+    last_checked = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.display_name} v{self.version}" if self.version else self.display_name
+
+
+class ExtensionPermission(models.Model):
+    """Track permissions requested by extensions with risk scoring."""
+
+    RISK_LEVELS = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+
+    permission_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    extension_package = models.ForeignKey(
+        ExtensionPackage, on_delete=models.CASCADE, related_name='permissions'
+    )
+    permission_name = models.CharField(max_length=255)
+    permission_type = models.CharField(max_length=50, blank=True,
+                                       help_text="api, host, content_script, etc.")
+    risk_level = models.CharField(max_length=20, choices=RISK_LEVELS, default='low')
+    risk_score = models.IntegerField(default=0, help_text="Risk score 0-100")
+    description = models.TextField(blank=True)
+    is_used = models.BooleanField(null=True, blank=True,
+                                  help_text="Whether the permission is actually used in code")
+
+    class Meta:
+        ordering = ['-risk_score', 'permission_name']
+        unique_together = ['extension_package', 'permission_name']
+
+    def __str__(self):
+        return f"{self.permission_name} ({self.risk_level})"
+
+
+class ExtensionManifest(models.Model):
+    """Store parsed manifest data (manifest.json, install.rdf, Info.plist)."""
+
+    manifest_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    extension_package = models.OneToOneField(
+        ExtensionPackage, on_delete=models.CASCADE, related_name='manifest'
+    )
+    manifest_version = models.IntegerField(null=True, blank=True,
+                                           help_text="Manifest version (2 or 3 for WebExtensions)")
+    manifest_type = models.CharField(max_length=50, blank=True,
+                                     help_text="manifest.json, install.rdf, Info.plist")
+    raw_manifest = models.JSONField(default=dict, blank=True)
+    extension_name = models.CharField(max_length=255, blank=True)
+    extension_version = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    author = models.CharField(max_length=255, blank=True)
+    homepage_url = models.URLField(max_length=2048, blank=True)
+    background_scripts = models.JSONField(default=list, blank=True)
+    content_scripts = models.JSONField(default=list, blank=True)
+    web_accessible_resources = models.JSONField(default=list, blank=True)
+    content_security_policy = models.TextField(blank=True)
+    parsed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'Extension Manifests'
+
+    def __str__(self):
+        return f"Manifest for {self.extension_package.name}"
+
+
+class CodeSnippet(models.Model):
+    """Store interesting code fragments found during analysis."""
+
+    SNIPPET_TYPES = [
+        ('vulnerability', 'Vulnerability'),
+        ('secret', 'Hardcoded Secret'),
+        ('api_call', 'API Call'),
+        ('network_request', 'Network Request'),
+        ('obfuscation', 'Obfuscation'),
+        ('malicious', 'Malicious Pattern'),
+        ('interesting', 'Interesting Code'),
+    ]
+
+    snippet_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    decompilation_job = models.ForeignKey(
+        DecompilationJob, on_delete=models.CASCADE, related_name='code_snippets'
+    )
+    snippet_type = models.CharField(max_length=30, choices=SNIPPET_TYPES)
+    file_path = models.CharField(max_length=512, blank=True)
+    line_number = models.IntegerField(null=True, blank=True)
+    code = models.TextField()
+    context = models.TextField(blank=True, help_text="Surrounding code for context")
+    description = models.TextField(blank=True)
+    severity = models.CharField(max_length=20, blank=True)
+    found_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-found_at']
+
+    def __str__(self):
+        return f"{self.snippet_type} in {self.file_path}:{self.line_number}"
+
+
+class VulnerabilityFinding(models.Model):
+    """Detailed vulnerability tracking with CVSS scoring and CWE mapping."""
+
+    SEVERITY_LEVELS = [
+        ('info', 'Informational'),
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+
+    finding_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    analysis = models.ForeignKey(
+        ExtensionAnalysis, on_delete=models.CASCADE, related_name='vulnerability_findings'
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    severity = models.CharField(max_length=20, choices=SEVERITY_LEVELS, default='medium')
+    cvss_score = models.FloatField(null=True, blank=True, help_text="CVSS score 0.0-10.0")
+    cwe_id = models.CharField(max_length=20, blank=True, help_text="CWE identifier (e.g. CWE-79)")
+    file_path = models.CharField(max_length=512, blank=True)
+    line_number = models.IntegerField(null=True, blank=True)
+    evidence = models.TextField(blank=True)
+    recommendation = models.TextField(blank=True)
+    false_positive = models.BooleanField(default=False)
+    found_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-cvss_score', '-found_at']
+
+    def __str__(self):
+        return f"{self.severity.upper()}: {self.title}"
+
+
+class DecompilationArtifact(models.Model):
+    """Track individual output files from decompilation."""
+
+    ARTIFACT_TYPES = [
+        ('source', 'Source Code File'),
+        ('resource', 'Resource File'),
+        ('config', 'Configuration File'),
+        ('manifest', 'Manifest File'),
+        ('source_map', 'Source Map'),
+        ('other', 'Other'),
+    ]
+
+    artifact_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, primary_key=True)
+    decompilation_job = models.ForeignKey(
+        DecompilationJob, on_delete=models.CASCADE, related_name='artifacts'
+    )
+    artifact_type = models.CharField(max_length=20, choices=ARTIFACT_TYPES, default='source')
+    file_path = models.CharField(max_length=512, help_text="Relative path within decompiled output")
+    file_size = models.BigIntegerField(default=0)
+    language = models.CharField(max_length=50, blank=True,
+                                help_text="Programming language (java, javascript, csharp, etc.)")
+    content = models.TextField(blank=True, help_text="File content (for text files)")
+    checksum_sha256 = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['file_path']
+        unique_together = ['decompilation_job', 'file_path']
+
+    def __str__(self):
+        return f"{self.artifact_type}: {self.file_path}"
