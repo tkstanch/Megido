@@ -411,7 +411,8 @@ class SQLiScannerPlugin(BaseScanPlugin):
             test_params[param] = all_params.get(param, '1') + payload
             try:
                 start = time.monotonic()
-                self._send_request(url, method, test_params, verify_ssl, timeout + 10)
+                time_delta = config.get('time_test_timeout_delta', 10)
+                self._send_request(url, method, test_params, verify_ssl, timeout + time_delta)
                 elapsed = time.monotonic() - start
             except Exception:
                 continue
@@ -549,4 +550,5 @@ class SQLiScannerPlugin(BaseScanPlugin):
             'test_time': True,
             'test_union': True,
             'max_union_columns': 10,
+            'time_test_timeout_delta': 10,
         }

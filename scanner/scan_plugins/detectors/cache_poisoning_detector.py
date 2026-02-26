@@ -120,7 +120,7 @@ class CachePoisoningDetectorPlugin(BaseScanPlugin):
 
             for header_name, default_probe_value in _UNKEYED_HEADERS:
                 # Use a unique probe value to distinguish reflection from coincidence
-                unique_probe = f"{default_probe_value}-megido-{uuid.uuid4().hex[:8]}"
+                unique_probe = f"{default_probe_value}-probe-{uuid.uuid4().hex[:8]}"
                 finding = self._probe_header(
                     url, header_name, unique_probe,
                     baseline_text, baseline, verify_ssl, timeout, config
