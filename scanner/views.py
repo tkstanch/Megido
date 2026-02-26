@@ -90,7 +90,7 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
         url: Target URL string.
         scan_profile: Optional profile name (``quick``, ``standard``, ``full``,
             ``api``, ``owasp_top10``, ``stealth``).  When provided the profile
-            config is merged with the default proof config.
+            config is merged with the base scan config.
         use_async: If True, use AsyncScanEngine for concurrent plugin execution.
         crawl_first: If True, crawl the target URL and scan all discovered pages.
 

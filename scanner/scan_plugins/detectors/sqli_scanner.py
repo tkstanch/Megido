@@ -264,7 +264,10 @@ class SQLiScannerPlugin(BaseScanPlugin):
                 return findings
 
         if config.get('test_time', True):
-            finding = self._test_time_based(url, method, param, all_params, verify_ssl, timeout)
+            finding = self._test_time_based(
+                url, method, param, all_params, verify_ssl, timeout,
+                time_delta=config.get('time_test_timeout_delta', 10),
+            )
             if finding:
                 findings.append(finding)
                 return findings
@@ -404,6 +407,7 @@ class SQLiScannerPlugin(BaseScanPlugin):
         all_params: Dict[str, str],
         verify_ssl: bool,
         timeout: int,
+        time_delta: int = 10,
     ) -> Optional[VulnerabilityFinding]:
         """Inject sleep payloads and measure response time delta."""
         for payload in _TIME_PAYLOADS:
@@ -411,7 +415,6 @@ class SQLiScannerPlugin(BaseScanPlugin):
             test_params[param] = all_params.get(param, '1') + payload
             try:
                 start = time.monotonic()
-                time_delta = config.get('time_test_timeout_delta', 10)
                 self._send_request(url, method, test_params, verify_ssl, timeout + time_delta)
                 elapsed = time.monotonic() - start
             except Exception:
