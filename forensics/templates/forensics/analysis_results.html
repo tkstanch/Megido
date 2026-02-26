@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ analysis_type }} - Digital Forensics - Megido Security{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-6">
+      <a href="{% url 'forensics:file_detail' forensic_file.pk %}" class="text-blue-600 hover:text-blue-800 inline-flex items-center mb-2">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Back to File
+      </a>
+      <h1 class="text-3xl font-bold text-gray-900">{{ analysis_type }}</h1>
+      <p class="text-gray-600">{{ forensic_file.original_filename }}</p>
+    </div>
+    {% if messages %}{% for message in messages %}<div class="mb-4 p-4 rounded {% if message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">{{ message }}</div>{% endfor %}{% endif %}
+    <form method="post" class="mb-6">
+      {% csrf_token %}
+      <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Run {{ analysis_type }}</button>
+    </form>
+    {% if result %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Results</h2>
+      <pre class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto text-sm font-mono">{{ result|pprint }}</pre>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
+      No results yet. Click the button above to run the analysis.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Evidence: {{ evidence.name }} - Digital Forensics - Megido Security{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-6">
+      <a href="{% url 'forensics:case_detail' evidence.case.pk %}" class="text-blue-600 hover:text-blue-800 inline-flex items-center mb-2">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Back to Case {{ evidence.case.case_number }}
+      </a>
+      <h1 class="text-3xl font-bold text-gray-900">Evidence: {{ evidence.name }}</h1>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Evidence Details</h2>
+        <dl class="space-y-3">
+          <div><dt class="text-xs font-medium text-gray-500 uppercase">Acquisition Type</dt><dd class="mt-1 text-sm text-gray-900">{{ evidence.get_acquisition_type_display }}</dd></div>
+          <div><dt class="text-xs font-medium text-gray-500 uppercase">Acquisition Timestamp</dt><dd class="mt-1 text-sm text-gray-900">{{ evidence.acquisition_timestamp|date:"Y-m-d H:i" }}</dd></div>
+          <div><dt class="text-xs font-medium text-gray-500 uppercase">Storage Location</dt><dd class="mt-1 text-sm text-gray-900 font-mono">{{ evidence.storage_location|default:"-" }}</dd></div>
+          <div><dt class="text-xs font-medium text-gray-500 uppercase">SHA256</dt><dd class="mt-1 text-sm font-mono break-all text-gray-700">{{ evidence.sha256_hash|default:"-" }}</dd></div>
+          <div><dt class="text-xs font-medium text-gray-500 uppercase">Integrity Verified</dt><dd class="mt-1 text-sm {% if evidence.integrity_verified %}text-green-600{% else %}text-gray-500{% endif %}">{% if evidence.integrity_verified %}Yes{% else %}No{% endif %}</dd></div>
+        </dl>
+      </div>
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
+        <p class="text-gray-700 text-sm">{{ evidence.notes|default:"No notes." }}</p>
+      </div>
+    </div>
+    <!-- Chain of Custody -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Chain of Custody ({{ custody_entries|length }})</h2>
+      </div>
+      {% if custody_entries %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performed By</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+          </tr></thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for entry in custody_entries %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm font-mono text-gray-700">{{ entry.timestamp|date:"Y-m-d H:i" }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ entry.action }}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">{{ entry.performed_by|default:"-" }}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">{{ entry.location|default:"-" }}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">{{ entry.notes|truncatechars:50 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-6 text-center text-gray-500">No chain of custody entries.</div>
+      {% endif %}
+    </div>
+    <!-- Artifacts -->
+    {% if artifacts %}
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Artifacts ({{ artifacts|length }})</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Path</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+          </tr></thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for a in artifacts %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm text-gray-900">{{ a.artifact_type }}</td>
+              <td class="px-6 py-4 text-sm text-gray-700">{{ a.name|truncatechars:60 }}</td>
+              <td class="px-6 py-4 text-sm font-mono text-gray-500">{{ a.path|truncatechars:60 }}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">{{ a.timestamp|date:"Y-m-d H:i"|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    <!-- IOCs -->
+    {% if iocs %}
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">IOCs ({{ iocs|length }})</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confidence</th>
+          </tr></thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for ioc in iocs %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ ioc.ioc_type }}</td>
+              <td class="px-6 py-4 text-sm font-mono text-gray-700 break-all">{{ ioc.ioc_value|truncatechars:100 }}</td>
+              <td class="px-6 py-4 text-sm">{{ ioc.confidence }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
