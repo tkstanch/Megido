@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Payloads - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:home' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Manipulator</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Import Payloads</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Import Payloads</h2>
+        <p class="text-gray-600 dark:text-gray-400">Paste payloads to import them into the library. They will be auto-classified by vulnerability type.</p>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if import_result %}
+    <div class="card">
+        <div class="card-header"><h3 class="card-title">Import Summary</h3></div>
+        <div class="card-body">
+            <p class="mb-3">
+                <strong>Total payloads processed:</strong> {{ import_result.total }} &bull;
+                <strong>Saved:</strong> {{ save_result.saved }} &bull;
+                <strong>Skipped (duplicates):</strong> {{ save_result.skipped }}
+            </p>
+            <h4 class="font-semibold text-sm mb-2 text-gray-700 dark:text-gray-300">By Vulnerability Type:</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {% for vuln_type, count in import_result.by_type.items %}
+            <div class="bg-gray-50 dark:bg-gray-800 rounded px-3 py-2 text-sm">
+                <span class="font-medium text-gray-900 dark:text-white">{{ vuln_type }}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">{{ count }}</span>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-body space-y-4">
+                <div>
+                    <label class="label">Payloads (one per line)</label>
+                    <textarea name="payload_text" class="input font-mono text-sm" rows="12"
+                        placeholder="' OR 1=1--&#10;<script>alert(1)</script>&#10;../etc/passwd&#10;# Lines starting with # are ignored"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Override Type (optional)</label>
+                        <select name="vuln_type" class="input">
+                            <option value="">Auto-detect</option>
+                            {% for vuln in vulnerabilities %}
+                            <option value="{{ vuln.name }}">{{ vuln.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Source Name</label>
+                        <input type="text" name="source_name" class="input" placeholder="e.g. Custom Wordlist" value="Imported">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-full">⬆ Import Payloads</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

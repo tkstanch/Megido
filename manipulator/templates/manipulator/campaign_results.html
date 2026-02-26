@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:campaign_list' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Campaigns</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:campaign_detail' campaign.id %}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ campaign.name }}</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">{% if show_all %}All Results{% else %}Exploits{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{{ title }}</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">{{ results|length }} result{{ results|length|pluralize }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'manipulator:campaign_export' campaign.id %}?format=csv" class="btn btn-secondary btn-sm">⬇ CSV</a>
+            <a href="{% url 'manipulator:campaign_export' campaign.id %}?format=json" class="btn btn-secondary btn-sm">⬇ JSON</a>
+            <a href="{% url 'manipulator:campaign_detail' campaign.id %}" class="btn btn-secondary btn-sm">← Dashboard</a>
+        </div>
+    </div>
+
+    {% if results %}
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Severity</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Type</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">URL</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Parameter</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Detection</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Confidence</th>
+                        <th class="px-4 py-3 text-left text-gray-600 dark:text-gray-400 font-medium">Result</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for r in results %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors {% if not r.is_successful %}opacity-50{% endif %}">
+                    <td class="px-4 py-3">
+                        <span class="text-xs px-2 py-0.5 rounded font-semibold
+                            {% if r.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                            {% elif r.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                            {% elif r.severity == 'medium' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                            {{ r.severity|upper }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ r.vulnerability_type|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate font-mono text-xs">{{ r.request_url }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">{{ r.injection_point.parameter_name }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{{ r.detection_method|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{{ r.confidence|floatformat:0 }}%</td>
+                    <td class="px-4 py-3">
+                        {% if r.is_successful %}
+                            <span class="text-green-600 dark:text-green-400 font-bold">✓ Exploit</span>
+                        {% else %}
+                            <span class="text-gray-400">✗ No hit</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if r.is_successful %}
+                        <a href="{% url 'manipulator:exploit_detail' r.id %}" class="btn btn-sm btn-primary">PoC</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-16">
+            <div class="text-5xl mb-4">🔍</div>
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">No results yet</h3>
+            <p class="text-gray-600 dark:text-gray-400">The campaign hasn't produced results yet, or no vulnerabilities were found.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

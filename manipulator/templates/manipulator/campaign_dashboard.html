@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ campaign.name }} - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li><a href="{% url 'manipulator:campaign_list' %}" class="text-blue-600 dark:text-blue-400 hover:underline">Campaigns</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">{{ campaign.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6" id="campaign-dashboard" data-campaign-id="{{ campaign.id }}">
+
+    <!-- Header -->
+    <div class="flex items-start justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{{ campaign.name }}</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 break-all">{{ campaign.target_url }}</p>
+        </div>
+        <div class="flex gap-2">
+            {% if campaign.status in 'crawling,injecting' %}
+            <form method="post" action="{% url 'manipulator:campaign_pause' campaign.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary">⏸ Pause</button>
+            </form>
+            {% elif campaign.status == 'paused' %}
+            <form method="post" action="{% url 'manipulator:campaign_resume' campaign.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">▶ Resume</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'manipulator:campaign_results' campaign.id %}" class="btn btn-secondary">📋 All Results</a>
+            <a href="{% url 'manipulator:campaign_exploits' campaign.id %}" class="btn btn-secondary">💥 Exploits</a>
+            <a href="{% url 'manipulator:campaign_export' campaign.id %}?format=json" class="btn btn-secondary">⬇ Export</a>
+        </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div id="status-banner" class="card p-4 {% if campaign.status == 'completed' %}border-green-500{% elif campaign.status == 'failed' %}border-red-500{% elif campaign.status == 'injecting' or campaign.status == 'crawling' %}border-blue-500{% else %}border-gray-300{% endif %} border-l-4">
+        <div class="flex items-center gap-3">
+            <span id="status-indicator" class="text-2xl">
+                {% if campaign.status == 'completed' %}✅
+                {% elif campaign.status == 'failed' %}❌
+                {% elif campaign.status == 'crawling' %}🕷
+                {% elif campaign.status == 'injecting' %}💉
+                {% elif campaign.status == 'paused' %}⏸
+                {% else %}⏳{% endif %}
+            </span>
+            <div>
+                <p class="font-semibold text-gray-900 dark:text-white" id="status-text">
+                    {{ campaign.get_status_display }}
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Mode: {{ campaign.get_mode_display }} &bull;
+                    Level: {{ campaign.get_manipulation_level_display }} &bull;
+                    Threads: {{ campaign.concurrency }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card p-4 text-center">
+            <p class="text-3xl font-bold text-blue-600 dark:text-blue-400" id="stat-points">{{ campaign.total_injection_points }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Injection Points</p>
+        </div>
+        <div class="card p-4 text-center">
+            <p class="text-3xl font-bold text-purple-600 dark:text-purple-400" id="stat-tested">{{ campaign.total_payloads_tested }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Payloads Tested</p>
+        </div>
+        <div class="card p-4 text-center">
+            <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400" id="stat-requests">{{ campaign.total_requests_sent }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Requests Sent</p>
+        </div>
+        <div class="card p-4 text-center">
+            <p class="text-3xl font-bold text-red-600 dark:text-red-400" id="stat-exploits">{{ campaign.successful_exploits }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Successful Exploits</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recent Exploits -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">💥 Recent Exploits</h3>
+            </div>
+            <div class="card-body p-0" id="exploits-list">
+                {% if recent_results %}
+                <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for r in recent_results %}
+                <li class="px-4 py-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <span class="inline-block text-xs px-2 py-0.5 rounded font-semibold mr-2
+                                {% if r.severity == 'critical' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                {% elif r.severity == 'high' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200
+                                {% else %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% endif %}">
+                                {{ r.severity|upper }}
+                            </span>
+                            <span class="font-medium text-gray-900 dark:text-white text-sm">{{ r.vulnerability_type }}</span>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ r.request_url }}</p>
+                        </div>
+                        <a href="{% url 'manipulator:exploit_detail' r.id %}" class="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0">PoC</a>
+                    </div>
+                </li>
+                {% endfor %}
+                </ul>
+                {% else %}
+                <div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    No exploits found yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Discovered Injection Points -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🎯 Injection Points</h3>
+            </div>
+            <div class="card-body p-0">
+                {% if injection_points %}
+                <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for ip in injection_points %}
+                <li class="px-4 py-2 text-sm">
+                    <span class="inline-block text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 mr-2">{{ ip.parameter_type }}</span>
+                    <span class="font-mono text-gray-900 dark:text-white">{{ ip.parameter_name }}</span>
+                    <span class="text-gray-500 dark:text-gray-500 ml-2 text-xs truncate block">{{ ip.url }}</span>
+                </li>
+                {% endfor %}
+                </ul>
+                {% else %}
+                <div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    No injection points discovered yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if campaign.status in 'crawling,injecting' %}
+<script>
+(function() {
+    var campaignId = {{ campaign.id }};
+    var statusUrl = '/manipulator/campaigns/' + campaignId + '/status/';
+
+    function refresh() {
+        fetch(statusUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('stat-points').textContent = data.total_injection_points;
+                document.getElementById('stat-tested').textContent = data.total_payloads_tested;
+                document.getElementById('stat-requests').textContent = data.total_requests_sent;
+                document.getElementById('stat-exploits').textContent = data.successful_exploits;
+                document.getElementById('status-text').textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(timer);
+                    location.reload();
+                }
+            })
+            .catch(function() {});
+    }
+
+    var timer = setInterval(refresh, 3000);
+})();
+</script>
+{% endif %}
+{% endblock %}
