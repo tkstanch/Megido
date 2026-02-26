@@ -223,7 +223,7 @@ class SensitivePatterns:
             'CouchDB Connection String': cls.COUCHDB_CONN,
             'Neo4j Bolt URI': cls.NEO4J_CONN,
             'InfluxDB Token': cls.INFLUXDB_TOKEN,
-            # Debug / internal artefacts
+            # Debug / internal artifacts
             'Stack Trace': cls.STACK_TRACE,
             'Debug Mode Enabled': cls.DEBUG_MODE,
             'Source Map Exposed': cls.SOURCE_MAP,

@@ -65,10 +65,20 @@ class CertificateEngine(BaseOSINTEngine):
     # ------------------------------------------------------------------
 
     def _fetch_certificate(self, domain: str, port: int = 443) -> Optional[Dict[str, Any]]:
+        """Retrieve and analyse the SSL/TLS certificate from the target server.
+
+        Uses TLS 1.2+ by default for the connection itself. The tool still
+        detects weak configurations by inspecting the negotiated protocol/cipher
+        reported in the server's handshake response — it does not need to use
+        an insecure protocol version to detect that a server *supports* one.
+        """
         try:
-            context = ssl.create_default_context()
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
+            # Prefer TLS 1.2+ for the connection; servers negotiating something
+            # weaker will still be visible in ssock.version().
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             with socket.create_connection((domain, port), timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     raw_cert = ssock.getpeercert(binary_form=True)
@@ -86,9 +96,10 @@ class CertificateEngine(BaseOSINTEngine):
                 info.update(self._parse_cert(cert))
             else:
                 # Fallback: use getpeercert dict form
-                context2 = ssl.create_default_context()
+                context2 = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 context2.check_hostname = False
                 context2.verify_mode = ssl.CERT_NONE
+                context2.minimum_version = ssl.TLSVersion.TLSv1_2
                 with socket.create_connection((domain, port), timeout=10) as s2:
                     with context2.wrap_socket(s2, server_hostname=domain) as ss2:
                         peer = ss2.getpeercert()

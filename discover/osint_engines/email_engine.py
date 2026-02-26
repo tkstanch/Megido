@@ -122,10 +122,10 @@ class EmailEngine(BaseOSINTEngine):
             first = first.lower()
             last = last.lower()
             f = first[0] if first else ''
-            l = last[0] if last else ''  # noqa: E741
+            last_initial = last[0] if last else ''
             try:
                 addr = pattern.format(
-                    first=first, last=last, f=f, l=l
+                    first=first, last=last, f=f, l=last_initial
                 ) + f'@{domain}'
                 inferred.append({'email': addr, 'source': 'pattern_inferred'})
             except (KeyError, IndexError):

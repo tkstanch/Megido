@@ -339,7 +339,8 @@ class TestEmailEngine(TestCase):
         engine = EmailEngine()
         result = engine.run('example.com')
         self.assertTrue(result.success)  # Should not crash
-        self.assertTrue(any('Hunter.io' in e for e in result.data.get('errors', [])))
+        errors = result.data.get('errors', [])
+        self.assertTrue(any('Hunter.io API key not configured' == e for e in errors))
 
 
 # ---------------------------------------------------------------------------
@@ -370,9 +371,13 @@ class TestSocialMediaEngine(TestCase):
         platform_response.status_code = 404
 
         def side_effect(url, **kwargs):
-            if 'api.github.com/orgs/example' in url:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            hostname = parsed.netloc
+            path = parsed.path
+            if hostname == 'api.github.com' and '/orgs/example' in path:
                 return org_response
-            if 'api.github.com' in url and 'repos' in url:
+            if hostname == 'api.github.com' and 'repos' in path:
                 return repos_response
             return platform_response
 
@@ -398,7 +403,9 @@ class TestThreatIntelEngine(TestCase):
 
         def get_side_effect(url, **kwargs):
             resp = MagicMock()
-            if 'internetdb.shodan.io' in url:
+            from urllib.parse import urlparse
+            hostname = urlparse(url).netloc
+            if hostname == 'internetdb.shodan.io':
                 resp.status_code = 200
                 resp.json.return_value = {
                     'ports': [80, 443],
@@ -407,7 +414,7 @@ class TestThreatIntelEngine(TestCase):
                     'tags': [],
                     'vulns': ['CVE-2021-1234'],
                 }
-            elif 'otx.alienvault.com' in url:
+            elif hostname == 'otx.alienvault.com':
                 resp.status_code = 200
                 resp.json.return_value = {'pulse_info': {'count': 2}, 'reputation': -1, 'indicator': 'example.com'}
             else:
