@@ -540,7 +540,19 @@ class SQLInjectionEngine:
 
         The circuit-breaker key is derived from the URL host so that
         repeated blocks/challenges for the same host abort further tests.
+
+        ``timeout`` is accepted for backwards compatibility but the actual
+        timeouts used are the tuple ``(NETWORK_CONNECT_TIMEOUT,
+        NETWORK_READ_TIMEOUT)`` from Django settings so that connect and read
+        phases are independently bounded.  ``ConnectTimeout`` errors abort
+        the retry loop immediately to avoid long stalls on unreachable hosts.
         """
+        from django.conf import settings
+
+        connect_timeout = getattr(settings, 'NETWORK_CONNECT_TIMEOUT', 10)
+        read_timeout = getattr(settings, 'NETWORK_READ_TIMEOUT', timeout)
+        request_timeout = (connect_timeout, read_timeout)
+
         host_key = urlparse(url).netloc or url
 
         # Check circuit breaker before sending request
@@ -575,7 +587,7 @@ class SQLInjectionEngine:
                         params=params,
                         cookies=cookies,
                         headers=request_headers,
-                        timeout=timeout,
+                        timeout=request_timeout,
                         verify=verify_ssl,
                         allow_redirects=True
                     )
@@ -586,7 +598,7 @@ class SQLInjectionEngine:
                         data=data,
                         cookies=cookies,
                         headers=request_headers,
-                        timeout=timeout,
+                        timeout=request_timeout,
                         verify=verify_ssl,
                         allow_redirects=True
                     )
@@ -599,7 +611,7 @@ class SQLInjectionEngine:
                         data=data,
                         cookies=cookies,
                         headers=request_headers,
-                        timeout=timeout,
+                        timeout=request_timeout,
                         verify=verify_ssl,
                         allow_redirects=True
                     )
@@ -675,9 +687,25 @@ class SQLInjectionEngine:
                     self._circuit_breaker.record(host_key, ALLOWED)
                     return response
 
+            except requests.exceptions.ConnectTimeout as e:
+                last_exception = e
+                logger.error(
+                    f"Connect timeout for '{host_key}' "
+                    f"(attempt {attempt + 1}/{max_stealth_retries + 1}, "
+                    f"connect_timeout={connect_timeout}s, url={url}): {e}"
+                )
+                # Classify connection failure
+                classification = classify_response(None)
+                self._last_classification[host_key] = classification
+                # Do not retry on connect timeout – the host is unreachable
+                break
+
             except Exception as e:
                 last_exception = e
-                logger.error(f"Request error (attempt {attempt + 1}): {e}")
+                logger.error(
+                    f"Request error (attempt {attempt + 1}/{max_stealth_retries + 1}) "
+                    f"for '{host_key}': {e}"
+                )
 
                 # Classify connection failure
                 classification = classify_response(None)
