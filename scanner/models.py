@@ -63,6 +63,16 @@ class Vulnerability(models.Model):
         ('info_disclosure', 'Information Disclosure'),
         ('clickjacking', 'UI Redress (Clickjacking)'),
         ('js_hijacking', 'JavaScript Hijacking / JSONP Data Exposure'),
+        ('idor', 'Insecure Direct Object Reference'),
+        ('jwt', 'JWT Security Issue'),
+        ('crlf', 'CRLF Injection'),
+        ('host_header', 'Host Header Injection'),
+        ('smuggling', 'HTTP Request Smuggling'),
+        ('deserialization', 'Insecure Deserialization'),
+        ('graphql', 'GraphQL Security Issue'),
+        ('websocket', 'WebSocket Security Issue'),
+        ('cache_poisoning', 'Web Cache Poisoning'),
+        ('cors', 'CORS Misconfiguration'),
         ('other', 'Other'),
     ]
     
