@@ -9,7 +9,7 @@
     
     // Configuration
     const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
-    const MAX_POLL_ATTEMPTS = 150; // 5 minutes worth of attempts (150 * 2 seconds)
+    const MAX_POLL_ATTEMPTS = 1800; // 1 hour worth of attempts (1800 * 2 seconds)
     const MAX_CONSECUTIVE_FAILURES = 5; // Show error after 5 consecutive failures
     const INITIAL_DELAY_MS = 2000; // Initial delay before first poll
     
@@ -110,11 +110,20 @@
             } else if (data.status === 'failed') {
                 scanCompleted = true;
                 stopPolling();
-                
-                console.error(`Scanner Dashboard: Scan ${currentScanId} failed`);
-                
-                if (onError) {
-                    onError('Scan failed. Please try again.');
+
+                const vulnCount = data.vulnerabilities?.length || 0;
+                if (vulnCount > 0) {
+                    console.warn(
+                        `Scanner Dashboard: Scan ${currentScanId} failed but has ${vulnCount} partial result(s)`
+                    );
+                    if (onComplete) {
+                        onComplete(data);
+                    }
+                } else {
+                    console.error(`Scanner Dashboard: Scan ${currentScanId} failed with no results`);
+                    if (onError) {
+                        onError('Scan failed. Please try again.');
+                    }
                 }
             } else if (data.status === 'running' || data.status === 'pending') {
                 // Scan is still in progress

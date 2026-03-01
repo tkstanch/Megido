@@ -29,7 +29,7 @@ from scanner.config_defaults import get_default_proof_config
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name='scanner.async_scan_task', time_limit=600, soft_time_limit=570)
+@shared_task(bind=True, name='scanner.async_scan_task', time_limit=3600, soft_time_limit=3500)
 def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
     """
     Celery task to perform vulnerability scan asynchronously.
@@ -106,15 +106,28 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         }
         
     except SoftTimeLimitExceeded:
-        logger.warning(f"Soft time limit reached for scan {scan_id}. Marking as failed.")
-        scan.status = 'failed'
+        logger.warning(f"Soft time limit reached for scan {scan_id}.")
+        vulnerabilities_count = scan.vulnerabilities.count()
+        if vulnerabilities_count > 0:
+            logger.warning(
+                f"Scan {scan_id} has {vulnerabilities_count} partial result(s). "
+                "Marking as completed with warnings."
+            )
+            if scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.append('Scan exceeded time limit. Results may be incomplete.')
+            scan.status = 'completed'
+        else:
+            logger.warning(f"Scan {scan_id} has no results. Marking as failed.")
+            scan.status = 'failed'
         scan.completed_at = timezone.now()
         scan.save()
-        
+
         return {
             'scan_id': scan_id,
-            'status': 'failed',
+            'status': scan.status,
             'error': 'Scan exceeded time limit',
+            'vulnerabilities_found': vulnerabilities_count,
             'task_id': task_id,
         }
         
