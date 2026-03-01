@@ -16,7 +16,7 @@ from scanner.plugins.plugin_registry import PluginRegistry
 from scanner.scan_plugins.scan_plugin_registry import ScanPluginRegistry
 
 # Minimum number of payloads each exploit plugin must provide
-MIN_PAYLOAD_COUNT = 20
+MIN_PAYLOAD_COUNT = 1000
 
 
 def test_all_vulnerability_types_have_plugins():

@@ -14,6 +14,7 @@ of base payloads including:
 import urllib.parse
 import logging
 from typing import List, Set, Dict, Any
+import html as html_module
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,84 @@ class PayloadMutator:
         '.yml',
     ]
     
+    @staticmethod
+    def scale_payloads_to_minimum(base_payloads: List[str], minimum: int = 1000) -> List[str]:
+        """
+        Scale a payload list to a minimum count by generating encoding variants.
+
+        Applies URL encoding, double URL encoding, HTML entity encoding, plus
+        encoding, and full percent-encoding variants to reach the desired minimum.
+
+        Args:
+            base_payloads: Initial list of payload strings
+            minimum: Target minimum number of unique payloads (default 1000)
+
+        Returns:
+            Deduplicated list of payloads with length >= minimum (if achievable)
+        """
+        result: Set[str] = set(base_payloads)
+
+        if len(result) >= minimum:
+            return list(result)
+
+        def _url_encode(p: str) -> str:
+            return urllib.parse.quote(p, safe='')
+
+        def _double_url_encode(p: str) -> str:
+            return urllib.parse.quote(urllib.parse.quote(p, safe=''), safe='')
+
+        def _html_entity_encode(p: str) -> str:
+            return html_module.escape(p, quote=True)
+
+        def _plus_encode(p: str) -> str:
+            return urllib.parse.quote_plus(p)
+
+        def _full_percent_encode(p: str) -> str:
+            return ''.join(f'%{ord(c):02x}' for c in p)
+
+        def _comment_spaces(p: str) -> str:
+            return p.replace(' ', '/**/')
+
+        def _tab_spaces(p: str) -> str:
+            return p.replace(' ', '\t')
+
+        def _newline_spaces(p: str) -> str:
+            return p.replace(' ', '\n')
+
+        def _upper(p: str) -> str:
+            return p.upper()
+
+        def _lower(p: str) -> str:
+            return p.lower()
+
+        variant_fns = [
+            _url_encode,
+            _double_url_encode,
+            _html_entity_encode,
+            _plus_encode,
+            _full_percent_encode,
+            _comment_spaces,
+            _tab_spaces,
+            _newline_spaces,
+            _upper,
+            _lower,
+        ]
+
+        for variant_fn in variant_fns:
+            if len(result) >= minimum:
+                break
+            for payload in list(base_payloads):
+                try:
+                    variant = variant_fn(payload)
+                    if variant and variant != payload:
+                        result.add(variant)
+                except Exception:
+                    pass
+                if len(result) >= minimum:
+                    break
+
+        return list(result)
+
     @staticmethod
     def generate_case_variations(payload: str) -> List[str]:
         """
