@@ -22,7 +22,7 @@ def test_all_vulnerability_types_have_plugins():
     # Vulnerability types from scanner/models.py::VULNERABILITY_TYPES
     vulnerability_types = [
         'xss',
-        'sqli', 
+        'sqli',
         'csrf',
         'xxe',
         'rce',
@@ -31,6 +31,18 @@ def test_all_vulnerability_types_have_plugins():
         'open_redirect',
         'ssrf',
         'info_disclosure',
+        'clickjacking',
+        'js_hijacking',
+        'idor',
+        'jwt',
+        'crlf',
+        'host_header',
+        'smuggling',
+        'deserialization',
+        'graphql',
+        'websocket',
+        'cache_poisoning',
+        'cors',
         'other',
     ]
     
