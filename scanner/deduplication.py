@@ -9,8 +9,8 @@ Deduplication strategy:
 - Same URL + same vulnerability type (no parameter) → deduplicate
 
 Correlation rules:
-- Multiple plugins detecting the same injection point → merge evidence
-  and boost confidence.
+- Multiple plugins detecting the same vulnerability type on the same
+  injection point → merge evidence and boost confidence.
 
 Usage::
 
@@ -107,7 +107,12 @@ def correlate(findings: List[VulnerabilityFinding]) -> List[VulnerabilityFinding
     Merge related findings and boost confidence when multiple plugins confirm
     the same vulnerability.
 
-    Two findings are correlated when they share the same URL and parameter.
+    Two findings are correlated when they share the same URL, parameter, and
+    vulnerability type.  This ensures that different vulnerability types on the
+    same injection point are kept as separate findings while multi-plugin
+    confirmations of the same vulnerability type are merged and have their
+    confidence boosted.
+
     The merged finding inherits the highest severity and accumulated evidence.
 
     Args:
@@ -116,13 +121,13 @@ def correlate(findings: List[VulnerabilityFinding]) -> List[VulnerabilityFinding
     Returns:
         Correlated list with boosted confidence where applicable.
     """
-    # Group by (url, parameter) — ignoring vulnerability_type intentionally
-    # to catch multi-plugin confirmations of the same injection point.
+    # Group by (url, parameter, vulnerability_type) so that only findings of
+    # the same vulnerability type are merged together.
     groups: Dict[str, List[VulnerabilityFinding]] = {}
     for finding in findings:
         url = (finding.url or '').rstrip('/')
         param = finding.parameter or ''
-        group_key = f"{url}::{param}"
+        group_key = f"{url}::{param}::{finding.vulnerability_type}"
         groups.setdefault(group_key, []).append(finding)
 
     result: List[VulnerabilityFinding] = []
