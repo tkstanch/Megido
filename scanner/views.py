@@ -157,23 +157,49 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
         enabled_plugins = config.get('enabled_plugins')
         for target_url in urls_to_scan:
             try:
-                if enabled_plugins:
-                    findings = engine.scan_with_plugins(target_url, enabled_plugins, config)
+                if use_async:
+                    # AsyncScanEngine: collect all findings then save in batch below
+                    if enabled_plugins:
+                        findings = engine.scan_with_plugins(target_url, enabled_plugins, config)
+                    else:
+                        findings = engine.scan(target_url, config)
+                    all_findings.extend(findings)
                 else:
-                    findings = engine.scan(target_url, config)
-                all_findings.extend(findings)
+                    # ScanEngine: iterate plugins and save findings incrementally after each plugin
+                    if enabled_plugins:
+                        plugin_list = [
+                            engine.registry.get_plugin(pid)
+                            for pid in enabled_plugins
+                            if engine.registry.get_plugin(pid)
+                        ]
+                    else:
+                        plugin_list = engine.registry.get_all_plugins()
+                    for plugin in plugin_list:
+                        try:
+                            plugin_findings = plugin.scan(target_url, config)
+                            if plugin_findings:
+                                engine.save_findings_to_db(scan, plugin_findings)
+                                logger.info(
+                                    f"Plugin {plugin.name}: saved {len(plugin_findings)} "
+                                    f"finding(s) for {target_url}"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"Error running plugin {plugin.name} on {target_url}: {e}"
+                            )
             except Exception as e:
                 logger.error(f"Error scanning {target_url}: {e}")
 
-        # Deduplicate and correlate findings
-        try:
-            from scanner.deduplication import deduplicate_and_correlate
-            all_findings = deduplicate_and_correlate(all_findings)
-        except Exception as e:
-            logger.warning(f"Deduplication failed ({e}), using raw findings")
+        # For async engine path: deduplicate, correlate, then save in batch
+        if use_async:
+            try:
+                from scanner.deduplication import deduplicate_and_correlate
+                all_findings = deduplicate_and_correlate(all_findings)
+            except Exception as e:
+                logger.warning(f"Deduplication failed ({e}), using raw findings")
 
-        # Save findings to database
-        engine.save_findings_to_db(scan, all_findings)
+            # Save findings to database
+            engine.save_findings_to_db(scan, all_findings)
 
         # Apply advanced features to all vulnerabilities after scanning
         try:
@@ -221,6 +247,7 @@ def scan_results(request, scan_id):
                 'vulnerability_type': vuln.vulnerability_type,
                 'severity': vuln.severity,
                 'url': vuln.url,
+                'parameter': vuln.parameter,
                 'description': vuln.description,
                 'evidence': vuln.evidence,
                 'remediation': vuln.remediation,
@@ -237,6 +264,11 @@ def scan_results(request, scan_id):
                 'compliance_violations': vuln.compliance_violations,
                 'remediation_priority': vuln.remediation_priority,
                 'remediation_effort': vuln.remediation_effort,
+                # Discovery data
+                'successful_payloads': vuln.successful_payloads,
+                'repeater_data': vuln.repeater_data,
+                'http_traffic': vuln.http_traffic,
+                'discovered_at': vuln.discovered_at.isoformat() if vuln.discovered_at else None,
                 # Visual proof media
                 'visual_proof_path': vuln.visual_proof_path,
                 'visual_proof_type': vuln.visual_proof_type,
