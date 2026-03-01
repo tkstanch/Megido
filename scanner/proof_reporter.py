@@ -627,7 +627,147 @@ class ProofReporter:
 </html>
 """
         return html_content
-    
+
+    def generate_poc_walkthrough_html(self, poc_steps: list,
+                                      vuln_type: str = '',
+                                      poc_summary: str = '',
+                                      remediation: str = '') -> str:
+        """
+        Generate a rich, self-contained HTML PoC walkthrough report.
+
+        Args:
+            poc_steps: List of step dicts with keys: step_number, title,
+                       description, request, response_snippet,
+                       screenshot_path, gif_path, verified, html_evidence
+            vuln_type: Vulnerability type label (e.g. 'XSS')
+            poc_summary: Short summary of the exploitation result
+            remediation: Remediation advice text
+
+        Returns:
+            Self-contained HTML string for the full step-by-step PoC report
+        """
+        import html as _html
+        import json as _json
+        from datetime import datetime
+
+        vuln_escaped = _html.escape(str(vuln_type).upper())
+        summary_escaped = _html.escape(str(poc_summary))
+        remediation_escaped = _html.escape(str(remediation)).replace('\n', '<br>')
+        ts = _html.escape(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'))
+        step_count = len(poc_steps)
+
+        poc_badge = 'Full PoC Available' if step_count >= 3 else ('Partial PoC' if step_count >= 1 else 'No PoC')
+        badge_color = '#388e3c' if step_count >= 3 else ('#f57c00' if step_count >= 1 else '#9e9e9e')
+
+        steps_html = ''
+        for step in poc_steps:
+            sn = _html.escape(str(step.get('step_number', '')))
+            title = _html.escape(str(step.get('title', '')))
+            desc = _html.escape(str(step.get('description', '')))
+            req = _html.escape(str(step.get('request', '')))
+            resp = _html.escape(str(step.get('response_snippet', '')))
+            screenshot = _html.escape(str(step.get('screenshot_path', '')))
+            gif = _html.escape(str(step.get('gif_path', '')))
+            html_ev = str(step.get('html_evidence', ''))
+            verified_badge = '<span class="verified-badge">✓ Verified</span>' if step.get('verified') else ''
+
+            screenshot_tag = (
+                f'<div class="media-box"><img src="{screenshot}" alt="Step {sn} screenshot" '
+                f'class="step-img"></div>' if screenshot else ''
+            )
+            gif_tag = (
+                f'<div class="media-box"><img src="{gif}" alt="Step {sn} animation" '
+                f'class="step-img"></div>' if gif else ''
+            )
+            req_block = (
+                f'<details><summary>HTTP Request</summary>'
+                f'<pre class="code-block">{req}</pre></details>' if req else ''
+            )
+            resp_block = (
+                f'<details><summary>Response Snippet</summary>'
+                f'<pre class="code-block">{resp}</pre></details>' if resp else ''
+            )
+            html_ev_block = (
+                f'<details><summary>HTML Evidence</summary>'
+                f'<div class="html-ev">{html_ev}</div></details>' if html_ev else ''
+            )
+
+            steps_html += f"""
+        <div class="step-card">
+            <div class="step-header">
+                <span class="step-number">Step {sn}</span>
+                <span class="step-title">{title}</span>
+                {verified_badge}
+            </div>
+            <p class="step-desc">{desc}</p>
+            {screenshot_tag}
+            {gif_tag}
+            {req_block}
+            {resp_block}
+            {html_ev_block}
+        </div>"""
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoC Report - {vuln_escaped}</title>
+    <style>
+        body{{font-family:Arial,sans-serif;margin:0;background:#0d1117;color:#c9d1d9}}
+        .container{{max-width:960px;margin:0 auto;padding:24px}}
+        h1{{color:#f0883e;border-bottom:2px solid #f0883e;padding-bottom:8px}}
+        h2{{color:#58a6ff;margin-top:32px}}
+        .badge{{display:inline-block;background:{badge_color};color:#fff;
+                padding:4px 12px;border-radius:12px;font-size:0.85rem;margin-bottom:16px}}
+        .meta-table{{width:100%;border-collapse:collapse;margin:16px 0}}
+        .meta-table th,.meta-table td{{border:1px solid #30363d;padding:8px 12px;text-align:left}}
+        .meta-table th{{background:#161b22;color:#58a6ff}}
+        .step-card{{background:#161b22;border:1px solid #30363d;border-radius:8px;
+                    padding:16px;margin:16px 0}}
+        .step-header{{display:flex;align-items:center;gap:12px;margin-bottom:8px}}
+        .step-number{{background:#388e3c;color:#fff;border-radius:50%;
+                      width:28px;height:28px;display:flex;align-items:center;
+                      justify-content:center;font-weight:bold;font-size:0.9rem;flex-shrink:0}}
+        .step-title{{font-weight:bold;font-size:1.05rem;color:#f0f6fc}}
+        .verified-badge{{background:#388e3c;color:#fff;padding:2px 8px;
+                          border-radius:8px;font-size:0.78rem}}
+        .step-desc{{color:#8b949e;margin:4px 0 12px 0}}
+        .media-box{{margin:12px 0}}
+        .step-img{{max-width:100%;border:1px solid #30363d;border-radius:4px}}
+        details{{margin:8px 0}}
+        summary{{cursor:pointer;color:#58a6ff;font-weight:bold;padding:4px 0}}
+        .code-block{{background:#0d1117;border:1px solid #30363d;border-radius:4px;
+                     padding:12px;overflow-x:auto;white-space:pre-wrap;font-size:0.85rem;
+                     color:#e6edf3}}
+        .html-ev{{background:#0d1117;border:1px solid #30363d;border-radius:4px;
+                  padding:12px;overflow-x:auto;font-size:0.85rem}}
+        .remediation{{background:#161b22;border-left:4px solid #f0883e;
+                      padding:12px 16px;border-radius:0 4px 4px 0;margin:16px 0}}
+        .summary-box{{background:#161b22;border:1px solid #388e3c;border-radius:8px;
+                      padding:12px 16px;margin:16px 0;color:#c9d1d9}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔒 Proof of Concept Report: {vuln_escaped}</h1>
+    <span class="badge">{_html.escape(poc_badge)}</span>
+    <table class="meta-table">
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Vulnerability Type</td><td>{vuln_escaped}</td></tr>
+        <tr><td>Generated</td><td>{ts}</td></tr>
+        <tr><td>Total Steps</td><td>{step_count}</td></tr>
+        <tr><td>PoC Status</td><td>{_html.escape(poc_badge)}</td></tr>
+    </table>
+    {"<div class='summary-box'><strong>Summary:</strong> " + summary_escaped + "</div>" if poc_summary else ""}
+    <h2>Exploitation Steps</h2>
+    {steps_html if steps_html else "<p>No steps recorded.</p>"}
+    {"<h2>Remediation</h2><div class='remediation'>" + remediation_escaped + "</div>" if remediation else ""}
+</div>
+</body>
+</html>
+"""
+
     def store_in_database(self, proof_data: ProofData,
                          vulnerability_model=None) -> bool:
         """

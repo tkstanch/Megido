@@ -203,6 +203,23 @@ class Vulnerability(models.Model):
         ],
         default='medium'
     )
+
+    # Step-by-step PoC data
+    poc_steps_json = models.TextField(
+        blank=True,
+        null=True,
+        help_text='JSON array of step-by-step proof-of-concept exploitation data'
+    )
+    poc_html_report_path = models.CharField(
+        max_length=512,
+        blank=True,
+        null=True,
+        help_text='Path to the generated self-contained HTML PoC report'
+    )
+    poc_step_count = models.IntegerField(
+        default=0,
+        help_text='Number of completed PoC exploitation steps'
+    )
     
     class Meta:
         ordering = ['-discovered_at']

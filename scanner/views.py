@@ -274,11 +274,35 @@ def scan_results(request, scan_id):
                 'visual_proof_type': vuln.visual_proof_type,
                 'visual_proof_status': vuln.visual_proof_status if hasattr(vuln, 'visual_proof_status') else 'not_attempted',
                 'exploit_media': _serialize_exploit_media(vuln.exploit_media.all()),
+                # Step-by-step PoC data
+                'poc_steps': _parse_poc_steps(vuln.poc_steps_json),
+                'poc_html_report_path': vuln.poc_html_report_path,
+                'poc_step_count': vuln.poc_step_count,
             } for vuln in vulnerabilities]
         }
         return Response(data, status=200)
     except Scan.DoesNotExist:
         return Response({'error': 'Scan not found'}, status=404)
+
+
+def _parse_poc_steps(poc_steps_json):
+    """
+    Parse poc_steps_json TextField into a Python list.
+
+    Args:
+        poc_steps_json: JSON string stored in the poc_steps_json field, or None
+
+    Returns:
+        List of step dicts, or empty list if unavailable/invalid
+    """
+    if not poc_steps_json:
+        return []
+    try:
+        import json
+        steps = json.loads(poc_steps_json)
+        return steps if isinstance(steps, list) else []
+    except (ValueError, TypeError):
+        return []
 
 
 def _serialize_exploit_media(media_queryset):
