@@ -102,6 +102,11 @@ class VisualProofCapture:
     SCREENSHOT_INTERVAL = 0.5  # Seconds between screenshots
     MAX_SCREENSHOTS = 10  # Maximum number of screenshots
     COMPRESSION_QUALITY = 85  # Image compression quality (1-100)
+
+    # Navigation timeout (milliseconds for Playwright, converted to seconds for Selenium)
+    NAVIGATION_TIMEOUT_MS = 15000
+    # Delay between screenshot capture retries (seconds)
+    RETRY_DELAY_SECONDS = 1
     
     # URL validation regex
     URL_PATTERN = re.compile(
@@ -183,7 +188,8 @@ class VisualProofCapture:
         return f"{vuln_type}_{vuln_id}_{hash_str}_{timestamp}.{file_type}"
     
     def capture_screenshot(self, url: str, wait_time: float = 2.0,
-                          viewport_size: Tuple[int, int] = (1280, 720)) -> Optional[bytes]:
+                          viewport_size: Tuple[int, int] = (1280, 720),
+                          max_retries: int = 2) -> Optional[bytes]:
         """
         Capture a single screenshot of the URL.
         
@@ -191,6 +197,7 @@ class VisualProofCapture:
             url: URL to capture
             wait_time: Time to wait before capturing (seconds)
             viewport_size: Browser viewport size (width, height)
+            max_retries: Maximum number of retry attempts on failure
             
         Returns:
             Screenshot bytes or None on failure
@@ -199,17 +206,28 @@ class VisualProofCapture:
             logger.error(f"Invalid URL: {url}")
             return None
         
-        try:
-            if HAS_PLAYWRIGHT:
-                return self._capture_screenshot_playwright(url, wait_time, viewport_size)
-            elif HAS_SELENIUM:
-                return self._capture_screenshot_selenium(url, wait_time, viewport_size)
-            else:
-                logger.error("No browser automation library available")
-                return None
-        except Exception as e:
-            logger.error(f"Screenshot capture failed: {e}")
-            return None
+        for attempt in range(max_retries + 1):
+            try:
+                if HAS_PLAYWRIGHT:
+                    result = self._capture_screenshot_playwright(url, wait_time, viewport_size)
+                elif HAS_SELENIUM:
+                    result = self._capture_screenshot_selenium(url, wait_time, viewport_size)
+                else:
+                    logger.error("No browser automation library available")
+                    return None
+                
+                if result is not None:
+                    return result
+                
+                if attempt < max_retries:
+                    logger.info(f"Screenshot attempt {attempt + 1} failed, retrying in {self.RETRY_DELAY_SECONDS} second(s)...")
+                    time.sleep(self.RETRY_DELAY_SECONDS)
+            except Exception as e:
+                logger.error(f"Screenshot capture failed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries:
+                    time.sleep(self.RETRY_DELAY_SECONDS)
+        
+        return None
     
     def _capture_screenshot_playwright(self, url: str, wait_time: float,
                                       viewport_size: Tuple[int, int]) -> Optional[bytes]:
@@ -222,10 +240,22 @@ class VisualProofCapture:
                     ignore_https_errors=True
                 )
                 page = context.new_page()
-                page.set_default_timeout(5000)
+                page.set_default_timeout(self.NAVIGATION_TIMEOUT_MS)
                 
                 logger.info(f"Navigating to {url}")
-                page.goto(url, wait_until='domcontentloaded')
+                try:
+                    page.goto(url, wait_until='domcontentloaded')
+                except PlaywrightTimeoutError as e:
+                    logger.warning(f"Playwright timeout during navigation: {e}. Capturing partial screenshot.")
+                    try:
+                        screenshot_bytes = page.screenshot(full_page=False)
+                        logger.info("Partial screenshot captured after timeout")
+                        return screenshot_bytes
+                    except Exception as inner_e:
+                        logger.error(f"Partial screenshot capture also failed: {inner_e}")
+                        return None
+                    finally:
+                        browser.close()
                 
                 # Wait for specified time
                 time.sleep(wait_time)
@@ -237,9 +267,6 @@ class VisualProofCapture:
                 logger.info("Screenshot captured successfully")
                 return screenshot_bytes
                 
-        except PlaywrightTimeoutError as e:
-            logger.warning(f"Playwright timeout: {e}")
-            return None
         except Exception as e:
             logger.error(f"Playwright capture error: {e}")
             return None
@@ -257,7 +284,7 @@ class VisualProofCapture:
             options.add_argument(f'--window-size={viewport_size[0]},{viewport_size[1]}')
             
             driver = webdriver.Chrome(options=options)
-            driver.set_page_load_timeout(5)
+            driver.set_page_load_timeout(self.NAVIGATION_TIMEOUT_MS // 1000)
             
             logger.info(f"Navigating to {url}")
             driver.get(url)
@@ -328,10 +355,26 @@ class VisualProofCapture:
                     ignore_https_errors=True
                 )
                 page = context.new_page()
-                page.set_default_timeout(5000)
+                page.set_default_timeout(self.NAVIGATION_TIMEOUT_MS)
                 
                 logger.info(f"Navigating to {url}")
-                page.goto(url, wait_until='domcontentloaded')
+                try:
+                    page.goto(url, wait_until='domcontentloaded')
+                except PlaywrightTimeoutError as e:
+                    # On timeout, capture whatever has partially loaded and return it.
+                    # Unlike the single-screenshot path, we keep any frames already
+                    # collected rather than returning None, so at least a partial GIF
+                    # can be produced.
+                    logger.warning(f"Playwright timeout during navigation: {e}. Capturing partial screenshots.")
+                    try:
+                        screenshot_bytes = page.screenshot(full_page=False)
+                        screenshots.append(screenshot_bytes)
+                        logger.info("Partial screenshot captured after timeout")
+                    except Exception as inner_e:
+                        logger.error(f"Partial screenshot capture also failed: {inner_e}")
+                    finally:
+                        browser.close()
+                    return screenshots
                 
                 # Capture screenshots at intervals
                 start_time = time.time()
@@ -370,7 +413,7 @@ class VisualProofCapture:
             options.add_argument(f'--window-size={viewport_size[0]},{viewport_size[1]}')
             
             driver = webdriver.Chrome(options=options)
-            driver.set_page_load_timeout(5)
+            driver.set_page_load_timeout(self.NAVIGATION_TIMEOUT_MS // 1000)
             
             logger.info(f"Navigating to {url}")
             driver.get(url)
