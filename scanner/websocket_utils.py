@@ -76,10 +76,10 @@ def send_task_update(task_id: str, update_type: str, data: Dict[str, Any]) -> No
     try:
         # Check if we're in an async context
         try:
-            asyncio.get_running_loop()
-            # We're in an async context, can't use async_to_sync
-            logger.warning(f"send_task_update called from async context for task {task_id}, use send_task_update_async instead")
-            return
+            loop = asyncio.get_running_loop()
+            # We're in an async context — schedule the send as a coroutine task
+            loop.create_task(channel_layer.group_send(group_name, message))
+            logger.debug(f"Scheduled {update_type} update for task {task_id} via running event loop")
         except RuntimeError:
             # No running loop, we can use async_to_sync
             async_to_sync(channel_layer.group_send)(group_name, message)

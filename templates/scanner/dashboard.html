@@ -137,6 +137,32 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startBtn) {
         startBtn.addEventListener('click', startScan);
     }
+
+    // Recover task state after page refresh
+    const savedTaskId = sessionStorage.getItem('exploitTaskId');
+    const savedScanId = sessionStorage.getItem('exploitScanId');
+    if (savedTaskId && savedScanId) {
+        currentTaskId = savedTaskId;
+        currentScanId = parseInt(savedScanId, 10);
+        console.log('Recovering exploit task state from sessionStorage:', currentTaskId);
+        disableExploitButtons();
+        const statusDiv = document.getElementById('scan-status');
+        if (statusDiv) {
+            const card = document.createElement('div');
+            card.className = 'card border-l-4 border-info';
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body';
+            const strong = document.createElement('strong');
+            strong.className = 'text-info';
+            strong.textContent = 'Exploitation in progress...';
+            cardBody.appendChild(strong);
+            cardBody.appendChild(document.createTextNode(' Reconnecting to task status.'));
+            card.appendChild(cardBody);
+            statusDiv.innerHTML = '';
+            statusDiv.appendChild(card);
+        }
+        startPolling(currentTaskId);
+    }
 });
 
 // Helper function to safely display error messages
@@ -899,8 +925,8 @@ function updateProgressDisplay(data) {
 }
 
 function fallbackToPolling(taskId) {
-    if (!useWebSocket) return;  // Already using polling
-    
+    if (!useWebSocket && pollingInterval) return;  // Already using polling
+
     console.log('Falling back to polling for task status');
     useWebSocket = false;
     
@@ -1014,12 +1040,20 @@ async function pollTaskStatus(taskId) {
 }
 
 function handleExploitationComplete(results) {
-    currentTaskId = null;
     showExploitResults(results);
     
     // Reload vulnerabilities to show updated status
     if (currentScanId) {
-        loadResults(currentScanId);
+        loadResults(currentScanId).finally(() => {
+            // Clear task tracking only after results have loaded
+            currentTaskId = null;
+            sessionStorage.removeItem('exploitTaskId');
+            sessionStorage.removeItem('exploitScanId');
+        });
+    } else {
+        currentTaskId = null;
+        sessionStorage.removeItem('exploitTaskId');
+        sessionStorage.removeItem('exploitScanId');
     }
 }
 
@@ -1076,15 +1110,19 @@ async function exploitAll() {
         const data = await response.json();
         currentTaskId = data.task_id;
         
+        // Persist task state so it survives page refresh
+        sessionStorage.setItem('exploitTaskId', currentTaskId);
+        sessionStorage.setItem('exploitScanId', currentScanId);
+        
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // If WebSocket connection fails, fallback to polling after 1 second
+        // Safety-net: also start polling after 5 seconds in case WebSocket never delivers
         setTimeout(() => {
-            if (!wsConnected) {
+            if (!pollingInterval) {
                 fallbackToPolling(currentTaskId);
             }
-        }, 1000);
+        }, 5000);
         
     } catch (error) {
         displayError(error.message);
@@ -1196,15 +1234,19 @@ async function exploitSelected() {
         const data = await response.json();
         currentTaskId = data.task_id;
         
+        // Persist task state so it survives page refresh
+        sessionStorage.setItem('exploitTaskId', currentTaskId);
+        sessionStorage.setItem('exploitScanId', currentScanId);
+        
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // If WebSocket connection fails, fallback to polling after 1 second
+        // Safety-net: also start polling after 5 seconds in case WebSocket never delivers
         setTimeout(() => {
-            if (!wsConnected) {
+            if (!pollingInterval) {
                 fallbackToPolling(currentTaskId);
             }
-        }, 1000);
+        }, 5000);
         
     } catch (error) {
         displayError(error.message);
