@@ -8,6 +8,7 @@ these functions so that workers never need to import Django view code.
 
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Any, Callable, Dict, List, Optional
 
 import requests as _requests_lib
@@ -27,6 +28,12 @@ logger = logging.getLogger(__name__)
 
 # Maximum length for OOB payload strings stored in the database.
 _OOB_PAYLOAD_MAX_STORE_LENGTH = 200
+
+# Maximum seconds to wait for execute_attack_with_evidence() before giving up.
+# Keeps tasks from running forever even without a Celery time limit.
+_ENGINE_EXECUTION_TIMEOUT = int(
+    os.environ.get('SQL_ATTACKER_ENGINE_TIMEOUT', 3300)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -380,16 +387,51 @@ def execute_task(task_id: int) -> None:
 
         merged_params_dict = {**params, **data}
 
+        # Resolve once so we don't call getattr repeatedly below.
+        use_manipulator = getattr(task, 'use_manipulator', False)
+
+        # Optionally apply Manipulator tricks to generate additional payload variants.
+        # A representative SQLi baseline payload is used here; the engine handles
+        # its own full payload set – this block logs/validates the trick configuration
+        # and the variants list is available for engine integrations in the future.
+        if use_manipulator:
+            try:
+                from .manipulator_integration import apply_manipulations_to_payload
+                baseline_payload = "' OR '1'='1"
+                variants = apply_manipulations_to_payload(
+                    baseline_payload,
+                    encoding_names=task.manipulator_encodings or [],
+                    trick_ids=task.manipulator_trick_ids or [],
+                )
+                logger.info(
+                    "Manipulator integration produced %d payload variants for task %d",
+                    len(variants), task.id,
+                )
+            except Exception as manip_exc:
+                logger.warning("Manipulator integration failed: %s", manip_exc)
+
         # Run DiscoveryScanner for verification-first, baseline-aware detection.
         # Results enrich each finding with structured evidence, confidence rationale,
         # and reproduction steps stored in the new schema fields.
         discovery_findings_by_param = _run_discovery_scan(task, params, data, headers, cookies)
 
-        evidence_result = engine.execute_attack_with_evidence(
-            task=task,
-            params_to_test=merged_params_dict,
-            enable_visual_capture=True,
-        )
+        # Run the attack engine with a timeout so the task cannot hang forever.
+        def _run_engine():
+            return engine.execute_attack_with_evidence(
+                task=task,
+                params_to_test=merged_params_dict,
+                enable_visual_capture=True,
+            )
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as _pool:
+                _future = _pool.submit(_run_engine)
+                evidence_result = _future.result(timeout=_ENGINE_EXECUTION_TIMEOUT)
+        except FuturesTimeoutError:
+            raise RuntimeError(
+                f"SQL injection engine timed out after {_ENGINE_EXECUTION_TIMEOUT}s"
+            )
+
         findings = evidence_result.get('_raw_findings', [])
         visual_evidence = evidence_result.get('visual_evidence', {})
         all_injection_points = evidence_result.get('all_injection_points', [])
@@ -459,6 +501,13 @@ def execute_task(task_id: int) -> None:
                 ),
                 reproduction_steps=_build_reproduction_steps(
                     task, param_name, discovery_findings_by_param.get(param_name)
+                ),
+                # Manipulator integration – record which tricks/encodings were used
+                manipulator_tricks_used=(
+                    task.manipulator_trick_ids if use_manipulator else None
+                ),
+                manipulator_encodings_used=(
+                    task.manipulator_encodings if use_manipulator else None
                 ),
             )
 
