@@ -27,6 +27,8 @@ urlpatterns = [
     path('api/scans/<int:scan_id>/exploit/', views.exploit_vulnerabilities, name='exploit_vulnerabilities'),
     path('api/scans/<int:scan_id>/apply_advanced_features/', views.apply_advanced_features, name='apply_advanced_features'),
     path('api/vulnerabilities/<int:vuln_id>/', views.vulnerability_detail, name='vulnerability_detail'),
+    path('api/vulnerabilities/<int:vuln_id>/bounty-report/', views.vulnerability_bounty_report, name='vulnerability_bounty_report'),
+    path('api/scans/<int:scan_id>/bounty-reports/', views.scan_bounty_reports, name='scan_bounty_reports'),
     path('api/exploit_status/<str:task_id>/', views.exploit_status, name='exploit_status'),
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
     

@@ -204,6 +204,13 @@ class Vulnerability(models.Model):
         default='medium'
     )
 
+    # Bug bounty report
+    bounty_report = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Auto-generated bug bounty submission report (Markdown format)'
+    )
+
     # Step-by-step PoC data
     poc_steps_json = models.TextField(
         blank=True,
