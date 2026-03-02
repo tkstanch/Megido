@@ -548,6 +548,72 @@ def apply_advanced_features(request, scan_id):
         return Response({'error': str(e)}, status=500)
 
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def scan_bounty_reports(request, scan_id):
+    """
+    Generate bug bounty reports for all exploited vulnerabilities in a scan.
+
+    POST body (optional):
+    - fmt: 'markdown' (default) or 'json'
+    - exploited_only: true (default) or false
+
+    Returns a summary of generated reports.
+    """
+    from scanner.bounty_report_generator import generate_scan_bounty_reports
+
+    fmt = request.data.get('fmt', 'markdown')
+    exploited_only = request.data.get('exploited_only', True)
+
+    try:
+        Scan.objects.get(id=scan_id)
+    except Scan.DoesNotExist:
+        return Response({'error': 'Scan not found'}, status=404)
+
+    results = generate_scan_bounty_reports(scan_id, fmt=fmt, exploited_only=exploited_only)
+    if 'error' in results:
+        return Response(results, status=404)
+    return Response(results, status=200)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def vulnerability_bounty_report(request, vuln_id):
+    """
+    Get or generate the bug bounty report for a single vulnerability.
+
+    Query params:
+    - fmt: 'markdown' (default) or 'json'
+    - regenerate: '1' to force regeneration even if a report already exists
+    """
+    from scanner.bounty_report_generator import BountyReportGenerator
+
+    fmt = request.query_params.get('fmt', 'markdown')
+    regenerate = request.query_params.get('regenerate', '0') == '1'
+
+    try:
+        vuln = Vulnerability.objects.get(id=vuln_id)
+    except Vulnerability.DoesNotExist:
+        return Response({'error': 'Vulnerability not found'}, status=404)
+
+    if vuln.bounty_report and not regenerate:
+        report = vuln.bounty_report
+    else:
+        generator = BountyReportGenerator(vuln)
+        report = generator.save(fmt=fmt)
+
+    return Response({
+        'vulnerability_id': vuln_id,
+        'vulnerability_type': vuln.vulnerability_type,
+        'severity': vuln.severity,
+        'exploited': vuln.exploited,
+        'fmt': fmt,
+        'report': report,
+    }, status=200)
+
+
 @login_required
 def scanner_dashboard(request):
     """Dashboard view for the scanner"""
