@@ -29,6 +29,10 @@ urlpatterns = [
     path('api/oob/generate/', views.api_generate_oob_payloads, name='api_generate_oob_payloads'),
     path('api/oob/listener-guide/', views.api_oob_listener_guide, name='api_oob_listener_guide'),
     
+    # Manipulator Integration API URLs
+    path('api/manipulator/tricks/', views.api_manipulator_tricks, name='api_manipulator_tricks'),
+    path('api/manipulator/apply/', views.api_apply_manipulation, name='api_apply_manipulation'),
+
     # Client-Side Scanning API URLs
     path('api/client-side/scan/', views.api_client_side_scan, name='api_client_side_scan'),
     path('api/client-side/export/', views.api_client_side_export, name='api_client_side_export'),

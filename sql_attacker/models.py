@@ -106,6 +106,20 @@ class SQLInjectionTask(models.Model):
         ),
     )
 
+    # Manipulator integration
+    use_manipulator = models.BooleanField(
+        default=False,
+        help_text="Use Manipulator app tricks and encodings to enhance SQL injection payloads"
+    )
+    manipulator_encodings = models.JSONField(
+        blank=True, null=True,
+        help_text="Selected encoding techniques from Manipulator app"
+    )
+    manipulator_trick_ids = models.JSONField(
+        blank=True, null=True,
+        help_text="Selected manipulation trick IDs from Manipulator app"
+    )
+
     # Celery integration
     celery_task_id = models.CharField(
         max_length=255,
@@ -318,6 +332,16 @@ class SQLInjectionResult(models.Model):
         blank=True,
         default='',
         help_text="Safe, step-by-step instructions to reproduce the finding",
+    )
+
+    # Manipulator integration tracking
+    manipulator_tricks_used = models.JSONField(
+        blank=True, null=True,
+        help_text="Manipulation tricks applied from Manipulator app"
+    )
+    manipulator_encodings_used = models.JSONField(
+        blank=True, null=True,
+        help_text="Encoding techniques applied from Manipulator app"
     )
 
     # OOB findings – payloads generated for this result, stored for dashboard display

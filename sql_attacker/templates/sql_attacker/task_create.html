@@ -214,6 +214,77 @@
             </div>
         </div>
         
+        <!-- Manipulator Integration -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🔧 Manipulator Integration</h3>
+            </div>
+            <div class="card-body space-y-4">
+                <div class="form-checkbox">
+                    <input class="form-checkbox-input" type="checkbox" id="use_manipulator"
+                           name="use_manipulator" onchange="toggleManipulatorOptions(this.checked)">
+                    <label class="form-checkbox-label" for="use_manipulator">
+                        Use Manipulator Tricks &amp; Encodings
+                    </label>
+                </div>
+                <p class="form-hint">
+                    Apply WAF bypass techniques and encoding obfuscation from the Manipulator app to enhance injection payloads.
+                </p>
+
+                <div id="manipulator-options" class="hidden space-y-4">
+                    {% if manipulator_tricks %}
+                    <div>
+                        <label class="form-label">Manipulation Tricks</label>
+                        <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-3">
+                            {% for trick in manipulator_tricks %}
+                            <div class="form-checkbox">
+                                <input class="form-checkbox-input" type="checkbox"
+                                       id="trick_{{ trick.id }}" name="manipulator_trick_ids"
+                                       value="{{ trick.id }}"
+                                       onchange="updateManipulatorPreview()">
+                                <label class="form-checkbox-label text-sm" for="trick_{{ trick.id }}">
+                                    <span class="font-medium">{{ trick.name }}</span>
+                                    <span class="badge {% if trick.effectiveness == 'high' %}badge-danger{% elif trick.effectiveness == 'medium' %}badge-warning{% else %}badge-secondary{% endif %} ml-1">{{ trick.effectiveness }}</span>
+                                    {% if trick.target_defense %}
+                                    <span class="text-gray-500 dark:text-gray-400 text-xs ml-1">(bypasses {{ trick.target_defense }})</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if manipulator_encodings %}
+                    <div>
+                        <label class="form-label">Encoding Techniques</label>
+                        <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-3">
+                            {% for key, label in manipulator_encodings.items %}
+                            <div class="form-checkbox">
+                                <input class="form-checkbox-input" type="checkbox"
+                                       id="enc_{{ key }}" name="manipulator_encodings"
+                                       value="{{ key }}"
+                                       onchange="updateManipulatorPreview()">
+                                <label class="form-checkbox-label text-sm font-mono" for="enc_{{ key }}">
+                                    {{ label }} <span class="text-gray-500 dark:text-gray-400 text-xs">({{ key }})</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Live preview -->
+                    <div>
+                        <label class="form-label">Payload Preview</label>
+                        <div id="manipulator-preview" class="font-mono text-sm bg-gray-100 dark:bg-gray-800 rounded p-3 min-h-12 text-gray-700 dark:text-gray-300">
+                            Select tricks/encodings above to preview…
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">▶️ Execution</h3>
@@ -238,4 +309,57 @@
         </div>
     </form>
 </div>
+
+{% block extra_js %}
+<script>
+function toggleManipulatorOptions(enabled) {
+    const opts = document.getElementById('manipulator-options');
+    if (enabled) {
+        opts.classList.remove('hidden');
+    } else {
+        opts.classList.add('hidden');
+    }
+}
+
+function updateManipulatorPreview() {
+    const samplePayload = "' OR '1'='1";
+    const encodingNames = Array.from(
+        document.querySelectorAll('input[name="manipulator_encodings"]:checked')
+    ).map(el => el.value);
+    const trickIds = Array.from(
+        document.querySelectorAll('input[name="manipulator_trick_ids"]:checked')
+    ).map(el => parseInt(el.value));
+
+    if (encodingNames.length === 0 && trickIds.length === 0) {
+        document.getElementById('manipulator-preview').textContent = "Select tricks/encodings above to preview…";
+        return;
+    }
+
+    fetch("{% url 'sql_attacker:api_apply_manipulation' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify({
+            payload: samplePayload,
+            encoding_names: encodingNames,
+            trick_ids: trickIds,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        const preview = document.getElementById('manipulator-preview');
+        if (data.variants && data.variants.length > 0) {
+            preview.textContent = data.variants.join('\n');
+        } else if (data.error) {
+            preview.textContent = 'Error: ' + data.error;
+        }
+    })
+    .catch(() => {
+        document.getElementById('manipulator-preview').textContent = "Preview unavailable.";
+    });
+}
+</script>
+{% endblock %}
 {% endblock %}

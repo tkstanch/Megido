@@ -106,6 +106,9 @@
                 <button class="tab-link" data-tab-target="oob-findings">
                     📡 OOB Findings
                 </button>
+                <button class="tab-link" data-tab-target="manipulator-integration">
+                    🔧 Manipulator Integration
+                </button>
             </nav>
         </div>
 
@@ -960,6 +963,114 @@
                         </a>
                     </div>
                     {% endif %}
+                </div>
+            </div>
+
+            <!-- Manipulator Integration Tab -->
+            <div class="tab-content hidden" id="manipulator-integration">
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h5 class="text-lg font-semibold text-gray-900 dark:text-white">🔧 Manipulator Integration</h5>
+                        <a href="{% url 'manipulator:dashboard' %}" class="btn btn-secondary btn-sm" target="_blank">
+                            Open Manipulator App ↗
+                        </a>
+                    </div>
+
+                    <!-- SQLi Manipulation Tricks -->
+                    <div>
+                        <h6 class="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            🎭 Available SQLi Manipulation Tricks
+                        </h6>
+                        {% if manipulator_tricks %}
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Technique</th>
+                                        <th>Effectiveness</th>
+                                        <th>Target Defense</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for trick in manipulator_tricks %}
+                                    <tr>
+                                        <td class="font-medium">{{ trick.name }}</td>
+                                        <td class="font-mono text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate" title="{{ trick.technique }}">{{ trick.technique }}</td>
+                                        <td>
+                                            <span class="badge {% if trick.effectiveness == 'high' %}badge-danger{% elif trick.effectiveness == 'medium' %}badge-warning{% else %}badge-secondary{% endif %}">
+                                                {{ trick.effectiveness }}
+                                            </span>
+                                        </td>
+                                        <td class="text-sm text-gray-600 dark:text-gray-400">{{ trick.target_defense|default:"—" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                            <div class="text-4xl mb-2">🔧</div>
+                            <p>No SQLi manipulation tricks found in the Manipulator app.</p>
+                            <p class="text-sm mt-1">Add tricks via the Manipulator app to enhance SQL injection payloads.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Available Encoding Techniques -->
+                    <div>
+                        <h6 class="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            🔐 Available Encoding Techniques
+                        </h6>
+                        {% if manipulator_encodings %}
+                        <div class="flex flex-wrap gap-2">
+                            {% for key, label in manipulator_encodings.items %}
+                            <span class="badge badge-info font-mono">{{ key }}: {{ label }}</span>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">No encoding techniques available.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Recent results with Manipulator tricks used -->
+                    <div>
+                        <h6 class="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            📋 Recent Results Using Manipulator Tricks
+                        </h6>
+                        {% with manipulated_results=recent_results %}
+                        {% if manipulated_results %}
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Task</th>
+                                        <th>Parameter</th>
+                                        <th>Tricks Used</th>
+                                        <th>Encodings Used</th>
+                                        <th>Detected</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in manipulated_results %}
+                                    {% if result.manipulator_tricks_used or result.manipulator_encodings_used %}
+                                    <tr>
+                                        <td><a href="{% url 'sql_attacker:task_detail' result.task.id %}" class="text-primary-600 dark:text-primary-400">#{{ result.task.id }}</a></td>
+                                        <td class="font-mono text-sm">{{ result.vulnerable_parameter }}</td>
+                                        <td class="text-sm">{{ result.manipulator_tricks_used|default:"—" }}</td>
+                                        <td class="text-sm">{{ result.manipulator_encodings_used|default:"—" }}</td>
+                                        <td class="text-sm text-gray-500">{{ result.detected_at|date:"M d, H:i" }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">No results with Manipulator tricks yet.</p>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
                 </div>
             </div>
         </div>

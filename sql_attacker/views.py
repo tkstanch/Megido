@@ -165,7 +165,11 @@ def dashboard(request):
     injection_stats = SQLInjectionResult.objects.values('injection_type').annotate(
         count=Count('id')
     ).order_by('-count')
-    
+
+    # Manipulator integration context
+    from .manipulator_integration import get_manipulator_context
+    manipulator_ctx = get_manipulator_context()
+
     context = {
         'tasks': tasks[:20],  # Limit for performance
         'total_tasks': total_tasks,
@@ -180,6 +184,7 @@ def dashboard(request):
         'oob_results': oob_results,
         'injection_stats': injection_stats,
         'status_choices': SQLInjectionTask.STATUS_CHOICES,
+        **manipulator_ctx,
     }
     
     return render(request, 'sql_attacker/dashboard.html', context)
@@ -239,6 +244,12 @@ def task_create(request):
             oob_max_payloads=int(request.POST.get('oob_max_payloads', 5)),
             oob_max_retries=int(request.POST.get('oob_max_retries', 2)),
             oob_exfil_expression=request.POST.get('oob_exfil_expression', '').strip(),
+            # Manipulator integration
+            use_manipulator=request.POST.get('use_manipulator') == 'on',
+            manipulator_encodings=request.POST.getlist('manipulator_encodings') or None,
+            manipulator_trick_ids=[
+                int(x) for x in request.POST.getlist('manipulator_trick_ids') if x.isdigit()
+            ] or None,
         )
         
         # Execute task in background if requested
@@ -247,8 +258,11 @@ def task_create(request):
         
         return redirect('sql_attacker:task_detail', pk=task.id)
     
+    from .manipulator_integration import get_manipulator_context
+    manipulator_ctx = get_manipulator_context()
     return render(request, 'sql_attacker/task_create.html', {
         'method_choices': SQLInjectionTask.METHOD_CHOICES,
+        **manipulator_ctx,
     })
 
 
@@ -1018,3 +1032,64 @@ def api_client_side_export(request):
         return Response({
             'error': f'Export failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def api_manipulator_tricks(request):
+    """
+    REST API endpoint returning available SQLi manipulation tricks and encodings.
+
+    Used by the dashboard AJAX calls and the task-create payload preview.
+
+    Response:
+    {
+        "tricks": [...],
+        "encodings": {...},
+        "payloads": [...]
+    }
+    """
+    from .manipulator_integration import get_manipulator_context
+    ctx = get_manipulator_context()
+    return Response({
+        'tricks': ctx['manipulator_tricks'],
+        'encodings': ctx['manipulator_encodings'],
+        'payloads': ctx['manipulator_payloads'],
+    })
+
+
+@api_view(['POST'])
+def api_apply_manipulation(request):
+    """
+    REST API endpoint for live payload manipulation preview.
+
+    POST data:
+    {
+        "payload": "' OR '1'='1",
+        "encoding_names": ["url", "sql_comment"],
+        "trick_ids": [1, 2]
+    }
+
+    Response:
+    {
+        "original": "' OR '1'='1",
+        "variants": ["...manipulated..."]
+    }
+    """
+    payload = request.data.get('payload', '')
+    encoding_names = request.data.get('encoding_names', [])
+    trick_ids = request.data.get('trick_ids', [])
+
+    if not payload:
+        return Response({'error': 'payload is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from .manipulator_integration import apply_manipulations_to_payload
+    try:
+        variants = apply_manipulations_to_payload(
+            payload,
+            encoding_names=encoding_names,
+            trick_ids=[int(t) for t in trick_ids if str(t).isdigit()],
+        )
+        return Response({'original': payload, 'variants': variants})
+    except Exception as exc:
+        logger.error("api_apply_manipulation error: %s", exc, exc_info=True)
+        return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
