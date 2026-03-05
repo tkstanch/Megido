@@ -35,6 +35,8 @@ Available Plugins:
 - graphql_scanner: GraphQL introspection and security checks (CWE-200)
 - websocket_scanner: WebSocket security and CSWSH detection (CWE-1385)
 - cache_poisoning_detector: Web cache poisoning via unkeyed headers (CWE-444)
+- forbidden_bypass_detector: 403 Forbidden bypass detection — method tampering,
+                             path normalization, header injection, protocol tricks (CWE-284)
 
 Plugins are automatically discovered by the ScanPluginRegistry.
 """
