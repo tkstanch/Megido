@@ -73,6 +73,8 @@ class Vulnerability(models.Model):
         ('websocket', 'WebSocket Security Issue'),
         ('cache_poisoning', 'Web Cache Poisoning'),
         ('cors', 'CORS Misconfiguration'),
+        ('email_rce', 'Email Field RCE'),
+        ('ai_llm', 'AI/LLM Vulnerability'),
         ('other', 'Other'),
     ]
     
