@@ -8,6 +8,7 @@ This plugin performs comprehensive security header analysis including:
 - HSTS preload checking
 - CSP policy analysis
 - Additional security mechanisms
+- Impact categorization: exploitable vs. best-practice findings
 """
 
 import logging
@@ -24,6 +25,22 @@ except ImportError:
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
 
 logger = logging.getLogger(__name__)
+
+# Headers that are purely best-practice/hardening and do NOT have a directly
+# exploitable impact on their own.
+_BEST_PRACTICE_HEADERS = {
+    'Permissions-Policy',
+    'Cross-Origin-Embedder-Policy',
+    'Cross-Origin-Opener-Policy',
+    'Cross-Origin-Resource-Policy',
+    'Referrer-Policy',
+}
+
+_BEST_PRACTICE_NOTE = (
+    'This is a security best practice recommendation without demonstrated impact. '
+    'It is listed here for completeness but is unlikely to be accepted as a '
+    'standalone bug-bounty finding.'
+)
 
 
 class SecurityHeadersScannerPlugin(BaseScanPlugin):
@@ -205,9 +222,10 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
             # Fetch the target page
             response = requests.get(url, timeout=timeout, verify=verify_ssl)
             headers = response.headers
+            body = response.text
             
             # Check for missing security headers
-            missing_findings = self._check_missing_headers(url, headers)
+            missing_findings = self._check_missing_headers(url, headers, body)
             findings.extend(missing_findings)
             
             # Check for misconfigured headers
@@ -232,26 +250,125 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
         
         return findings
     
-    def _check_missing_headers(self, url: str, headers: Dict) -> List[VulnerabilityFinding]:
-        """Check for missing security headers."""
+    def _check_missing_headers(self, url: str, headers: Dict, body: str = '') -> List[VulnerabilityFinding]:
+        """Check for missing security headers with impact categorization."""
         findings = []
+        hardening_missing: List[str] = []
         
         for header_name, header_info in self.SECURITY_HEADERS.items():
             if header_name not in headers:
-                finding = VulnerabilityFinding(
-                    vulnerability_type='security_misconfiguration',
-                    severity=header_info['severity'],
-                    url=url,
-                    description=header_info['description'],
-                    evidence=header_info['evidence'],
-                    remediation=header_info['remediation'],
-                    confidence=0.95,  # High confidence
-                    cwe_id=header_info['cwe_id']
-                )
-                findings.append(finding)
+                if header_name in _BEST_PRACTICE_HEADERS:
+                    # Collect best-practice headers for a single grouped finding
+                    hardening_missing.append(header_name)
+                else:
+                    # Assess exploitable impact before reporting
+                    impact_result = self._assess_header_impact(
+                        header_name, url, headers, body
+                    )
+                    severity = impact_result.get('severity', header_info['severity'])
+                    extra_note = impact_result.get('note', '')
+                    description = header_info['description']
+                    if extra_note:
+                        description = f"{description} {extra_note}"
+
+                    finding = VulnerabilityFinding(
+                        vulnerability_type='security_misconfiguration',
+                        severity=severity,
+                        url=url,
+                        description=description,
+                        evidence=header_info['evidence'],
+                        remediation=header_info['remediation'],
+                        confidence=impact_result.get('confidence', 0.95),
+                        cwe_id=header_info['cwe_id']
+                    )
+                    findings.append(finding)
+        
+        # Group all best-practice / hardening headers into a single info finding
+        if hardening_missing:
+            findings.append(VulnerabilityFinding(
+                vulnerability_type='security_misconfiguration',
+                severity='info',
+                url=url,
+                description=(
+                    f'Security hardening recommendations: the following headers are '
+                    f'missing but represent best-practice recommendations rather than '
+                    f'directly exploitable vulnerabilities: '
+                    f'{", ".join(hardening_missing)}. '
+                    + _BEST_PRACTICE_NOTE
+                ),
+                evidence=f'Missing headers: {", ".join(hardening_missing)}',
+                remediation=(
+                    'Consider adding the listed headers to improve the security posture '
+                    'of the application, but note that their absence does not constitute '
+                    'an immediately exploitable vulnerability.'
+                ),
+                confidence=0.95,
+                cwe_id='CWE-16'
+            ))
         
         return findings
     
+    def _assess_header_impact(
+        self, header_name: str, url: str, headers: Dict, body: str
+    ) -> Dict[str, Any]:
+        """
+        Assess whether a missing header creates an actually exploitable condition
+        based on page content and context.
+
+        Returns a dict with 'severity', 'confidence', and optional 'note' keys.
+        """
+        result: Dict[str, Any] = {}
+
+        if header_name == 'Strict-Transport-Security':
+            # HSTS is exploitable only when the site handles authentication
+            has_login_form = bool(re.search(
+                r'<form[^>]*>.*?<input[^>]*(?:type=["\']?password["\']?|name=["\']?password["\']?)',
+                body, re.IGNORECASE | re.DOTALL
+            ))
+            has_session_cookie = any(
+                'session' in k.lower() or 'auth' in k.lower() or 'token' in k.lower()
+                for k in headers.get('Set-Cookie', '').split(';')
+            )
+            if has_login_form or has_session_cookie:
+                result['severity'] = 'high'
+                result['confidence'] = 0.90
+                result['note'] = (
+                    'Attack scenario: Without HSTS, an active network attacker can '
+                    'downgrade HTTPS connections to HTTP and intercept session tokens '
+                    'or credentials on this authentication-enabled page.'
+                )
+            else:
+                result['severity'] = 'info'
+                result['confidence'] = 0.50
+                result['note'] = (
+                    'No login form or session cookie detected. The exploitability of '
+                    'missing HSTS is reduced without confirmed authentication context. '
+                    + _BEST_PRACTICE_NOTE
+                )
+
+        elif header_name == 'Content-Security-Policy':
+            # CSP is exploitable if inline scripts are present (real XSS risk)
+            has_inline_scripts = bool(re.search(
+                r'<script\b(?![^>]*\bsrc\s*=)[^>]*>[^<]', body, re.IGNORECASE
+            ))
+            if has_inline_scripts:
+                result['severity'] = 'high'
+                result['confidence'] = 0.90
+                result['note'] = (
+                    'Inline scripts detected without a CSP. '
+                    'Attack scenario: If an XSS vulnerability exists, the absence of '
+                    'CSP allows full script execution with no additional mitigations.'
+                )
+            else:
+                result['severity'] = 'medium'
+                result['confidence'] = 0.75
+                result['note'] = (
+                    'No inline scripts detected; XSS risk is reduced but not eliminated. '
+                    'A CSP is still recommended as a defence-in-depth measure.'
+                )
+
+        return result
+
     def _check_header_values(self, url: str, headers: Dict) -> List[VulnerabilityFinding]:
         """Check for misconfigured header values."""
         findings = []

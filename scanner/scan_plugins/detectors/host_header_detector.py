@@ -5,12 +5,14 @@ Detects Host header injection vulnerabilities by sending requests with
 manipulated Host header values and checking whether the injected value
 is reflected in the response body or redirect Location headers.
 
-Also tests for web cache poisoning via host header manipulation.
+Also tests for web cache poisoning via host header manipulation and
+password reset poisoning in account-recovery flows.
 
 CWE-644 (Improper Neutralization of HTTP Headers for Scripting Syntax)
 """
 
 import logging
+import re
 from typing import Dict, List, Any, Optional
 
 try:
@@ -38,6 +40,32 @@ _OVERRIDE_HEADERS = [
     'X-Host',
     'X-Forwarded-Server',
     'X-HTTP-Host-Override',
+]
+
+# Common password-reset / account-recovery URL path patterns
+_RESET_PATHS = [
+    '/forgot',
+    '/forgot-password',
+    '/forgot_password',
+    '/reset',
+    '/reset-password',
+    '/reset_password',
+    '/password/reset',
+    '/password/forgot',
+    '/account/recover',
+    '/account/reset',
+    '/recover',
+    '/auth/reset',
+    '/users/password',
+]
+
+# HTML patterns that indicate a password-reset form or page
+_RESET_FORM_PATTERNS = [
+    r'<form[^>]*action=[^>]*(reset|forgot|recover|password)[^>]*>',
+    r'<input[^>]*name=(["\']?)(email|username)\1[^>]*>',
+    r'(forgot|reset|recover).{0,30}password',
+    r'password.{0,30}(forgot|reset|recover)',
+    r'send.{0,20}(reset|recovery).{0,20}(link|email|token)',
 ]
 
 _REMEDIATION = (
@@ -180,22 +208,62 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
 
         # Check reflection in response body
         if probe_host in response.text and probe_host not in baseline_text:
+            # First, try to confirm a high-impact password-reset poisoning scenario
+            reset_finding = self._check_password_reset_poisoning(
+                url, probe_host, verify_ssl, timeout
+            )
+            if reset_finding:
+                return reset_finding
+
+            # Check if the current page itself is a reset page
+            if self._is_reset_page(url, response.text):
+                return VulnerabilityFinding(
+                    vulnerability_type='host_header',
+                    severity='high',
+                    url=url,
+                    description=(
+                        f'Host header injection — password reset poisoning: '
+                        f'injected host "{probe_host}" is reflected on a '
+                        f'password-reset page. '
+                        'Attack scenario: An attacker can poison password-reset '
+                        'emails so that reset links point to the attacker\'s domain, '
+                        'allowing credential theft.'
+                    ),
+                    evidence=(
+                        f'Probe Host: {probe_host!r} | '
+                        f'Response status: {response.status_code} | '
+                        f'Host value reflected on reset page | '
+                        f'bounty_eligible: true'
+                    ),
+                    remediation=_REMEDIATION,
+                    confidence=0.90,
+                    cwe_id='CWE-644',
+                    verified=True,
+                )
+
+            # Generic body reflection only — no confirmed exploitable impact
             return VulnerabilityFinding(
                 vulnerability_type='host_header',
-                severity='high',
+                severity='info',
                 url=url,
                 description=(
                     f'Host header injection: injected host "{probe_host}" is '
-                    'reflected in the response body.'
+                    'reflected in the response body, but no exploitable impact '
+                    '(e.g. password-reset poisoning) was confirmed. '
+                    'Attack scenario: Reflection alone may enable cache-poisoning '
+                    'or open-redirect attacks depending on application context, '
+                    'but further manual investigation is required.'
                 ),
                 evidence=(
                     f'Probe Host: {probe_host!r} | '
                     f'Response status: {response.status_code} | '
-                    f'Host value found in response body'
+                    f'Host value found in response body | '
+                    f'impact_verified: false | bounty_eligible: false'
                 ),
                 remediation=_REMEDIATION,
-                confidence=0.85,
+                confidence=0.40,
                 cwe_id='CWE-644',
+                verified=False,
             )
 
         # Check reflection in Location redirect header
@@ -207,16 +275,21 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 url=url,
                 description=(
                     f'Host header injection: injected host "{probe_host}" '
-                    f'appears in the redirect Location header: {location!r}.'
+                    f'appears in the redirect Location header: {location!r}. '
+                    'Attack scenario: An attacker can redirect users to an '
+                    'attacker-controlled domain by manipulating the Host header, '
+                    'enabling phishing or credential theft.'
                 ),
                 evidence=(
                     f'Probe Host: {probe_host!r} | '
                     f'Response status: {response.status_code} | '
-                    f'Location: {location!r}'
+                    f'Location: {location!r} | '
+                    f'bounty_eligible: true'
                 ),
                 remediation=_REMEDIATION,
                 confidence=0.90,
                 cwe_id='CWE-644',
+                verified=True,
             )
 
         return None
@@ -254,18 +327,88 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 description=(
                     f'Host override header injection via "{override_header}": '
                     f'injected host "{probe_host}" is reflected in the response body. '
-                    'This may be exploitable for web cache poisoning.'
+                    'Attack scenario: This may be exploitable for web cache poisoning — '
+                    'an attacker can poison the cache with a response containing the '
+                    'attacker-controlled host, affecting subsequent users who receive '
+                    'the cached response.'
                 ),
                 evidence=(
                     f'Header: {override_header}: {probe_host!r} | '
                     f'Response status: {response.status_code} | '
-                    f'Host value found in response body'
+                    f'Host value found in response body | '
+                    f'bounty_eligible: true'
                 ),
                 remediation=_REMEDIATION,
                 confidence=0.75,
                 cwe_id='CWE-644',
             )
 
+        return None
+
+    def _is_reset_page(self, url: str, body: str) -> bool:
+        """Return True if the URL path or page body indicates a password-reset flow."""
+        url_lower = url.lower()
+        for path in _RESET_PATHS:
+            if path in url_lower:
+                return True
+        for pattern in _RESET_FORM_PATTERNS:
+            if re.search(pattern, body, re.IGNORECASE | re.DOTALL):
+                return True
+        return False
+
+    def _check_password_reset_poisoning(
+        self,
+        url: str,
+        probe_host: str,
+        verify_ssl: bool,
+        timeout: int,
+    ) -> Optional[VulnerabilityFinding]:
+        """
+        Request common password-reset endpoints with the injected Host header and
+        check whether the attacker-controlled host appears in any response —
+        simulating password-reset link poisoning.
+        """
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
+
+        for path in _RESET_PATHS:
+            reset_url = base + path
+            try:
+                response = requests.get(
+                    reset_url,
+                    headers={'Host': probe_host},
+                    timeout=timeout,
+                    verify=verify_ssl,
+                    allow_redirects=True,
+                )
+            except Exception:
+                continue
+
+            if response.status_code in (200, 302) and probe_host in response.text:
+                return VulnerabilityFinding(
+                    vulnerability_type='host_header',
+                    severity='high',
+                    url=reset_url,
+                    description=(
+                        f'Host header injection — password reset poisoning confirmed: '
+                        f'injected host "{probe_host}" appears in the password-reset '
+                        f'response at {reset_url}. '
+                        'Attack scenario: An attacker sends the victim a password-reset '
+                        'email whose reset link points to the attacker\'s domain, '
+                        'allowing credential theft when the victim clicks the link.'
+                    ),
+                    evidence=(
+                        f'Reset endpoint: {reset_url} | '
+                        f'Injected Host: {probe_host!r} | '
+                        f'Attacker host found in response body | '
+                        f'bounty_eligible: true'
+                    ),
+                    remediation=_REMEDIATION,
+                    confidence=0.95,
+                    cwe_id='CWE-644',
+                    verified=True,
+                )
         return None
 
     def get_default_config(self) -> Dict[str, Any]:

@@ -62,6 +62,16 @@ _JS_FRAMEBUST_PATTERNS: List[Tuple[str, str]] = [
     (r'window\.top\.location(?:\.href)?\s*=', 'window.top.location assignment'),
 ]
 
+# Sensitive input names / actions that indicate a state-changing form.
+_SENSITIVE_INPUT_NAMES = [
+    'password', 'new_password', 'passwd', 'pass',
+    'email', 'new_email',
+    'amount', 'transfer', 'payment',
+    'delete', 'confirm', 'confirm_delete',
+    'settings',
+    'username', 'account',
+]
+
 # Small set of mobile / alternate paths checked when scan_alternate_paths is enabled.
 _ALTERNATE_PATHS: List[str] = ['/mobile', '/m', '/app', '/lite']
 
@@ -146,12 +156,14 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
                 content_type = headers.get('Content-Type', '')
                 is_html = 'text/html' in content_type.lower()
 
+                html_body = response.text if is_html else ''
                 js_defenses: List[str] = []
-                if is_html and response.text:
-                    js_defenses = self._scan_js_framebusting(response.text)
+                if is_html and html_body:
+                    js_defenses = self._scan_js_framebusting(html_body)
 
                 url_findings = self._analyse_headers(
-                    target_url, headers, js_defenses=js_defenses, is_html=is_html
+                    target_url, headers, js_defenses=js_defenses,
+                    is_html=is_html, html_body=html_body
                 )
                 findings.extend(url_findings)
 
@@ -180,6 +192,7 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
         headers: Dict,
         js_defenses: Optional[List[str]] = None,
         is_html: bool = False,
+        html_body: str = '',
     ) -> List[VulnerabilityFinding]:
         """
         Inspect response headers (and optional JS-defense matches) and return findings.
@@ -188,7 +201,9 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
           1. CSP frame-ancestors is checked first (supersedes XFO in modern browsers).
           2. If no CSP frame-ancestors is present, XFO is checked.
           3. If neither provides sufficient protection, JS framebusting is considered.
-          4. A finding is emitted with severity reflecting the level of exposure.
+          4. Sensitive-action context is evaluated: pages with no state-changing forms
+             are downgraded to info severity (no exploitable impact confirmed).
+          5. A finding is emitted with severity reflecting the level of exposure.
         """
         findings: List[VulnerabilityFinding] = []
         js_defenses = js_defenses or []
@@ -208,6 +223,10 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
         # --- Overall protection rating ---
         protection_rating = self._protection_rating(csp_status, xfo_status)
 
+        # --- Sensitive action context ---
+        sensitive_actions = self._check_sensitive_actions(html_body) if is_html and html_body else []
+        has_sensitive_actions = bool(sensitive_actions)
+
         # --- Build evidence string ---
         csp_evidence = (
             f"Content-Security-Policy frame-ancestors: {csp_fa}"
@@ -218,7 +237,14 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
             f"JS framebusting patterns: {', '.join(js_defenses)}"
             if js_defenses else "JS framebusting patterns: none detected"
         )
-        evidence = f"{csp_evidence}; {xfo_evidence}; {js_evidence}; protection: {protection_rating}"
+        action_evidence = (
+            f"Sensitive actions: {', '.join(sensitive_actions)}"
+            if sensitive_actions else "Sensitive actions: none detected"
+        )
+        evidence = (
+            f"{csp_evidence}; {xfo_evidence}; {js_evidence}; "
+            f"{action_evidence}; protection: {protection_rating}"
+        )
 
         # --- Classification ---
         if csp_status == 'protected':
@@ -285,22 +311,54 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
                 cwe_id='CWE-1021',
             ))
         else:
-            # No protection at all.  Severity is high for HTML pages (directly frameable UI).
-            severity = 'high' if is_html else 'medium'
-            findings.append(VulnerabilityFinding(
-                vulnerability_type='clickjacking',
-                severity=severity,
-                url=url,
-                description=(
-                    'The page does not set Content-Security-Policy frame-ancestors '
-                    'or X-Frame-Options, leaving it exposed to UI redress '
-                    '(clickjacking) attacks.'
-                ),
-                evidence=evidence,
-                remediation=_REMEDIATION,
-                confidence=0.95,
-                cwe_id='CWE-1021',
-            ))
+            # No protection at all.
+            if is_html and not has_sensitive_actions:
+                # No state-changing forms found — no confirmed exploitable impact.
+                findings.append(VulnerabilityFinding(
+                    vulnerability_type='clickjacking',
+                    severity='info',
+                    url=url,
+                    description=(
+                        'The page does not set Content-Security-Policy frame-ancestors '
+                        'or X-Frame-Options, but no state-changing forms or sensitive '
+                        'UI elements were detected. No exploitable clickjacking impact '
+                        'was confirmed. '
+                        'Attack scenario: An attacker could overlay this page in an '
+                        'iframe, but without sensitive actions there is no direct '
+                        'exploit path.'
+                    ),
+                    evidence=evidence + ' | bounty_eligible: false',
+                    remediation=_REMEDIATION,
+                    confidence=0.30,
+                    cwe_id='CWE-1021',
+                ))
+            else:
+                # HTML page with sensitive actions, or non-HTML — higher severity.
+                severity = 'high' if is_html else 'medium'
+                action_note = (
+                    f' Sensitive actions that could be hijacked: '
+                    f'{", ".join(sensitive_actions[:5])}.'
+                    if sensitive_actions else ''
+                )
+                findings.append(VulnerabilityFinding(
+                    vulnerability_type='clickjacking',
+                    severity=severity,
+                    url=url,
+                    description=(
+                        'The page does not set Content-Security-Policy frame-ancestors '
+                        'or X-Frame-Options, leaving it exposed to UI redress '
+                        '(clickjacking) attacks.'
+                        f'{action_note} '
+                        'Attack scenario: An attacker can embed this page in a '
+                        'transparent iframe and trick users into performing unintended '
+                        'actions (e.g. changing their password, email, or account '
+                        'settings) without their knowledge.'
+                    ),
+                    evidence=evidence + ' | bounty_eligible: true',
+                    remediation=_REMEDIATION,
+                    confidence=0.95,
+                    cwe_id='CWE-1021',
+                ))
         return findings
 
     # ------------------------------------------------------------------
@@ -372,6 +430,46 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
 
         # Unknown / malformed value – treat as absent
         return 'absent'
+
+    # ------------------------------------------------------------------
+    # Sensitive-action detection
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _check_sensitive_actions(html_body: str) -> List[str]:
+        """
+        Parse the HTML body for state-changing forms and interactive elements.
+
+        Returns a list of human-readable labels for each sensitive action found
+        (e.g. 'password input', 'email input', 'POST form').  An empty list
+        means no exploitable UI actions were detected.
+        """
+        found: List[str] = []
+
+        # Look for POST forms
+        post_forms = re.findall(
+            r'<form[^>]*method\s*=\s*["\']?\s*post\s*["\']?[^>]*>',
+            html_body, re.IGNORECASE
+        )
+        if post_forms:
+            found.append('POST form')
+
+        # Look for sensitive input fields (search across entire body)
+        for name in _SENSITIVE_INPUT_NAMES:
+            pattern = rf'<input[^>]*name\s*=\s*(["\']?){re.escape(name)}\1[^>]*>'
+            if re.search(pattern, html_body, re.IGNORECASE):
+                found.append(f'{name} input')
+
+        # Look for buttons / inputs with sensitive action labels
+        action_patterns = [
+            (r'<(button|input)[^>]*(delete|remove|confirm|transfer|pay)[^>]*>', 'destructive action button'),
+            (r'<(button|input)[^>]*type\s*=\s*["\']?submit["\']?[^>]*>', 'submit button'),
+        ]
+        for pat, label in action_patterns:
+            if re.search(pat, html_body, re.IGNORECASE) and label not in found:
+                found.append(label)
+
+        return found
 
     # ------------------------------------------------------------------
     # JS framebusting and protection-rating helpers
