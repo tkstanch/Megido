@@ -381,47 +381,223 @@ class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
     # DOM-based XSS — static analysis
     # ------------------------------------------------------------------
 
+    # Sanitizers that would break a source→sink flow
+    _SANITIZERS = [
+        r'DOMPurify\.sanitize\s*\(',
+        r'encodeURIComponent\s*\(',
+        r'encodeURI\s*\(',
+        r'escapeHtml\s*\(',
+        r'htmlEscape\s*\(',
+        r'sanitize\s*\(',
+        r'escape\s*\(',
+        r'xss\s*\(',
+    ]
+
+    # URL-controllable sources (not just console/devtools)
+    _URL_CONTROLLABLE_SOURCES = [
+        r'location\.hash',
+        r'location\.search',
+        r'location\.href',
+        r'document\.referrer',
+        r'window\.name',
+    ]
+
+    # Sources only reachable via browser storage / not via crafted URL
+    _STORAGE_ONLY_SOURCES = [
+        r'document\.cookie',
+        r'localStorage\.',
+        r'sessionStorage\.',
+    ]
+
+    def _is_self_xss(self, block: str, sources_in_block: List[str],
+                     sinks_in_block: List[str]) -> bool:
+        """
+        Heuristic classifier: return True when the detected source→sink flow
+        can only be triggered by the victim themselves (Self-XSS), rather than
+        by a crafted URL an attacker could send to another user.
+
+        Criteria:
+        1. No URL-controllable source (location.hash / search / href / referrer /
+           window.name) present — only storage-based sources that the user
+           themselves wrote.
+        2. OR a recognised sanitization function appears between source and sink.
+        """
+        # If there is any URL-controllable source, the attacker CAN craft a URL
+        # → not Self-XSS
+        for url_src in self._URL_CONTROLLABLE_SOURCES:
+            if re.search(url_src, block, re.IGNORECASE):
+                return False
+
+        # If only storage sources are present (cookie/localStorage/sessionStorage),
+        # the source value was put there by the user themselves → Self-XSS risk
+        has_storage_source = any(
+            re.search(src, block, re.IGNORECASE)
+            for src in self._STORAGE_ONLY_SOURCES
+        )
+        if has_storage_source:
+            return True
+
+        return False
+
+    def _has_sanitizer(self, block: str) -> bool:
+        """Return True if a recognised sanitization function is present in the block."""
+        return any(re.search(s, block, re.IGNORECASE) for s in self._SANITIZERS)
+
+    def _trace_dataflow(self, block: str,
+                        sources: List[str], sinks: List[str]) -> Optional[str]:
+        """
+        Basic data-flow check within a single script block.
+
+        Looks for patterns of the form:
+            var/let/const <var> = <source_expression>; …
+            <sink>(<var>) or <elem>.<sinkProp> = <var>
+
+        Returns a short description of the traced flow if found, else None.
+        """
+        # Extract variable assignments from sources
+        # e.g.  var x = location.hash;
+        var_assign_pattern = re.compile(
+            r'(?:var|let|const)\s+(\w+)\s*=\s*'
+            r'(?:[^;]*?(?:' + '|'.join(sources) + r')[^;]*)',
+            re.IGNORECASE,
+        )
+
+        source_vars: List[str] = []
+        for m in var_assign_pattern.finditer(block):
+            source_vars.append(m.group(1))
+
+        if not source_vars:
+            return None
+
+        # Check if any source variable is used in a sink expression
+        for var in source_vars:
+            # Escape the variable name for regex use
+            escaped_var = re.escape(var)
+            for sink in sinks:
+                # Match patterns like: elem.innerHTML = var  or  eval(var)
+                if re.search(
+                    r'(?:' + sink + r')[^;]*\b' + escaped_var + r'\b',
+                    block, re.IGNORECASE
+                ):
+                    return f"Variable '{var}' flows from source to sink '{sink}'"
+                # Also match: something[sink] = var
+                if re.search(
+                    r'\b' + escaped_var + r'\b[^;]*(?:' + sink + r')',
+                    block, re.IGNORECASE
+                ):
+                    return f"Variable '{var}' flows from source to sink '{sink}'"
+
+        return None
+
     def _check_dom_xss(
         self, url: str, soup: Any, html: str
     ) -> List[VulnerabilityFinding]:
         findings: List[VulnerabilityFinding] = []
         try:
+            html_str = html if isinstance(html, str) else ''
+
+            # Collect script blocks (inline <script> tags + inline event handlers)
             scripts = soup.find_all('script')
-            script_texts = [
+            script_blocks: List[str] = [
                 s.string for s in scripts
                 if s.string and isinstance(s.string, str)
             ]
-            html_str = html if isinstance(html, str) else ''
-            full_js = '\n'.join(script_texts) + html_str
 
-            sinks_found = [
-                s for s in _DOM_SINKS if re.search(s, full_js, re.IGNORECASE)
-            ]
-            sources_found = [
-                s for s in _DOM_SOURCES if re.search(s, full_js, re.IGNORECASE)
-            ]
+            # Also include each inline event handler as a mini-block
+            event_handler_pattern = re.compile(
+                r'on\w+\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE
+            )
+            for match in event_handler_pattern.finditer(html_str):
+                script_blocks.append(match.group(1))
 
-            if sinks_found and sources_found:
+            # Analyse each block independently
+            for block in script_blocks:
+                sinks_in_block = [
+                    s for s in _DOM_SINKS if re.search(s, block, re.IGNORECASE)
+                ]
+                sources_in_block = [
+                    s for s in _DOM_SOURCES if re.search(s, block, re.IGNORECASE)
+                ]
+
+                if not (sinks_in_block and sources_in_block):
+                    continue
+
+                # Attempt data-flow tracing within this block
+                flow_description = self._trace_dataflow(
+                    block, sources_in_block, sinks_in_block
+                )
+                is_sanitized = self._has_sanitizer(block)
+                is_self_xss = self._is_self_xss(
+                    block, sources_in_block, sinks_in_block
+                )
+
+                if is_sanitized:
+                    # Sanitizer present — very low risk
+                    confidence = 0.2
+                    severity = 'low'
+                    description = (
+                        'Potential DOM-based XSS: dangerous sinks and sources '
+                        'appear in the same script block, but a sanitization '
+                        'function was detected between them.'
+                    )
+                elif flow_description and not is_self_xss:
+                    # Confirmed data-flow from URL-controllable source to sink
+                    confidence = 0.7
+                    severity = 'high'
+                    description = (
+                        'DOM-based XSS: data-flow traced from attacker-controllable '
+                        f'source to dangerous sink. {flow_description}'
+                    )
+                elif flow_description and is_self_xss:
+                    # Data-flow confirmed but only via storage sources
+                    confidence = 0.3
+                    severity = 'medium'
+                    description = (
+                        'Potential Self-XSS: data-flow traced from storage-based '
+                        f'source to dangerous sink. {flow_description} '
+                        'Source is not directly controllable via a crafted URL.'
+                    )
+                elif is_self_xss:
+                    # Sinks and storage-only sources in the same block, no flow proof
+                    confidence = 0.2
+                    severity = 'low'
+                    description = (
+                        'Possible Self-XSS (unconfirmed): sinks and storage-based '
+                        'sources appear in the same script block without confirmed '
+                        'data-flow. Requires manual console injection — not '
+                        'exploitable cross-origin.'
+                    )
+                else:
+                    # Sinks and URL-controllable sources in same block, no flow proof
+                    confidence = 0.2
+                    severity = 'medium'
+                    description = (
+                        'Potential DOM-based XSS (unconfirmed): dangerous sinks and '
+                        'attacker-controllable sources appear in the same script block '
+                        'but no direct data-flow was traced. Manual review required.'
+                    )
+
                 findings.append(VulnerabilityFinding(
                     vulnerability_type='xss',
-                    severity='high',
+                    severity=severity,
                     url=url,
-                    description=(
-                        'Potential DOM-based XSS: dangerous JavaScript sinks are '
-                        'connected to attacker-controllable sources.'
-                    ),
+                    description=description,
                     evidence=(
-                        f'Sinks detected: {", ".join(sinks_found[:5])}\n'
-                        f'Sources detected: {", ".join(sources_found[:5])}'
+                        f'Sinks detected: {", ".join(sinks_in_block[:5])}\n'
+                        f'Sources detected: {", ".join(sources_in_block[:5])}'
+                        + (f'\nData-flow: {flow_description}' if flow_description else '')
+                        + (' [sanitizer present]' if is_sanitized else '')
                     ),
                     remediation=(
                         'Avoid passing attacker-controlled data directly to dangerous '
                         'sinks. Use safe DOM APIs (textContent instead of innerHTML). '
                         'Apply a strict CSP with nonces or hashes.'
                     ),
-                    confidence=0.5,
+                    confidence=confidence,
                     cwe_id='CWE-79',
+                    self_xss_risk=is_self_xss,
                 ))
+
         except Exception as e:
             logger.debug(f"DOM XSS analysis error on {url}: {e}")
         return findings

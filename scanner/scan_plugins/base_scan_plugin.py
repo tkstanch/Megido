@@ -52,6 +52,33 @@ class VulnerabilityFinding:
     # Visual Proof of Concept evidence (populated by exploit-capable plugins)
     vpoc: Optional['VPoCEvidence'] = None
 
+    # Bug-bounty quality fields
+    # Flags findings that may be Self-XSS (requires manual console injection)
+    self_xss_risk: bool = False
+    # Indicates whether exploitability has been independently confirmed
+    exploitability_confirmed: bool = False
+    # Whether the admin/resource requires authentication to access
+    requires_authentication: Optional[bool] = None
+
+    @property
+    def bounty_likelihood(self) -> str:
+        """
+        Map confidence score to expected bug-bounty acceptance likelihood.
+
+        Returns:
+            'high'          confidence >= 0.8
+            'medium'        confidence 0.6–0.79
+            'low'           confidence 0.4–0.59
+            'informational' confidence < 0.4
+        """
+        if self.confidence >= 0.8:
+            return 'high'
+        if self.confidence >= 0.6:
+            return 'medium'
+        if self.confidence >= 0.4:
+            return 'low'
+        return 'informational'
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         result = {
@@ -65,6 +92,7 @@ class VulnerabilityFinding:
             'confidence': self.confidence,
             'cwe_id': self.cwe_id,
             'verified': self.verified,
+            'bounty_likelihood': self.bounty_likelihood,
         }
 
         # Include enhanced fields if present
@@ -79,6 +107,15 @@ class VulnerabilityFinding:
 
         if self.vpoc is not None:
             result['vpoc'] = self.vpoc.to_dict()
+
+        if self.self_xss_risk is not None:
+            result['self_xss_risk'] = self.self_xss_risk
+
+        if self.exploitability_confirmed is not None:
+            result['exploitability_confirmed'] = self.exploitability_confirmed
+
+        if self.requires_authentication is not None:
+            result['requires_authentication'] = self.requires_authentication
 
         return result
 

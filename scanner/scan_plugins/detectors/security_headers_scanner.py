@@ -229,7 +229,7 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
             findings.extend(missing_findings)
             
             # Check for misconfigured headers
-            misconfig_findings = self._check_header_values(url, headers)
+            misconfig_findings = self._check_header_values(url, headers, body)
             findings.extend(misconfig_findings)
             
             # Check for insecure headers that should be removed
@@ -369,7 +369,7 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
 
         return result
 
-    def _check_header_values(self, url: str, headers: Dict) -> List[VulnerabilityFinding]:
+    def _check_header_values(self, url: str, headers: Dict, body: str = '') -> List[VulnerabilityFinding]:
         """Check for misconfigured header values."""
         findings = []
         
@@ -382,7 +382,7 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
                     hsts_findings = self._validate_hsts(url, header_value)
                     findings.extend(hsts_findings)
                 elif header_info.get('value_check') == 'custom_csp':
-                    csp_findings = self._validate_csp(url, header_value)
+                    csp_findings = self._validate_csp(url, header_value, body)
                     findings.extend(csp_findings)
                 elif header_info.get('check_value') and 'valid_values' in header_info:
                     # Generic validation
@@ -455,51 +455,115 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
         
         return findings
     
-    def _validate_csp(self, url: str, csp_value: str) -> List[VulnerabilityFinding]:
+    def _validate_csp(self, url: str, csp_value: str, body: str = '') -> List[VulnerabilityFinding]:
         """Validate Content-Security-Policy configuration."""
         findings = []
-        
+
+        # Heuristics for page-level injection point detection
+        has_reflected_inputs = bool(re.search(
+            r'<input[^>]+(?:name|id)\s*=\s*["\'][^"\']*["\'][^>]*>', body, re.IGNORECASE
+        ))
+        has_eval_user_input = bool(re.search(
+            r'eval\s*\([^)]*(?:location|document\.cookie|getElementById|querySelector)',
+            body, re.IGNORECASE
+        ))
+        # Check for a wildcard that could enable loading external scripts
+        has_script_src_tag = bool(re.search(r'<script\b[^>]+\bsrc\s*=', body, re.IGNORECASE))
+
         # Check for unsafe directives
         if 'unsafe-inline' in csp_value.lower():
+            if has_reflected_inputs:
+                # Injection point found — real risk
+                confidence = 0.9
+                severity = 'medium'
+                description = 'CSP allows unsafe-inline scripts and reflected input parameters detected'
+                note = ''
+                exploitability_confirmed = True
+            else:
+                # No obvious injection point found — downgrade
+                confidence = 0.5
+                severity = 'low'
+                description = (
+                    'CSP allows unsafe-inline scripts but no reflected input parameters '
+                    'were detected on the page'
+                )
+                note = 'Weak CSP detected but no injection point found to exploit it'
+                exploitability_confirmed = False
+
             finding = VulnerabilityFinding(
                 vulnerability_type='security_misconfiguration',
-                severity='medium',
+                severity=severity,
                 url=url,
-                description='CSP allows unsafe-inline scripts',
-                evidence=f'Content-Security-Policy contains unsafe-inline',
+                description=description,
+                evidence=(
+                    'Content-Security-Policy contains unsafe-inline'
+                    + (f'. {note}' if note else '')
+                ),
                 remediation='Remove unsafe-inline and use nonces or hashes for inline scripts',
-                confidence=0.9,
-                cwe_id='CWE-79'
+                confidence=confidence,
+                cwe_id='CWE-79',
+                exploitability_confirmed=exploitability_confirmed,
             )
             findings.append(finding)
-        
+
         if 'unsafe-eval' in csp_value.lower():
+            if has_eval_user_input:
+                confidence = 0.9
+                severity = 'medium'
+                description = 'CSP allows unsafe-eval and eval() with user-controllable input detected'
+                note = ''
+                exploitability_confirmed = True
+            else:
+                confidence = 0.5
+                severity = 'low'
+                description = (
+                    'CSP allows unsafe-eval but no eval() usage with user-controllable '
+                    'input was detected on the page'
+                )
+                note = 'Weak CSP detected but no injection point found to exploit it'
+                exploitability_confirmed = False
+
             finding = VulnerabilityFinding(
                 vulnerability_type='security_misconfiguration',
-                severity='medium',
+                severity=severity,
                 url=url,
-                description='CSP allows unsafe-eval',
-                evidence=f'Content-Security-Policy contains unsafe-eval',
+                description=description,
+                evidence=(
+                    'Content-Security-Policy contains unsafe-eval'
+                    + (f'. {note}' if note else '')
+                ),
                 remediation='Remove unsafe-eval to prevent dynamic code execution',
-                confidence=0.9,
-                cwe_id='CWE-79'
+                confidence=confidence,
+                cwe_id='CWE-79',
+                exploitability_confirmed=exploitability_confirmed,
             )
             findings.append(finding)
-        
+
         # Check for wildcard sources
         if re.search(r"(script-src|default-src)\s+[^;]*\*", csp_value, re.IGNORECASE):
+            if has_script_src_tag:
+                # Wildcards combined with external script loading capability
+                confidence = 0.85
+                exploitability_confirmed = True
+                note = 'Wildcard allows loading scripts from arbitrary origins; external script tags detected'
+            else:
+                confidence = 0.6
+                exploitability_confirmed = False
+                note = 'Wildcard in script-src/default-src allows arbitrary script origins but no <script src> injection point detected'
+
             finding = VulnerabilityFinding(
                 vulnerability_type='security_misconfiguration',
                 severity='medium',
                 url=url,
                 description='CSP uses wildcard sources',
-                evidence='CSP contains wildcard (*) source',
+                evidence=f'CSP contains wildcard (*) source. {note}',
                 remediation='Specify explicit trusted sources instead of wildcards',
-                confidence=0.85,
-                cwe_id='CWE-1021'
+                confidence=confidence,
+                cwe_id='CWE-1021',
+                exploitability_confirmed=exploitability_confirmed,
             )
             findings.append(finding)
-        
+
         return findings
     
     def _check_insecure_headers(self, url: str, headers: Dict) -> List[VulnerabilityFinding]:
