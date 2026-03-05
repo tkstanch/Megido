@@ -456,7 +456,7 @@ class ClickjackingDetectorPlugin(BaseScanPlugin):
 
         # Look for sensitive input fields (search across entire body)
         for name in _SENSITIVE_INPUT_NAMES:
-            pattern = rf'<input[^>]*name\s*=\s*["\']?{re.escape(name)}["\']?[^>]*>'
+            pattern = rf'<input[^>]*name\s*=\s*(["\']?){re.escape(name)}\1[^>]*>'
             if re.search(pattern, html_body, re.IGNORECASE):
                 found.append(f'{name} input')
 

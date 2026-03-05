@@ -285,15 +285,9 @@ class TestSQLiDataExtraction:
             status_code=200
         )
 
-        call_count = [0]
-
-        def side_effect(*args, **kwargs):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                return error_resp
-            return extraction_resp
-
-        with patch.object(self.plugin, '_send_request', side_effect=side_effect):
+        with patch.object(self.plugin, '_send_request',
+                          side_effect=[error_resp, extraction_resp, extraction_resp,
+                                       extraction_resp, extraction_resp, extraction_resp]):
             finding = self.plugin._test_error_based(
                 'http://example.com/', 'GET', 'id', {'id': '1'},
                 verify_ssl=False, timeout=5
@@ -312,12 +306,8 @@ class TestSQLiDataExtraction:
         )
         no_data_resp = _mock_response(text='ok', status_code=200)
 
-        def side_effect(*args, **kwargs):
-            if 'extractvalue' in str(args) or 'updatexml' in str(args):
-                return no_data_resp
-            return error_resp
-
-        with patch.object(self.plugin, '_send_request', side_effect=side_effect):
+        with patch.object(self.plugin, '_send_request',
+                          side_effect=[error_resp] + [no_data_resp] * 20):
             finding = self.plugin._test_error_based(
                 'http://example.com/', 'GET', 'id', {'id': '1'},
                 verify_ssl=False, timeout=5
@@ -335,9 +325,10 @@ class TestSQLiDataExtraction:
         )
         no_data_resp = _mock_response(text='ok', status_code=200)
 
-        with patch.object(self.plugin, '_send_request', side_effect=lambda *a, **kw: (
-            error_resp if 'extractvalue' not in str(a) else no_data_resp
-        )):
+        # First call: error detection payload → triggers finding
+        # Subsequent calls: extraction payloads → no data
+        with patch.object(self.plugin, '_send_request',
+                          side_effect=[error_resp] + [no_data_resp] * 20):
             finding = self.plugin._test_error_based(
                 'http://example.com/', 'GET', 'id', {'id': '1'},
                 verify_ssl=False, timeout=5

@@ -62,7 +62,7 @@ _RESET_PATHS = [
 # HTML patterns that indicate a password-reset form or page
 _RESET_FORM_PATTERNS = [
     r'<form[^>]*action=[^>]*(reset|forgot|recover|password)[^>]*>',
-    r'<input[^>]*name=["\']?(email|username)["\']?[^>]*>',
+    r'<input[^>]*name=(["\']?)(email|username)\1[^>]*>',
     r'(forgot|reset|recover).{0,30}password',
     r'password.{0,30}(forgot|reset|recover)',
     r'send.{0,20}(reset|recovery).{0,20}(link|email|token)',

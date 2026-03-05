@@ -349,7 +349,7 @@ class SecurityHeadersScannerPlugin(BaseScanPlugin):
         elif header_name == 'Content-Security-Policy':
             # CSP is exploitable if inline scripts are present (real XSS risk)
             has_inline_scripts = bool(re.search(
-                r'<script(?![^>]*src=)[^>]*>(?!\s*</script>)', body, re.IGNORECASE | re.DOTALL
+                r'<script\b(?![^>]*\bsrc\s*=)[^>]*>[^<]', body, re.IGNORECASE
             ))
             if has_inline_scripts:
                 result['severity'] = 'high'

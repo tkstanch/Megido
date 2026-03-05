@@ -683,14 +683,13 @@ class SQLiScannerPlugin(BaseScanPlugin):
                 # Check for version/user strings in response
                 text = response.text
                 version_match = re.search(
-                    r'\b(\d+\.\d+[\.\d]*(?:-[a-zA-Z0-9._-]+)?)\b', text
+                    r'\b(\d+\.\d+[.\d]*(?:-[a-zA-Z0-9._-]+)?)\b', text
                 )
                 if version_match and version_match.group(1) not in extracted_parts:
                     extracted_parts.append(version_match.group(1))
 
         if extracted_parts:
-            labels = ['Database version/user/name: ' + ' | '.join(extracted_parts[:5])]
-            return ' | '.join(labels)
+            return 'Database version/user/name: ' + ' | '.join(extracted_parts[:5])
 
         return None
 
