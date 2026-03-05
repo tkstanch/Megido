@@ -201,7 +201,8 @@ class FaviconIPDetectorPlugin(BaseScanPlugin):
 
                 # Build Shodan search queries
                 shodan_query = f'http.favicon.hash:{favicon_hash}'
-                censys_query = f'services.http.response.favicons.md5_hash:{favicon_hash}'
+                # Note: Censys uses a different favicon indexing format; Shodan query is recommended
+                censys_note = 'Use Shodan (http.favicon.hash) for best results with this hash'
 
                 description_parts = [
                     f'Favicon hash calculated: {favicon_hash}',
@@ -258,7 +259,7 @@ class FaviconIPDetectorPlugin(BaseScanPlugin):
                         f'Favicon size: {len(favicon_data)} bytes\n'
                         f'MurmurHash3: {favicon_hash}\n'
                         f'Shodan query: {shodan_query}\n'
-                        f'Censys query: {censys_query}\n'
+                        + f'Note: {censys_note}\n'
                         + (f'Detected CDN: {cdn_name}\n' if cdn_name else '')
                         + (f'Known product: {known_product}\n' if known_product else '')
                     ),

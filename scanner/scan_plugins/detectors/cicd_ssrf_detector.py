@@ -178,11 +178,12 @@ class CICDSSRFDetectorPlugin(BaseScanPlugin):
             "include_merged_yaml": True,
             "content": f"include:\n  remote: 'http://{callback_host}/test.yaml'\n",
         }
+        import json as _json
         curl_cmd = build_curl_command(
             lint_url,
             method='POST',
             headers={'Content-Type': 'application/json'},
-            body=str(payload_body),
+            body=_json.dumps(payload_body),
         ) if HAS_VPOC else None
 
         try:

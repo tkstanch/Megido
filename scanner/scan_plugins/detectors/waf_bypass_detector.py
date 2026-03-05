@@ -83,9 +83,12 @@ XSS_BASE = '<script>alert(1)</script>'
 
 # UTF-16LE encoded bypass
 def _utf16le_encode(payload: str) -> str:
-    """Encode payload as UTF-16LE hex escape sequences."""
+    """Encode payload as UTF-16LE escape sequences for WAF bypass."""
     encoded = payload.encode('utf-16-le')
-    return ''.join(f'\\u{b1:02x}{b2:02x}' for b1, b2 in zip(encoded[::2], encoded[1::2]))
+    return ''.join(
+        f'\\u{(b2 << 8) | b1:04x}'
+        for b1, b2 in zip(encoded[::2], encoded[1::2])
+    )
 
 
 # Unicode normalization bypass

