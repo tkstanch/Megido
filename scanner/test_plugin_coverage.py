@@ -46,6 +46,8 @@ def test_all_vulnerability_types_have_plugins():
         'websocket',
         'cache_poisoning',
         'cors',
+        'email_rce',
+        'ai_llm',
         'other',
     ]
     
