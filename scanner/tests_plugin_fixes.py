@@ -209,25 +209,82 @@ class RFIDetectorTestCase(TestCase):
 
     def test_rfi_plugin_missing_test_server(self):
         """Test that RFI plugin logs warning when test_server is missing"""
+        import os
+        from unittest.mock import patch
         try:
             from scanner.scan_plugins.detectors.rfi_detector import RFIDetectorPlugin
             
             plugin = RFIDetectorPlugin()
             
-            # Config without test_server
+            # Config without test_server, and no env var set
             config = {'verify_ssl': False, 'timeout': 10}
             
             # This should log a warning but not raise an error
-            with self.assertLogs('scanner.scan_plugins.detectors.rfi_detector', level='WARNING') as cm:
-                findings = plugin.scan('https://example.com?file=test.php', config)
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop('RFI_TEST_SERVER', None)
+                with self.assertLogs('scanner.scan_plugins.detectors.rfi_detector', level='WARNING') as cm:
+                    findings = plugin.scan('https://example.com?file=test.php', config)
+                    
+                    # Should return empty findings
+                    self.assertEqual(findings, [])
+                    
+                    # Should have logged a warning about missing test_server
+                    self.assertTrue(any('test server' in log.lower() for log in cm.output))
+                    self.assertTrue(any('skipped' in log.lower() for log in cm.output))
                 
-                # Should return empty findings
+        except ImportError as e:
+            self.fail(f"Failed to import RFIDetectorPlugin: {e}")
+
+    def test_rfi_plugin_env_var_used_when_no_config(self):
+        """Test that RFI plugin picks up RFI_TEST_SERVER env var automatically"""
+        import os
+        from unittest.mock import patch
+        try:
+            from scanner.scan_plugins.detectors.rfi_detector import RFIDetectorPlugin
+
+            plugin = RFIDetectorPlugin()
+
+            with patch.dict(os.environ, {'RFI_TEST_SERVER': 'attacker.example.com'}):
+                # get_default_config should reflect the env var
+                default_config = plugin.get_default_config()
+                self.assertEqual(default_config['test_server'], 'attacker.example.com')
+
+                # scan() should NOT emit the "skipped" warning when env var is set
+                # (it will attempt network calls that fail, which is fine — no skipped warning)
+                config = {'verify_ssl': False, 'timeout': 1}
+                with self.assertLogs('scanner.scan_plugins.detectors.rfi_detector', level='DEBUG') as cm:
+                    findings = plugin.scan('https://example.com?file=test.php', config)
+
                 self.assertEqual(findings, [])
-                
-                # Should have logged a warning about missing test_server
-                self.assertTrue(any('test server' in log.lower() for log in cm.output))
-                self.assertTrue(any('skipped' in log.lower() for log in cm.output))
-                
+                self.assertFalse(
+                    any('skipped' in log.lower() for log in cm.output),
+                    "Should NOT log 'skipped' warning when RFI_TEST_SERVER env var is set"
+                )
+
+        except ImportError as e:
+            self.fail(f"Failed to import RFIDetectorPlugin: {e}")
+
+    def test_rfi_plugin_explicit_config_takes_precedence_over_env_var(self):
+        """Test that explicit test_server config overrides RFI_TEST_SERVER env var"""
+        import os
+        from unittest.mock import patch
+        try:
+            from scanner.scan_plugins.detectors.rfi_detector import RFIDetectorPlugin
+
+            plugin = RFIDetectorPlugin()
+
+            with patch.dict(os.environ, {'RFI_TEST_SERVER': 'env.attacker.example.com'}):
+                config = {'verify_ssl': False, 'timeout': 1, 'test_server': 'explicit.attacker.example.com'}
+                with self.assertLogs('scanner.scan_plugins.detectors.rfi_detector', level='DEBUG') as cm:
+                    findings = plugin.scan('https://example.com?file=test.php', config)
+
+                self.assertEqual(findings, [])
+                # Explicit config should be used — no "skipped" warning expected
+                self.assertFalse(
+                    any('skipped' in log.lower() for log in cm.output),
+                    "Should NOT log 'skipped' warning when test_server is explicitly configured"
+                )
+
         except ImportError as e:
             self.fail(f"Failed to import RFIDetectorPlugin: {e}")
 
