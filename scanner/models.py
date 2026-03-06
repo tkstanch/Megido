@@ -28,6 +28,10 @@ class Scan(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    enable_dos_testing = models.BooleanField(
+        default=False,
+        help_text='Whether Denial of Service (DoS) tests are enabled for this scan'
+    )
     warnings = models.JSONField(
         default=list,
         blank=True,
@@ -75,6 +79,17 @@ class Vulnerability(models.Model):
         ('cors', 'CORS Misconfiguration'),
         ('email_rce', 'Email Field RCE'),
         ('ai_llm', 'AI/LLM Vulnerability'),
+        ('dos', 'Denial of Service (DoS)'),
+        ('security_misconfig', 'Security Misconfiguration'),
+        ('sensitive_data', 'Sensitive Data Exposure'),
+        ('weak_password', 'Weak Password Policy'),
+        ('bac', 'Broken Access Control'),
+        ('username_enum', 'Username/Email Enumeration'),
+        ('captcha_bypass', 'Captcha Bypass'),
+        ('unsafe_upload', 'Unsafe File Upload'),
+        ('subdomain_takeover', 'Subdomain Takeover'),
+        ('exif_data', 'EXIF Geolocation Data Exposure'),
+        ('api_key_exposure', 'Private API Key Exposure'),
         ('other', 'Other'),
     ]
     

@@ -12,6 +12,7 @@ import logging
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
 from scanner.config_defaults import get_default_proof_config
+from scanner.bounty_taxonomy import get_bounty_classification, is_dos_vulnerability
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +57,15 @@ def start_scan(request, target_id):
     try:
         target = ScanTarget.objects.get(id=target_id)
         
+        # Read optional DoS testing opt-in flag from request body
+        enable_dos_testing = bool(request.data.get('enable_dos_testing', False))
+
         # Create scan with 'pending' status
-        scan = Scan.objects.create(target=target, status='pending')
+        scan = Scan.objects.create(
+            target=target,
+            status='pending',
+            enable_dos_testing=enable_dos_testing,
+        )
         
         # Trigger Celery task to run scan in background
         task = async_scan_task.delay(scan.id)
@@ -78,7 +86,7 @@ def start_scan(request, target_id):
         return Response({'error': f'Failed to start scan: {str(e)}'}, status=500)
 
 
-def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_first=False):
+def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_first=False, enable_dos_testing=False):
     """
     Perform basic vulnerability scanning using the plugin-based scan engine.
 
@@ -93,6 +101,9 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
             config is merged with the base scan config.
         use_async: If True, use AsyncScanEngine for concurrent plugin execution.
         crawl_first: If True, crawl the target URL and scan all discovered pages.
+        enable_dos_testing: If True, include DoS-related plugins in the scan.
+            Defaults to False so that potentially destructive tests require
+            explicit user opt-in.
 
     Note: This maintains backward compatibility with existing scan API and UI.
     """
@@ -105,6 +116,7 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
         config.update({
             'verify_ssl': verify_ssl,
             'timeout': 10,
+            'enable_dos_testing': enable_dos_testing,
         })
 
         # Merge scan profile overrides (if requested)
@@ -176,6 +188,14 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
                         plugin_list = engine.registry.get_all_plugins()
                     for plugin in plugin_list:
                         try:
+                            # Skip DoS-related plugins unless explicitly enabled
+                            plugin_vuln_type = getattr(plugin, 'vulnerability_type', None)
+                            if not enable_dos_testing:
+                                if plugin_vuln_type and is_dos_vulnerability(plugin_vuln_type):
+                                    logger.info(
+                                        f"Skipping DoS plugin {plugin.name} (DoS testing not enabled)"
+                                    )
+                                    continue
                             plugin_findings = plugin.scan(target_url, config)
                             if plugin_findings:
                                 engine.save_findings_to_db(scan, plugin_findings)
@@ -278,6 +298,10 @@ def scan_results(request, scan_id):
                 'poc_steps': _parse_poc_steps(vuln.poc_steps_json),
                 'poc_html_report_path': vuln.poc_html_report_path,
                 'poc_step_count': vuln.poc_step_count,
+                'bounty_classification': get_bounty_classification(
+                    vuln.vulnerability_type,
+                    verified=vuln.verified,
+                ),
             } for vuln in vulnerabilities]
         }
         return Response(data, status=200)
