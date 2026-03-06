@@ -271,6 +271,36 @@ class VulnerabilityFinding:
 - **Checks**: HTTP vs HTTPS usage
 - **Vulnerability Types**: `info_disclosure`, `other`
 
+### RFI Detector (`rfi_detector`)
+- **Purpose**: Detects Remote File Inclusion (RFI) vulnerabilities
+- **Method**: Injects attacker-controlled remote URL payloads into URL parameters and checks if the marker appears in the response
+- **Vulnerability Types**: `rfi`
+- **Configuration**: Requires a `test_server` value (e.g. `attacker.example.com`) reachable by the target server
+- **Environment Variable**: Set `RFI_TEST_SERVER` to automatically enable detection without passing `test_server` in the config dict (see [Environment Variables](#environment-variables))
+
+## Environment Variables
+
+Some plugins can be configured via environment variables for convenience. These are picked up automatically by both the plugin and the `ScanEngine`, so you don't need to pass them manually in the config dict.
+
+| Variable | Plugin | Description |
+|---|---|---|
+| `RFI_TEST_SERVER` | `rfi_detector` | Hostname of your out-of-band callback server used for RFI detection (e.g. `attacker.example.com`). When set, the RFI detector will use it automatically instead of skipping with a warning. Explicit `test_server` values in the config dict always take precedence. |
+
+**Example**:
+```bash
+export RFI_TEST_SERVER=attacker.example.com
+```
+
+```python
+from scanner.scan_engine import get_scan_engine
+
+engine = get_scan_engine()
+# test_server is injected automatically from RFI_TEST_SERVER env var
+findings = engine.scan('https://target.example.com?file=page.php')
+```
+
+> ⚠️ **Security note**: Never commit your `RFI_TEST_SERVER` value (or any other callback server address) to source code. Store it as an environment variable or in a secrets manager only.
+
 ## Integration with REST API
 
 The scan engine is integrated into the existing REST API:

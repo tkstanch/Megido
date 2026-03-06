@@ -12,6 +12,7 @@ The engine:
 """
 
 import logging
+import os
 from typing import Dict, List, Any, Optional
 
 from scanner.scan_plugins import get_scan_registry, VulnerabilityFinding
@@ -43,6 +44,19 @@ class ScanEngine:
         """Initialize the scan engine."""
         self.registry = get_scan_registry()
         logger.info(f"ScanEngine initialized with {self.registry.get_plugin_count()} plugin(s)")
+
+    def _inject_env_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Inject environment-sourced config values if not already present.
+
+        Currently injects:
+          - ``test_server``: read from ``RFI_TEST_SERVER`` env var (used by the
+            RFI detector plugin).  Explicit ``test_server`` values in *config*
+            always take precedence.
+        """
+        rfi_test_server = os.getenv('RFI_TEST_SERVER')
+        if 'test_server' not in config and rfi_test_server:
+            config = {**config, 'test_server': rfi_test_server}
+        return config
     
     def scan(self, url: str, config: Optional[Dict[str, Any]] = None) -> List[VulnerabilityFinding]:
         """
@@ -56,6 +70,8 @@ class ScanEngine:
             List[VulnerabilityFinding]: Aggregated findings from all plugins
         """
         config = config or {}
+        # Inject RFI_TEST_SERVER from environment if not already present in config
+        config = self._inject_env_config(config)
         all_findings = []
         
         plugins = self.registry.get_all_plugins()
@@ -91,6 +107,8 @@ class ScanEngine:
             List[VulnerabilityFinding]: Aggregated findings from specified plugins
         """
         config = config or {}
+        # Inject RFI_TEST_SERVER from environment if not already present in config
+        config = self._inject_env_config(config)
         all_findings = []
         
         logger.info(f"Starting targeted scan of {url} with {len(plugin_ids)} plugin(s)")

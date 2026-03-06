@@ -6,6 +6,7 @@ remote files from external servers into the application.
 """
 
 import logging
+import os
 import time
 from typing import Dict, List, Any, Optional
 from urllib.parse import urljoin, parse_qs, urlparse
@@ -80,7 +81,7 @@ class RFIDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         try:
             verify_ssl = config.get('verify_ssl', False)
             timeout = config.get('timeout', 10)
-            test_server = config.get('test_server')
+            test_server = config.get('test_server') or os.getenv('RFI_TEST_SERVER')
             
             # Warning: If no test server is configured, log and return empty findings
             # This allows the scan to continue without hard-failing
@@ -163,5 +164,5 @@ class RFIDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         return {
             'verify_ssl': False,
             'timeout': 10,
-            'test_server': None,  # Must be provided: 'attacker.com' or similar
+            'test_server': os.getenv('RFI_TEST_SERVER'),  # Falls back to env var; set RFI_TEST_SERVER to enable detection
         }
