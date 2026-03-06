@@ -734,9 +734,52 @@ function displayVulnerabilities(vulnerabilities) {
                                     <span class="text-xs text-indigo-700 dark:text-indigo-300">🎯 <strong>${vuln.poc_step_count}</strong> PoC step(s) recorded.
                                     ${vuln.poc_html_report_path ? `<a href="/${escapeHtml(vuln.poc_html_report_path)}" target="_blank" class="underline font-medium">View HTML Report</a>` : ''}</span>
                                 </div>` : '')}
+                            <!-- Bug Bounty Impact Panel - Shown whenever impact_summary is available -->
+                            ${vuln.impact_summary ? `
+                                <div class="mt-3 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded">
+                                    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                                        <strong class="text-amber-800 dark:text-amber-300">💰 Bug Bounty Impact</strong>
+                                        <button type="button"
+                                            onclick="navigator.clipboard.writeText(this.closest('.mt-3').querySelector('pre').textContent).then(()=>{this.textContent='Copied!';setTimeout(()=>{this.textContent='📋 Copy';},2000)})"
+                                            class="inline-flex items-center px-2 py-1 text-xs rounded bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-600 transition-colors">
+                                            📋 Copy
+                                        </button>
+                                    </div>
+                                    <pre class="text-xs text-amber-800 dark:text-amber-300 whitespace-pre-wrap">${escapeHtml(vuln.impact_summary)}</pre>
+                                </div>
+                            ` : ''}
+                            <!-- Exploitation Steps Panel - Shown when exploitation_steps data is available -->
+                            ${vuln.exploitation_steps && vuln.exploitation_steps.length > 0 ? `
+                                <div class="mt-3">
+                                    <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="flex items-center gap-2 text-sm font-medium text-cyan-700 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-200">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                                        Exploitation Steps (${vuln.exploitation_steps.length})
+                                    </button>
+                                    <div class="hidden mt-2 space-y-2">
+                                        ${vuln.exploitation_steps.map((step) => `
+                                            <details class="bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-700 rounded p-2">
+                                                <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-cyan-800 dark:text-cyan-200">
+                                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-cyan-500 text-white text-xs font-bold flex-shrink-0">${step.step}</span>
+                                                    ${escapeHtml(step.title || '')}
+                                                </summary>
+                                                <div class="mt-2 pl-8 space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                                                    ${step.description && step.description !== step.title ? `<p>${escapeHtml(step.description)}</p>` : ''}
+                                                    ${step.request ? `<details><summary class="cursor-pointer text-cyan-600 dark:text-cyan-400 font-medium">HTTP Request</summary><pre class="mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(step.request)}</pre></details>` : ''}
+                                                    ${step.response ? `<details><summary class="cursor-pointer text-cyan-600 dark:text-cyan-400 font-medium">HTTP Response</summary><pre class="mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(step.response)}</pre></details>` : ''}
+                                                </div>
+                                            </details>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
                             ${vuln.exploit_result ? `<div class="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                <strong class="text-gray-900 dark:text-white">Exploit Results:</strong>
-                                <pre class="mt-2 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHtml(vuln.exploit_result)}</pre>
+                                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                                    <strong class="text-gray-900 dark:text-white">Exploit Results</strong>
+                                </button>
+                                <div class="hidden mt-2">
+                                    <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHtml(vuln.exploit_result)}</pre>
+                                </div>
                             </div>` : ''}
                             ${vuln.remediation ? `<div class="mt-3"><strong class="text-gray-700 dark:text-gray-300">Remediation:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.remediation)}</span></div>` : ''}
                             ${vuln.compliance_violations && Object.keys(vuln.compliance_violations).length > 0 ? `
@@ -768,11 +811,14 @@ function displayVulnerabilities(vulnerabilities) {
                                     </button>
                                     <div class="hidden mt-2 space-y-2">
                                         ${vuln.repeater_data.map((step, idx) => `
-                                            <div class="p-3 bg-teal-50 dark:bg-teal-900/20 border-l-4 border-teal-500 rounded">
-                                                <div class="text-xs font-semibold text-teal-800 dark:text-teal-300 mb-1">Step ${idx + 1}${step.method ? ` — ${escapeHtml(step.method)}` : ''}${step.url ? ` ${escapeHtml(step.url)}` : ''}</div>
-                                                ${step.headers ? `<pre class="text-xs text-teal-700 dark:text-teal-400 whitespace-pre-wrap">${escapeHtml(typeof step.headers === 'string' ? step.headers : JSON.stringify(step.headers, null, 2))}</pre>` : ''}
-                                                ${step.body ? `<pre class="mt-1 text-xs text-teal-600 dark:text-teal-500 whitespace-pre-wrap">${escapeHtml(String(step.body))}</pre>` : ''}
-                                            </div>
+                                            <details class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 rounded p-2">
+                                                <summary class="cursor-pointer text-xs font-semibold text-teal-800 dark:text-teal-300">Step ${idx + 1}${step.method ? ` — ${escapeHtml(step.method)}` : ''}${step.url ? ` ${escapeHtml(step.url)}` : ''}${step.description ? `: ${escapeHtml(step.description)}` : ''}</summary>
+                                                <div class="mt-2 pl-2 space-y-1">
+                                                    ${step.headers && Object.keys(step.headers).length > 0 ? `<pre class="text-xs text-teal-700 dark:text-teal-400 whitespace-pre-wrap">${escapeHtml(typeof step.headers === 'string' ? step.headers : JSON.stringify(step.headers, null, 2))}</pre>` : ''}
+                                                    ${step.body ? `<pre class="mt-1 text-xs text-teal-600 dark:text-teal-500 whitespace-pre-wrap">${escapeHtml(String(step.body))}</pre>` : ''}
+                                                    ${step.response ? `<details class="mt-1"><summary class="cursor-pointer text-xs text-teal-500 dark:text-teal-400">Response (HTTP ${step.response.status_code || '?'})</summary><pre class="mt-1 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-x-auto whitespace-pre-wrap">${escapeHtml(step.response.body || '')}</pre></details>` : ''}
+                                                </div>
+                                            </details>
                                         `).join('')}
                                     </div>
                                 </div>
@@ -783,8 +829,23 @@ function displayVulnerabilities(vulnerabilities) {
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                                         HTTP Traffic
                                     </button>
-                                    <div class="hidden mt-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500 rounded">
-                                        <pre class="text-xs text-indigo-700 dark:text-indigo-300 whitespace-pre-wrap">${escapeHtml(JSON.stringify(vuln.http_traffic, null, 2))}</pre>
+                                    <div class="hidden mt-2 space-y-2">
+                                        ${vuln.http_traffic.request ? `
+                                            <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500 rounded">
+                                                <div class="text-xs font-semibold text-indigo-800 dark:text-indigo-300 mb-1">&#x25B6; Request: ${escapeHtml(vuln.http_traffic.request.method || 'GET')} ${escapeHtml(vuln.http_traffic.request.url || '')}</div>
+                                                ${vuln.http_traffic.request.headers && Object.keys(vuln.http_traffic.request.headers).length > 0 ? `<pre class="text-xs text-indigo-700 dark:text-indigo-400 whitespace-pre-wrap">${escapeHtml(Object.entries(vuln.http_traffic.request.headers).slice(0,10).map(([k,v])=>k+': '+v).join('\n'))}</pre>` : ''}
+                                                ${vuln.http_traffic.request.body ? `<pre class="mt-1 text-xs text-indigo-600 dark:text-indigo-500 whitespace-pre-wrap">${escapeHtml(String(vuln.http_traffic.request.body).slice(0,500))}</pre>` : ''}
+                                            </div>
+                                        ` : ''}
+                                        ${vuln.http_traffic.response ? `
+                                            <div class="p-3 bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-400 rounded">
+                                                <div class="text-xs font-semibold text-indigo-800 dark:text-indigo-300 mb-1">&#x25C0; Response: HTTP ${escapeHtml(String(vuln.http_traffic.response.status_code || ''))}</div>
+                                                ${vuln.http_traffic.response.headers && Object.keys(vuln.http_traffic.response.headers).length > 0 ? `<pre class="text-xs text-indigo-700 dark:text-indigo-400 whitespace-pre-wrap">${escapeHtml(Object.entries(vuln.http_traffic.response.headers).slice(0,10).map(([k,v])=>k+': '+v).join('\n'))}</pre>` : ''}
+                                                ${vuln.http_traffic.response.body ? `<pre class="mt-1 text-xs text-indigo-600 dark:text-indigo-500 whitespace-pre-wrap">${escapeHtml(String(vuln.http_traffic.response.body).slice(0,500))}</pre>` : ''}
+                                            </div>
+                                        ` : `
+                                            <pre class="text-xs text-indigo-700 dark:text-indigo-300 whitespace-pre-wrap">${escapeHtml(JSON.stringify(vuln.http_traffic, null, 2))}</pre>
+                                        `}
                                     </div>
                                 </div>
                             ` : ''}
@@ -794,6 +855,7 @@ function displayVulnerabilities(vulnerabilities) {
             </div>
         </div>
     `).join('');
+}
 }
 
 function getExploitStatusClass(status) {

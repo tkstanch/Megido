@@ -341,6 +341,37 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                                 ),
                             )
 
+                        req_headers = dict(resp.request.headers) if resp.request else {}
+                        req_body = (
+                            resp.request.body if resp.request and resp.request.body
+                            else '&'.join(f'{k}={v}' for k, v in test_fields.items())
+                        )
+                        repeater_entry = {
+                            'url': action,
+                            'method': method,
+                            'headers': req_headers,
+                            'body': str(req_body)[:500] if req_body else '',
+                            'description': f'Email RCE detection: {payload[:80]}',
+                            'response': {
+                                'status_code': resp.status_code,
+                                'headers': dict(resp.headers),
+                                'body': resp.text[:500],
+                            },
+                        }
+                        http_traffic = {
+                            'request': {
+                                'method': method,
+                                'url': action,
+                                'headers': req_headers,
+                                'body': str(req_body)[:500] if req_body else '',
+                            },
+                            'response': {
+                                'status_code': resp.status_code,
+                                'headers': dict(resp.headers),
+                                'body': resp.text[:500],
+                            },
+                        }
+
                         finding = VulnerabilityFinding(
                             vulnerability_type='email_rce',
                             severity='critical',
@@ -365,6 +396,8 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                             verified=True,
                             successful_payloads=[payload],
                             vpoc=vpoc,
+                            repeater_requests=[repeater_entry],
+                            http_traffic=http_traffic,
                         )
                         findings.append(finding)
                         logger.info(f"Confirmed email field RCE at {action} via {email_field}")
@@ -414,6 +447,39 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                             ),
                         )
 
+                    req_headers = dict(resp.request.headers) if resp.request else {}
+                    req_body = (
+                        resp.request.body if resp.request and resp.request.body
+                        else '&'.join(f'{k}={v}' for k, v in test_fields.items())
+                    )
+                    repeater_entry = {
+                        'url': action,
+                        'method': method,
+                        'headers': req_headers,
+                        'body': str(req_body)[:500] if req_body else '',
+                        'description': f'Time-based RCE detection: {payload[:80]} ({elapsed:.2f}s delay)',
+                        'response': {
+                            'status_code': resp.status_code,
+                            'headers': dict(resp.headers),
+                            'body': resp.text[:300],
+                            'elapsed_seconds': elapsed,
+                        },
+                    }
+                    http_traffic = {
+                        'request': {
+                            'method': method,
+                            'url': action,
+                            'headers': req_headers,
+                            'body': str(req_body)[:500] if req_body else '',
+                        },
+                        'response': {
+                            'status_code': resp.status_code,
+                            'headers': dict(resp.headers),
+                            'body': resp.text[:300],
+                            'elapsed_seconds': elapsed,
+                        },
+                    }
+
                     finding = VulnerabilityFinding(
                         vulnerability_type='email_rce',
                         severity='critical',
@@ -437,6 +503,8 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                         verified=False,
                         successful_payloads=[payload],
                         vpoc=vpoc,
+                        repeater_requests=[repeater_entry],
+                        http_traffic=http_traffic,
                     )
                     findings.append(finding)
                     logger.info(f"Found time-based email injection at {action}")
@@ -495,6 +563,31 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                                             f"2. Observe command output in response"
                                         ),
                                     )
+                                req_headers = dict(resp.request.headers) if resp.request else {}
+                                repeater_entry = {
+                                    'url': test_url,
+                                    'method': 'GET',
+                                    'headers': req_headers,
+                                    'body': '',
+                                    'description': f'Path param injection: {param_name}={payload}',
+                                    'response': {
+                                        'status_code': resp.status_code,
+                                        'headers': dict(resp.headers),
+                                        'body': resp.text[:500],
+                                    },
+                                }
+                                http_traffic = {
+                                    'request': {
+                                        'method': 'GET',
+                                        'url': test_url,
+                                        'headers': req_headers,
+                                    },
+                                    'response': {
+                                        'status_code': resp.status_code,
+                                        'headers': dict(resp.headers),
+                                        'body': resp.text[:500],
+                                    },
+                                }
                                 finding = VulnerabilityFinding(
                                     vulnerability_type='email_rce',
                                     severity='critical',
@@ -519,6 +612,8 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                                     verified=True,
                                     successful_payloads=[payload],
                                     vpoc=vpoc,
+                                    repeater_requests=[repeater_entry],
+                                    http_traffic=http_traffic,
                                 )
                                 findings.append(finding)
                                 return findings
@@ -562,6 +657,31 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                                             f"2. Observe command output from JS execSync in response"
                                         ),
                                     )
+                                req_headers = dict(resp.request.headers) if resp.request else {}
+                                repeater_entry = {
+                                    'url': test_url,
+                                    'method': 'GET',
+                                    'headers': req_headers,
+                                    'body': '',
+                                    'description': f'JS framework RCE: {param_name}={payload[:60]}',
+                                    'response': {
+                                        'status_code': resp.status_code,
+                                        'headers': dict(resp.headers),
+                                        'body': resp.text[:500],
+                                    },
+                                }
+                                http_traffic = {
+                                    'request': {
+                                        'method': 'GET',
+                                        'url': test_url,
+                                        'headers': req_headers,
+                                    },
+                                    'response': {
+                                        'status_code': resp.status_code,
+                                        'headers': dict(resp.headers),
+                                        'body': resp.text[:500],
+                                    },
+                                }
                                 finding = VulnerabilityFinding(
                                     vulnerability_type='email_rce',
                                     severity='critical',
@@ -586,6 +706,8 @@ class EmailRCEDetectorPlugin(BaseScanPlugin):
                                     verified=True,
                                     successful_payloads=[payload],
                                     vpoc=vpoc,
+                                    repeater_requests=[repeater_entry],
+                                    http_traffic=http_traffic,
                                 )
                                 findings.append(finding)
                                 return findings
