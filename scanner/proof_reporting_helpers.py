@@ -217,3 +217,47 @@ def add_proof_reporting_to_result(
         config,
         enable_visual_proof
     )
+
+
+def build_detection_poc(
+    vulnerability_type: str,
+    url: str,
+    evidence: str,
+    confidence: float,
+    http_traffic: Optional[Dict[str, Any]] = None,
+    vulnerability_id: Optional[int] = None,
+) -> Optional[Any]:
+    """
+    Build a :class:`~scanner.proof_reporter.ProofData` from detection-phase data.
+
+    This is a convenience wrapper around
+    :meth:`~scanner.proof_reporter.ProofReporter.generate_detection_proof` that
+    can be called from anywhere without holding a ``ProofReporter`` instance.
+
+    Args:
+        vulnerability_type: Slug identifying the vulnerability (e.g. ``'xss'``).
+        url: Target URL where the vulnerability was found.
+        evidence: Human-readable detection evidence string.
+        confidence: Detection confidence in ``[0.0, 1.0]``.
+        http_traffic: Optional ``{'request': ..., 'response': ...}`` dict.
+        vulnerability_id: Optional database ID of the parent ``Vulnerability``.
+
+    Returns:
+        A populated :class:`~scanner.proof_reporter.ProofData` instance, or
+        ``None`` if the ``ProofReporter`` is unavailable.
+    """
+    try:
+        from scanner.proof_reporter import get_proof_reporter
+        reporter = get_proof_reporter()
+        return reporter.generate_detection_proof(
+            vulnerability_type=vulnerability_type,
+            url=url,
+            evidence=evidence,
+            confidence=confidence,
+            http_traffic=http_traffic,
+            vulnerability_id=vulnerability_id,
+        )
+    except Exception as e:
+        logger.error(f"Failed to build detection PoC: {e}", exc_info=True)
+        return None
+

@@ -151,6 +151,20 @@ class ScanEngine:
         vulnerabilities = []
         
         for finding in findings:
+            # Prefer explicit http_traffic; fall back to VPoC evidence if present
+            http_traffic = finding.http_traffic or {}
+            if not http_traffic and finding.vpoc is not None:
+                vpoc = finding.vpoc
+                http_traffic = {}
+                if vpoc.http_request:
+                    http_traffic['request'] = vpoc.http_request
+                if vpoc.http_response:
+                    http_traffic['response'] = vpoc.http_response
+                if vpoc.curl_command:
+                    http_traffic['curl_command'] = vpoc.curl_command
+                if vpoc.reproduction_steps:
+                    http_traffic['reproduction_steps'] = vpoc.reproduction_steps
+
             vuln = Vulnerability.objects.create(
                 scan=scan,
                 vulnerability_type=finding.vulnerability_type,
@@ -164,7 +178,7 @@ class ScanEngine:
                 verified=finding.verified,
                 successful_payloads=finding.successful_payloads or [],
                 repeater_data=finding.repeater_requests or [],
-                http_traffic=finding.http_traffic or {},
+                http_traffic=http_traffic,
             )
             vulnerabilities.append(vuln)
         

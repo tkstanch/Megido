@@ -74,6 +74,21 @@ class InfoDisclosureDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
             
             response = requests.get(url, timeout=timeout, verify=verify_ssl)
             content = response.text + '\n' + str(response.headers)
+
+            # Build detection-phase HTTP traffic once for all findings from this response
+            detection_http_traffic = {
+                'request': {
+                    'method': 'GET',
+                    'url': url,
+                    'headers': {'User-Agent': 'Megido Scanner', 'Accept': '*/*'},
+                    'body': '',
+                },
+                'response': {
+                    'status_code': response.status_code,
+                    'headers': dict(response.headers),
+                    'body': response.text[:2000],
+                },
+            }
             
             # Track patterns found for verification (maps pattern name to matches)
             matched_patterns = {}
@@ -115,7 +130,8 @@ class InfoDisclosureDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                     cwe_id='CWE-200',
                     verified=is_verified,
                     successful_payloads=None,  # Detection, not exploitation
-                    repeater_requests=[repeater_req]
+                    repeater_requests=[repeater_req],
+                    http_traffic=detection_http_traffic,
                 )
                 self._attach_vpoc(finding, response, pattern_name, 0.8, reproduction_steps="1. Send GET request to target URL\n2. Observe sensitive data in response")
                 findings.append(finding)

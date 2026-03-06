@@ -268,6 +268,20 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                         marked_payload, marker, resp.text
                     )
                     if reflected:
+                        # Capture HTTP traffic for this GET XSS finding
+                        xss_http_traffic = {
+                            'request': {
+                                'method': 'GET',
+                                'url': test_url,
+                                'headers': {'User-Agent': 'Megido Scanner'},
+                                'body': '',
+                            },
+                            'response': {
+                                'status_code': resp.status_code,
+                                'headers': dict(resp.headers),
+                                'body': resp.text[:2000],
+                            },
+                        }
                         finding = VulnerabilityFinding(
                             vulnerability_type='xss',
                             severity='high',
@@ -291,6 +305,7 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                             cwe_id='CWE-79',
                             verified=True,
                             successful_payloads=[marked_payload],
+                            http_traffic=xss_http_traffic,
                         )
                         self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps="1. Send GET request to URL with XSS payload in parameter\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
                         findings.append(finding)
@@ -350,6 +365,22 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                     )
                     if reflected:
                         xss_type = 'Reflected' if method == 'get' else 'Potentially Stored'
+                        # Capture HTTP traffic for this XSS finding
+                        req_headers = {'User-Agent': 'Megido Scanner', 'Content-Type': 'application/x-www-form-urlencoded' if method == 'post' else 'text/plain'}
+                        xss_http_traffic = {
+                            'request': {
+                                'method': method.upper(),
+                                'url': target_url,
+                                'headers': req_headers,
+                                'body': '&'.join(f'{k}={v}' for k, v in test_data.items()) if method == 'post' else '',
+                                'params': test_data if method == 'get' else {},
+                            },
+                            'response': {
+                                'status_code': resp.status_code,
+                                'headers': dict(resp.headers),
+                                'body': resp.text[:2000],
+                            },
+                        }
                         finding = VulnerabilityFinding(
                             vulnerability_type='xss',
                             severity='high',
@@ -375,6 +406,7 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                             cwe_id='CWE-79',
                             verified=True,
                             successful_payloads=[marked_payload],
+                            http_traffic=xss_http_traffic,
                         )
                         self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps=f"1. Submit form with {method.upper()} method with XSS payload in field\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
                         findings.append(finding)
