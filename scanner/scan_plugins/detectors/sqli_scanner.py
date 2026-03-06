@@ -478,7 +478,7 @@ class SQLiScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
                     cwe_id='CWE-89',
                     successful_payloads=[true_suffix, false_suffix],
                 )
-                self._attach_vpoc(finding, true_response, true_suffix, 0.80, reproduction_steps="1. Send request with SQL injection payload\n2. Observe SQL error in response")
+                self._attach_vpoc(finding, true_response, true_suffix, 0.80, reproduction_steps="1. Send request with true SQL condition payload\n2. Send request with false SQL condition payload\n3. Compare response lengths to confirm boolean-based blind SQL injection")
                 return finding
         return None
 

@@ -376,7 +376,7 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                             verified=True,
                             successful_payloads=[marked_payload],
                         )
-                        self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps="1. Send GET request to URL with XSS payload in parameter\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
+                        self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps=f"1. Submit form with {method.upper()} method with XSS payload in field\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
                         findings.append(finding)
                         break
                 except Exception as e:
