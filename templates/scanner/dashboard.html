@@ -208,6 +208,33 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Format a headers object as "Key: Value\n..." lines
+function formatHeaders(headers) {
+    if (!headers || typeof headers !== 'object') return '';
+    return Object.entries(headers).map(([k, v]) => k + ': ' + v).join('\n');
+}
+
+// Format an HTTP request dict as a readable string (truncated to maxLen chars)
+function formatHttpRequest(req, fallbackUrl, maxLen) {
+    maxLen = maxLen || 800;
+    const method = req.method || 'GET';
+    const url = req.url || fallbackUrl || '';
+    const headerLines = formatHeaders(req.headers);
+    let text = method + ' ' + url + (headerLines ? '\n' + headerLines : '');
+    if (req.body) text += '\n\n' + req.body;
+    return text.substring(0, maxLen);
+}
+
+// Format an HTTP response dict as a readable string (truncated to maxLen chars)
+function formatHttpResponse(resp, maxLen) {
+    maxLen = maxLen || 600;
+    const headerLines = formatHeaders(resp.headers);
+    let text = 'HTTP ' + (resp.status_code || '');
+    if (headerLines) text += '\n' + headerLines;
+    if (resp.body) text += '\n\n' + String(resp.body).substring(0, 300);
+    return text.substring(0, maxLen);
+}
+
 // Helper function to validate severity values (only allow known values)
 function sanitizeSeverity(severity) {
     if (window.MegidoUtils && window.MegidoUtils.Security) {
@@ -584,7 +611,15 @@ function displayVulnerabilities(vulnerabilities) {
                             <div><strong class="text-gray-700 dark:text-gray-300">Description:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.description)}</span></div>
                             ${vuln.evidence ? `<div><strong class="text-gray-700 dark:text-gray-300">Evidence:</strong> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(vuln.evidence)}</span></div>` : ''}
                             <!-- PoC Evidence Panel - Always Visible -->
-                            ${vuln.proof_of_impact ? (vuln.verified ? `
+                            ${(() => {
+                                const hasProof = !!vuln.proof_of_impact;
+                                const hasDetectionEvidence = !hasProof && (
+                                    (vuln.http_traffic && typeof vuln.http_traffic === 'object' && Object.keys(vuln.http_traffic).length > 0) ||
+                                    (vuln.evidence && vuln.evidence.length > 0)
+                                );
+
+                                if (hasProof && vuln.verified) {
+                                    return `
                                 <div class="mt-3 p-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
                                     <div class="flex items-start gap-2">
                                         <svg class="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -595,8 +630,9 @@ function displayVulnerabilities(vulnerabilities) {
                                             <pre class="mt-2 text-xs text-green-700 dark:text-green-400 whitespace-pre-wrap">${escapeHtml(vuln.proof_of_impact)}</pre>
                                         </div>
                                     </div>
-                                </div>
-                            ` : `
+                                </div>`;
+                                } else if (hasProof) {
+                                    return `
                                 <div class="mt-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 rounded">
                                     <div class="flex items-start gap-2">
                                         <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -607,8 +643,43 @@ function displayVulnerabilities(vulnerabilities) {
                                             <pre class="mt-2 text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap">${escapeHtml(vuln.proof_of_impact)}</pre>
                                         </div>
                                     </div>
-                                </div>
-                            `) : `
+                                </div>`;
+                                } else if (hasDetectionEvidence) {
+                                    // Build detection-evidence panel from http_traffic and evidence
+                                    let detectionHtml = `
+                                <div class="mt-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-yellow-500 dark:text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <strong class="text-yellow-800 dark:text-yellow-300">ℹ Detection Evidence (EVIDENCE FOUND)</strong>
+                                            <p class="mt-1 text-xs text-yellow-700 dark:text-yellow-400">Vulnerability detected during scan phase. Run exploitation to confirm impact.</p>`;
+                                    if (vuln.evidence) {
+                                        detectionHtml += `<pre class="mt-2 text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap">${escapeHtml(vuln.evidence)}</pre>`;
+                                    }
+                                    if (vuln.http_traffic && typeof vuln.http_traffic === 'object') {
+                                        const req = vuln.http_traffic.request;
+                                        const resp = vuln.http_traffic.response;
+                                        const curl = vuln.http_traffic.curl_command;
+                                        const repro = vuln.http_traffic.reproduction_steps;
+                                        if (req) {
+                                            detectionHtml += `<div class="mt-2"><strong class="text-xs text-yellow-800 dark:text-yellow-300">HTTP Request:</strong><pre class="text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded mt-1">${escapeHtml(formatHttpRequest(req, vuln.url))}</pre></div>`;
+                                        }
+                                        if (curl) {
+                                            detectionHtml += `<div class="mt-2"><strong class="text-xs text-yellow-800 dark:text-yellow-300">Reproduce:</strong><pre class="text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded mt-1">${escapeHtml(curl)}</pre></div>`;
+                                        }
+                                        if (resp) {
+                                            detectionHtml += `<div class="mt-2"><strong class="text-xs text-yellow-800 dark:text-yellow-300">HTTP Response:</strong><pre class="text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded mt-1">${escapeHtml(formatHttpResponse(resp))}</pre></div>`;
+                                        }
+                                        if (repro) {
+                                            detectionHtml += `<div class="mt-2"><strong class="text-xs text-yellow-800 dark:text-yellow-300">Steps:</strong><pre class="text-xs text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap mt-1">${escapeHtml(repro)}</pre></div>`;
+                                        }
+                                    }
+                                    detectionHtml += `</div></div></div>`;
+                                    return detectionHtml;
+                                } else {
+                                    return `
                                 <div class="mt-3 p-4 bg-gray-50 dark:bg-gray-800/50 border-l-4 border-gray-400 rounded">
                                     <div class="flex items-start gap-2">
                                         <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -619,8 +690,9 @@ function displayVulnerabilities(vulnerabilities) {
                                             <p class="mt-2 text-xs text-gray-600 dark:text-gray-400">No PoC evidence available for this finding. Run exploitation to generate proof of impact.</p>
                                         </div>
                                     </div>
-                                </div>
-                            `}
+                                </div>`;
+                                }
+                            })()}
                             <!-- Visual Proof Panel - Always Visible -->
                             ${vuln.visual_proof_path ? `
                                 <div class="mt-3 p-4 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500 rounded">

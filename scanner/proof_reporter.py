@@ -877,6 +877,70 @@ class ProofReporter:
             results['success'] = False
             return results
 
+    def generate_detection_proof(
+        self,
+        vulnerability_type: str,
+        url: str,
+        evidence: str,
+        confidence: float,
+        http_traffic: Optional[Dict[str, Any]] = None,
+        vulnerability_id: Optional[int] = None,
+    ) -> ProofData:
+        """
+        Build a :class:`ProofData` object from detection-phase evidence only.
+
+        Unlike :meth:`create_proof_data` (which requires a full exploitation
+        cycle), this method produces a PoC artifact purely from the data
+        collected by a detection plugin — no exploitation is needed.
+
+        The resulting ``ProofData`` will:
+        * have ``success=False`` and ``verified=False`` (detection-only)
+        * carry the HTTP request/response pair from *http_traffic* (if provided)
+        * carry the detection *evidence* as a log entry
+
+        Args:
+            vulnerability_type: Slug identifying the vulnerability (e.g. ``'xss'``).
+            url: Target URL where the vulnerability was found.
+            evidence: Human-readable detection evidence string.
+            confidence: Detection confidence in the range ``[0.0, 1.0]``.
+            http_traffic: Optional dict with ``'request'`` and/or ``'response'``
+                keys containing the HTTP pair captured during detection.
+            vulnerability_id: Optional database ID of the parent
+                :class:`~scanner.models.Vulnerability`.
+
+        Returns:
+            A populated :class:`ProofData` instance.
+        """
+        proof_data = self.create_proof_data(vulnerability_type, vulnerability_id)
+        proof_data.set_success(success=False, verified=False, confidence=confidence)
+
+        # Attach detection HTTP traffic when available
+        if http_traffic and isinstance(http_traffic, dict):
+            req = http_traffic.get('request', {})
+            if req and isinstance(req, dict):
+                proof_data.add_http_request(
+                    method=req.get('method', 'GET'),
+                    url=req.get('url', url),
+                    headers=req.get('headers', {}),
+                    body=req.get('body', ''),
+                )
+            resp = http_traffic.get('response', {})
+            if resp and isinstance(resp, dict):
+                proof_data.add_http_response(
+                    status_code=resp.get('status_code', 0),
+                    headers=resp.get('headers', {}),
+                    body=resp.get('body', ''),
+                )
+
+        if evidence:
+            proof_data.add_log(f"Detection evidence: {evidence}", 'info')
+
+        proof_data.add_metadata('detection_only', True)
+        proof_data.add_metadata('target_url', url)
+        proof_data.add_metadata('vulnerability_type', vulnerability_type)
+
+        return proof_data
+
 
 # Global singleton instance
 _global_reporter = None
