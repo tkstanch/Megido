@@ -27,11 +27,13 @@ except ImportError:
     HAS_BS4 = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class RCEDetectorPlugin(BaseScanPlugin):
+class RCEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     RCE vulnerability detection plugin.
     
@@ -228,6 +230,7 @@ class RCEDetectorPlugin(BaseScanPlugin):
                                 confidence=0.85,
                                 cwe_id='CWE-78'  # OS Command Injection
                             )
+                            self._attach_vpoc(finding, test_response, payload, 0.85, reproduction_steps="1. Send request with command injection payload\n2. Observe command output in response")
                             findings.append(finding)
                             logger.info(f"Found time-based command injection in {param_name}")
                             break  # Found vulnerability, move to next parameter
@@ -278,6 +281,7 @@ class RCEDetectorPlugin(BaseScanPlugin):
                                 confidence=0.9,
                                 cwe_id='CWE-78'
                             )
+                            self._attach_vpoc(finding, test_response, payload, 0.9, reproduction_steps="1. Send request with command injection payload\n2. Observe command output in response")
                             findings.append(finding)
                             logger.info(f"Found output-based command injection in {param_name}")
                             break
@@ -326,6 +330,7 @@ class RCEDetectorPlugin(BaseScanPlugin):
                                 confidence=0.95,
                                 cwe_id='CWE-94'  # Code Injection
                             )
+                            self._attach_vpoc(finding, test_response, payload, 0.95, reproduction_steps="1. Send request with template injection payload\n2. Observe template expression evaluated in response")
                             findings.append(finding)
                             logger.info(f"Found SSTI in {param_name}")
                             break
@@ -376,6 +381,7 @@ class RCEDetectorPlugin(BaseScanPlugin):
                                 confidence=0.8,
                                 cwe_id='CWE-94'
                             )
+                            self._attach_vpoc(finding, test_response, payload, 0.8, reproduction_steps="1. Send request with template injection payload\n2. Observe template expression evaluated in response")
                             findings.append(finding)
                             logger.info(f"Found EL injection in {param_name}")
                             break

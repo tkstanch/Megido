@@ -17,11 +17,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class LFIDetectorPlugin(BaseScanPlugin):
+class LFIDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     LFI vulnerability detection plugin.
     
@@ -204,6 +206,7 @@ class LFIDetectorPlugin(BaseScanPlugin):
                                     confidence=0.9,
                                     cwe_id='CWE-22'  # Path Traversal
                                 )
+                                self._attach_vpoc(finding, response, payload, 0.9, reproduction_steps="1. Send GET request with path traversal payload\n2. Observe file content in response")
                                 findings.append(finding)
                                 logger.info(f"Found path traversal in {param_name}")
                                 return findings  # Found one, no need to continue
@@ -237,6 +240,7 @@ class LFIDetectorPlugin(BaseScanPlugin):
                                 confidence=0.9,
                                 cwe_id='CWE-22'
                             )
+                            self._attach_vpoc(finding, response, payload, 0.9, reproduction_steps="1. Send GET request with path traversal payload\n2. Observe file content in response")
                             findings.append(finding)
                             logger.info(f"Found LFI in {param_name}")
                             return findings
@@ -285,6 +289,7 @@ class LFIDetectorPlugin(BaseScanPlugin):
                                 confidence=0.95,
                                 cwe_id='CWE-73'  # External Control of File Name or Path
                             )
+                            self._attach_vpoc(finding, response, target_file, 0.95, reproduction_steps="1. Send GET request with path traversal payload\n2. Observe file content in response")
                             findings.append(finding)
                             logger.info(f"Found direct file inclusion in {param_name}")
                             return findings
@@ -341,6 +346,7 @@ class LFIDetectorPlugin(BaseScanPlugin):
                                 confidence=0.85,
                                 cwe_id='CWE-22'
                             )
+                            self._attach_vpoc(finding, response, payload, 0.85, reproduction_steps="1. Send GET request with path traversal payload\n2. Observe file content in response")
                             findings.append(finding)
                             logger.info(f"Found filter bypass LFI in {param_name}")
                             return findings

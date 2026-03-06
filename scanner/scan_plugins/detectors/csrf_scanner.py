@@ -27,11 +27,13 @@ except ImportError:
     HAS_BS4 = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class CSRFScannerPlugin(BaseScanPlugin):
+class CSRFScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     CSRF vulnerability detection plugin.
     
@@ -185,7 +187,7 @@ class CSRFScannerPlugin(BaseScanPlugin):
             # Cookies without SameSite attribute
             cookie_names = [cookie.name for cookie in response.cookies]
             
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='csrf',
                 severity='low',
                 url=url,
@@ -195,6 +197,8 @@ class CSRFScannerPlugin(BaseScanPlugin):
                 confidence=0.9,
                 cwe_id='CWE-352'
             )
+            self._attach_vpoc(finding, response, '', 0.9, reproduction_steps="1. Send GET request to target URL\n2. Observe insecure cookie attributes in response")
+            return finding
         
         return None
     

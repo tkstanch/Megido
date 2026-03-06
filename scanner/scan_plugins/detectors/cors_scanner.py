@@ -38,6 +38,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +83,7 @@ _REMEDIATION_PREFLIGHT = (
 )
 
 
-class CORSScannerPlugin(BaseScanPlugin):
+class CORSScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     CORS misconfiguration scanner plugin.
 
@@ -230,7 +232,7 @@ class CORSScannerPlugin(BaseScanPlugin):
         if acao == '*':
             if has_credentials:
                 # Browsers reject this combination but it indicates misconfiguration.
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='cors_misconfiguration',
                     severity='high',
                     url=url,
@@ -244,9 +246,11 @@ class CORSScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_CREDENTIALS,
                     confidence=0.95,
                     cwe_id='CWE-942',
-                ))
+                )
+                self._attach_vpoc(finding, response, origin, 0.95, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
+                findings.append(finding)
             else:
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='cors_misconfiguration',
                     severity='medium',
                     url=url,
@@ -259,12 +263,14 @@ class CORSScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_WILDCARD,
                     confidence=0.95,
                     cwe_id='CWE-942',
-                ))
+                )
+                self._attach_vpoc(finding, response, origin, 0.95, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
+                findings.append(finding)
 
         elif acao and acao == origin:
             # Dynamic origin reflection detected
             if has_credentials:
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='cors_misconfiguration',
                     severity='critical',
                     url=url,
@@ -279,9 +285,11 @@ class CORSScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_CREDENTIALS,
                     confidence=0.95,
                     cwe_id='CWE-942',
-                ))
+                )
+                self._attach_vpoc(finding, response, origin, 0.95, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
+                findings.append(finding)
             else:
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='cors_misconfiguration',
                     severity='high',
                     url=url,
@@ -294,11 +302,13 @@ class CORSScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_REFLECTION,
                     confidence=0.90,
                     cwe_id='CWE-942',
-                ))
+                )
+                self._attach_vpoc(finding, response, origin, 0.90, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
+                findings.append(finding)
 
             # Also flag missing Vary: Origin when dynamic ACAO is in use
             if 'origin' not in vary.lower():
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='cors_misconfiguration',
                     severity='low',
                     url=url,
@@ -312,7 +322,9 @@ class CORSScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_VARY,
                     confidence=0.80,
                     cwe_id='CWE-346',
-                ))
+                )
+                self._attach_vpoc(finding, response, origin, 0.80, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
+                findings.append(finding)
 
         return findings
 
@@ -356,7 +368,7 @@ class CORSScannerPlugin(BaseScanPlugin):
         )
 
         if found_risky:
-            findings.append(VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='cors_misconfiguration',
                 severity='medium',
                 url=url,
@@ -369,10 +381,12 @@ class CORSScannerPlugin(BaseScanPlugin):
                 remediation=_REMEDIATION_PREFLIGHT,
                 confidence=0.75,
                 cwe_id='CWE-942',
-            ))
+            )
+            self._attach_vpoc(finding, response, origin, 0.75, reproduction_steps="1. Send OPTIONS request with attacker origin and custom headers\n2. Observe permissive CORS response")
+            findings.append(finding)
 
         if acah and '*' in acah:
-            findings.append(VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='cors_misconfiguration',
                 severity='medium',
                 url=url,
@@ -385,7 +399,9 @@ class CORSScannerPlugin(BaseScanPlugin):
                 remediation=_REMEDIATION_PREFLIGHT,
                 confidence=0.75,
                 cwe_id='CWE-942',
-            ))
+            )
+            self._attach_vpoc(finding, response, origin, 0.75, reproduction_steps="1. Send OPTIONS request with attacker origin and custom headers\n2. Observe permissive CORS response")
+            findings.append(finding)
 
         return findings
 

@@ -33,6 +33,8 @@ except ImportError:
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
 from scanner.scan_plugins.stealth_scan_mixin import StealthScanMixin
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +116,7 @@ _DOM_SOURCES = [
 ]
 
 
-class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
+class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
     """
     Active XSS vulnerability detection plugin.
 
@@ -266,7 +268,7 @@ class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
                         marked_payload, marker, resp.text
                     )
                     if reflected:
-                        findings.append(VulnerabilityFinding(
+                        finding = VulnerabilityFinding(
                             vulnerability_type='xss',
                             severity='high',
                             url=test_url,
@@ -289,7 +291,9 @@ class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
                             cwe_id='CWE-79',
                             verified=True,
                             successful_payloads=[marked_payload],
-                        ))
+                        )
+                        self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps="1. Send GET request to URL with XSS payload in parameter\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
+                        findings.append(finding)
                         break  # One confirmed finding per parameter is enough
                 except Exception as e:
                     logger.debug(f"Error testing XSS on {test_url}: {e}")
@@ -346,7 +350,7 @@ class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
                     )
                     if reflected:
                         xss_type = 'Reflected' if method == 'get' else 'Potentially Stored'
-                        findings.append(VulnerabilityFinding(
+                        finding = VulnerabilityFinding(
                             vulnerability_type='xss',
                             severity='high',
                             url=target_url,
@@ -371,7 +375,9 @@ class XSSScannerPlugin(StealthScanMixin, BaseScanPlugin):
                             cwe_id='CWE-79',
                             verified=True,
                             successful_payloads=[marked_payload],
-                        ))
+                        )
+                        self._attach_vpoc(finding, resp, marked_payload, confidence, reproduction_steps=f"1. Submit form with {method.upper()} method with XSS payload in field\n2. Observe payload reflected in response body\n3. Script executes in victim's browser")
+                        findings.append(finding)
                         break
                 except Exception as e:
                     logger.debug(f"Error testing form XSS on {target_url}: {e}")

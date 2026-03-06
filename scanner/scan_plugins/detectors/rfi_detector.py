@@ -17,11 +17,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class RFIDetectorPlugin(BaseScanPlugin):
+class RFIDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     RFI vulnerability detection plugin.
     
@@ -143,6 +145,7 @@ class RFIDetectorPlugin(BaseScanPlugin):
                                 confidence=0.95,
                                 cwe_id='CWE-98'  # Remote File Inclusion
                             )
+                            self._attach_vpoc(finding, response, test_url, 0.95, reproduction_steps="1. Send GET request with remote file inclusion payload\n2. Observe remote file execution")
                             findings.append(finding)
                             logger.info(f"Found RFI in {param_name}")
                             return findings

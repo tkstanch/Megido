@@ -21,6 +21,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,7 @@ _REMEDIATION = (
 )
 
 
-class DeserializationDetectorPlugin(BaseScanPlugin):
+class DeserializationDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Insecure deserialization detection plugin.
 
@@ -131,17 +133,20 @@ class DeserializationDetectorPlugin(BaseScanPlugin):
                 for value in values:
                     finding = self._check_value(url, f'GET parameter: {param}', value)
                     if finding:
+                        self._attach_vpoc(finding, response, value, 0.9, reproduction_steps="1. Send request with serialized payload\n2. Observe deserialization vulnerability")
                         findings.append(finding)
 
             # Analyse cookies received from the server
             for cookie in response.cookies:
                 finding = self._check_value(url, f'Cookie: {cookie.name}', cookie.value)
                 if finding:
+                    self._attach_vpoc(finding, response, cookie.value, 0.9, reproduction_steps="1. Send request with serialized payload\n2. Observe deserialization vulnerability")
                     findings.append(finding)
 
             # Analyse response body for echoed serialized data
             body_finding = self._check_response_body(url, response.text)
             if body_finding:
+                self._attach_vpoc(body_finding, response, '', 0.75, reproduction_steps="1. Send request with serialized payload\n2. Observe deserialization vulnerability")
                 findings.append(body_finding)
 
         except requests.RequestException as exc:

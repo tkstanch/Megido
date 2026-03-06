@@ -18,6 +18,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ _REMEDIATION = (
 )
 
 
-class GraphQLScannerPlugin(BaseScanPlugin):
+class GraphQLScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     GraphQL introspection scanner plugin.
 
@@ -191,7 +193,7 @@ class GraphQLScannerPlugin(BaseScanPlugin):
             description += f', Mutation root: "{mutation_type}"'
         description += '.'
 
-        return VulnerabilityFinding(
+        finding = VulnerabilityFinding(
             vulnerability_type='graphql',
             severity='medium',
             url=endpoint_url,
@@ -207,6 +209,8 @@ class GraphQLScannerPlugin(BaseScanPlugin):
             confidence=0.95,
             cwe_id='CWE-200',
         )
+        self._attach_vpoc(finding, response, '', 0.95, reproduction_steps="1. Send GraphQL introspection query\n2. Observe schema information in response")
+        return finding
 
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration for GraphQL scanning."""

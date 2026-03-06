@@ -29,11 +29,13 @@ except ImportError:
     HAS_BS4 = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class XXEDetectorPlugin(BaseScanPlugin):
+class XXEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     XXE vulnerability detection plugin.
     
@@ -190,6 +192,7 @@ class XXEDetectorPlugin(BaseScanPlugin):
                             confidence=0.95,
                             cwe_id='CWE-611'  # XML External Entities
                         )
+                        self._attach_vpoc(finding, response, payload, 0.95, reproduction_steps="1. Send request with XXE payload\n2. Observe XML external entity injection response")
                         findings.append(finding)
                         logger.info(f"Found XXE vulnerability at {url}")
                         return findings
@@ -206,6 +209,7 @@ class XXEDetectorPlugin(BaseScanPlugin):
                             confidence=0.95,
                             cwe_id='CWE-611'
                         )
+                        self._attach_vpoc(finding, response, payload, 0.95, reproduction_steps="1. Send request with XXE payload\n2. Observe XML external entity injection response")
                         findings.append(finding)
                         logger.info(f"Found XXE vulnerability at {url}")
                         return findings
@@ -230,6 +234,7 @@ class XXEDetectorPlugin(BaseScanPlugin):
                             confidence=0.6,
                             cwe_id='CWE-611'
                         )
+                        self._attach_vpoc(finding, response, payload, 0.6, reproduction_steps="1. Send request with XXE payload\n2. Observe XML external entity injection response")
                         findings.append(finding)
                         return findings
                 
@@ -271,6 +276,7 @@ class XXEDetectorPlugin(BaseScanPlugin):
                             confidence=0.7,
                             cwe_id='CWE-776'  # Entity Expansion
                         )
+                        self._attach_vpoc(finding, response, payload, 0.7, reproduction_steps="1. Send request with XXE payload\n2. Observe XML external entity injection response")
                         findings.append(finding)
                         return findings
                 

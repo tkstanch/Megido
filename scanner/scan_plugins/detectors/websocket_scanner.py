@@ -26,6 +26,8 @@ except ImportError:
     HAS_BS4 = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ _REMEDIATION_WS_DETECTED = (
 )
 
 
-class WebSocketScannerPlugin(BaseScanPlugin):
+class WebSocketScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     WebSocket security scanner plugin.
 
@@ -124,7 +126,7 @@ class WebSocketScannerPlugin(BaseScanPlugin):
 
             for ws_url in ws_endpoints:
                 # Report the discovered WebSocket endpoint
-                findings.append(VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='websocket',
                     severity='low',
                     url=url,
@@ -136,7 +138,9 @@ class WebSocketScannerPlugin(BaseScanPlugin):
                     remediation=_REMEDIATION_WS_DETECTED,
                     confidence=0.85,
                     cwe_id='CWE-1385',
-                ))
+                )
+                self._attach_vpoc(finding, response, '', 0.85, reproduction_steps="1. Send GET request to target URL\n2. Observe WebSocket endpoint discovered in page source")
+                findings.append(finding)
 
                 # Test for CSWSH if enabled
                 if config.get('test_cswsh', True):
@@ -221,7 +225,7 @@ class WebSocketScannerPlugin(BaseScanPlugin):
             return None
 
         if response.status_code == 101:
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='websocket',
                 severity='high',
                 url=source_url,
@@ -241,6 +245,8 @@ class WebSocketScannerPlugin(BaseScanPlugin):
                 confidence=0.85,
                 cwe_id='CWE-1385',
             )
+            self._attach_vpoc(finding, response, evil_origin, 0.85, reproduction_steps="1. Send WebSocket upgrade request with attacker Origin header\n2. Observe server accepts cross-origin WebSocket connection")
+            return finding
 
         return None
 
