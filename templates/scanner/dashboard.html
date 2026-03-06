@@ -95,6 +95,13 @@
                 </label>
                 <input type="text" id="scan-name" class="form-input glass-refract focus:border-living" placeholder="My Security Scan">
             </div>
+            <div class="form-group" style="border: 2px solid #f59e0b; border-radius: 0.5rem; padding: 1rem; background: rgba(245, 158, 11, 0.05);">
+                <label class="form-label flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="enable-dos-testing" style="width:1rem;height:1rem;accent-color:#f59e0b;">
+                    <span style="color: #d97706; font-weight: 600;">⚠️ Enable Denial of Service (DoS) Testing</span>
+                </label>
+                <p class="text-sm mt-1" style="color: #92400e;">⚠️ Warning: DoS tests can impact target availability. Only enable if you have explicit authorization to perform availability testing.</p>
+            </div>
             <button class="btn btn-primary btn-ultra-premium ripple-container" id="start-scan-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
@@ -305,12 +312,15 @@ async function startScan() {
         }
         
         // Start scan with authentication
+        const enableDosTesting = document.getElementById('enable-dos-testing')?.checked ?? false;
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            body: JSON.stringify({ enable_dos_testing: enableDosTesting })
         });
         
         // Check response status before parsing JSON
@@ -552,6 +562,7 @@ function displayVulnerabilities(vulnerabilities) {
                         <div class="flex items-center gap-2 mb-2 flex-wrap">
                             <strong class="text-gray-900 dark:text-white">${escapeHtml(vuln.type)}</strong>
                             <span class="badge badge-${sanitizeSeverity(vuln.severity)}">${escapeHtml(vuln.severity.toUpperCase())}</span>
+                            ${vuln.bounty_classification ? `<span class="badge" style="background-color:${getBountyBadgeColor(vuln.bounty_classification)};color:#fff;" title="Bug Bounty Priority">${escapeHtml(vuln.bounty_classification)}</span>` : ''}
                             ${vuln.verified ? 
                                 `<span class="badge badge-success" title="Verified through exploitation">
                                     <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -801,6 +812,11 @@ function getRiskBadgeClass(riskScore) {
     if (riskScore >= 60) return 'badge-warning';
     if (riskScore >= 40) return 'badge-info';
     return 'badge-success';
+}
+
+function getBountyBadgeColor(pLevel) {
+    const colors = { 'P1': '#dc2626', 'P2': '#ea580c', 'P3': '#ca8a04', 'P4': '#2563eb', 'P5': '#6b7280' };
+    return colors[pLevel] || '#6b7280';
 }
 
 function formatExploitStatus(status) {

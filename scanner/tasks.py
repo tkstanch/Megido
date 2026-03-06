@@ -87,7 +87,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         
         # Perform the scan
         logger.info(f"Executing scan for target: {scan.target.url}")
-        perform_basic_scan(scan, scan.target.url)
+        perform_basic_scan(scan, scan.target.url, enable_dos_testing=scan.enable_dos_testing)
         
         # Update scan status to completed
         scan.status = 'completed'
