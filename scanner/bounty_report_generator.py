@@ -549,6 +549,315 @@ IMPACT_MAP: Dict[str, Dict[str, Any]] = {
             'exposes the response to the attacker\'s JavaScript.'
         ),
     },
+    'email_rce': {
+        'title_template': 'Email Field RCE on {url} — Full Server Compromise via Command Injection',
+        'attacker_impact': [
+            'Execute arbitrary OS commands through shell metacharacters in email input',
+            'Install persistent backdoors or reverse shells on the server',
+            'Access all secrets, credentials, and customer data on the server',
+            'Pivot laterally to internal network hosts from the compromised server',
+        ],
+        'business_impact': [
+            'Complete server compromise via unauthenticated input',
+            'All server data (credentials, customer PII) exposed',
+            'Lateral movement risk to internal infrastructure',
+        ],
+        'cvss_base': 9.8,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
+        'cwe': 'CWE-78',
+        'owasp': 'A03:2021 – Injection',
+        'scenario': (
+            'An attacker injects a pipe-chained OS command into an email address field '
+            '(e.g., test@x]||id||). The server passes the value unsafely to a shell '
+            'command, executing the injected payload and returning its output.'
+        ),
+    },
+    'ai_llm': {
+        'title_template': 'AI/LLM Vulnerability on {url} Enables Prompt Injection or Data Exfiltration',
+        'attacker_impact': [
+            'Hijack LLM instructions via prompt injection to bypass safety controls',
+            'Exfiltrate system prompts, training data, or other users\' conversation history',
+            'Cause the LLM to perform unauthorized actions on behalf of the attacker',
+            'Bypass content moderation and abuse AI-powered features',
+        ],
+        'business_impact': [
+            'Intellectual property theft (system prompts, fine-tuning data)',
+            'Brand damage from harmful or unintended AI-generated content',
+            'Regulatory risk if PII is exfiltrated via the LLM',
+        ],
+        'cvss_base': 7.5,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:L/A:N',
+        'cwe': 'CWE-77',
+        'owasp': 'A03:2021 – Injection',
+        'scenario': (
+            'An attacker injects adversarial instructions into user-controlled input '
+            'processed by an LLM, overriding the system prompt and causing the model '
+            'to reveal confidential data or perform unintended operations.'
+        ),
+    },
+    'dos': {
+        'title_template': 'Denial of Service Vulnerability on {url} Causes Application Unavailability',
+        'attacker_impact': [
+            'Render the application unavailable to legitimate users',
+            'Trigger resource exhaustion (CPU, memory, database connections)',
+            'Amplify impact with low-bandwidth requests (algorithmic complexity attack)',
+        ],
+        'business_impact': [
+            'Service outage and revenue loss',
+            'SLA violations and customer churn',
+            'Reputational damage from prolonged downtime',
+        ],
+        'cvss_base': 7.5,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H',
+        'cwe': 'CWE-400',
+        'owasp': 'A05:2021 – Security Misconfiguration',
+        'scenario': (
+            'An attacker sends a crafted request that triggers resource-intensive '
+            'processing (e.g., a deeply nested JSON payload, a ReDoS pattern, or an '
+            'unauthenticated endpoint with no rate limiting). Repeated requests exhaust '
+            'server resources and cause a complete outage for all users.'
+        ),
+    },
+    'security_misconfig': {
+        'title_template': 'Security Misconfiguration on {url} Enables Multiple Attack Vectors',
+        'attacker_impact': [
+            'Bypass Content-Security-Policy to execute arbitrary scripts (missing CSP header)',
+            'Embed the page in a malicious iframe to perform clickjacking (missing X-Frame-Options)',
+            'Trick browsers into executing scripts in uploaded files (missing X-Content-Type-Options)',
+            'Downgrade HTTPS connections via mixed-content injection (missing HSTS header)',
+            'Access sensitive resources cross-origin (missing or misconfigured CORS policy)',
+        ],
+        'business_impact': [
+            'XSS and clickjacking attacks against authenticated users',
+            'Session hijacking via downgrade to HTTP',
+            'Regulatory non-compliance (PCI-DSS, GDPR require security headers)',
+        ],
+        'cvss_base': 5.3,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N',
+        'cwe': 'CWE-16',
+        'owasp': 'A05:2021 – Security Misconfiguration',
+        'scenario': (
+            'An attacker exploits the absence of security headers to mount secondary '
+            'attacks: injecting scripts (no CSP), framing the page invisibly (no '
+            'X-Frame-Options), or forcing HTTP downgrades (no HSTS).'
+        ),
+    },
+    'sensitive_data': {
+        'title_template': 'Sensitive Data Exposure on {url} Leaks User or System Credentials',
+        'attacker_impact': [
+            'Obtain plaintext or weakly-hashed passwords from exposed data stores',
+            'Access API keys, tokens, or secrets from responses or configuration files',
+            'Harvest PII (names, emails, payment data) from unprotected endpoints',
+        ],
+        'business_impact': [
+            'Regulatory fines under GDPR, CCPA, or PCI-DSS for unprotected PII',
+            'Credential stuffing attacks using exposed passwords',
+            'Direct financial fraud from exposed payment data',
+        ],
+        'cvss_base': 7.5,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+        'cwe': 'CWE-312',
+        'owasp': 'A02:2021 – Cryptographic Failures',
+        'scenario': (
+            'An attacker accesses an unprotected API endpoint or storage location and '
+            'retrieves sensitive data including user credentials, PII, or application '
+            'secrets that are stored or transmitted without adequate protection.'
+        ),
+    },
+    'weak_password': {
+        'title_template': 'Weak Password Policy on {url} Enables Brute-Force Account Takeover',
+        'attacker_impact': [
+            'Brute-force or dictionary-attack user accounts due to minimal password requirements',
+            'Exploit credential stuffing with leaked password databases',
+            'Enumerate valid accounts via differential error messages',
+        ],
+        'business_impact': [
+            'Mass account compromise via automated credential attacks',
+            'Unauthorized access to user data and sensitive features',
+            'Compliance violations (many standards mandate strong password policies)',
+        ],
+        'cvss_base': 6.5,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N',
+        'cwe': 'CWE-521',
+        'owasp': 'A07:2021 – Identification and Authentication Failures',
+        'scenario': (
+            'An attacker uses a dictionary of common passwords against the login endpoint. '
+            'Because no minimum complexity or lockout policy is enforced, the attack '
+            'succeeds and grants access to user accounts.'
+        ),
+    },
+    'bac': {
+        'title_template': 'Broken Access Control on {url} Allows Unauthorized Resource Access',
+        'attacker_impact': [
+            'Access resources and functions restricted to other users or roles',
+            'Escalate from a regular user to an administrative role',
+            'Read, modify, or delete other users\' private data',
+            'Bypass authentication checks to reach protected endpoints',
+        ],
+        'business_impact': [
+            'Unauthorized access to sensitive user and business data',
+            'Privilege escalation enabling full administrative takeover',
+            'Regulatory violations (GDPR, HIPAA, PCI-DSS)',
+        ],
+        'cvss_base': 8.1,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+        'cwe': 'CWE-284',
+        'owasp': 'A01:2021 – Broken Access Control',
+        'scenario': (
+            'An attacker modifies a request to access an endpoint or resource that '
+            'should be restricted to admins or other users. The server fails to '
+            'validate the caller\'s permissions and returns the protected data.'
+        ),
+    },
+    'username_enum': {
+        'title_template': 'Username Enumeration on {url} Enables Targeted Credential Attacks',
+        'attacker_impact': [
+            'Build a list of valid usernames/emails for targeted phishing or brute-force',
+            'Confirm existence of specific accounts (e.g., executives, admins)',
+            'Combine with credential stuffing to compromise enumerated accounts',
+        ],
+        'business_impact': [
+            'Facilitates targeted brute-force and phishing campaigns',
+            'Privacy violation by confirming user registration status',
+        ],
+        'cvss_base': 5.3,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N',
+        'cwe': 'CWE-203',
+        'owasp': 'A07:2021 – Identification and Authentication Failures',
+        'scenario': (
+            'An attacker submits login or password-reset requests with different '
+            'usernames and observes differential responses (different error messages, '
+            'status codes, or timing) to determine which accounts exist.'
+        ),
+    },
+    'captcha_bypass': {
+        'title_template': 'CAPTCHA Bypass on {url} Enables Automated Abuse at Scale',
+        'attacker_impact': [
+            'Automate credential stuffing attacks against login endpoints',
+            'Perform large-scale spam or account registration without restriction',
+            'Bypass rate-limiting controls protecting sensitive operations',
+            'Execute brute-force attacks against password-protected resources',
+        ],
+        'business_impact': [
+            'Mass automated account compromise via credential stuffing',
+            'Infrastructure abuse and increased operational costs from bot traffic',
+            'Spam and fake account creation degrading service quality',
+        ],
+        'cvss_base': 5.3,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N',
+        'cwe': 'CWE-307',
+        'owasp': 'A07:2021 – Identification and Authentication Failures',
+        'scenario': (
+            'An attacker discovers that the CAPTCHA validation can be bypassed by '
+            'omitting the CAPTCHA token, reusing a previously solved token, or using '
+            'an audio/visual bypass. They automate requests to perform credential '
+            'stuffing or brute-force attacks at scale.'
+        ),
+    },
+    'unsafe_upload': {
+        'title_template': 'Unsafe File Upload on {url} Enables Remote Code Execution',
+        'attacker_impact': [
+            'Upload a webshell disguised as an image or document to execute OS commands',
+            'Deliver malware or phishing content to other users via the upload feature',
+            'Overwrite critical application files by controlling the upload path',
+        ],
+        'business_impact': [
+            'Remote code execution leading to full server compromise',
+            'Malware distribution to application users',
+            'Data destruction via malicious file overwrites',
+        ],
+        'cvss_base': 9.8,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
+        'cwe': 'CWE-434',
+        'owasp': 'A04:2021 – Insecure Design',
+        'scenario': (
+            'An attacker uploads a PHP webshell with a .jpg extension. The server '
+            'stores it in a web-accessible directory and executes it as PHP when '
+            'requested, granting full command execution on the server.'
+        ),
+    },
+    'subdomain_takeover': {
+        'title_template': 'Subdomain Takeover on {url} Enables Phishing and Cookie Theft',
+        'attacker_impact': [
+            'Host attacker-controlled content on a trusted subdomain',
+            'Steal session cookies scoped to the parent domain',
+            'Conduct phishing attacks using a legitimate-looking URL',
+            'Bypass CSP and CORS policies that allowlist the domain',
+        ],
+        'business_impact': [
+            'Credential and session theft leveraging trusted brand identity',
+            'CORS and CSP policy bypass enabling cross-domain attacks',
+            'Reputational damage from attacker-controlled subdomain',
+        ],
+        'cvss_base': 8.1,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:N',
+        'cwe': 'CWE-350',
+        'owasp': 'A05:2021 – Security Misconfiguration',
+        'scenario': (
+            'An attacker discovers a DNS CNAME record pointing to an unclaimed '
+            'third-party service (e.g., GitHub Pages, Heroku). They register the '
+            'service and serve attacker-controlled content from the victim\'s subdomain, '
+            'stealing cookies or performing phishing.'
+        ),
+    },
+    'exif_data': {
+        'title_template': 'EXIF Geolocation Data Exposure on {url} Leaks User Location',
+        'attacker_impact': [
+            'Extract precise GPS coordinates revealing the user\'s home or work location',
+            'Identify device model and operating system for targeted exploitation',
+            'Track user movements over time via photo upload history',
+        ],
+        'business_impact': [
+            'Privacy violation and potential physical safety risk to users',
+            'GDPR/CCPA regulatory exposure for unstripped PII in media files',
+        ],
+        'cvss_base': 4.3,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:N',
+        'cwe': 'CWE-200',
+        'owasp': 'A02:2021 – Cryptographic Failures',
+        'scenario': (
+            'An attacker downloads an image uploaded by another user and reads its EXIF '
+            'metadata using a standard tool. The GPS coordinates in the metadata reveal '
+            'the user\'s precise location at the time of upload.'
+        ),
+    },
+    'api_key_exposure': {
+        'title_template': 'API Key Exposure on {url} Enables Unauthorized Service Access',
+        'attacker_impact': [
+            'Use exposed API keys to access third-party services (AWS, Stripe, Twilio, etc.)',
+            'Incur financial charges by abusing paid service quotas',
+            'Access or exfiltrate data stored in connected third-party services',
+            'Impersonate the application to third-party APIs for malicious purposes',
+        ],
+        'business_impact': [
+            'Direct financial loss from unauthorized API usage charges',
+            'Data breach via access to third-party service data',
+            'Revocation of third-party service access disrupting business operations',
+        ],
+        'cvss_base': 8.6,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N',
+        'cwe': 'CWE-798',
+        'owasp': 'A02:2021 – Cryptographic Failures',
+        'scenario': (
+            'An attacker finds a hardcoded or exposed API key in a JavaScript file, '
+            'public repository, or API response. They use the key to make authenticated '
+            'requests to the third-party service, exfiltrating data or abusing paid '
+            'service quotas.'
+        ),
+    },
     'other': {
         'title_template': 'Security Vulnerability Found on {url}',
         'attacker_impact': [
@@ -656,6 +965,45 @@ REMEDIATION_DEFAULTS: Dict[str, str] = {
     'cors': 'Define an explicit allowlist of trusted origins. '
             'Never use Access-Control-Allow-Origin: * with credentials. '
             'Validate the Origin header server-side against the allowlist.',
+    'email_rce': 'Never pass user-supplied data to OS commands. '
+                'Validate and reject email addresses containing shell metacharacters. '
+                'Use a dedicated mail library instead of shelling out.',
+    'ai_llm': 'Sanitize user input before passing it to LLM prompts. '
+              'Use separate system and user context windows. '
+              'Implement output validation and content filtering on LLM responses.',
+    'dos': 'Implement rate limiting and request-size limits. '
+           'Use asynchronous processing for resource-intensive operations. '
+           'Apply query depth and complexity limits for data-driven endpoints.',
+    'security_misconfig': 'Deploy a comprehensive security header policy: '
+                          'Content-Security-Policy, X-Frame-Options: DENY, '
+                          'X-Content-Type-Options: nosniff, Strict-Transport-Security, '
+                          'and Referrer-Policy. Automate header audits in CI.',
+    'sensitive_data': 'Encrypt sensitive data at rest and in transit. '
+                      'Mask or omit sensitive fields in API responses. '
+                      'Audit data flows to ensure PII is not logged or cached.',
+    'weak_password': 'Enforce a minimum password length of 12 characters with complexity '
+                     'requirements. Implement account lockout or exponential back-off. '
+                     'Offer multi-factor authentication.',
+    'bac': 'Implement server-side authorization checks on every request. '
+           'Use a centralized access control framework. '
+           'Apply least-privilege principles to all user roles.',
+    'username_enum': 'Use identical error messages and response times for all '
+                     'authentication failure scenarios. '
+                     'Consider rate limiting and CAPTCHA on authentication endpoints.',
+    'captcha_bypass': 'Validate CAPTCHA tokens server-side on every submission. '
+                      'Invalidate tokens after a single use. '
+                      'Consider upgrading to invisible reCAPTCHA v3 or hCaptcha.',
+    'unsafe_upload': 'Validate file type by content (magic bytes), not extension. '
+                     'Store uploaded files outside the web root. '
+                     'Serve files through a proxy that sets a safe Content-Disposition header.',
+    'subdomain_takeover': 'Audit DNS records regularly and remove dangling CNAMEs. '
+                          'Claim or delete unused third-party service entries promptly. '
+                          'Monitor for unclaimed DNS records in CI/CD pipelines.',
+    'exif_data': 'Strip EXIF metadata from all user-uploaded images using a library '
+                 'such as Pillow or ExifTool before storing or serving them.',
+    'api_key_exposure': 'Rotate exposed API keys immediately. '
+                        'Store secrets in environment variables or a secrets manager, never in code. '
+                        'Audit public repositories and client-side bundles for hardcoded credentials.',
     'other': 'Review and remediate the identified vulnerability following '
              'OWASP secure coding guidelines.',
 }

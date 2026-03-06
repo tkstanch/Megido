@@ -8,6 +8,7 @@ from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
 from django.utils import timezone
 from django.conf import settings
 import os
+import html as _html
 import logging
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
@@ -337,7 +338,8 @@ def _build_impact_summary(vuln) -> str:
     Return a concise, human-readable impact summary for the vulnerability.
 
     Uses the structured proof_of_impact field when available; falls back to
-    extracting the "## Real-World Impact" section, and finally to a plain
+    extracting the "## Real-World Impact" section, then to a type-specific
+    impact description from the known impact maps, and finally to a plain
     severity/type sentence.
 
     Args:
@@ -361,13 +363,82 @@ def _build_impact_summary(vuln) -> str:
         # No structured section – return first 300 characters of raw proof
         return vuln.proof_of_impact[:300].strip()
 
-    # Fallback: construct from severity and type
+    # No proof_of_impact yet — use type-specific impact descriptions
+    vuln_type = (vuln.vulnerability_type or '').lower()
+
+    # Check exploit_integration's _VULN_IMPACT_MAP first
+    try:
+        from scanner.exploit_integration import _VULN_IMPACT_MAP
+        if vuln_type in _VULN_IMPACT_MAP:
+            return _VULN_IMPACT_MAP[vuln_type]['impact']
+    except ImportError:
+        pass
+
+    # Fall back to bounty_report_generator IMPACT_MAP
+    try:
+        from scanner.bounty_report_generator import IMPACT_MAP as _BOUNTY_IMPACT_MAP
+        if vuln_type in _BOUNTY_IMPACT_MAP:
+            bmap = _BOUNTY_IMPACT_MAP[vuln_type]
+            attacker_impacts = bmap.get('attacker_impact', [])
+            if attacker_impacts:
+                # For security_misconfig, enrich with evidence-derived header details
+                if vuln_type == 'security_misconfig' and vuln.evidence:
+                    header_details = _extract_missing_header_impacts(vuln.evidence)
+                    if header_details:
+                        return (
+                            'Missing security headers detected: '
+                            + '; '.join(header_details[:3])
+                            + '. '
+                            + attacker_impacts[0]
+                            + '.'
+                        )
+                return 'As an attacker, I can: ' + attacker_impacts[0] + '.'
+    except ImportError:
+        pass
+
+    # Last resort: plain severity/type sentence
     severity = (vuln.severity or 'unknown').capitalize()
-    vuln_type = (vuln.get_vulnerability_type_display() if hasattr(vuln, 'get_vulnerability_type_display') else vuln.vulnerability_type or 'Unknown')
-    return (
-        f"{severity}-severity {vuln_type} vulnerability detected at {vuln.url}. "
-        "Run exploitation to generate a detailed bug-bounty-ready impact assessment."
+    vuln_type_display = (
+        vuln.get_vulnerability_type_display()
+        if hasattr(vuln, 'get_vulnerability_type_display')
+        else vuln.vulnerability_type or 'Unknown'
     )
+    return (
+        f"{severity}-severity {vuln_type_display} vulnerability detected at {vuln.url}."
+    )
+
+
+def _extract_missing_header_impacts(evidence: str) -> list:
+    """
+    Parse evidence text for security_misconfig to extract missing header names
+    and return short impact phrases for each.
+
+    Args:
+        evidence: Evidence string from a security_misconfig vulnerability
+
+    Returns:
+        List of short impact strings, one per identified missing header
+    """
+    _HEADER_IMPACT = {
+        'content-security-policy': 'Missing Content-Security-Policy allows arbitrary script execution',
+        'csp': 'Missing Content-Security-Policy allows arbitrary script execution',
+        'x-frame-options': 'Missing X-Frame-Options enables clickjacking via transparent iframes',
+        'x-content-type-options': 'Missing X-Content-Type-Options enables MIME-type confusion attacks',
+        'strict-transport-security': 'Missing HSTS permits HTTP downgrade and man-in-the-middle attacks',
+        'hsts': 'Missing HSTS permits HTTP downgrade and man-in-the-middle attacks',
+        'referrer-policy': 'Missing Referrer-Policy leaks sensitive URLs to third parties',
+        'permissions-policy': 'Missing Permissions-Policy allows unrestricted browser feature access',
+        'feature-policy': 'Missing Permissions-Policy allows unrestricted browser feature access',
+        'x-xss-protection': 'Missing X-XSS-Protection disables legacy browser XSS filter',
+    }
+    found = []
+    seen = set()
+    evidence_lower = evidence.lower()
+    for header_key, impact_phrase in _HEADER_IMPACT.items():
+        if header_key in evidence_lower and impact_phrase not in seen:
+            seen.add(impact_phrase)
+            found.append(impact_phrase)
+    return found
 
 
 def _build_exploitation_steps(vuln) -> list:
@@ -433,15 +504,174 @@ def _build_exploitation_steps(vuln) -> list:
         if current:
             steps.append(current)
 
-    # Absolute fallback – single summary step from evidence
-    if not steps and vuln.evidence:
-        steps.append({
-            'step': 1,
-            'title': 'Detection evidence',
-            'description': vuln.evidence[:300],
-            'request': '',
-            'response': '',
-        })
+    if steps:
+        return steps
+
+    # Type-specific fallback: generate meaningful steps from evidence
+    vuln_type = (vuln.vulnerability_type or '').lower()
+    evidence = (vuln.evidence or '').strip()
+    url = vuln.url or ''
+    param = vuln.parameter or 'the vulnerable parameter'
+
+    if vuln_type == 'security_misconfig' and evidence:
+        # Generate one step per missing header found in the evidence
+        _HEADER_STEPS = {
+            'content-security-policy': (
+                'Content-Security-Policy (CSP) header is absent',
+                'Without CSP, any injected script runs without restriction. '
+                'Inject a simple XSS payload into a reflected parameter and confirm execution.',
+            ),
+            'csp': (
+                'Content-Security-Policy (CSP) header is absent',
+                'Without CSP, any injected script runs without restriction. '
+                'Inject a simple XSS payload into a reflected parameter and confirm execution.',
+            ),
+            'x-frame-options': (
+                'X-Frame-Options header is absent',
+                'Frame the target page in a transparent iframe on an attacker-controlled site. '
+                'Confirm the page loads inside the iframe using: '
+                '<iframe src="' + _html.escape(url, quote=True) + '" style="opacity:0;position:absolute;'
+                'top:0;left:0;width:100%;height:100%;"></iframe>',
+            ),
+            'x-content-type-options': (
+                'X-Content-Type-Options header is absent',
+                'Upload a file with a misleading extension (e.g., a JS file named .jpg). '
+                'The browser will execute it based on content sniffing.',
+            ),
+            'strict-transport-security': (
+                'Strict-Transport-Security (HSTS) header is absent',
+                'Perform an SSL-strip man-in-the-middle attack to downgrade the connection '
+                'to plain HTTP and intercept session cookies or credentials.',
+            ),
+            'hsts': (
+                'Strict-Transport-Security (HSTS) header is absent',
+                'Perform an SSL-strip man-in-the-middle attack to downgrade the connection '
+                'to plain HTTP and intercept session cookies or credentials.',
+            ),
+        }
+        _HEADER_DISPLAY_NAMES = {
+            'content-security-policy': 'Content-Security-Policy',
+            'csp': 'Content-Security-Policy',
+            'x-frame-options': 'X-Frame-Options',
+            'x-content-type-options': 'X-Content-Type-Options',
+            'strict-transport-security': 'Strict-Transport-Security',
+            'hsts': 'Strict-Transport-Security (HSTS)',
+        }
+        evidence_lower = evidence.lower()
+        for header_key, (title, desc) in _HEADER_STEPS.items():
+            if header_key in evidence_lower:
+                display_name = _HEADER_DISPLAY_NAMES.get(header_key, header_key.title())
+                steps.append({
+                    'step': len(steps) + 1,
+                    'title': title,
+                    'description': desc,
+                    'request': f'GET {url} HTTP/1.1',
+                    'response': f'# Response is missing the {display_name} header',
+                })
+        if steps:
+            # Add a final confirmation step
+            steps.append({
+                'step': len(steps) + 1,
+                'title': 'Confirm impact of missing headers',
+                'description': (
+                    'Verify with a security header checker tool (e.g., securityheaders.com) '
+                    f'that the headers are absent from {url} and document each missing header '
+                    'alongside its specific attack scenario.'
+                ),
+                'request': '',
+                'response': '',
+            })
+            return steps
+
+    elif vuln_type in ('captcha_bypass', 'other') and evidence:
+        # Parse "Method N:" entries from captcha bypass evidence
+        method_steps = []
+        current_method = None
+        for line in evidence.splitlines():
+            stripped = line.strip()
+            if stripped.startswith('Method ') and ':' in stripped:
+                if current_method:
+                    method_steps.append(current_method)
+                method_num = stripped.split(':', 1)[0]
+                method_desc = stripped.split(':', 1)[1].strip() if ':' in stripped else stripped
+                current_method = {'num': method_num, 'desc': method_desc, 'detail': ''}
+            elif current_method and stripped:
+                current_method['detail'] = (current_method['detail'] + ' ' + stripped).strip()
+        if current_method:
+            method_steps.append(current_method)
+
+        if method_steps:
+            steps.append({
+                'step': 1,
+                'title': f'Identify the CAPTCHA-protected endpoint at {url}',
+                'description': (
+                    f'Navigate to {url} and observe the CAPTCHA challenge mechanism. '
+                    'Capture the request using a proxy (Burp Suite) to inspect the '
+                    'CAPTCHA token field and submission flow.'
+                ),
+                'request': '',
+                'response': '',
+            })
+            for ms in method_steps[:5]:
+                steps.append({
+                    'step': len(steps) + 1,
+                    'title': f"Bypass attempt: {ms['num']}",
+                    'description': ms['desc'] + (f' — {ms["detail"]}' if ms['detail'] else ''),
+                    'request': '',
+                    'response': '',
+                })
+            steps.append({
+                'step': len(steps) + 1,
+                'title': 'Confirm bypass and demonstrate automated abuse',
+                'description': (
+                    'Using the successful bypass method, send automated requests to the '
+                    f'endpoint at {url} without solving the CAPTCHA. '
+                    'Demonstrate that rate-limiting or anti-automation controls are ineffective.'
+                ),
+                'request': '',
+                'response': '',
+            })
+            return steps
+
+    # Universal 3-step fallback
+    if not steps:
+        vuln_type_display = vuln_type.replace('_', ' ').title()
+        steps = [
+            {
+                'step': 1,
+                'title': f'Identify the {vuln_type_display} vulnerability endpoint',
+                'description': (
+                    f'Navigate to {url} and locate the vulnerable parameter '
+                    f'"{param}". Evidence collected during detection: {evidence[:200]}'
+                    if evidence else
+                    f'Navigate to {url} and locate the vulnerable parameter "{param}".'
+                ),
+                'request': f'GET {url} HTTP/1.1',
+                'response': '',
+            },
+            {
+                'step': 2,
+                'title': f'Demonstrate the {vuln_type_display} issue',
+                'description': (
+                    f'Craft a proof-of-concept payload targeting "{param}" at {url} '
+                    f'that demonstrates the {vuln_type_display} vulnerability. '
+                    'Refer to the detection evidence for the specific trigger.'
+                ),
+                'request': '',
+                'response': '',
+            },
+            {
+                'step': 3,
+                'title': 'Confirm the impact',
+                'description': (
+                    f'Verify that the {vuln_type_display} vulnerability at {url} '
+                    'produces the expected impact (unauthorized data access, code execution, '
+                    'or security control bypass) and document the full request/response pair.'
+                ),
+                'request': '',
+                'response': '',
+            },
+        ]
 
     return steps
 
