@@ -876,6 +876,34 @@ IMPACT_MAP: Dict[str, Dict[str, Any]] = {
             'an unauthorized operation or access protected resources.'
         ),
     },
+    'crypto': {
+        'title_template': '{severity_adj} SSL/TLS Cryptographic Weakness on {url} Enables Man-in-the-Middle Attacks',
+        'attacker_impact': [
+            'Perform man-in-the-middle (MITM) attacks to intercept encrypted traffic',
+            'Decrypt sensitive data (credentials, session tokens, PII) in transit',
+            'Tamper with application data without detection by the client',
+            'Exploit expired or self-signed certificates to bypass browser trust warnings',
+            'Downgrade TLS connections to deprecated protocol versions (TLSv1.0/1.1, SSLv3)',
+            'Leverage weak cipher suites (RC4, 3DES, NULL, EXPORT) to decrypt captured traffic',
+        ],
+        'business_impact': [
+            'Credential and session token theft from users on untrusted networks',
+            'Regulatory non-compliance (PCI-DSS, HIPAA, GDPR mandate strong TLS)',
+            'Reputational damage from browser security warnings on expired/self-signed certificates',
+            'Loss of data confidentiality and integrity for all users of the affected service',
+        ],
+        'cvss_base': 7.4,
+        'cvss_vector': 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N',
+        'cvss_vector_exploited': 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N',
+        'cwe': 'CWE-295, CWE-326, CWE-327',
+        'owasp': 'A02:2021 – Cryptographic Failures',
+        'scenario': (
+            'An attacker on the same network (public Wi-Fi, rogue access point, BGP hijack) '
+            'intercepts the TLS handshake. Because the server presents a weak, expired, or '
+            'self-signed certificate, or accepts a deprecated protocol, the attacker can '
+            'decrypt the traffic stream and extract authentication credentials or session tokens.'
+        ),
+    },
 }
 
 # Attack chain pairs — if both vulns are present in the same scan, note escalation
@@ -1004,6 +1032,13 @@ REMEDIATION_DEFAULTS: Dict[str, str] = {
     'api_key_exposure': 'Rotate exposed API keys immediately. '
                         'Store secrets in environment variables or a secrets manager, never in code. '
                         'Audit public repositories and client-side bundles for hardcoded credentials.',
+    'crypto': 'Renew SSL/TLS certificates before expiry and use certificates signed by a trusted CA. '
+              'Ensure the certificate CN/SAN matches every hostname served. '
+              'Disable deprecated protocols: SSLv2, SSLv3, TLSv1.0, and TLSv1.1; '
+              'support only TLSv1.2 and TLSv1.3. '
+              'Configure cipher suites to exclude weak algorithms (NULL, EXPORT, DES, RC4, MD5, anon, 3DES). '
+              'Prefer AEAD cipher suites with forward secrecy (ECDHE-RSA-AES256-GCM-SHA384, etc.). '
+              'Enable HTTP Strict Transport Security (HSTS) with a long max-age.',
     'other': 'Review and remediate the identified vulnerability following '
              'OWASP secure coding guidelines.',
 }
