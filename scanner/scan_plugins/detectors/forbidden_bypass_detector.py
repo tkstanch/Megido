@@ -33,6 +33,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +83,7 @@ def _build_remediation(technique: str, bypass_url: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
+class ForbiddenBypassDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Detects 403 Forbidden bypass vulnerabilities via multiple evasion categories.
 
@@ -243,7 +245,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                 if resp.status_code in _SUCCESS_CODES:
                     technique = f"HTTP method changed to {method}"
                     logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                    findings.append(self._make_finding(
+                    _f = self._make_finding(
                         url=url,
                         technique=technique,
                         bypass_url=url,
@@ -251,7 +253,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                         response_headers=dict(resp.headers),
                         body_preview=resp.text[:500] if resp.text else '',
                         category='Method Tampering',
-                    ))
+                    )
+                    self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                    findings.append(_f)
             except Exception as exc:
                 logger.debug("Method %s on %s failed: %s", method, url, exc)
 
@@ -267,7 +271,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                     if resp.status_code in _SUCCESS_CODES:
                         technique = f"{override_header}: {method} override header"
                         logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                        findings.append(self._make_finding(
+                        _f = self._make_finding(
                             url=url,
                             technique=technique,
                             bypass_url=url,
@@ -275,7 +279,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                             response_headers=dict(resp.headers),
                             body_preview=resp.text[:500] if resp.text else '',
                             category='Method Tampering',
-                        ))
+                        )
+                        self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                        findings.append(_f)
                 except Exception as exc:
                     logger.debug("Override header %s=%s on %s failed: %s",
                                  override_header, method, url, exc)
@@ -338,7 +344,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                 if resp.status_code in _SUCCESS_CODES:
                     technique = f"Path manipulation: {variant_path}"
                     logger.info("Bypass found [%s]: %s → %d", technique, variant_url, resp.status_code)
-                    findings.append(self._make_finding(
+                    _f = self._make_finding(
                         url=url,
                         technique=technique,
                         bypass_url=variant_url,
@@ -346,7 +352,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                         response_headers=dict(resp.headers),
                         body_preview=resp.text[:500] if resp.text else '',
                         category='Path Manipulation',
-                    ))
+                    )
+                    self._attach_vpoc(_f, resp, variant_url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                    findings.append(_f)
             except Exception as exc:
                 logger.debug("Path variant %s on %s failed: %s", variant_url, url, exc)
 
@@ -396,7 +404,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                 if resp.status_code in _SUCCESS_CODES:
                     technique = f"Header bypass: {header_desc}"
                     logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                    findings.append(self._make_finding(
+                    _f = self._make_finding(
                         url=url,
                         technique=technique,
                         bypass_url=url,
@@ -404,7 +412,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                         response_headers=dict(resp.headers),
                         body_preview=resp.text[:500] if resp.text else '',
                         category='Header Bypass',
-                    ))
+                    )
+                    self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                    findings.append(_f)
             except Exception as exc:
                 logger.debug("Header set [%s] on %s failed: %s", header_desc, url, exc)
 
@@ -434,7 +444,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
             if resp.status_code in _SUCCESS_CODES:
                 technique = "CRLF injection into URL path (X-Rewrite-URL bypass)"
                 logger.info("Bypass found [%s]: %s → %d", technique, crlf_url, resp.status_code)
-                findings.append(self._make_finding(
+                _f = self._make_finding(
                     url=url,
                     technique=technique,
                     bypass_url=crlf_url,
@@ -442,7 +452,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                     response_headers=dict(resp.headers),
                     body_preview=resp.text[:500] if resp.text else '',
                     category='Protocol Tricks',
-                ))
+                )
+                self._attach_vpoc(_f, resp, crlf_url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                findings.append(_f)
         except Exception as exc:
             logger.debug("CRLF bypass on %s failed: %s", crlf_url, exc)
 
@@ -457,7 +469,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
             if resp.status_code in _SUCCESS_CODES:
                 technique = "HTTP/1.0 downgrade (Connection: close)"
                 logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                findings.append(self._make_finding(
+                _f = self._make_finding(
                     url=url,
                     technique=technique,
                     bypass_url=url,
@@ -465,7 +477,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                     response_headers=dict(resp.headers),
                     body_preview=resp.text[:500] if resp.text else '',
                     category='Protocol Tricks',
-                ))
+                )
+                self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                findings.append(_f)
         except Exception as exc:
             logger.debug("HTTP/1.0 downgrade on %s failed: %s", url, exc)
 
@@ -498,7 +512,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
             if resp.status_code in _SUCCESS_CODES:
                 technique = "Combined proxy-escape headers (X-Accel-Redirect + X-Forwarded-Path + X-Original-URL + X-Rewrite-URL)"
                 logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                findings.append(self._make_finding(
+                _f = self._make_finding(
                     url=url,
                     technique=technique,
                     bypass_url=url,
@@ -506,7 +520,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                     response_headers=dict(resp.headers),
                     body_preview=resp.text[:500] if resp.text else '',
                     category='Proxy Chain Escape',
-                ))
+                )
+                self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                findings.append(_f)
         except Exception as exc:
             logger.debug("Combined proxy headers on %s failed: %s", url, exc)
 
@@ -522,7 +538,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                 if resp.status_code in _SUCCESS_CODES:
                     technique = f"Alternate Host header: Host: {host}"
                     logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                    findings.append(self._make_finding(
+                    _f = self._make_finding(
                         url=url,
                         technique=technique,
                         bypass_url=url,
@@ -530,7 +546,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                         response_headers=dict(resp.headers),
                         body_preview=resp.text[:500] if resp.text else '',
                         category='Proxy Chain Escape',
-                    ))
+                    )
+                    self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                    findings.append(_f)
             except Exception as exc:
                 logger.debug("Host header %s on %s failed: %s", host, url, exc)
 
@@ -561,7 +579,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                 if resp.status_code in _SUCCESS_CODES:
                     technique = f"Service mesh internal Host header: Host: {host}"
                     logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                    findings.append(self._make_finding(
+                    _f = self._make_finding(
                         url=url,
                         technique=technique,
                         bypass_url=url,
@@ -569,7 +587,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                         response_headers=dict(resp.headers),
                         body_preview=resp.text[:500] if resp.text else '',
                         category='Service Mesh Bypass',
-                    ))
+                    )
+                    self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                    findings.append(_f)
             except Exception as exc:
                 logger.debug("Service mesh Host %s on %s failed: %s", host, url, exc)
 
@@ -583,7 +603,7 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
             if resp.status_code in _SUCCESS_CODES:
                 technique = "X-Service-Router: admin header"
                 logger.info("Bypass found [%s]: %s → %d", technique, url, resp.status_code)
-                findings.append(self._make_finding(
+                _f = self._make_finding(
                     url=url,
                     technique=technique,
                     bypass_url=url,
@@ -591,7 +611,9 @@ class ForbiddenBypassDetectorPlugin(BaseScanPlugin):
                     response_headers=dict(resp.headers),
                     body_preview=resp.text[:500] if resp.text else '',
                     category='Service Mesh Bypass',
-                ))
+                )
+                self._attach_vpoc(_f, resp, url, 0.85, reproduction_steps="1. Send request to restricted path\n2. Observe 403 bypass with alternate technique")
+                findings.append(_f)
         except Exception as exc:
             logger.debug("X-Service-Router on %s failed: %s", url, exc)
 

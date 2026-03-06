@@ -37,6 +37,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +117,7 @@ _REMEDIATION = (
 # Plugin class
 # ---------------------------------------------------------------------------
 
-class JavaScriptHijackingDetectorPlugin(BaseScanPlugin):
+class JavaScriptHijackingDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Detects JavaScript Hijacking / JSONP Data Exposure vulnerabilities.
 
@@ -222,6 +224,7 @@ class JavaScriptHijackingDetectorPlugin(BaseScanPlugin):
             # Non-HTML: analyse the fetched URL directly.
             finding = self._analyse_response(url, resp.headers, body)
             if finding:
+                self._attach_vpoc(finding, resp, '', 0.75, reproduction_steps="1. Send GET request to JavaScript file\n2. Observe sensitive data or hijackable content")
                 findings.append(finding)
 
         # Step 2: Heuristic probing (only for API-like URLs or those with a QS).
@@ -258,6 +261,7 @@ class JavaScriptHijackingDetectorPlugin(BaseScanPlugin):
 
             finding = self._analyse_response(candidate_url, c_resp.headers, c_body)
             if finding:
+                self._attach_vpoc(finding, c_resp, '', 0.75, reproduction_steps="1. Send GET request to JavaScript file\n2. Observe sensitive data or hijackable content")
                 findings.append(finding)
 
         logger.info('JS hijacking scan of %s – %d finding(s)', url, len(findings))

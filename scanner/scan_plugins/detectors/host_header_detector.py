@@ -22,6 +22,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,7 @@ _REMEDIATION = (
 )
 
 
-class HostHeaderDetectorPlugin(BaseScanPlugin):
+class HostHeaderDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Host header injection detection plugin.
 
@@ -217,7 +219,7 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
 
             # Check if the current page itself is a reset page
             if self._is_reset_page(url, response.text):
-                return VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='host_header',
                     severity='high',
                     url=url,
@@ -240,9 +242,11 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                     cwe_id='CWE-644',
                     verified=True,
                 )
+                self._attach_vpoc(finding, response, probe_host, 0.90, reproduction_steps="1. Send request with injected Host header\n2. Observe host value reflected in response or redirect")
+                return finding
 
             # Generic body reflection only — no confirmed exploitable impact
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='host_header',
                 severity='info',
                 url=url,
@@ -265,11 +269,13 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 cwe_id='CWE-644',
                 verified=False,
             )
+            self._attach_vpoc(finding, response, probe_host, 0.40, reproduction_steps="1. Send request with injected Host header\n2. Observe host value reflected in response or redirect")
+            return finding
 
         # Check reflection in Location redirect header
         location = response.headers.get('Location', '')
         if probe_host in location:
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='host_header',
                 severity='high',
                 url=url,
@@ -291,6 +297,8 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 cwe_id='CWE-644',
                 verified=True,
             )
+            self._attach_vpoc(finding, response, probe_host, 0.90, reproduction_steps="1. Send request with injected Host header\n2. Observe host value reflected in response or redirect")
+            return finding
 
         return None
 
@@ -320,7 +328,7 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
             return None
 
         if probe_host in response.text and probe_host not in baseline_text:
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='host_header',
                 severity='medium',
                 url=url,
@@ -342,6 +350,8 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 confidence=0.75,
                 cwe_id='CWE-644',
             )
+            self._attach_vpoc(finding, response, probe_host, 0.75, reproduction_steps="1. Send request with injected Host header\n2. Observe host value reflected in response or redirect")
+            return finding
 
         return None
 
@@ -386,7 +396,7 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                 continue
 
             if response.status_code in (200, 302) and probe_host in response.text:
-                return VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='host_header',
                     severity='high',
                     url=reset_url,
@@ -409,6 +419,8 @@ class HostHeaderDetectorPlugin(BaseScanPlugin):
                     cwe_id='CWE-644',
                     verified=True,
                 )
+                self._attach_vpoc(finding, response, probe_host, 0.95, reproduction_steps="1. Send request with injected Host header\n2. Observe host value reflected in response or redirect")
+                return finding
         return None
 
     def get_default_config(self) -> Dict[str, Any]:

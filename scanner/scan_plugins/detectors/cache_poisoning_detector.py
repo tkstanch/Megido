@@ -20,6 +20,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ _REMEDIATION = (
 )
 
 
-class CachePoisoningDetectorPlugin(BaseScanPlugin):
+class CachePoisoningDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Web cache poisoning detector plugin.
 
@@ -185,7 +187,7 @@ class CachePoisoningDetectorPlugin(BaseScanPlugin):
                 'making cache poisoning likely exploitable.'
             )
 
-        return VulnerabilityFinding(
+        finding = VulnerabilityFinding(
             vulnerability_type='cache_poisoning',
             severity=severity,
             url=url,
@@ -201,6 +203,8 @@ class CachePoisoningDetectorPlugin(BaseScanPlugin):
             confidence=0.85,
             cwe_id='CWE-444',
         )
+        self._attach_vpoc(finding, response, probe_value, 0.85, reproduction_steps="1. Send request with cache-poisoning headers\n2. Observe poisoned response")
+        return finding
 
     @staticmethod
     def _is_cacheable(response: 'requests.Response') -> bool:

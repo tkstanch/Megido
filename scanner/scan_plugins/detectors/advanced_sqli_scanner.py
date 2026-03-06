@@ -41,12 +41,14 @@ except ImportError:
     logging.warning("SQL Injection Engine not available")
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 from scanner.scan_plugins.stealth_scan_mixin import StealthScanMixin
 
 logger = logging.getLogger(__name__)
 
 
-class AdvancedSQLiScannerPlugin(StealthScanMixin, BaseScanPlugin):
+class AdvancedSQLiScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
     """
     Advanced SQL Injection vulnerability detection plugin.
     
@@ -187,7 +189,7 @@ class AdvancedSQLiScannerPlugin(StealthScanMixin, BaseScanPlugin):
                 for error in sql_errors:
                     if error in response_lower:
                         # Found potential SQL injection
-                        return VulnerabilityFinding(
+                        finding = VulnerabilityFinding(
                             vulnerability_type='sqli',
                             severity='critical',
                             url=url,
@@ -198,6 +200,8 @@ class AdvancedSQLiScannerPlugin(StealthScanMixin, BaseScanPlugin):
                             confidence=0.7,  # Medium-high confidence for error-based
                             cwe_id='CWE-89'  # SQL Injection
                         )
+                        self._attach_vpoc(finding, response, payload, 0.7, reproduction_steps="1. Send request with SQL injection payload\n2. Observe database error or time delay\n3. Confirm SQL injection vulnerability")
+                        return finding
         
         except Exception as e:
             logger.debug(f"Error testing parameter {parameter}: {e}")

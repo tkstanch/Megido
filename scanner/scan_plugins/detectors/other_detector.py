@@ -15,11 +15,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class OtherDetectorPlugin(BaseScanPlugin):
+class OtherDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """Generic vulnerability detection plugin."""
     
     # Generic vulnerability indicators
@@ -184,6 +186,7 @@ class OtherDetectorPlugin(BaseScanPlugin):
                     confidence=0.8,
                     cwe_id='CWE-489'
                 )
+                self._attach_vpoc(finding, response, '', 0.8, reproduction_steps="1. Send GET request to target URL\n2. Observe debug information in response")
                 findings.append(finding)
 
             logger.info(f"Generic scan found {len(findings)} issue(s)")

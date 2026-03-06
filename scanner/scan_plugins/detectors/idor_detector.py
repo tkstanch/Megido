@@ -26,6 +26,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ _REMEDIATION = (
 )
 
 
-class IDORDetectorPlugin(BaseScanPlugin):
+class IDORDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     IDOR vulnerability detection plugin.
 
@@ -231,7 +233,7 @@ class IDORDetectorPlugin(BaseScanPlugin):
             len(test_response.text) != len(orig_response.text)
         ):
             severity = 'high'
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='idor',
                 severity=severity,
                 url=original_url,
@@ -252,6 +254,8 @@ class IDORDetectorPlugin(BaseScanPlugin):
                 confidence=0.60,
                 cwe_id='CWE-639',
             )
+            self._attach_vpoc(finding, test_response, str(candidate_value), 0.60, reproduction_steps="1. Substitute object ID in parameter\n2. Observe unauthorized data in response")
+            return finding
         return None
 
     def _probe_uuid(
@@ -277,7 +281,7 @@ class IDORDetectorPlugin(BaseScanPlugin):
             return None
 
         if test_response.status_code == 200 and len(test_response.text) > 100:
-            return VulnerabilityFinding(
+            finding = VulnerabilityFinding(
                 vulnerability_type='idor',
                 severity='medium',
                 url=original_url,
@@ -297,6 +301,8 @@ class IDORDetectorPlugin(BaseScanPlugin):
                 confidence=0.50,
                 cwe_id='CWE-639',
             )
+            self._attach_vpoc(finding, test_response, candidate_uuid, 0.50, reproduction_steps="1. Substitute object ID in parameter\n2. Observe unauthorized data in response")
+            return finding
         return None
 
     def _test_path_segments(
@@ -335,7 +341,7 @@ class IDORDetectorPlugin(BaseScanPlugin):
                     len(test_response.text) > 100 and
                     len(test_response.text) != len(orig_response.text)
                 ):
-                    findings.append(VulnerabilityFinding(
+                    finding = VulnerabilityFinding(
                         vulnerability_type='idor',
                         severity='high',
                         url=url,
@@ -354,7 +360,9 @@ class IDORDetectorPlugin(BaseScanPlugin):
                         parameter=f'path[{idx}]',
                         confidence=0.60,
                         cwe_id='CWE-639',
-                    ))
+                    )
+                    self._attach_vpoc(finding, test_response, str(candidate), 0.60, reproduction_steps="1. Substitute object ID in parameter\n2. Observe unauthorized data in response")
+                    findings.append(finding)
                     break  # one finding per path segment is sufficient
 
         return findings

@@ -37,6 +37,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +78,7 @@ _SENSITIVE_INPUT_NAMES = [
 _ALTERNATE_PATHS: List[str] = ['/mobile', '/m', '/app', '/lite']
 
 
-class ClickjackingDetectorPlugin(BaseScanPlugin):
+class ClickjackingDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Detects UI Redress / Clickjacking exposure via anti-framing header analysis.
 

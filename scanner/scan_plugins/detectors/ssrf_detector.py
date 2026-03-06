@@ -17,11 +17,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class SSRFDetectorPlugin(BaseScanPlugin):
+class SSRFDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     SSRF vulnerability detection plugin.
     
@@ -181,6 +183,7 @@ class SSRFDetectorPlugin(BaseScanPlugin):
                                     confidence=0.85,
                                     cwe_id='CWE-918'  # SSRF
                                 )
+                                self._attach_vpoc(finding, test_response, f'http://{target}/', 0.85, reproduction_steps="1. Send request with internal URL payload\n2. Observe response indicating internal network access")
                                 findings.append(finding)
                                 logger.info(f"Found SSRF in {param_name}")
                                 return findings
@@ -248,6 +251,7 @@ class SSRFDetectorPlugin(BaseScanPlugin):
                                 confidence=0.95,
                                 cwe_id='CWE-918'
                             )
+                            self._attach_vpoc(finding, test_response, metadata_url, 0.95, reproduction_steps="1. Send request with internal URL payload\n2. Observe response indicating internal network access")
                             findings.append(finding)
                             logger.info(f"Found SSRF with metadata access in {param_name}")
                             return findings

@@ -21,6 +21,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ _REMEDIATION = (
 )
 
 
-class CRLFDetectorPlugin(BaseScanPlugin):
+class CRLFDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     CRLF injection / HTTP header injection detection plugin.
 
@@ -161,7 +163,7 @@ class CRLFDetectorPlugin(BaseScanPlugin):
             if header_name.lower() in _INJECTED_HEADERS:
                 header_value = response.headers[header_name]
                 if 'crlf' in header_value.lower() or 'crlf_test' in header_value.lower():
-                    return VulnerabilityFinding(
+                    finding = VulnerabilityFinding(
                         vulnerability_type='crlf',
                         severity='high',
                         url=original_url,
@@ -182,6 +184,8 @@ class CRLFDetectorPlugin(BaseScanPlugin):
                         verified=True,
                         successful_payloads=[payload],
                     )
+                    self._attach_vpoc(finding, response, payload, 0.95, reproduction_steps="1. Send request with CRLF payload in parameter\n2. Observe injected headers in response")
+                    return finding
 
         return None
 

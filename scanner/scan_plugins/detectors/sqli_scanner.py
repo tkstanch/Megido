@@ -37,6 +37,8 @@ except ImportError:
     HAS_ADVANCED_PAYLOADS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +190,7 @@ _EXTRACTION_RESULT_PATTERNS = [
 ]
 
 
-class SQLiScannerPlugin(BaseScanPlugin):
+class SQLiScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     SQL Injection detection plugin.
 
@@ -398,7 +400,7 @@ class SQLiScannerPlugin(BaseScanPlugin):
                                 'contents. Provide a PoC that extracts database name/version '
                                 'to confirm impact.'
                             )
-                        return VulnerabilityFinding(
+                        finding = VulnerabilityFinding(
                             vulnerability_type='sqli',
                             severity='high',
                             url=url,
@@ -411,6 +413,8 @@ class SQLiScannerPlugin(BaseScanPlugin):
                             verified=verified,
                             successful_payloads=[payload],
                         )
+                        self._attach_vpoc(finding, response, payload, confidence, reproduction_steps="1. Send request with SQL injection payload\n2. Observe SQL error in response")
+                        return finding
         return None
 
     # ------------------------------------------------------------------
@@ -454,7 +458,7 @@ class SQLiScannerPlugin(BaseScanPlugin):
             false_differs = abs(false_len - true_len) > max(50, true_len * 0.05)
 
             if true_matches_baseline and false_differs:
-                return VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='sqli',
                     severity='high',
                     url=url,
@@ -474,6 +478,8 @@ class SQLiScannerPlugin(BaseScanPlugin):
                     cwe_id='CWE-89',
                     successful_payloads=[true_suffix, false_suffix],
                 )
+                self._attach_vpoc(finding, true_response, true_suffix, 0.80, reproduction_steps="1. Send request with SQL injection payload\n2. Observe SQL error in response")
+                return finding
         return None
 
     # ------------------------------------------------------------------
@@ -604,7 +610,7 @@ class SQLiScannerPlugin(BaseScanPlugin):
                         'using UNION SELECT. Provide a PoC extracting database name/version '
                         'to confirm impact.'
                     )
-                return VulnerabilityFinding(
+                finding = VulnerabilityFinding(
                     vulnerability_type='sqli',
                     severity='critical',
                     url=url,
@@ -617,6 +623,8 @@ class SQLiScannerPlugin(BaseScanPlugin):
                     verified=verified,
                     successful_payloads=[payload],
                 )
+                self._attach_vpoc(finding, response, payload, confidence, reproduction_steps="1. Send request with SQL injection payload\n2. Observe SQL error in response")
+                return finding
         return None
 
     # ------------------------------------------------------------------

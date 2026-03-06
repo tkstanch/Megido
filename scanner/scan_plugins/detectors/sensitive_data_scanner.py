@@ -24,11 +24,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class SensitiveDataScannerPlugin(BaseScanPlugin):
+class SensitiveDataScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Enhanced sensitive data exposure detection plugin.
     
@@ -350,6 +352,7 @@ class SensitiveDataScannerPlugin(BaseScanPlugin):
                             confidence=0.85,
                             cwe_id=pattern_info['cwe_id']
                         )
+                        self._attach_vpoc(finding, response, matched_text, 0.85, reproduction_steps="1. Send GET request to target URL\n2. Observe sensitive data patterns in response")
                         findings.append(finding)
                     
                     if len(matches) > max_per_pattern:

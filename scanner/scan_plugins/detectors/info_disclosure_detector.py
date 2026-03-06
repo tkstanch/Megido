@@ -16,11 +16,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding, create_repeater_request
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class InfoDisclosureDetectorPlugin(BaseScanPlugin):
+class InfoDisclosureDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """Information Disclosure detection plugin."""
     
     # Patterns for sensitive information
@@ -115,6 +117,7 @@ class InfoDisclosureDetectorPlugin(BaseScanPlugin):
                     successful_payloads=None,  # Detection, not exploitation
                     repeater_requests=[repeater_req]
                 )
+                self._attach_vpoc(finding, response, pattern_name, 0.8, reproduction_steps="1. Send GET request to target URL\n2. Observe sensitive data in response")
                 findings.append(finding)
             
             logger.info(f"Info disclosure scan found {len(findings)} issue(s)")

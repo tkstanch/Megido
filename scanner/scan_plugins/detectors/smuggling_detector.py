@@ -23,6 +23,8 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ _REMEDIATION = (
 _TIMING_THRESHOLD = 5.0
 
 
-class SmugglingDetectorPlugin(BaseScanPlugin):
+class SmugglingDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     HTTP request smuggling detection plugin.
 

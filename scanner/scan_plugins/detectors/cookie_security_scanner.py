@@ -23,11 +23,13 @@ except ImportError:
     HAS_REQUESTS = False
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
+from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+
 
 logger = logging.getLogger(__name__)
 
 
-class CookieSecurityScannerPlugin(BaseScanPlugin):
+class CookieSecurityScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     """
     Cookie security scanner plugin.
     
