@@ -12,7 +12,9 @@ urlpatterns = [
     # Existing endpoints (backward compatible)
     # -------------------------------------------------------------------------
     path('api/requests/', views.repeater_requests, name='repeater_requests'),
+    path('api/requests/<int:request_id>/', views.repeater_request_detail, name='repeater_request_detail'),
     path('api/requests/<int:request_id>/send/', views.send_request, name='send_request'),
+    path('api/scans/<int:scan_id>/requests/', views.scan_requests, name='scan_requests'),
 
     # -------------------------------------------------------------------------
     # Tabs

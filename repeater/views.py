@@ -48,6 +48,9 @@ def _request_to_dict(req):
         'body': req.body,
         'tab_id': req.tab_id,
         'tab_history_index': req.tab_history_index,
+        'scan_id': req.scan_id,
+        'source': req.source,
+        'analysis_advice': req.analysis_advice,
         'created_at': req.created_at.isoformat(),
     }
 
@@ -80,7 +83,11 @@ def repeater_dashboard(request):
 def repeater_requests(request):
     """List or create repeater requests"""
     if request.method == 'GET':
-        reqs = RepeaterRequest.objects.all()[:50]
+        qs = RepeaterRequest.objects.all()
+        scan_id = request.query_params.get('scan_id')
+        if scan_id:
+            qs = qs.filter(scan_id=scan_id)
+        reqs = qs[:50]
         return Response([_request_to_dict(r) for r in reqs])
 
     elif request.method == 'POST':
@@ -101,6 +108,16 @@ def repeater_requests(request):
             tab=tab,
         )
         return Response({'id': req.id, 'message': 'Request created'}, status=201)
+
+
+@api_view(['GET'])
+def repeater_request_detail(request, request_id):
+    """Return details of a single RepeaterRequest."""
+    try:
+        req = RepeaterRequest.objects.get(id=request_id)
+    except RepeaterRequest.DoesNotExist:
+        return Response({'error': 'Request not found'}, status=404)
+    return Response(_request_to_dict(req))
 
 
 @api_view(['POST'])
@@ -516,3 +533,15 @@ def hexdump_view(request):
         return Response({'error': 'Provide "response_id" or "text"'}, status=400)
 
     return Response({'hexdump': hexdump(text)})
+
+
+
+# ---------------------------------------------------------------------------
+# Scanner captures
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+def scan_requests(request, scan_id):
+    """Return all Repeater requests captured for a specific scan."""
+    reqs = RepeaterRequest.objects.filter(scan_id=scan_id).order_by('created_at')
+    return Response([_request_to_dict(r) for r in reqs])
