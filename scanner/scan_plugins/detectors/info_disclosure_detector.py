@@ -141,6 +141,10 @@ class InfoDisclosureDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         except Exception as e:
             logger.error(f"Error during info disclosure scan: {e}")
         
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
     
     def _is_pattern_verified(self, pattern_name: str, matches: List, response) -> bool:

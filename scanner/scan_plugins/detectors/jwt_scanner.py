@@ -194,6 +194,10 @@ class JWTScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
                 seen.add(key)
                 unique.append(f)
 
+        # Adaptive learning: record failure if no findings
+        if not unique and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
+
         logger.info("JWT scan of %s – %d finding(s)", url, len(unique))
         return unique
 

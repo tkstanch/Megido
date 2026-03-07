@@ -134,6 +134,10 @@ class CachePoisoningDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
             logger.error("Unexpected error during cache poisoning scan of %s: %s", url, exc)
 
         logger.info("Cache poisoning scan of %s – %d finding(s)", url, len(findings))
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
 
     # ------------------------------------------------------------------

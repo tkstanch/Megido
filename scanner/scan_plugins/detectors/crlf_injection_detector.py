@@ -216,6 +216,10 @@ class CRLFInjectionDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
             findings.append(self._cookie_injection_finding(url))
 
         logger.info("CRLF scan of %s – %d finding(s)", url, len(findings))
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
 
     # ------------------------------------------------------------------
