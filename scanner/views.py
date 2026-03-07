@@ -61,12 +61,15 @@ def start_scan(request, target_id):
         
         # Read optional DoS testing opt-in flag from request body
         enable_dos_testing = bool(request.data.get('enable_dos_testing', False))
+        # Read optional SQL Injection testing opt-in flag from request body
+        enable_sqli_testing = bool(request.data.get('enable_sqli_testing', False))
 
         # Create scan with 'pending' status
         scan = Scan.objects.create(
             target=target,
             status='pending',
             enable_dos_testing=enable_dos_testing,
+            enable_sqli_testing=enable_sqli_testing,
         )
         
         # Trigger Celery task to run scan in background
@@ -88,7 +91,7 @@ def start_scan(request, target_id):
         return Response({'error': f'Failed to start scan: {str(e)}'}, status=500)
 
 
-def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_first=False, enable_dos_testing=False):
+def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_first=False, enable_dos_testing=False, enable_sqli_testing=False):
     """
     Perform basic vulnerability scanning using the plugin-based scan engine.
 
@@ -106,6 +109,8 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
         enable_dos_testing: If True, include DoS-related plugins in the scan.
             Defaults to False so that potentially destructive tests require
             explicit user opt-in.
+        enable_sqli_testing: If True, run SQL Injection tests via the SQL
+            Attacker engine after the main scan completes.  Defaults to False.
 
     Note: This maintains backward compatibility with existing scan API and UI.
     """
@@ -230,10 +235,67 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
         except Exception as e:
             print(f"Warning: Could not apply advanced features: {e}")
 
+        # Run SQL Injection testing if enabled
+        if enable_sqli_testing or getattr(scan, 'enable_sqli_testing', False):
+            _run_sqli_testing(scan)
+
     except Exception as e:
         print(f"Error during scan: {e}")
         # Re-raise exception for upstream handling
         raise
+
+
+def _get_scan_vuln_urls(scan):
+    """
+    Return the set of unique URLs to test for SQL injection for *scan*.
+
+    Uses the scan's discovered vulnerability URLs when available, falling back
+    to the scan target URL when none have been recorded yet.
+    """
+    urls = set(
+        scan.vulnerabilities.exclude(url='').values_list('url', flat=True)
+    )
+    if not urls:
+        urls = {scan.target.url}
+    return urls
+
+
+def _run_sqli_testing(scan):
+    """
+    Run SQL Injection tests via the SQL Attacker engine for all discovered
+    vulnerability URLs associated with *scan*.
+
+    Creates a SQLInjectionTask for each unique target URL found in the scan's
+    vulnerabilities and executes it synchronously.  Failures are logged as
+    warnings but never propagate — the scanner must remain functional even
+    when the sql_attacker module is unavailable.
+    """
+    try:
+        from sql_attacker.models import SQLInjectionTask
+        from sql_attacker.services import execute_task
+    except ImportError:
+        logger.warning("sql_attacker module not available; skipping SQL Injection testing.")
+        return
+
+    try:
+        for target_url in _get_scan_vuln_urls(scan):
+            try:
+                sqli_task = SQLInjectionTask.objects.create(
+                    target_url=target_url,
+                    http_method='GET',
+                )
+                execute_task(sqli_task.id)
+                logger.info(
+                    "SQLi test completed for scan %d, url %s (task %d)",
+                    scan.id, target_url, sqli_task.id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "SQLi test failed for scan %d, url %s: %s",
+                    scan.id, target_url, exc,
+                )
+    except Exception as exc:
+        logger.warning("SQLi testing could not be initiated for scan %d: %s", scan.id, exc)
 
 
 @api_view(['GET'])
@@ -309,9 +371,55 @@ def scan_results(request, scan_id):
                 'exploitation_steps': _build_exploitation_steps(vuln),
             } for vuln in vulnerabilities]
         }
+
+        # Include SQL Injection testing results if the scan had SQLi testing enabled
+        if getattr(scan, 'enable_sqli_testing', False):
+            data['sqli_results'] = _collect_sqli_results(scan)
+
         return Response(data, status=200)
     except Scan.DoesNotExist:
         return Response({'error': 'Scan not found'}, status=404)
+
+
+def _collect_sqli_results(scan):
+    """
+    Collect SQL Injection results from the sql_attacker module for URLs
+    associated with *scan*.
+
+    Returns a list of result dicts, or an empty list when the sql_attacker
+    module is unavailable or no results exist.
+    """
+    try:
+        from sql_attacker.models import SQLInjectionTask, SQLInjectionResult
+    except ImportError:
+        return []
+
+    try:
+        tasks = SQLInjectionTask.objects.filter(
+            target_url__in=_get_scan_vuln_urls(scan),
+            created_at__gte=scan.started_at,
+        )
+        results = []
+        for task in tasks:
+            for result in SQLInjectionResult.objects.filter(task=task):
+                results.append({
+                    'task_id': task.id,
+                    'target_url': task.target_url,
+                    'status': task.status,
+                    'result_id': result.id,
+                    'injection_type': result.injection_type,
+                    'parameter': result.vulnerable_parameter,
+                    'payload': result.test_payload,
+                    'confidence_score': result.confidence_score,
+                    'risk_score': result.risk_score,
+                    'database_type': result.database_type,
+                    'severity': result.severity,
+                    'detected_at': result.detected_at.isoformat() if result.detected_at else None,
+                })
+        return results
+    except Exception as exc:
+        logger.warning("Could not collect SQLi results for scan %d: %s", scan.id, exc)
+        return []
 
 
 def _parse_poc_steps(poc_steps_json):

@@ -102,6 +102,13 @@
                 </label>
                 <p class="text-sm mt-1" style="color: #92400e;">⚠️ Warning: DoS tests can impact target availability. Only enable if you have explicit authorization to perform availability testing.</p>
             </div>
+            <div class="form-group" style="border: 2px solid #3b82f6; border-radius: 0.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.05);">
+                <label class="form-label flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="enable-sqli-testing" style="width:1rem;height:1rem;accent-color:#3b82f6;">
+                    <span style="color: #1d4ed8; font-weight: 600;">🗃️ Enable SQL Injection Testing (SQL Attacker)</span>
+                </label>
+                <p class="text-sm mt-1" style="color: #1e40af;">When enabled, discovered URLs and parameters will also be tested for SQL injection vulnerabilities using the SQL Attacker engine after the scan completes.</p>
+            </div>
             <button class="btn btn-primary btn-ultra-premium ripple-container" id="start-scan-btn">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
@@ -418,6 +425,7 @@ async function startScan() {
         
         // Start scan with authentication
         const enableDosTesting = document.getElementById('enable-dos-testing')?.checked ?? false;
+        const enableSqliTesting = document.getElementById('enable-sqli-testing')?.checked ?? false;
         const scanResponse = await fetch(`/scanner/api/targets/${target.id}/scan/`, {
             method: 'POST',
             headers: {
@@ -425,7 +433,7 @@ async function startScan() {
                 'X-CSRFToken': csrfToken
             },
             credentials: 'same-origin',
-            body: JSON.stringify({ enable_dos_testing: enableDosTesting })
+            body: JSON.stringify({ enable_dos_testing: enableDosTesting, enable_sqli_testing: enableSqliTesting })
         });
         
         // Check response status before parsing JSON
