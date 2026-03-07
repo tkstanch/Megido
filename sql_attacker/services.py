@@ -311,6 +311,7 @@ def _auto_create_bug_report(result: "SQLInjectionResult") -> None:
 
         # Generate a sequential bug_id scoped to the current year
         import datetime
+        import re as _re
         year = datetime.datetime.now().year
         prefix = f"SQLI-{year}-"
         last = (
@@ -319,13 +320,13 @@ def _auto_create_bug_report(result: "SQLInjectionResult") -> None:
             .values_list('bug_id', flat=True)
             .first()
         )
-        if last:
+        if last and _re.match(r'^SQLI-\d{4}-(\d+)$', last):
             try:
-                seq = int(last.split('-')[-1]) + 1
+                seq = int(last.rsplit('-', 1)[-1]) + 1
             except (ValueError, IndexError):
                 seq = BugReport.objects.filter(bug_id__startswith=prefix).count() + 1
         else:
-            seq = 1
+            seq = BugReport.objects.filter(bug_id__startswith=prefix).count() + 1
         bug_id = f"{prefix}{seq:04d}"
 
         # Auto-generate title

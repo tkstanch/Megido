@@ -45,8 +45,10 @@ _INJECTION_CVSS_PARAMS: Dict[str, Tuple] = {
 }
 
 # Pre-computed approximate CVSS base scores for the above configurations.
-# These are conservative estimates; a precise calculation would use the full
-# CVSS v3.1 formula.
+# Scores reflect the high-impact nature of SQL injection in each variant:
+# union_based and stacked_queries score near-maximum due to full data access
+# and potential for write/execute operations. time_based blind scores lower
+# due to reduced immediate confidentiality impact.
 _INJECTION_BASE_SCORES: Dict[str, float] = {
     'error_based': 9.8,
     'union_based': 10.0,
@@ -154,10 +156,11 @@ class BountyReportGenerator:
         # Boost slightly if exploitation was confirmed
         if getattr(self.result, 'is_exploitable', False):
             base = min(base + 0.2, 10.0)
-        # Reduce if confidence is low
+        # Reduce if confidence is low (proportional penalty: -2.0 at confidence=0)
         confidence = getattr(self.result, 'confidence_score', 0.7)
         if confidence < 0.5:
-            base = max(base - 1.0, 0.0)
+            penalty = (0.5 - confidence) / 0.5 * 2.0  # 0 to 2.0 as confidence goes 0.5→0
+            base = max(base - penalty, 0.0)
         return round(base, 1)
 
     def _build_cvss_vector(self, injection_type: str) -> str:

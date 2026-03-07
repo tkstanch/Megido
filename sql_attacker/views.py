@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum length for OOB payload strings stored in the database.
 # Keeps stored evidence concise and prevents overly large DB entries.
-_OOB_PAYLOAD_MAX_STORE_LENGTH = 200
+_EAGER_MODE_TASK_ID = 'eager-mode'
 
 
 def _get_default_data_to_exfiltrate(db_type):
@@ -1114,7 +1114,7 @@ def api_task_progress(request, pk):
     }
 
     # If we have a live Celery task ID, also fetch the Celery state
-    if task.celery_task_id and task.celery_task_id != 'eager-mode':
+    if task.celery_task_id and task.celery_task_id != _EAGER_MODE_TASK_ID:
         try:
             from celery.result import AsyncResult
             ar = AsyncResult(task.celery_task_id)
@@ -1191,7 +1191,6 @@ def bug_detail(request, bug_id):
     return render(request, 'sql_attacker/bug_detail.html', context)
 
 
-@csrf_exempt
 def bug_triage(request, bug_id):
     """
     POST /sql-attacker/bugs/<bug_id>/triage/

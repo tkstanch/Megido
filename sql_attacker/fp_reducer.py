@@ -68,8 +68,13 @@ class FalsePositiveReducer:
         # indicators['fp_indicators'] is a list of human-readable reason strings
     """
 
-    def __init__(self, confidence_threshold: float = 0.65):
+    def __init__(
+        self,
+        confidence_threshold: float = 0.65,
+        fp_threshold: float = _FP_THRESHOLD,
+    ):
         self._confidence_threshold = confidence_threshold
+        self._fp_threshold = fp_threshold
         self._seen_payloads: Dict[str, int] = {}
 
     # ------------------------------------------------------------------
@@ -131,7 +136,7 @@ class FalsePositiveReducer:
         return {
             'fp_score': round(fp_score, 4),
             'fp_indicators': indicators,
-            'likely_false_positive': fp_score > _FP_THRESHOLD,
+            'likely_false_positive': fp_score > self._fp_threshold,
         }
 
     def reset_seen_payloads(self) -> None:
