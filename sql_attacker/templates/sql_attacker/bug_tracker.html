@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bug Tracker – SQL Attacker{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">🐛 Bug Tracker</span>
+    </nav>
+
+    <!-- Hero -->
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🐛 SQL Injection Bug Tracker</h1>
+            <p class="text-gray-600 dark:text-gray-400">Bugzilla-style triage and false-positive reduction for SQL injection findings</p>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+            <div class="card-body text-center">
+                <div class="text-3xl mb-1">📂</div>
+                <div class="text-sm opacity-90">Open</div>
+                <div class="text-2xl font-bold">{{ open_count }}</div>
+            </div>
+        </div>
+        <div class="card bg-gradient-to-br from-green-500 to-green-600 text-white">
+            <div class="card-body text-center">
+                <div class="text-3xl mb-1">✅</div>
+                <div class="text-sm opacity-90">Confirmed</div>
+                <div class="text-2xl font-bold">{{ confirmed_count }}</div>
+            </div>
+        </div>
+        <div class="card bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
+            <div class="card-body text-center">
+                <div class="text-3xl mb-1">🚫</div>
+                <div class="text-sm opacity-90">False Positives</div>
+                <div class="text-2xl font-bold">{{ fp_count }}</div>
+            </div>
+        </div>
+        <div class="card bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+            <div class="card-body text-center">
+                <div class="text-3xl mb-1">🏁</div>
+                <div class="text-sm opacity-90">Resolved</div>
+                <div class="text-2xl font-bold">{{ resolved_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card">
+        <div class="card-body">
+            <form method="GET" class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                    <select name="priority" class="form-select">
+                        <option value="">All</option>
+                        {% for val, label in priority_choices %}
+                        <option value="{{ val }}" {% if current_priority == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">🔍 Filter</button>
+                    <a href="{% url 'sql_attacker:bug_tracker_dashboard' %}" class="btn btn-secondary ml-2">✖ Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bug Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if bugs %}
+            <div class="table-container overflow-x-auto">
+                <table class="table w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th>Bug ID</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>FP Score</th>
+                            <th>Assignee</th>
+                            <th>Bounty</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bug in bugs %}
+                        <tr class="{% if bug.is_likely_false_positive %}opacity-60{% endif %}">
+                            <td>
+                                <a href="{% url 'sql_attacker:bug_detail' bug_id=bug.bug_id %}"
+                                   class="font-mono text-primary-600 dark:text-primary-400 hover:underline">
+                                    {{ bug.bug_id }}
+                                </a>
+                            </td>
+                            <td class="max-w-xs truncate" title="{{ bug.title }}">{{ bug.title|truncatechars:60 }}</td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                    {% if bug.status == 'new' %}bg-blue-100 text-blue-800
+                                    {% elif bug.status == 'confirmed' %}bg-green-100 text-green-800
+                                    {% elif bug.status == 'false_positive' %}bg-gray-100 text-gray-600
+                                    {% elif bug.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                                    {% elif bug.status == 'resolved' or bug.status == 'verified' %}bg-purple-100 text-purple-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ bug.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                    {% if bug.priority == 'P1_critical' %}bg-red-100 text-red-800
+                                    {% elif bug.priority == 'P2_high' %}bg-orange-100 text-orange-800
+                                    {% elif bug.priority == 'P3_medium' %}bg-yellow-100 text-yellow-800
+                                    {% elif bug.priority == 'P4_low' %}bg-blue-100 text-blue-800
+                                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                    {{ bug.get_priority_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if bug.fp_score > 0.85 %}
+                                    <span class="text-red-600 font-bold" title="Likely False Positive">⚠ {{ bug.fp_score|floatformat:2 }}</span>
+                                {% elif bug.fp_score > 0.5 %}
+                                    <span class="text-yellow-600">{{ bug.fp_score|floatformat:2 }}</span>
+                                {% else %}
+                                    <span class="text-green-600">{{ bug.fp_score|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ bug.assignee|default:"—" }}</td>
+                            <td>
+                                <span class="text-xs
+                                    {% if bug.bounty_status == 'paid' %}text-green-600 font-bold
+                                    {% elif bug.bounty_status == 'accepted' %}text-blue-600
+                                    {% elif bug.bounty_status == 'submitted' %}text-yellow-600
+                                    {% else %}text-gray-400{% endif %}">
+                                    {{ bug.get_bounty_status_display }}
+                                </span>
+                            </td>
+                            <td class="text-gray-500 text-xs">{{ bug.created_at|date:"Y-m-d" }}</td>
+                            <td class="space-x-1 whitespace-nowrap">
+                                <a href="{% url 'sql_attacker:bug_detail' bug_id=bug.bug_id %}"
+                                   class="btn btn-sm btn-secondary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                <div class="text-5xl mb-4">🎉</div>
+                <p class="text-lg font-medium">No bug reports found.</p>
+                <p class="text-sm mt-1">Bug reports are auto-created when vulnerabilities are detected.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

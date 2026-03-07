@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import SQLInjectionTask, SQLInjectionResult
+from .models import SQLInjectionTask, SQLInjectionResult, BugReport, BountyImpactReport
 
 
 @admin.register(SQLInjectionTask)
@@ -75,3 +75,51 @@ class SQLInjectionResultAdmin(admin.ModelAdmin):
         """Return link to task"""
         return f"Task {obj.task.id}"
     task_link.short_description = 'Task'
+
+
+@admin.register(BugReport)
+class BugReportAdmin(admin.ModelAdmin):
+    list_display = (
+        'bug_id', 'title_short', 'status', 'priority', 'assignee',
+        'bounty_status', 'created_at',
+    )
+    list_filter = ('status', 'priority', 'bounty_status')
+    search_fields = ('bug_id', 'title', 'assignee', 'triage_notes')
+    readonly_fields = ('bug_id', 'created_at', 'updated_at')
+
+    fieldsets = (
+        ('Identification', {
+            'fields': ('result', 'bug_id', 'title'),
+        }),
+        ('Triage', {
+            'fields': ('status', 'priority', 'assignee', 'triage_notes',
+                       'false_positive_reason', 'false_positive_indicators'),
+        }),
+        ('Verification', {
+            'fields': ('verified_by', 'verified_at', 'resolution'),
+            'classes': ('collapse',),
+        }),
+        ('Bounty', {
+            'fields': ('bounty_status', 'bounty_amount', 'bounty_platform',
+                       'bounty_submission_url'),
+            'classes': ('collapse',),
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+        }),
+    )
+
+    def title_short(self, obj):
+        return obj.title[:70] if len(obj.title) > 70 else obj.title
+    title_short.short_description = 'Title'
+
+
+@admin.register(BountyImpactReport)
+class BountyImpactReportAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'bug_report', 'cvss_score', 'cwe_id',
+        'estimated_bounty_range', 'submission_platform_template', 'created_at',
+    )
+    list_filter = ('submission_platform_template', 'cwe_id')
+    search_fields = ('bug_report__bug_id', 'cwe_id', 'impact_summary')
+    readonly_fields = ('created_at', 'updated_at')

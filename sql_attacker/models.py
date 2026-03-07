@@ -127,6 +127,12 @@ class SQLInjectionTask(models.Model):
         null=True,
         help_text="Celery task ID for the background worker job",
     )
+    current_stage = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text="Current pipeline stage name for real-time progress reporting",
+    )
 
     # Status and tracking
     status = models.CharField(max_length=21, choices=STATUS_CHOICES, default='pending', 
@@ -383,3 +389,206 @@ class SQLInjectionResult(models.Model):
         context_display = self.get_injection_context_display() if self.injection_context != 'sql' else self.get_injection_type_display()
         return (f"{context_display} in {self.vulnerable_parameter} "
                 f"({self.task.target_url[:30]}...)")
+
+
+class BugReport(models.Model):
+    """
+    Bugzilla-style bug tracking record for a SQL injection finding.
+
+    Each BugReport wraps one SQLInjectionResult and carries its own triage
+    lifecycle (status, priority, assignee, FP analysis, bounty tracking).
+    """
+
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('confirmed', 'Confirmed'),
+        ('false_positive', 'False Positive'),
+        ('duplicate', 'Duplicate'),
+        ('wont_fix', "Won't Fix"),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('verified', 'Verified'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('P1_critical', 'P1 – Critical'),
+        ('P2_high', 'P2 – High'),
+        ('P3_medium', 'P3 – Medium'),
+        ('P4_low', 'P4 – Low'),
+        ('P5_info', 'P5 – Informational'),
+    ]
+
+    BOUNTY_STATUS_CHOICES = [
+        ('not_submitted', 'Not Submitted'),
+        ('submitted', 'Submitted'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('paid', 'Paid'),
+    ]
+
+    result = models.ForeignKey(
+        SQLInjectionResult,
+        on_delete=models.CASCADE,
+        related_name='bug_reports',
+        help_text="The injection finding this bug report tracks",
+    )
+    bug_id = models.CharField(
+        max_length=30,
+        unique=True,
+        db_index=True,
+        help_text="Auto-generated unique identifier (e.g. SQLI-2026-001)",
+    )
+    title = models.CharField(
+        max_length=255,
+        help_text="Auto-generated descriptive bug title",
+    )
+
+    # Triage fields
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='new',
+        db_index=True,
+    )
+    priority = models.CharField(
+        max_length=15,
+        choices=PRIORITY_CHOICES,
+        default='P3_medium',
+        db_index=True,
+    )
+    assignee = models.CharField(max_length=100, blank=True, default='')
+    triage_notes = models.TextField(blank=True, default='')
+    false_positive_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Justification when status=false_positive",
+    )
+    false_positive_indicators = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Automated FP detection signals from FalsePositiveReducer",
+    )
+    verified_by = models.CharField(max_length=100, blank=True, default='')
+    verified_at = models.DateTimeField(blank=True, null=True)
+    resolution = models.TextField(blank=True, default='')
+
+    # Bounty tracking
+    bounty_status = models.CharField(
+        max_length=15,
+        choices=BOUNTY_STATUS_CHOICES,
+        default='not_submitted',
+        db_index=True,
+    )
+    bounty_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Bounty amount awarded (USD)",
+    )
+    bounty_platform = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text="e.g. HackerOne, Bugcrowd, Intigriti",
+    )
+    bounty_submission_url = models.URLField(max_length=1024, blank=True, default='')
+
+    # Timestamps
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Bug Report'
+        verbose_name_plural = 'Bug Reports'
+        indexes = [
+            models.Index(fields=['status', 'priority']),
+            models.Index(fields=['bounty_status', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.bug_id} – {self.title[:60]}"
+
+    @property
+    def fp_score(self):
+        """Return the numeric FP score stored in false_positive_indicators, or 0."""
+        indicators = self.false_positive_indicators or {}
+        return indicators.get('fp_score', 0.0)
+
+    @property
+    def is_likely_false_positive(self):
+        return self.fp_score > 0.85
+
+
+class BountyImpactReport(models.Model):
+    """
+    Detailed bounty-submission-ready impact report linked to a BugReport.
+    """
+
+    PLATFORM_CHOICES = [
+        ('hackerone', 'HackerOne'),
+        ('bugcrowd', 'Bugcrowd'),
+        ('intigriti', 'Intigriti'),
+        ('custom', 'Custom / Other'),
+    ]
+
+    bug_report = models.OneToOneField(
+        BugReport,
+        on_delete=models.CASCADE,
+        related_name='impact_report',
+        help_text="The BugReport this impact report supplements",
+    )
+
+    # CVSS & Classification
+    cvss_score = models.FloatField(
+        default=0.0,
+        help_text="Auto-calculated CVSS v3.1 base score",
+    )
+    cvss_vector = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="CVSS v3.1 vector string",
+    )
+    cwe_id = models.CharField(
+        max_length=20,
+        blank=True,
+        default='CWE-89',
+        help_text="CWE identifier (e.g. CWE-89 for SQL Injection)",
+    )
+
+    # Report sections
+    impact_summary = models.TextField(blank=True, default='')
+    technical_details = models.TextField(blank=True, default='')
+    reproduction_steps = models.TextField(blank=True, default='')
+    business_impact = models.TextField(blank=True, default='')
+    remediation = models.TextField(blank=True, default='')
+    ready_to_submit_report = models.TextField(
+        blank=True,
+        default='',
+        help_text="Complete formatted bounty submission text",
+    )
+
+    # Bounty estimation
+    estimated_bounty_range = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text="e.g. $500-$2000",
+    )
+    submission_platform_template = models.CharField(
+        max_length=20,
+        choices=PLATFORM_CHOICES,
+        default='hackerone',
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Bounty Impact Report'
+        verbose_name_plural = 'Bounty Impact Reports'
+
+    def __str__(self):
+        return f"Impact Report for {self.bug_report.bug_id}"
