@@ -459,6 +459,7 @@
     <button class="btn btn-warning"   onclick="sendToTool('scanner')"     title="Send to Scanner">🔍 → Scanner</button>
     <button class="btn btn-warning"   onclick="sendToTool('interceptor')" title="Send to Interceptor">🎯 → Interceptor</button>
     <button class="btn btn-warning"   onclick="sendToTool('spider')"      title="Send to Spider">🕷 → Spider</button>
+    <button class="btn btn-secondary" onclick="openScanCaptures()"        title="View Scanner Captures">📋 Scanner Captures</button>
 
     <div id="history-info">No history</div>
     <button class="btn btn-secondary" id="btn-back"    onclick="navigateHistory('back')"    title="Previous request">◀</button>
@@ -569,6 +570,25 @@
         <label for="cfg-auto-cl">Auto Content-Length</label>
       </div>
       <button class="btn btn-secondary" onclick="saveConfig()" style="margin-left:auto;">💾 Save Config</button>
+    </div>
+  </div>
+
+  <!-- ── Scanner Captures panel ───────────────────────────────── -->
+  <div id="scanner-captures-panel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:110;background:rgba(10,12,20,0.85);overflow:auto;">
+    <div style="max-width:900px;margin:40px auto;background:#1a1d2e;border:1px solid #2d3250;border-radius:12px;padding:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:600;color:#c8d3f5;">🔍 Scanner Captures</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label style="color:#8b9bc1;font-size:13px;">Scan ID:</label>
+          <input id="scanner-cap-scan-id" type="number" min="1" placeholder="e.g. 42"
+            style="width:80px;background:#14162a;color:#c8d3f5;border:1px solid #3d4470;border-radius:6px;padding:5px 8px;font-size:13px;">
+          <button class="btn btn-primary" onclick="loadScanCaptures()" style="padding:5px 14px;font-size:13px;">Load</button>
+          <button class="btn btn-secondary" onclick="closeScanCaptures()" style="padding:5px 10px;">✕</button>
+        </div>
+      </div>
+      <div id="scanner-cap-list">
+        <p style="color:#8b9bc1;font-size:13px;text-align:center;padding:24px 0;">Enter a Scan ID and click Load to view captured requests.</p>
+      </div>
     </div>
   </div>
 
@@ -1096,6 +1116,81 @@ function encodeUrlField() {
     u.search = new URLSearchParams(u.search).toString();
     inp.value = u.toString();
   } catch(e) { /* invalid url, skip */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scanner Captures
+// ─────────────────────────────────────────────────────────────────────────────
+function openScanCaptures() {
+  document.getElementById('scanner-captures-panel').style.display = 'block';
+}
+
+function closeScanCaptures() {
+  document.getElementById('scanner-captures-panel').style.display = 'none';
+}
+
+async function loadScanCaptures() {
+  const rawId = document.getElementById('scanner-cap-scan-id').value.trim();
+  const scanId = parseInt(rawId, 10);
+  const listEl = document.getElementById('scanner-cap-list');
+  if (!rawId || isNaN(scanId) || scanId < 1) {
+    listEl.innerHTML = '<p style="color:#ff5370;font-size:13px;padding:12px 0;">Please enter a valid numeric Scan ID.</p>';
+    return;
+  }
+  listEl.innerHTML = '<p style="color:#8b9bc1;font-size:13px;padding:12px 0;">Loading…</p>';
+  try {
+    const data = await apiFetch(`/repeater/api/scans/${scanId}/requests/`);
+    if (!data.length) {
+      listEl.innerHTML = '<p style="color:#8b9bc1;font-size:13px;padding:12px 0;">No captured requests found for this scan.</p>';
+      return;
+    }
+    listEl.innerHTML = data.map((req, i) => `
+      <div style="background:#14162a;border:1px solid #2d3250;border-radius:8px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span style="background:#2d3250;color:#82aaff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">${escHtml(req.method)}</span>
+          <span style="color:#c3e88d;font-size:12px;word-break:break-all;">${escHtml(req.url)}</span>
+          <span style="margin-left:auto;color:#8b9bc1;font-size:11px;">${escHtml(req.created_at || '')}</span>
+          <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px;"
+            onclick="loadCapturIntoTab(${parseInt(req.id, 10)})">Open in Tab</button>
+        </div>
+        <div style="color:#a0a8c0;font-size:12px;margin-bottom:6px;font-style:italic;">${escHtml(req.name || '')}</div>
+        ${req.analysis_advice ? `
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer;color:#ffcb6b;font-size:12px;font-weight:600;outline:none;">💡 Analysis Advice</summary>
+          <pre style="background:#0d0f1a;color:#c8d3f5;border-radius:6px;padding:12px;font-size:11px;margin-top:6px;white-space:pre-wrap;word-break:break-word;">${escHtml(req.analysis_advice)}</pre>
+        </details>` : ''}
+      </div>
+    `).join('');
+  } catch (e) {
+    listEl.innerHTML = `<p style="color:#ff5370;font-size:13px;padding:12px 0;">Error: ${escHtml(e.message)}</p>`;
+  }
+}
+
+async function loadCapturIntoTab(requestId) {
+  try {
+    // Fetch the full request data
+    const req = await apiFetch(`/repeater/api/requests/${requestId}/`);
+
+    // Create a new tab
+    const tab = await apiFetch('/repeater/api/tabs/', {
+      method: 'POST',
+      body: JSON.stringify({ name: (req.name || `Scan req #${requestId}`).slice(0, 40) }),
+    });
+    state.tabs.push(tab);
+    renderTabs();
+    activateTab(tab.id);
+
+    // Populate the request editor with the captured data
+    document.getElementById('method-select').value = req.method || 'GET';
+    document.getElementById('url-input').value = req.url || '';
+    document.getElementById('headers-area').value = req.headers || '{}';
+    document.getElementById('body-area').value = req.body || '';
+    setReqView('structured');
+
+    showToast(`Loaded request #${requestId} into new tab`, 'info');
+  } catch(e) {
+    showToast('Could not open request: ' + e.message, 'error');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,14 @@
 from django.db import models
 
 
+SOURCE_CHOICES = [
+    ('manual', 'Manual'),
+    ('scanner', 'Scanner'),
+    ('interceptor', 'Interceptor'),
+    ('exploit', 'Exploit'),
+]
+
+
 class RepeaterTab(models.Model):
     """Model to represent a repeater tab (like Burp Suite tabs)"""
     name = models.CharField(max_length=255, default='New Tab')
@@ -45,6 +53,19 @@ class RepeaterRequest(models.Model):
         related_name='requests',
     )
     tab_history_index = models.IntegerField(default=0)
+    scan = models.ForeignKey(
+        'scanner.Scan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='repeater_requests',
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default='manual',
+    )
+    analysis_advice = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

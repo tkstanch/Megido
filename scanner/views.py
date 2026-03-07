@@ -11,12 +11,222 @@ import os
 import html as _html
 import json
 import logging
+import threading
+import time
+import urllib.parse
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
 from scanner.config_defaults import get_default_proof_config
 from scanner.bounty_taxonomy import get_bounty_classification, is_dos_vulnerability
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# HTTP capture machinery for auto-logging scanner traffic to the Repeater
+# ---------------------------------------------------------------------------
+
+# Thread-local storage for the active scan capture context
+_scan_capture_local = threading.local()
+
+
+def _set_scan_capture_context(scan, plugin_name):
+    """Activate HTTP capturing for the current thread."""
+    _scan_capture_local.scan = scan
+    _scan_capture_local.plugin_name = plugin_name
+
+
+def _clear_scan_capture_context():
+    """Deactivate HTTP capturing for the current thread."""
+    _scan_capture_local.scan = None
+    _scan_capture_local.plugin_name = None
+
+
+def _generate_scan_analysis_advice(prepared_request, plugin_name):
+    """
+    Generate analysis advice for a captured scanner request.
+
+    Inspects the HTTP method, URL, headers, and body to produce actionable
+    guidance about which parameters to modify during manual testing.
+    """
+    method = (prepared_request.method or 'GET').upper()
+    url = prepared_request.url or ''
+    body = prepared_request.body or ''
+    if isinstance(body, bytes):
+        try:
+            body = body.decode('utf-8', errors='replace')
+        except Exception:
+            body = ''
+
+    content_type = ''
+    for k, v in (prepared_request.headers or {}).items():
+        if k.lower() == 'content-type':
+            content_type = v
+            break
+
+    lines = [f'Plugin: {plugin_name}', f'Target: {method} {url}']
+
+    # URL parameters
+    parsed = urllib.parse.urlparse(url)
+    qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    if qs:
+        lines.append('URL Parameters to Test:')
+        for param, values in qs.items():
+            lines.append(f'  - {param}: {values[0]}  → try injection / fuzzing payloads')
+
+    # Body parameters
+    if body:
+        lines.append('Body Parameters to Test:')
+        if 'json' in content_type.lower():
+            try:
+                body_data = json.loads(body)
+                if isinstance(body_data, dict):
+                    for k, v in body_data.items():
+                        lines.append(f'  - {k}: {v}  → try SQLi / XSS / command injection')
+            except Exception:
+                lines.append(f'  (raw body) → modify directly for injection testing')
+        elif 'form' in content_type.lower() or not content_type:
+            try:
+                params = urllib.parse.parse_qs(body, keep_blank_values=True)
+                for k, v in params.items():
+                    lines.append(f'  - {k}: {v[0]}  → try SQLi / XSS payloads')
+            except Exception:
+                lines.append(f'  (raw body) → modify directly for injection testing')
+        else:
+            lines.append(f'  (body length: {len(body)}) → inspect and modify as needed')
+
+    # Plugin-type specific hints
+    plugin_lower = plugin_name.lower()
+    if 'sqli' in plugin_lower or 'sql' in plugin_lower:
+        lines.append("Suggested Modifications (SQLi):")
+        lines.append("  1. Replace parameter values with: ' OR 1=1-- , \" OR \"\"=\"")
+        lines.append("  2. Time-based blind: ' AND SLEEP(5)--")
+        lines.append("  3. Add header X-Forwarded-For: 1' OR SLEEP(5)--")
+    elif 'xss' in plugin_lower:
+        lines.append("Suggested Modifications (XSS):")
+        lines.append("  1. Replace values with: <script>alert(1)</script>")
+        lines.append("  2. Try: \"><img src=x onerror=alert(1)>")
+        lines.append("  3. Check Referer and User-Agent headers for reflection")
+    elif 'ssrf' in plugin_lower:
+        lines.append("Suggested Modifications (SSRF):")
+        lines.append("  1. Replace URL params with: http://169.254.169.254/latest/meta-data/")
+        lines.append("  2. Try internal IPs: http://127.0.0.1/, http://10.0.0.1/")
+        lines.append("  3. Use bypass: http://[::1]/, http://0.0.0.0/")
+    elif 'lfi' in plugin_lower or 'path' in plugin_lower or 'traversal' in plugin_lower:
+        lines.append("Suggested Modifications (Path Traversal/LFI):")
+        lines.append("  1. Replace file/path params with: ../../../etc/passwd")
+        lines.append("  2. Try URL-encoded: %2e%2e%2f%2e%2e%2fetc%2fpasswd")
+    elif 'cmd' in plugin_lower or 'command' in plugin_lower or 'rce' in plugin_lower:
+        lines.append("Suggested Modifications (Command Injection):")
+        lines.append("  1. Append: ; id , && id , | id")
+        lines.append("  2. Try backtick or $() substitution")
+    elif 'crlf' in plugin_lower:
+        lines.append("Suggested Modifications (CRLF Injection):")
+        lines.append("  1. Inject \\r\\n in header values")
+        lines.append("  2. Try: %0d%0aSet-Cookie:injected=1")
+    elif 'cors' in plugin_lower:
+        lines.append("Suggested Modifications (CORS):")
+        lines.append("  1. Change Origin header to: https://evil.com")
+        lines.append("  2. Try null origin: Origin: null")
+
+    lines.append("Headers to Inspect:")
+    injectable_headers = ['X-Forwarded-For', 'Referer', 'User-Agent', 'X-Custom-IP-Authorization']
+    for h in injectable_headers:
+        lines.append(f'  - {h}: may be injectable / reflected')
+
+    return '\n'.join(lines)
+
+
+def _capture_scan_request(prepared_request, response, elapsed_ms):
+    """
+    Persist a scanner HTTP request/response pair to the Repeater.
+
+    Called by the monkey-patched Session.send() when a scan capture context
+    is active for the current thread.
+    """
+    scan = getattr(_scan_capture_local, 'scan', None)
+    plugin_name = getattr(_scan_capture_local, 'plugin_name', 'unknown')
+    if scan is None:
+        return
+
+    try:
+        from repeater.models import RepeaterRequest as _RepeaterRequest
+        from repeater.models import RepeaterResponse as _RepeaterResponse
+
+        url = prepared_request.url or ''
+        method = (prepared_request.method or 'GET').upper()
+
+        # Serialize request headers
+        req_headers = dict(prepared_request.headers or {})
+        headers_str = json.dumps(req_headers)
+
+        # Request body
+        body = prepared_request.body or ''
+        if isinstance(body, bytes):
+            try:
+                body = body.decode('utf-8', errors='replace')
+            except Exception:
+                body = ''
+
+        name = f'[Scan #{scan.id}] {plugin_name} - {url}'[:255]
+        advice = _generate_scan_analysis_advice(prepared_request, plugin_name)
+
+        repeater_req = _RepeaterRequest.objects.create(
+            url=url,
+            method=method,
+            headers=headers_str,
+            body=body,
+            name=name,
+            scan=scan,
+            source='scanner',
+            analysis_advice=advice,
+        )
+
+        # Serialize response headers
+        try:
+            resp_headers = dict(response.headers or {})
+            resp_headers_str = json.dumps(resp_headers)
+        except Exception:
+            resp_headers_str = '{}'
+
+        # Response body
+        try:
+            resp_body = response.text or ''
+        except Exception:
+            resp_body = ''
+
+        _RepeaterResponse.objects.create(
+            request=repeater_req,
+            status_code=response.status_code,
+            headers=resp_headers_str,
+            body=resp_body,
+            response_time=elapsed_ms,
+        )
+    except Exception as exc:
+        logger.debug('_capture_scan_request failed: %s', exc)
+
+
+# Monkey-patch requests.Session.send once at import time so all sessions
+# (including those created inside plugins) are automatically intercepted.
+try:
+    import requests as _requests_lib
+
+    _original_session_send = _requests_lib.Session.send
+
+    def _capturing_session_send(self, prepared_request, **kwargs):
+        scan = getattr(_scan_capture_local, 'scan', None)
+        if scan is not None:
+            start = time.time()
+            response = _original_session_send(self, prepared_request, **kwargs)
+            elapsed_ms = (time.time() - start) * 1000.0
+            _capture_scan_request(prepared_request, response, elapsed_ms)
+            return response
+        return _original_session_send(self, prepared_request, **kwargs)
+
+    _requests_lib.Session.send = _capturing_session_send
+    logger.debug('Scanner HTTP capture: requests.Session.send monkey-patched')
+except Exception as _patch_err:
+    logger.warning('Scanner HTTP capture: could not patch requests.Session.send: %s', _patch_err)
+
 
 
 @api_view(['GET', 'POST'])
@@ -178,10 +388,14 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
             try:
                 if use_async:
                     # AsyncScanEngine: collect all findings then save in batch below
-                    if enabled_plugins:
-                        findings = engine.scan_with_plugins(target_url, enabled_plugins, config)
-                    else:
-                        findings = engine.scan(target_url, config)
+                    _set_scan_capture_context(scan, 'async_scan')
+                    try:
+                        if enabled_plugins:
+                            findings = engine.scan_with_plugins(target_url, enabled_plugins, config)
+                        else:
+                            findings = engine.scan(target_url, config)
+                    finally:
+                        _clear_scan_capture_context()
                     all_findings.extend(findings)
                 else:
                     # ScanEngine: iterate plugins and save findings incrementally after each plugin
@@ -203,7 +417,11 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
                                         f"Skipping DoS plugin {plugin.name} (DoS testing not enabled)"
                                     )
                                     continue
-                            plugin_findings = plugin.scan(target_url, config)
+                            _set_scan_capture_context(scan, plugin.name)
+                            try:
+                                plugin_findings = plugin.scan(target_url, config)
+                            finally:
+                                _clear_scan_capture_context()
                             if plugin_findings:
                                 engine.save_findings_to_db(scan, plugin_findings)
                                 logger.info(
@@ -211,6 +429,7 @@ def perform_basic_scan(scan, url, scan_profile=None, use_async=False, crawl_firs
                                     f"finding(s) for {target_url}"
                                 )
                         except Exception as e:
+                            _clear_scan_capture_context()
                             logger.error(
                                 f"Error running plugin {plugin.name} on {target_url}: {e}"
                             )
