@@ -32,6 +32,10 @@ class Scan(models.Model):
         default=False,
         help_text='Whether Denial of Service (DoS) tests are enabled for this scan'
     )
+    enable_sqli_testing = models.BooleanField(
+        default=False,
+        help_text='Whether SQL Injection tests via the SQL Attacker engine are enabled for this scan'
+    )
     warnings = models.JSONField(
         default=list,
         blank=True,

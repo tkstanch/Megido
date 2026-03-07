@@ -203,6 +203,14 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         vulnerabilities_count = scan.vulnerabilities.count()
         logger.info(f"Scan {scan_id} completed successfully. Found {vulnerabilities_count} vulnerabilities.")
 
+        # Run SQL Injection testing if enabled
+        if getattr(scan, 'enable_sqli_testing', False):
+            try:
+                from scanner.views import _run_sqli_testing
+                _run_sqli_testing(scan)
+            except Exception as sqli_exc:
+                logger.warning(f"SQLi testing failed for scan {scan_id}: {sqli_exc}")
+
         return {
             'scan_id': scan_id,
             'status': 'completed',
