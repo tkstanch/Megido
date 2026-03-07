@@ -1099,3 +1099,145 @@ def vulnerability_bounty_report(request, vuln_id):
 def scanner_dashboard(request):
     """Dashboard view for the scanner"""
     return render(request, 'scanner/dashboard.html')
+
+
+@login_required
+def bounty_dashboard(request):
+    """
+    Bug Bounty Impact Pipeline dashboard.
+
+    Displays the full finding lifecycle:
+    Raw → Filtered → Prioritized → Validated → Exploited → Report Ready
+
+    Provides:
+    - Summary cards (total findings, confirmed exploitable, estimated bounty)
+    - Per-finding detail with impact analysis and generated reports
+    - Export controls for HackerOne / Bugcrowd / Intigriti formats
+    - Filter controls by severity, plugin type, validation status
+    - Whitelist management and sensitivity tuning UI
+    """
+    from scanner.false_positive_filter import FalsePositiveFilter, FPCategory
+    from scanner.finding_prioritizer import FindingPrioritizer, PriorityTier
+    from scanner.validation_engine import ValidationEngine, ValidationStatus
+    from scanner.exploit_impact_analyzer import ExploitImpactAnalyzer
+
+    # ------------------------------------------------------------------
+    # Fetch recent vulnerabilities and build pipeline data
+    # ------------------------------------------------------------------
+    vulns = Vulnerability.objects.select_related('scan').order_by('-scan__created_at')[:200]
+
+    fp_filter = FalsePositiveFilter()
+    prioritizer = FindingPrioritizer()
+    validator = ValidationEngine()
+    impact_analyzer = ExploitImpactAnalyzer()
+
+    # Counters for summary cards
+    total_raw = vulns.count()
+    total_filtered = 0
+    total_confirmed = 0
+    total_exploited = 0
+    total_report_ready = 0
+    estimated_bounty_min = 0
+    estimated_bounty_max = 0
+
+    pipeline_findings = []
+
+    for vuln in vulns:
+        finding = {
+            "id": vuln.id,
+            "url": vuln.url,
+            "parameter": getattr(vuln, 'parameter', ''),
+            "plugin_type": vuln.vulnerability_type,
+            "vuln_type": vuln.vulnerability_type,
+            "severity": vuln.severity,
+            "confidence": float(getattr(vuln, 'confidence_score', 0.7)),
+            "exploited": vuln.exploited,
+            "bounty_report": bool(vuln.bounty_report),
+            "description": vuln.description,
+            "payload": getattr(vuln, 'payload', '') or '',
+        }
+
+        # False positive check
+        fp_result = fp_filter.filter_finding(finding)
+        if fp_result.is_false_positive:
+            total_filtered += 1
+            continue
+
+        # Prioritization
+        scored = prioritizer.score(finding)
+
+        # Validation
+        val_result = validator.validate(finding)
+
+        # Impact analysis
+        impact = impact_analyzer.analyze(finding)
+
+        # Update counters
+        if val_result.status in (ValidationStatus.CONFIRMED, ValidationStatus.LIKELY):
+            total_confirmed += 1
+        if vuln.exploited:
+            total_exploited += 1
+        if vuln.bounty_report:
+            total_report_ready += 1
+        estimated_bounty_min += scored.bounty_min
+        estimated_bounty_max += scored.bounty_max
+
+        pipeline_findings.append({
+            "vuln_id": vuln.id,
+            "url": vuln.url,
+            "vuln_type": vuln.vulnerability_type,
+            "severity": vuln.severity,
+            "confidence": finding["confidence"],
+            "priority_tier": scored.tier.value,
+            "priority_score": round(scored.priority_score, 2),
+            "validation_status": val_result.status.value,
+            "validation_confidence": round(val_result.confidence, 2),
+            "is_exploited": vuln.exploited,
+            "has_report": bool(vuln.bounty_report),
+            "bounty_min": scored.bounty_min,
+            "bounty_max": scored.bounty_max,
+            "platform_severity": impact.platform_severity,
+            "impact_statement": impact.impact_statement,
+            "cvss_score": impact.cvss_score,
+            "cia": {
+                "confidentiality": impact.confidentiality_impact,
+                "integrity": impact.integrity_impact,
+                "availability": impact.availability_impact,
+            },
+            "scan_id": vuln.scan_id,
+        })
+
+    # Sort by priority
+    _tier_order = {
+        "critical_exploitable": 0,
+        "high_verified": 1,
+        "medium_likely": 2,
+        "low_unverified": 3,
+        "noise": 4,
+    }
+    pipeline_findings.sort(
+        key=lambda f: (
+            _tier_order.get(f["priority_tier"], 5),
+            -f["priority_score"],
+        )
+    )
+
+    # Tier summary counts
+    tier_counts = {tier: 0 for tier in _tier_order}
+    for pf in pipeline_findings:
+        tier_counts[pf["priority_tier"]] = tier_counts.get(pf["priority_tier"], 0) + 1
+
+    context = {
+        "total_raw": total_raw,
+        "total_filtered": total_filtered,
+        "total_valid": total_raw - total_filtered,
+        "total_confirmed": total_confirmed,
+        "total_exploited": total_exploited,
+        "total_report_ready": total_report_ready,
+        "estimated_bounty_min": estimated_bounty_min,
+        "estimated_bounty_max": estimated_bounty_max,
+        "pipeline_findings": pipeline_findings,
+        "tier_counts": tier_counts,
+    }
+
+    return render(request, 'scanner/bounty_dashboard.html', context)
