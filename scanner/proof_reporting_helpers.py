@@ -146,12 +146,14 @@ class ProofReportingMixin:
                 save_json=config.get('save_proof_json', True),
                 save_html=config.get('save_proof_html', True),
                 store_db=config.get('store_proof_db', True),
-                vulnerability_model=vulnerability_data.get('vulnerability_model')
+                vulnerability_model=vulnerability_data.get('vulnerability_model'),
+                save_template=config.get('save_proof_template', False),
             )
             
             # Add proof paths to result
             result['proof_json_path'] = proof_results.get('json_path')
             result['proof_html_path'] = proof_results.get('html_path')
+            result['proof_template_path'] = proof_results.get('template_path')
             result['proof_db_stored'] = proof_results.get('db_stored')
             
             logger.info(f"{vulnerability_type.upper()} proof reporting completed successfully")
