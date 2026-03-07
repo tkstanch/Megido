@@ -21,6 +21,7 @@ router.register(r'engine-findings', EngineFindingViewSet, basename='engine-findi
 
 urlpatterns = [
     path('', views.scanner_dashboard, name='dashboard'),
+    path('bounty-dashboard/', views.bounty_dashboard, name='bounty_dashboard'),
     path('api/targets/', views.scan_targets, name='scan_targets'),
     path('api/targets/<int:target_id>/scan/', views.start_scan, name='start_scan'),
     path('api/scans/<int:scan_id>/results/', views.scan_results, name='scan_results'),

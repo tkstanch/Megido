@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+
+{% block title %}Bug Bounty Impact Pipeline - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-500 dark:text-gray-400"><a href="{% url 'scanner:dashboard' %}">Scanner</a></li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Bug Bounty Pipeline</li>
+{% endblock %}
+
+{% block extra_style %}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden rounded-3xl mb-8 bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 shadow-2xl">
+        <div class="relative p-8 lg:p-12 text-center">
+            <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-purple-600/30 border border-purple-500/50">
+                <svg class="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h2 class="text-3xl lg:text-5xl font-bold text-white mb-3">Bug Bounty Impact Pipeline</h2>
+            <p class="text-lg text-purple-200 font-light">
+                Filter → Validate → Exploit → Assess → Report
+            </p>
+        </div>
+    </div>
+
+    <!-- Pipeline Stage Summary -->
+    <div class="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+        <h3 class="text-white font-bold text-lg mb-4">Finding Lifecycle</h3>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-center">
+            <div class="bg-gray-700/50 rounded-xl p-4">
+                <div class="text-2xl font-bold text-white">{{ total_raw }}</div>
+                <div class="text-xs text-gray-400 mt-1">Raw</div>
+                <div class="w-full h-1 bg-gray-600 rounded mt-2"></div>
+            </div>
+            <div class="bg-red-900/30 rounded-xl p-4 border border-red-700/30">
+                <div class="text-2xl font-bold text-red-400">{{ total_filtered }}</div>
+                <div class="text-xs text-gray-400 mt-1">Filtered</div>
+                <div class="w-full h-1 bg-red-600 rounded mt-2"></div>
+            </div>
+            <div class="bg-yellow-900/30 rounded-xl p-4 border border-yellow-700/30">
+                <div class="text-2xl font-bold text-yellow-400">{{ total_valid }}</div>
+                <div class="text-xs text-gray-400 mt-1">Prioritized</div>
+                <div class="w-full h-1 bg-yellow-600 rounded mt-2"></div>
+            </div>
+            <div class="bg-blue-900/30 rounded-xl p-4 border border-blue-700/30">
+                <div class="text-2xl font-bold text-blue-400">{{ total_confirmed }}</div>
+                <div class="text-xs text-gray-400 mt-1">Validated</div>
+                <div class="w-full h-1 bg-blue-600 rounded mt-2"></div>
+            </div>
+            <div class="bg-purple-900/30 rounded-xl p-4 border border-purple-700/30">
+                <div class="text-2xl font-bold text-purple-400">{{ total_exploited }}</div>
+                <div class="text-xs text-gray-400 mt-1">Exploited</div>
+                <div class="w-full h-1 bg-purple-600 rounded mt-2"></div>
+            </div>
+            <div class="bg-green-900/30 rounded-xl p-4 border border-green-700/30">
+                <div class="text-2xl font-bold text-green-400">{{ total_report_ready }}</div>
+                <div class="text-xs text-gray-400 mt-1">Report Ready</div>
+                <div class="w-full h-1 bg-green-600 rounded mt-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impact Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Total Exploitable -->
+        <div class="bg-gradient-to-br from-red-900/40 to-red-800/20 rounded-2xl p-6 border border-red-700/40">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <span class="text-red-300 font-semibold">Confirmed Exploitable</span>
+            </div>
+            <div class="text-4xl font-bold text-white">{{ total_exploited }}</div>
+            <div class="text-sm text-gray-400 mt-1">of {{ total_valid }} valid findings</div>
+        </div>
+
+        <!-- Estimated Bounty -->
+        <div class="bg-gradient-to-br from-green-900/40 to-green-800/20 rounded-2xl p-6 border border-green-700/40">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-green-300 font-semibold">Estimated Total Bounty</span>
+            </div>
+            <div class="text-4xl font-bold text-white">${{ estimated_bounty_min|floatformat:0 }}–${{ estimated_bounty_max|floatformat:0 }}</div>
+            <div class="text-sm text-gray-400 mt-1">combined estimate (USD)</div>
+        </div>
+
+        <!-- Report Ready -->
+        <div class="bg-gradient-to-br from-blue-900/40 to-blue-800/20 rounded-2xl p-6 border border-blue-700/40">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span class="text-blue-300 font-semibold">Reports Generated</span>
+            </div>
+            <div class="text-4xl font-bold text-white">{{ total_report_ready }}</div>
+            <div class="text-sm text-gray-400 mt-1">ready to submit</div>
+        </div>
+    </div>
+
+    <!-- Priority Tier Breakdown -->
+    <div class="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+        <h3 class="text-white font-bold text-lg mb-4">Priority Tier Breakdown</h3>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-red-400">{{ tier_counts.critical_exploitable }}</div>
+                <div class="text-xs text-gray-400 mt-1 bg-red-900/30 rounded-lg px-2 py-1">Critical Exploitable</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-orange-400">{{ tier_counts.high_verified }}</div>
+                <div class="text-xs text-gray-400 mt-1 bg-orange-900/30 rounded-lg px-2 py-1">High Verified</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-yellow-400">{{ tier_counts.medium_likely }}</div>
+                <div class="text-xs text-gray-400 mt-1 bg-yellow-900/30 rounded-lg px-2 py-1">Medium Likely</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-400">{{ tier_counts.low_unverified }}</div>
+                <div class="text-xs text-gray-400 mt-1 bg-gray-700/40 rounded-lg px-2 py-1">Low Unverified</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-gray-500">{{ tier_counts.noise }}</div>
+                <div class="text-xs text-gray-500 mt-1 bg-gray-800/40 rounded-lg px-2 py-1">Noise</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Controls -->
+    <div class="bg-gray-800/60 rounded-2xl p-4 border border-gray-700/50">
+        <div class="flex flex-wrap gap-3 items-center">
+            <span class="text-gray-400 text-sm font-semibold">Filters:</span>
+            <select id="filterSeverity" onchange="applyFilters()" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
+                <option value="">All Severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+            <select id="filterTier" onchange="applyFilters()" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
+                <option value="">All Tiers</option>
+                <option value="critical_exploitable">Critical Exploitable</option>
+                <option value="high_verified">High Verified</option>
+                <option value="medium_likely">Medium Likely</option>
+                <option value="low_unverified">Low Unverified</option>
+                <option value="noise">Noise</option>
+            </select>
+            <select id="filterValidation" onchange="applyFilters()" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
+                <option value="">All Validation States</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="likely">Likely</option>
+                <option value="unconfirmed">Unconfirmed</option>
+                <option value="false_positive">False Positive</option>
+            </select>
+            <select id="filterExploited" onchange="applyFilters()" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2">
+                <option value="">All Findings</option>
+                <option value="exploited">Exploited Only</option>
+                <option value="not_exploited">Not Exploited</option>
+            </select>
+            <button onclick="resetFilters()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-200 text-sm rounded-lg transition-colors">
+                Reset
+            </button>
+            <span id="filterCount" class="text-gray-400 text-sm ml-auto"></span>
+        </div>
+    </div>
+
+    <!-- Findings Table -->
+    <div class="bg-gray-800/60 rounded-2xl border border-gray-700/50 overflow-hidden">
+        <div class="p-4 border-b border-gray-700/50 flex items-center justify-between">
+            <h3 class="text-white font-bold text-lg">Findings Pipeline</h3>
+            <span class="text-gray-400 text-sm">{{ pipeline_findings|length }} findings</span>
+        </div>
+
+        {% if pipeline_findings %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="findingsTable">
+                <thead class="bg-gray-900/50">
+                    <tr>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Type</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Severity</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Priority Tier</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Validation</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">CVSS</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Est. Bounty</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Platforms</th>
+                        <th class="text-left px-4 py-3 text-gray-400 font-semibold">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700/30">
+                    {% for f in pipeline_findings %}
+                    <tr class="hover:bg-gray-700/20 transition-colors finding-row"
+                        data-severity="{{ f.severity }}"
+                        data-tier="{{ f.priority_tier }}"
+                        data-validation="{{ f.validation_status }}"
+                        data-exploited="{{ f.is_exploited|yesno:'exploited,not_exploited' }}">
+                        <td class="px-4 py-3">
+                            <div class="font-mono text-purple-300 font-semibold uppercase text-xs">{{ f.vuln_type }}</div>
+                            <div class="text-gray-400 text-xs truncate max-w-48" title="{{ f.url }}">{{ f.url|truncatechars:40 }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold
+                                {% if f.severity == 'critical' %}bg-red-900/50 text-red-300 border border-red-700/50
+                                {% elif f.severity == 'high' %}bg-orange-900/50 text-orange-300 border border-orange-700/50
+                                {% elif f.severity == 'medium' %}bg-yellow-900/50 text-yellow-300 border border-yellow-700/50
+                                {% else %}bg-gray-700/50 text-gray-300 border border-gray-600/50{% endif %}">
+                                {{ f.severity|upper }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold
+                                {% if f.priority_tier == 'critical_exploitable' %}bg-red-900/50 text-red-300
+                                {% elif f.priority_tier == 'high_verified' %}bg-orange-900/50 text-orange-300
+                                {% elif f.priority_tier == 'medium_likely' %}bg-yellow-900/50 text-yellow-300
+                                {% elif f.priority_tier == 'low_unverified' %}bg-gray-700/50 text-gray-400
+                                {% else %}bg-gray-800/50 text-gray-500{% endif %}">
+                                {% if f.priority_tier == 'critical_exploitable' %}Critical Exploitable
+                                {% elif f.priority_tier == 'high_verified' %}High Verified
+                                {% elif f.priority_tier == 'medium_likely' %}Medium Likely
+                                {% elif f.priority_tier == 'low_unverified' %}Low Unverified
+                                {% else %}Noise{% endif %}
+                            </span>
+                            <div class="text-gray-500 text-xs mt-1">score: {{ f.priority_score }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold
+                                {% if f.validation_status == 'confirmed' %}bg-green-900/50 text-green-300
+                                {% elif f.validation_status == 'likely' %}bg-blue-900/50 text-blue-300
+                                {% elif f.validation_status == 'unconfirmed' %}bg-gray-700/50 text-gray-400
+                                {% else %}bg-red-900/50 text-red-400{% endif %}">
+                                {{ f.validation_status|upper }}
+                            </span>
+                            <div class="text-gray-500 text-xs mt-1">{{ f.validation_confidence }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-white font-semibold">{{ f.cvss_score|floatformat:1 }}</span>
+                            <div class="flex gap-1 mt-1">
+                                <span class="text-xs text-gray-500" title="Confidentiality">C:{{ f.cia.confidentiality|slice:":1"|upper }}</span>
+                                <span class="text-xs text-gray-500" title="Integrity">I:{{ f.cia.integrity|slice:":1"|upper }}</span>
+                                <span class="text-xs text-gray-500" title="Availability">A:{{ f.cia.availability|slice:":1"|upper }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-green-400 text-xs font-mono">
+                            ${{ f.bounty_min }}–${{ f.bounty_max }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col gap-1 text-xs">
+                                {% if f.platform_severity.hackerone %}
+                                <span class="text-gray-400">H1: <span class="text-white">{{ f.platform_severity.hackerone }}</span></span>
+                                {% endif %}
+                                {% if f.platform_severity.bugcrowd %}
+                                <span class="text-gray-400">BC: <span class="text-white">{{ f.platform_severity.bugcrowd }}</span></span>
+                                {% endif %}
+                                {% if f.platform_severity.intigriti %}
+                                <span class="text-gray-400">IN: <span class="text-white">{{ f.platform_severity.intigriti }}</span></span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex gap-2">
+                                <a href="/scanner/api/vulnerabilities/{{ f.vuln_id }}/"
+                                    class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs rounded transition-colors">
+                                    Detail
+                                </a>
+                                {% if f.has_report %}
+                                <a href="/scanner/api/vulnerabilities/{{ f.vuln_id }}/bounty-report/"
+                                    class="px-2 py-1 bg-purple-700 hover:bg-purple-600 text-white text-xs rounded transition-colors">
+                                    Report
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-gray-500">
+            <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p class="text-lg">No findings in the pipeline yet.</p>
+            <p class="text-sm mt-2">Run a scan to populate the bounty pipeline.</p>
+            <a href="{% url 'scanner:dashboard' %}" class="mt-4 inline-block px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors">
+                Go to Scanner
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sensitivity Tuning Controls -->
+    <div class="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+        <h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+            </svg>
+            Sensitivity Tuning
+        </h3>
+        <p class="text-gray-400 text-sm mb-4">
+            Adjust scanner sensitivity profiles from the scanner configuration.
+            <a href="{% url 'scanner:dashboard' %}" class="text-purple-400 hover:text-purple-300 underline">Go to Scanner</a>
+            to start a new scan with a specific profile (aggressive / balanced / precise).
+        </p>
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-gray-700/30 rounded-xl p-4 border border-gray-600/30 text-center">
+                <div class="text-orange-400 font-bold text-lg">Aggressive</div>
+                <div class="text-gray-400 text-xs mt-1">Low thresholds, more findings</div>
+                <div class="text-gray-500 text-xs mt-1">XSS: 0.50 | SQLi: 0.55</div>
+            </div>
+            <div class="bg-purple-700/20 rounded-xl p-4 border border-purple-600/40 text-center ring-1 ring-purple-500">
+                <div class="text-purple-400 font-bold text-lg">Balanced ✓</div>
+                <div class="text-gray-400 text-xs mt-1">Balanced signal/noise ratio</div>
+                <div class="text-gray-500 text-xs mt-1">XSS: 0.70 | SQLi: 0.80</div>
+            </div>
+            <div class="bg-gray-700/30 rounded-xl p-4 border border-gray-600/30 text-center">
+                <div class="text-blue-400 font-bold text-lg">Precise</div>
+                <div class="text-gray-400 text-xs mt-1">High thresholds, fewer FPs</div>
+                <div class="text-gray-500 text-xs mt-1">XSS: 0.85 | SQLi: 0.90</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Whitelist Management UI -->
+    <div class="bg-gray-800/60 rounded-2xl p-6 border border-gray-700/50">
+        <h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            Whitelist Management
+        </h3>
+        <p class="text-gray-400 text-sm mb-4">
+            Known-safe patterns are managed via the <code class="text-purple-300 bg-gray-700 px-1 rounded">WhitelistManager</code>
+            in <code class="text-purple-300 bg-gray-700 px-1 rounded">scanner/whitelist_manager.py</code>.
+            Use the API or update the configuration file to add URL patterns, parameters, response patterns, or hosts.
+        </p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-400">
+            <div class="bg-gray-700/30 rounded-lg p-3">
+                <div class="text-green-400 font-semibold mb-1">URL Patterns</div>
+                <div>Regex patterns for safe endpoints</div>
+            </div>
+            <div class="bg-gray-700/30 rounded-lg p-3">
+                <div class="text-green-400 font-semibold mb-1">Parameters</div>
+                <div>Known-safe parameter names</div>
+            </div>
+            <div class="bg-gray-700/30 rounded-lg p-3">
+                <div class="text-green-400 font-semibold mb-1">Response Patterns</div>
+                <div>Safe response body patterns</div>
+            </div>
+            <div class="bg-gray-700/30 rounded-lg p-3">
+                <div class="text-green-400 font-semibold mb-1">Hosts</div>
+                <div>Whitelisted host/subdomains</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function applyFilters() {
+    const severity = document.getElementById('filterSeverity').value.toLowerCase();
+    const tier = document.getElementById('filterTier').value.toLowerCase();
+    const validation = document.getElementById('filterValidation').value.toLowerCase();
+    const exploited = document.getElementById('filterExploited').value.toLowerCase();
+
+    const rows = document.querySelectorAll('.finding-row');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const rowSeverity = row.dataset.severity.toLowerCase();
+        const rowTier = row.dataset.tier.toLowerCase();
+        const rowValidation = row.dataset.validation.toLowerCase();
+        const rowExploited = row.dataset.exploited.toLowerCase();
+
+        const show = (
+            (!severity || rowSeverity === severity) &&
+            (!tier || rowTier === tier) &&
+            (!validation || rowValidation === validation) &&
+            (!exploited || rowExploited === exploited)
+        );
+
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    const countEl = document.getElementById('filterCount');
+    if (countEl) {
+        countEl.textContent = visible + ' of ' + rows.length + ' findings';
+    }
+}
+
+function resetFilters() {
+    document.getElementById('filterSeverity').value = '';
+    document.getElementById('filterTier').value = '';
+    document.getElementById('filterValidation').value = '';
+    document.getElementById('filterExploited').value = '';
+    applyFilters();
+}
+
+// Show initial count
+document.addEventListener('DOMContentLoaded', applyFilters);
+</script>
+{% endblock %}
