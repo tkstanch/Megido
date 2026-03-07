@@ -985,7 +985,7 @@ function displayVulnerabilities(vulnerabilities) {
                                 </div>
                             ` : ''}
                             <!-- Generate Report Template Button -->
-                            <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
                                 <button
                                     class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 transition-colors"
                                     onclick="downloadVulnReportTemplate(${currentScanId}, ${vuln.id}, '${escapeHtml(vuln.type)}')"
@@ -994,6 +994,15 @@ function displayVulnerabilities(vulnerabilities) {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                     </svg>
                                     Generate Report Template
+                                </button>
+                                <button
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md text-violet-700 bg-violet-50 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-700 transition-colors"
+                                    onclick="sendVulnToRepeater(${vuln.id})"
+                                    title="Forward this request to the Repeater for manual testing">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                                    </svg>
+                                    Send to Repeater
                                 </button>
                             </div>
                             ${vuln.successful_payloads && vuln.successful_payloads.length > 0 ? `
@@ -1216,6 +1225,64 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
         if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
     }
 }
+
+async function sendVulnToRepeater(vulnId) {
+    if (!vulnId) {
+        if (window.MegidoToast) window.MegidoToast.warning('No vulnerability selected.');
+        return;
+    }
+    try {
+        const csrfToken = getCsrfToken();
+        const response = await fetch(`/scanner/api/vulnerabilities/${vulnId}/send-to-repeater/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const advice = data.advice || {};
+        let adviceHtml = '';
+        if (advice.what_to_change) {
+            adviceHtml += `<p class="text-sm text-gray-700 dark:text-gray-300 mb-1"><strong>What to change:</strong> ${escapeHtml(advice.what_to_change)}</p>`;
+        }
+        if (advice.suggested_payloads && advice.suggested_payloads.length > 0) {
+            adviceHtml += `<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Suggested payloads:</p><ul class="list-disc list-inside space-y-0.5">`;
+            advice.suggested_payloads.forEach(p => {
+                adviceHtml += `<li><code class="text-xs text-violet-700 dark:text-violet-300">${escapeHtml(String(p))}</code></li>`;
+            });
+            adviceHtml += '</ul>';
+        }
+        const toastMsg = data.message || 'Request forwarded to Repeater.';
+        if (window.MegidoToast) window.MegidoToast.success(toastMsg);
+        if (adviceHtml) {
+            const isDark = document.documentElement.classList.contains('dark');
+            const panel = document.createElement('div');
+            panel.setAttribute('role', 'complementary');
+            panel.setAttribute('aria-label', 'Repeater Advice');
+            panel.className = 'repeater-advice-panel';
+            panel.style.cssText = `position:fixed;bottom:1rem;right:1rem;z-index:9999;max-width:400px;border-radius:0.5rem;padding:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.25);border:1px solid #7c3aed;background:${isDark ? '#1e1b2e' : '#ffffff'};color:${isDark ? '#e2d9f3' : '#1f1f1f'};`;
+            panel.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <strong style="color:#7c3aed;" aria-hidden="true">&#x1F501; <span>Repeater Advice</span></strong>
+                    <button onclick="this.closest('.repeater-advice-panel').remove()" aria-label="Dismiss advice panel" style="background:none;border:none;cursor:pointer;font-size:1rem;color:inherit;">&times;</button>
+                </div>
+                ${adviceHtml}
+                <a href="${escapeHtml(data.repeater_url || '/repeater/')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:0.75rem;padding:0.3rem 0.75rem;background:#7c3aed;color:white;border-radius:0.25rem;text-decoration:none;font-size:0.75rem;">Open Repeater &#x2192;</a>
+            `;
+            document.body.appendChild(panel);
+            setTimeout(() => { if (panel.parentNode) panel.remove(); }, 15000);
+        }
+    } catch (e) {
+        if (window.MegidoToast) window.MegidoToast.error('Failed to send to Repeater: ' + e.message);
+    }
+}
+
     const statusClasses = {
         'success': 'badge-success',
         'failed': 'badge-danger',
