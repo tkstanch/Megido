@@ -17,6 +17,8 @@ from .email_engine import EmailEngine
 from .social_media_engine import SocialMediaEngine
 from .cloud_enum_engine import CloudEnumEngine
 from .threat_intel_engine import ThreatIntelEngine
+from .shodan_engine import ShodanEngine
+from .hunter_engine import HunterEngine
 
 __all__ = [
     'BaseOSINTEngine',
@@ -31,6 +33,8 @@ __all__ = [
     'SocialMediaEngine',
     'CloudEnumEngine',
     'ThreatIntelEngine',
+    'ShodanEngine',
+    'HunterEngine',
 ]
 
 # Registry of all available engines, keyed by engine name
@@ -45,5 +49,7 @@ ENGINE_REGISTRY = {
     'social_media': SocialMediaEngine,
     'cloud_enum': CloudEnumEngine,
     'threat_intel': ThreatIntelEngine,
+    'shodan': ShodanEngine,
+    'hunter': HunterEngine,
 }
 
