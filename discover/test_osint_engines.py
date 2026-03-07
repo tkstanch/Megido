@@ -18,6 +18,8 @@ from discover.osint_engines.cloud_enum_engine import CloudEnumEngine
 from discover.osint_engines.email_engine import EmailEngine
 from discover.osint_engines.social_media_engine import SocialMediaEngine
 from discover.osint_engines.threat_intel_engine import ThreatIntelEngine
+from discover.osint_engines.shodan_engine import ShodanEngine
+from discover.osint_engines.hunter_engine import HunterEngine
 from discover.osint_engines import ENGINE_REGISTRY
 
 
@@ -96,7 +98,7 @@ class TestEngineRegistry(TestCase):
         expected = [
             'dns', 'subdomains', 'whois', 'certificates',
             'technology', 'web_crawler', 'email', 'social_media',
-            'cloud_enum', 'threat_intel',
+            'cloud_enum', 'threat_intel', 'shodan', 'hunter',
         ]
         for name in expected:
             self.assertIn(name, ENGINE_REGISTRY, f"Engine '{name}' missing from registry")
@@ -450,3 +452,169 @@ class TestThreatIntelEngine(TestCase):
         engine = ThreatIntelEngine()
         result = engine.run('example.com')
         self.assertTrue(result.success)  # Should not crash
+
+
+# ---------------------------------------------------------------------------
+# Shodan Engine
+# ---------------------------------------------------------------------------
+
+class TestShodanEngine(TestCase):
+
+    @patch('discover.osint_engines.shodan_engine.requests.get')
+    @patch('discover.osint_engines.shodan_engine.socket.gethostbyname', return_value='1.2.3.4')
+    def test_collect_host_data(self, mock_dns, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'ip_str': '1.2.3.4',
+            'hostnames': ['example.com'],
+            'ports': [80, 443],
+            'os': 'Linux',
+            'vulns': {'CVE-2021-1234': {}, 'CVE-2022-5678': {}},
+            'location': {
+                'country_name': 'United States',
+                'city': 'San Francisco',
+                'latitude': 37.7,
+                'longitude': -122.4,
+            },
+            'isp': 'Example ISP',
+            'org': 'Example Org',
+            'last_update': '2024-01-01T00:00:00',
+            'tags': ['self-signed'],
+            'data': [
+                {
+                    'port': 80,
+                    'transport': 'tcp',
+                    'product': 'nginx',
+                    'version': '1.18.0',
+                    'data': 'HTTP/1.1 200 OK\r\nServer: nginx/1.18.0',
+                }
+            ],
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        engine = ShodanEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        data = result.data
+        self.assertEqual(data['ip'], '1.2.3.4')
+        self.assertIn('example.com', data['hostnames'])
+        self.assertIn(80, data['ports'])
+        self.assertEqual(data['os'], 'Linux')
+        self.assertIn('CVE-2021-1234', data['vulns'])
+        self.assertEqual(data['total_ports'], 2)
+        self.assertEqual(data['location']['country'], 'United States')
+        self.assertEqual(len(data['services']), 1)
+        self.assertEqual(data['services'][0]['product'], 'nginx')
+
+    @patch('discover.osint_engines.shodan_engine.requests.get')
+    @patch('discover.osint_engines.shodan_engine.socket.gethostbyname', return_value='1.2.3.4')
+    def test_invalid_api_key(self, mock_dns, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_get.return_value = mock_response
+
+        engine = ShodanEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        self.assertTrue(any('invalid API key' in e for e in result.data.get('errors', [])))
+
+    @patch('discover.osint_engines.shodan_engine.socket.gethostbyname', side_effect=Exception("NXDOMAIN"))
+    def test_dns_resolution_failure(self, mock_dns):
+        engine = ShodanEngine()
+        result = engine.run('nonexistent.invalid')
+        self.assertTrue(result.success)
+        self.assertTrue(any('DNS resolution failed' in e for e in result.data.get('errors', [])))
+
+    @patch('discover.osint_engines.shodan_engine.requests.get', side_effect=Exception("network error"))
+    @patch('discover.osint_engines.shodan_engine.socket.gethostbyname', return_value='1.2.3.4')
+    def test_network_error_handled(self, mock_dns, mock_get):
+        engine = ShodanEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        self.assertTrue(len(result.data.get('errors', [])) > 0)
+
+
+# ---------------------------------------------------------------------------
+# Hunter Engine
+# ---------------------------------------------------------------------------
+
+class TestHunterEngine(TestCase):
+
+    @patch('discover.osint_engines.hunter_engine.requests.get')
+    def test_collect_domain_emails(self, mock_get):
+        search_response = MagicMock()
+        search_response.status_code = 200
+        search_response.json.return_value = {
+            'data': {
+                'domain': 'example.com',
+                'organization': 'Example Corp',
+                'pattern': '{first}.{last}',
+                'total': 5,
+                'emails': [
+                    {
+                        'value': 'john.doe@example.com',
+                        'first_name': 'John',
+                        'last_name': 'Doe',
+                        'position': 'CEO',
+                        'department': 'executive',
+                        'seniority': 'senior',
+                        'type': 'personal',
+                        'confidence': 94,
+                        'sources': [],
+                    },
+                    {
+                        'value': 'info@example.com',
+                        'first_name': None,
+                        'last_name': None,
+                        'position': None,
+                        'department': None,
+                        'seniority': None,
+                        'type': 'generic',
+                        'confidence': 80,
+                        'sources': [],
+                    },
+                ],
+            }
+        }
+        search_response.raise_for_status.return_value = None
+
+        count_response = MagicMock()
+        count_response.status_code = 200
+        count_response.json.return_value = {'data': {'total': 10}}
+
+        mock_get.side_effect = [search_response, count_response]
+
+        engine = HunterEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        data = result.data
+        self.assertEqual(data['domain'], 'example.com')
+        self.assertEqual(data['organization'], 'Example Corp')
+        self.assertEqual(data['email_pattern'], '{first}.{last}')
+        self.assertEqual(len(data['emails']), 2)
+        self.assertEqual(data['emails'][0]['email'], 'john.doe@example.com')
+        self.assertEqual(data['type_breakdown']['personal'], 1)
+        self.assertEqual(data['type_breakdown']['generic'], 1)
+        self.assertEqual(data['department_breakdown'].get('executive'), 1)
+        self.assertEqual(data['seniority_breakdown'].get('senior'), 1)
+        self.assertEqual(data['total_emails'], 10)
+
+    @patch('discover.osint_engines.hunter_engine.requests.get')
+    def test_invalid_api_key(self, mock_get):
+        auth_response = MagicMock()
+        auth_response.status_code = 401
+        mock_get.return_value = auth_response
+
+        engine = HunterEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        self.assertTrue(any('invalid API key' in e for e in result.data.get('errors', [])))
+
+    @patch('discover.osint_engines.hunter_engine.requests.get', side_effect=Exception("network error"))
+    def test_network_error_handled(self, mock_get):
+        engine = HunterEngine()
+        result = engine.run('example.com')
+        self.assertTrue(result.success)
+        self.assertTrue(len(result.data.get('errors', [])) > 0)
