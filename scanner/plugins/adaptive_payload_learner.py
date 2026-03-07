@@ -625,6 +625,7 @@ class AdaptivePayloadLearner:
         elif vuln_type == 'sqli':
             results += [
                 (8, urllib.parse.quote("' OR '1'='1", safe='')),
+                # Hex-encoded equivalent of: ' OR '1'='1
                 (7, '0x2720OR20273127203D20273127'),
             ]
 
