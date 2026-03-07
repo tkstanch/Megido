@@ -128,6 +128,10 @@ class SSRFDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         except Exception as e:
             logger.error(f"Unexpected error during SSRF scan of {url}: {e}")
         
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
     
     def _test_internal_access(self, url: str, verify_ssl: bool, timeout: int) -> List[VulnerabilityFinding]:

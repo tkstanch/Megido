@@ -16,6 +16,12 @@ from enum import Enum
 if TYPE_CHECKING:
     from scanner.scan_plugins.vpoc import VPoCEvidence
 
+try:
+    from scanner.plugins.adaptive_payload_learner import AdaptivePayloadLearner
+    _HAS_LEARNER = True
+except ImportError:
+    _HAS_LEARNER = False
+
 
 class ScanSeverity(Enum):
     """Severity levels for discovered vulnerabilities"""
@@ -136,7 +142,10 @@ class BaseScanPlugin(ABC):
     
     def __init__(self):
         """Initialize the scan plugin."""
-        pass
+        if _HAS_LEARNER:
+            self._adaptive_learner: Optional[AdaptivePayloadLearner] = AdaptivePayloadLearner()
+        else:
+            self._adaptive_learner = None
     
     @property
     @abstractmethod
@@ -230,6 +239,57 @@ class BaseScanPlugin(ABC):
     #     """Async version of scan method for non-blocking scans"""
     #     pass
     
+    def learn_from_failure(
+        self,
+        payload: str,
+        response: Any,
+        failure_type: Optional[str] = None,
+        target_url: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Analyse a detection failure (payload didn't trigger a detection signature)
+        and return mutated payloads that may bypass the target's input filtering.
+
+        Detection plugins should call this when a payload returns without evidence
+        of the vulnerability, to get alternative payloads worth trying next.
+
+        Args:
+            payload:      The payload that was tried and did not produce a detection.
+            response:     The HTTP response object (or None).  Needs ``.status_code``
+                          and ``.text`` attributes if present.
+            failure_type: Optional hint about the failure type
+                          ('waf', 'filter', 'encoding', 'length', …).
+            target_url:   Target URL (used as knowledge-base key). Defaults to the
+                          plugin's ``plugin_id`` if not provided.
+
+        Returns:
+            List of adapted payload strings to try next.
+        """
+        if self._adaptive_learner is None:
+            return []
+
+        key = target_url or getattr(self, 'plugin_id', 'unknown')
+        vuln_types = getattr(self, 'vulnerability_types', [])
+        vuln_type = vuln_types[0] if vuln_types else 'unknown'
+
+        status_code: Optional[int] = None
+        response_body: Optional[str] = None
+        if response is not None:
+            status_code = getattr(response, 'status_code', None)
+            try:
+                response_body = response.text[:500]
+            except Exception:
+                pass
+
+        return self._adaptive_learner.record_and_adapt(
+            target_url=key,
+            vuln_type=str(vuln_type),
+            failed_payload=payload,
+            status_code=status_code,
+            response_body=response_body,
+            failure_reason=failure_type,
+        )
+
     def get_default_config(self) -> Dict[str, Any]:
         """
         Return default configuration for this plugin.

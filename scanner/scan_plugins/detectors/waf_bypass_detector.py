@@ -209,6 +209,10 @@ class WAFBypassDetectorPlugin(BaseScanPlugin):
         except Exception as e:
             logger.error(f"Unexpected error during WAF bypass scan of {url}: {e}")
 
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
 
     # ------------------------------------------------------------------

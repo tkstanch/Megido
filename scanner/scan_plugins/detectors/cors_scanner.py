@@ -193,6 +193,10 @@ class CORSScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
                 unique_findings.append(f)
 
         logger.info("CORS scan of %s – %d finding(s)", url, len(unique_findings))
+
+        # Adaptive learning: record failure if no findings
+        if not unique_findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return unique_findings
 
     # ------------------------------------------------------------------

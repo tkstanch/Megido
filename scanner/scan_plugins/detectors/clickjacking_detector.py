@@ -182,6 +182,10 @@ class ClickjackingDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                     "Unexpected error in clickjacking scan of %s: %s", target_url, exc
                 )
 
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
 
     # ------------------------------------------------------------------

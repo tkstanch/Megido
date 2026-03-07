@@ -234,6 +234,10 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
             logger.error(f"Error during XSS scan of {url}: {e}")
 
         logger.info(f"XSS scan of {url} found {len(findings)} issue(s)")
+
+        # Adaptive learning: record failure if no findings
+        if not findings and hasattr(self, '_adaptive_learner') and self._adaptive_learner:
+            self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
 
     # ------------------------------------------------------------------

