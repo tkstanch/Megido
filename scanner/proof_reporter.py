@@ -997,11 +997,8 @@ on authorized systems only. Ensure responsible disclosure practices are followed
             resp = proof_data.http_responses[0]
             resp_header_lines = '\n'.join(f"{k}: {v}" for k, v in (resp.get('headers') or {}).items())
             resp_body = str(resp.get('body') or '')[:500]
-            http_resp_section = (
-                f"HTTP/1.1 {resp.get('status_code', '')}\n"
-                f"{resp_header_lines}"
-                f"\n\n{resp_body}" if resp_body else f"HTTP/1.1 {resp.get('status_code', '')}\n{resp_header_lines}"
-            )
+            base_resp = f"HTTP/1.1 {resp.get('status_code', '')}\n{resp_header_lines}"
+            http_resp_section = base_resp + (f"\n\n{resp_body}" if resp_body else '')
 
         # Build evidence / command output section
         extra_evidence = ''

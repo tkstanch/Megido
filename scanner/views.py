@@ -1244,7 +1244,8 @@ def bounty_dashboard(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
 def scan_report_template(request, scan_id):
     """
     Generate and return a Markdown report template for all vulnerabilities in a scan.
@@ -1298,7 +1299,8 @@ def scan_report_template(request, scan_id):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
 def scan_chain_suggestions(request, scan_id):
     """
     Return vulnerability chaining suggestions for all findings in a scan.
