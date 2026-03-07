@@ -9,7 +9,7 @@
     display: flex;
     flex-direction: column;
     height: calc(100vh - 64px);
-    font-family: 'Inter', monospace;
+    font-family: 'Inter', sans-serif;
   }
 
   /* ── Tab bar ──────────────────────────────────────────────── */
@@ -633,11 +633,13 @@ const state = {
   configOpen: false,
 };
 
-const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+function getCsrf() {
+  return document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+}
 
 async function apiFetch(url, options = {}) {
   const defaults = {
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
     credentials: 'same-origin',
   };
   const merged = { ...defaults, ...options, headers: { ...defaults.headers, ...(options.headers || {}) } };
@@ -826,14 +828,11 @@ async function sendCurrentRequest() {
   const spinner = document.getElementById('send-spinner');
   spinner.classList.add('active');
   try {
-    let method, url, headersStr, body;
-    if (state.currentReqView === 'raw') {
-      await parseRawToForm();
-    }
-    method    = document.getElementById('method-select').value;
-    url       = document.getElementById('url-input').value;
-    headersStr = document.getElementById('headers-area').value;
-    body      = document.getElementById('body-area').value;
+    if (state.currentReqView === 'raw') { await parseRawToForm(); }
+    const method     = document.getElementById('method-select').value;
+    const url        = document.getElementById('url-input').value;
+    let headersStr   = document.getElementById('headers-area').value;
+    const body       = document.getElementById('body-area').value;
 
     if (!url.trim()) { showToast('Please enter a URL', 'error'); return; }
 
@@ -847,27 +846,18 @@ async function sendCurrentRequest() {
       headersStr = JSON.stringify(headersObj);
     }
 
-    // Create or reuse request object linked to active tab
-    const reqPayload = {
-      url, method, headers: headersStr, body,
-      tab_id: state.activeTabId,
-      name: `${method} ${url}`,
-    };
-
+    const reqPayload = { url, method, headers: headersStr, body, tab_id: state.activeTabId, name: `${method} ${url}` };
     const created = await apiFetch('/repeater/api/requests/', { method: 'POST', body: JSON.stringify(reqPayload) });
-    const reqId = created.id;
+    state.lastReqId = created.id;
 
-    // Send it
-    const resp = await apiFetch(`/repeater/api/requests/${reqId}/send/`, { method: 'POST' });
+    const resp = await apiFetch(`/repeater/api/requests/${created.id}/send/`, { method: 'POST' });
     state.lastResponse = resp;
     state.responseHistory.push(resp);
     state.historyPos = state.responseHistory.length - 1;
 
     renderResponse(resp);
     updateHistoryInfo();
-    fetchTargetInfo(reqId);
-
-    // Populate diff dropdowns
+    fetchTargetInfo(created.id);
     addRespToDropdowns(resp);
   } catch (e) {
     document.getElementById('response-body').textContent = `Error: ${e.message}`;
@@ -1125,52 +1115,6 @@ function showToast(msg, type = 'info') {
   toast.textContent = msg;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
-}
-
-// Override sendCurrentRequest to also track lastReqId
-const _origSend = sendCurrentRequest;
-// Patch: store request id after creation
-async function sendCurrentRequest() {
-  const spinner = document.getElementById('send-spinner');
-  spinner.classList.add('active');
-  try {
-    let method, url, headersStr, body;
-    if (state.currentReqView === 'raw') { await parseRawToForm(); }
-    method     = document.getElementById('method-select').value;
-    url        = document.getElementById('url-input').value;
-    headersStr = document.getElementById('headers-area').value;
-    body       = document.getElementById('body-area').value;
-
-    if (!url.trim()) { showToast('Please enter a URL', 'error'); return; }
-
-    const autoCL = document.getElementById('cfg-auto-cl').checked;
-    let headersObj = {};
-    try { headersObj = JSON.parse(headersStr || '{}'); } catch(e) {}
-    if (autoCL && body) {
-      headersObj['Content-Length'] = new TextEncoder().encode(body).length.toString();
-      document.getElementById('headers-area').value = JSON.stringify(headersObj, null, 2);
-      headersStr = JSON.stringify(headersObj);
-    }
-
-    const reqPayload = { url, method, headers: headersStr, body, tab_id: state.activeTabId, name: `${method} ${url}` };
-    const created = await apiFetch('/repeater/api/requests/', { method: 'POST', body: JSON.stringify(reqPayload) });
-    state.lastReqId = created.id;
-
-    const resp = await apiFetch(`/repeater/api/requests/${created.id}/send/`, { method: 'POST' });
-    state.lastResponse = resp;
-    state.responseHistory.push(resp);
-    state.historyPos = state.responseHistory.length - 1;
-
-    renderResponse(resp);
-    updateHistoryInfo();
-    fetchTargetInfo(created.id);
-    addRespToDropdowns(resp);
-  } catch (e) {
-    document.getElementById('response-body').textContent = `Error: ${e.message}`;
-    console.error('sendCurrentRequest:', e);
-  } finally {
-    spinner.classList.remove('active');
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -310,19 +310,19 @@ def target_info(request, request_id):
     try:
         info['ip_address'] = socket.gethostbyname(host)
     except socket.gaierror:
-        info['ip_address'] = 'Could not resolve'
+        info['ip_address'] = f'DNS resolution failed for {host}'
 
     # TLS certificate info
     if parsed.scheme == 'https':
         try:
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
+            ctx.verify_mode = ssl.CERT_NONE  # Intentionally disabled for security testing tool
             with ctx.wrap_socket(socket.create_connection((host, port), timeout=5), server_hostname=host) as ssock:
                 cert = ssock.getpeercert()
                 info['tls_certificate'] = {
-                    'subject': dict(x[0] for x in cert.get('subject', [])),
-                    'issuer': dict(x[0] for x in cert.get('issuer', [])),
+                    'subject': dict(k for x in cert.get('subject', []) for k in x),
+                    'issuer': dict(k for x in cert.get('issuer', []) for k in x),
                     'notBefore': cert.get('notBefore'),
                     'notAfter': cert.get('notAfter'),
                     'serialNumber': cert.get('serialNumber'),

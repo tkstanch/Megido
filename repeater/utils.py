@@ -185,7 +185,7 @@ def update_content_length_in_raw(raw: str) -> str:
     body = parsed.get('body', '')
     content_length = str(len((body or '').encode('utf-8')))
 
-    # Replace existing Content-Length header (case-insensitive)
+    # Replace existing Content-Length header (case-insensitive, handle CRLF line endings)
     updated = re.sub(
         r'(?im)^Content-Length:\s*\d+\r?$',
         f'Content-Length: {content_length}',
