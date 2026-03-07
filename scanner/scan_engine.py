@@ -8,6 +8,8 @@ The engine:
 - Loads and manages scan plugins
 - Executes scans using multiple plugins
 - Aggregates results from all plugins
+- Registers findings with FindingTracker and analyses real impact via ImpactAnalyzer
+- Optionally creates issue-tracker tickets via the integrations package
 - Provides both sync and async scanning interfaces (async TODO for future)
 """
 
@@ -16,6 +18,9 @@ import os
 from typing import Dict, List, Any, Optional
 
 from scanner.scan_plugins import get_scan_registry, VulnerabilityFinding
+from scanner.finding_tracker import FindingTracker, FindingStatus
+from scanner.impact_analyzer import ImpactAnalyzer
+from scanner.integrations import TrackerConfig
 
 # Import models only when needed to avoid dependency issues
 try:
@@ -33,6 +38,11 @@ class ScanEngine:
     Main scanning engine that orchestrates vulnerability detection.
     
     This engine uses the plugin system to perform modular, extensible scanning.
+    After each scan, findings are:
+      1. Registered with a ``FindingTracker`` instance.
+      2. Analysed by ``ImpactAnalyzer`` to determine real-world impact.
+      3. Optionally submitted to an issue tracker (Jira / Bugzilla) when
+         ``auto_create_on_confirmed`` is enabled in ``TrackerConfig``.
     
     Usage:
         engine = ScanEngine()
@@ -43,7 +53,110 @@ class ScanEngine:
     def __init__(self):
         """Initialize the scan engine."""
         self.registry = get_scan_registry()
+        self.finding_tracker = FindingTracker()
+        self.impact_analyzer = ImpactAnalyzer()
+        self._tracker_client = self._init_tracker_client()
         logger.info(f"ScanEngine initialized with {self.registry.get_plugin_count()} plugin(s)")
+
+    # ------------------------------------------------------------------
+    # Issue-tracker helpers
+    # ------------------------------------------------------------------
+
+    def _init_tracker_client(self):
+        """Initialise the issue tracker client from environment config."""
+        try:
+            config = TrackerConfig.from_env()
+            if config.tracker_type == "jira" and config.jira_url:
+                from scanner.integrations import JiraTracker
+                return JiraTracker(
+                    jira_url=config.jira_url,
+                    project_key=config.jira_project_key,
+                    api_token=config.jira_api_token,
+                    email=config.jira_email,
+                    issue_type=config.jira_issue_type,
+                    priority_mapping=config.priority_mapping,
+                )
+            if config.tracker_type == "bugzilla" and config.bugzilla_url:
+                from scanner.integrations import BugzillaTracker
+                return BugzillaTracker(
+                    bugzilla_url=config.bugzilla_url,
+                    api_key=config.bugzilla_api_key,
+                    product=config.bugzilla_product,
+                    component=config.bugzilla_component,
+                    version=config.bugzilla_version,
+                    priority_mapping=config.priority_mapping,
+                )
+        except Exception as exc:
+            logger.debug("Issue tracker not initialised (will run without it): %s", exc)
+        return None
+
+    def _post_scan_process(
+        self, findings: List[VulnerabilityFinding], config: Dict[str, Any]
+    ) -> None:
+        """
+        Register findings, analyse impact, and create tracker tickets.
+
+        Called automatically at the end of :meth:`scan` and
+        :meth:`scan_with_plugins`.
+        """
+        tracker_config = TrackerConfig.from_env()
+
+        severity_order = ["critical", "high", "medium", "low", "info"]
+        threshold_idx = severity_order.index(
+            tracker_config.severity_threshold.lower()
+            if tracker_config.severity_threshold.lower() in severity_order
+            else "medium"
+        )
+
+        for vf in findings:
+            finding_data = {
+                "vulnerability_type": vf.vulnerability_type,
+                "target_url": vf.url,
+                "parameter": getattr(vf, "parameter", ""),
+                "severity": vf.severity,
+                "confidence_score": getattr(vf, "confidence", 0.0),
+                "detection_evidence": vf.evidence,
+            }
+            finding = self.finding_tracker.add_finding(finding_data)
+
+            # Analyse real-world impact
+            try:
+                evidence_dict = vf.http_traffic or {}
+                if hasattr(vf, "successful_payloads") and vf.successful_payloads:
+                    evidence_dict["payload_executed"] = vf.successful_payloads[0]
+                impact = self.impact_analyzer.analyze_impact(
+                    vf.vulnerability_type, evidence_dict
+                )
+                finding.real_impact = impact.to_dict()
+            except Exception as exc:
+                logger.debug("Impact analysis failed for %s: %s", finding.finding_id, exc)
+
+            # Auto-create tracker tickets
+            if (
+                self._tracker_client is not None
+                and tracker_config.auto_create_on_confirmed
+            ):
+                sev = vf.severity.lower() if vf.severity else "info"
+                sev_idx = severity_order.index(sev) if sev in severity_order else len(severity_order)
+                if sev_idx <= threshold_idx:
+                    try:
+                        result = self._tracker_client.create_issue(finding.to_dict())
+                        self.finding_tracker.link_to_tracker(
+                            finding.finding_id,
+                            result["issue_id"],
+                            result["issue_url"],
+                        )
+                        logger.info(
+                            "Created tracker issue %s for finding %s",
+                            result["issue_id"],
+                            finding.finding_id,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to create tracker issue for %s: %s",
+                            finding.finding_id,
+                            exc,
+                        )
 
     def _inject_env_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Inject environment-sourced config values if not already present.
@@ -87,6 +200,7 @@ class ScanEngine:
                 logger.error(f"Error running plugin {plugin.name}: {e}")
         
         logger.info(f"Scan completed. Total findings: {len(all_findings)}")
+        self._post_scan_process(all_findings, config)
         return all_findings
     
     def scan_with_plugins(
@@ -127,6 +241,7 @@ class ScanEngine:
                 logger.warning(f"Plugin not found: {plugin_id}")
         
         logger.info(f"Targeted scan completed. Total findings: {len(all_findings)}")
+        self._post_scan_process(all_findings, config)
         return all_findings
     
     def save_findings_to_db(
