@@ -343,8 +343,98 @@ _DOS_VULNERABILITY_TYPES: frozenset = frozenset({'dos'})
 # Public helpers
 # ---------------------------------------------------------------------------
 
+# Priority → submittability / PoC requirement meta-data
+_P_LEVEL_META: dict = {
+    'P1': {
+        'label': 'P1 (Critical)',
+        'submittable': True,
+        'requires_poc': True,
+        'description': (
+            'Remote code execution, SQLi with data extraction, authentication bypass. '
+            'Always accepted by bug bounty programs with a working PoC.'
+        ),
+    },
+    'P2': {
+        'label': 'P2 (High)',
+        'submittable': True,
+        'requires_poc': True,
+        'description': (
+            'Stored XSS, IDOR with data access, SSRF to internal resources. '
+            'Usually accepted with a clear PoC demonstrating impact.'
+        ),
+    },
+    'P3': {
+        'label': 'P3 (Medium)',
+        'submittable': True,
+        'requires_poc': True,
+        'description': (
+            'Reflected XSS (with PoC), clickjacking on state-changing page, '
+            'CSRF on sensitive action. Accepted with a high-quality PoC.'
+        ),
+    },
+    'P4': {
+        'label': 'P4 (Low)',
+        'submittable': False,
+        'requires_poc': True,
+        'description': (
+            'Missing headers (informational), open redirect without chain, '
+            'reflected XSS behind CSP. Usually NOT accepted unless chained '
+            'into a higher-impact attack.'
+        ),
+    },
+    'P5': {
+        'label': 'Informational',
+        'submittable': False,
+        'requires_poc': False,
+        'description': (
+            'Best-practice headers, weak HSTS, CORS on public endpoints. '
+            'NOT accepted as standalone findings by most bug bounty programs.'
+        ),
+    },
+}
+
+# Vulnerability types that can be chained to elevate a finding
+_CHAIN_POTENTIAL: dict = {
+    'security_misconfig': ['xss', 'clickjacking', 'csrf'],
+    'clickjacking': ['csrf', 'security_misconfig'],
+    'open_redirect': ['cors', 'subdomain_takeover', 'phishing'],
+    'cors': ['idor', 'info_disclosure', 'open_redirect'],
+    'info_disclosure': ['sqli', 'auth_bypass', 'idor'],
+    'xss': ['csrf', 'security_misconfig'],
+}
+
+# P-level → specific bounty tips
+_P_LEVEL_TIPS: dict = {
+    'P1': [
+        'Provide a step-by-step reproduction with request/response proof.',
+        'Include exact commands or scripts used for exploitation.',
+        'State the full business impact (data exposed, systems compromised).',
+    ],
+    'P2': [
+        'Include a video or animated GIF demonstrating the exploit.',
+        'Show what sensitive data is accessible or what actions can be performed.',
+        'Provide a curl command or Burp Suite capture for reproduction.',
+    ],
+    'P3': [
+        'Pair the finding with a concrete PoC HTML file or URL.',
+        'Demonstrate the exploit on a state-changing or sensitive action.',
+        'Note any prerequisites (victim must be logged in, specific browser, etc.).',
+    ],
+    'P4': [
+        'Without chaining, this finding is likely to be marked Informational.',
+        'Attempt to chain with XSS, CSRF, or another vulnerability to elevate severity.',
+        'Provide the exact HTTP response headers showing the missing protection.',
+    ],
+    'P5': [
+        'This is informational and typically not accepted for a bounty payout.',
+        'Submit as a best-practice recommendation only if the program accepts them.',
+        'Consider chaining with another vulnerability to make it submittable.',
+    ],
+}
+
+
 def get_bounty_classification(vuln_type: str, verified: bool = False) -> Optional[str]:
-    """Return the appropriate P-level for *vuln_type*.
+    """Return the appropriate P-level string for *vuln_type*.
 
     Args:
         vuln_type: The vulnerability type identifier (matches keys in
@@ -362,6 +452,58 @@ def get_bounty_classification(vuln_type: str, verified: bool = False) -> Optiona
     if verified:
         return entry['p_level_with_poc']
     return entry['p_level_without_poc']
+
+
+def get_full_bounty_classification(
+    vuln_type: str,
+    verified: bool = False,
+) -> Optional[dict]:
+    """Return a rich classification dict for *vuln_type*.
+
+    Unlike ``get_bounty_classification()`` which returns only a P-level string,
+    this function returns a complete dict with submittability, PoC requirements,
+    chaining potential, and actionable tips for the bug hunter.
+
+    Args:
+        vuln_type: The vulnerability type identifier.
+        verified: If ``True``, use the *with-PoC* P-level; otherwise use the
+            *without-PoC* P-level.
+
+    Returns:
+        A dict with the following keys, or ``None`` if *vuln_type* is unknown::
+
+            {
+                'vuln_type': str,
+                'p_level': str,          # e.g. 'P1', 'P2', …, 'P5'
+                'label': str,            # e.g. 'P3 (Medium)'
+                'submittable': bool,     # whether a bounty program will accept this
+                'requires_poc': bool,    # whether a PoC is needed
+                'chain_potential': list, # vulnerability types that can elevate this
+                'tips': list,            # specific advice for the bug hunter
+                'description': str,      # human-readable classification description
+                'taxonomy_name': str,    # full name from BOUNTY_TAXONOMY
+                'category': str,         # vulnerability category
+            }
+    """
+    entry = BOUNTY_TAXONOMY.get(vuln_type)
+    if entry is None:
+        return None
+
+    p_level = entry['p_level_with_poc'] if verified else entry['p_level_without_poc']
+    meta = _P_LEVEL_META.get(p_level, _P_LEVEL_META['P5'])
+
+    return {
+        'vuln_type': vuln_type,
+        'p_level': p_level,
+        'label': meta['label'],
+        'submittable': meta['submittable'],
+        'requires_poc': meta['requires_poc'],
+        'chain_potential': _CHAIN_POTENTIAL.get(vuln_type, []),
+        'tips': _P_LEVEL_TIPS.get(p_level, []),
+        'description': meta['description'],
+        'taxonomy_name': entry.get('name', vuln_type),
+        'category': entry.get('category', 'Unknown'),
+    }
 
 
 def get_all_classifications() -> dict:
