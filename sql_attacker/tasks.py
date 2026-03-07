@@ -68,7 +68,10 @@ def sql_injection_task(self, task_id: int) -> Dict[str, Any]:
                 },
             )
 
-        execute_task(task_id, progress_callback=_progress)
+        result_status = execute_task(task_id, progress_callback=_progress)
+        if result_status == 'awaiting_confirmation':
+            logger.info(f"sql_injection_task for task {task_id} paused - awaiting parameter confirmation.")
+            return {'task_id': task_id, 'status': 'awaiting_confirmation', 'celery_task_id': celery_task_id}
         logger.info(f"sql_injection_task for task {task_id} completed successfully.")
         return {'task_id': task_id, 'status': 'completed', 'celery_task_id': celery_task_id}
     except SoftTimeLimitExceeded:
@@ -119,7 +122,10 @@ def sql_injection_task_with_selection(self, task_id: int) -> Dict[str, Any]:
                 },
             )
 
-        execute_task_with_selection(task_id, progress_callback=_progress)
+        result_status = execute_task_with_selection(task_id, progress_callback=_progress)
+        if result_status == 'awaiting_confirmation':
+            logger.info(f"sql_injection_task_with_selection for task {task_id} paused - awaiting parameter confirmation.")
+            return {'task_id': task_id, 'status': 'awaiting_confirmation', 'celery_task_id': celery_task_id}
         logger.info(f"sql_injection_task_with_selection for task {task_id} completed successfully.")
         return {'task_id': task_id, 'status': 'completed', 'celery_task_id': celery_task_id}
     except SoftTimeLimitExceeded:
