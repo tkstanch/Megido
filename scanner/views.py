@@ -342,6 +342,10 @@ def _build_impact_summary(vuln) -> str:
     impact description from the known impact maps, and finally to a plain
     severity/type sentence.
 
+    For ``security_misconfig`` / ``security_misconfiguration`` vulnerabilities,
+    the function parses the evidence to extract missing header names and returns
+    a specific, actionable impact string instead of the generic fallback.
+
     Args:
         vuln: Vulnerability model instance
 
@@ -366,6 +370,29 @@ def _build_impact_summary(vuln) -> str:
     # No proof_of_impact yet — use type-specific impact descriptions
     vuln_type = (vuln.vulnerability_type or '').lower()
 
+    # Security-misconfiguration: build header-specific impact from evidence
+    if vuln_type in ('security_misconfig', 'security_misconfiguration'):
+        evidence_src = vuln.evidence or ''
+        # Also check exploit_result for header analysis data
+        if not evidence_src and vuln.exploit_result:
+            evidence_src = vuln.exploit_result
+        header_impacts = _extract_missing_header_impacts(evidence_src)
+        if header_impacts:
+            # Lead with the highest-impact headers first (X-Frame-Options > CSP > others)
+            priority = ['clickjacking', 'script execution', 'downgrade', 'MIME']
+            header_impacts.sort(
+                key=lambda s: next(
+                    (i for i, p in enumerate(priority) if p.lower() in s.lower()), len(priority)
+                )
+            )
+            return (
+                'Missing security headers: '
+                + '; '.join(header_impacts[:3])
+                + '. '
+                + 'An attacker can leverage these missing headers to perform clickjacking, '
+                'XSS, or network-level attacks depending on the specific headers absent.'
+            )
+
     # Check exploit_integration's _VULN_IMPACT_MAP first
     try:
         from scanner.exploit_integration import _VULN_IMPACT_MAP
@@ -382,7 +409,7 @@ def _build_impact_summary(vuln) -> str:
             attacker_impacts = bmap.get('attacker_impact', [])
             if attacker_impacts:
                 # For security_misconfig, enrich with evidence-derived header details
-                if vuln_type == 'security_misconfig' and vuln.evidence:
+                if vuln_type in ('security_misconfig', 'security_misconfiguration') and vuln.evidence:
                     header_details = _extract_missing_header_impacts(vuln.evidence)
                     if header_details:
                         return (

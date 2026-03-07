@@ -163,6 +163,47 @@ class XXEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
             self.learn_from_failure(payload='', response=None, target_url=url)
         return findings
     
+    # WAF/CDN server header patterns (case-insensitive match)
+    _WAF_SERVER_PATTERNS = re.compile(
+        r'cloudflare|akamai|imperva|sucuri|aws-waf|barracuda|f5|incapsula|'
+        r'fastly|stackpath|reblaze',
+        re.IGNORECASE,
+    )
+
+    # WAF block-page body patterns
+    _WAF_BODY_PATTERNS = re.compile(
+        r'Attention Required!|Access [Dd]enied|Ray ID|cf-error-details|'
+        r'\bcf-\w+|Request [Bb]locked|Security [Cc]hallenge|'
+        r'Cloudflare|Please enable JavaScript|Enable JavaScript and cookies',
+        re.IGNORECASE,
+    )
+
+    def _is_waf_response(self, response) -> bool:
+        """Return True if the response appears to be a WAF/CDN block page.
+
+        Checks:
+        - Status code in {403, 406, 429}
+        - ``Server`` response header matches known WAF/CDN vendor names
+        - Response body contains common WAF block-page signatures
+
+        A positive result means the request was blocked rather than processed
+        by the target application, so any XML-related keywords in the body
+        originate from the WAF template — not from the application parsing the
+        XXE payload.
+        """
+        if response is None:
+            return False
+
+        waf_status = response.status_code in (403, 406, 429)
+
+        server_header = response.headers.get('Server', '') or ''
+        waf_server = bool(self._WAF_SERVER_PATTERNS.search(server_header))
+
+        body_snippet = (response.text or '')[:4096]
+        waf_body = bool(self._WAF_BODY_PATTERNS.search(body_snippet))
+
+        return waf_status and (waf_server or waf_body)
+
     def _test_classic_xxe(self, url: str, verify_ssl: bool, timeout: int) -> List[VulnerabilityFinding]:
         """Test for classic XXE vulnerabilities."""
         findings = []
@@ -183,8 +224,50 @@ class XXEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                     
                     # Check for file content in response
                     response_text = response.text
-                    
-                    # Check for /etc/passwd indicators
+
+                    # --- WAF/CDN detection ---
+                    # A 403/406/429 from a WAF is NOT evidence of XXE; the WAF
+                    # blocked the request before it reached the application.
+                    # XML-related keywords in a WAF block page must not be treated
+                    # as XXE indicators.
+                    if self._is_waf_response(response):
+                        server_header = response.headers.get('Server', 'WAF/CDN')
+                        finding = VulnerabilityFinding(
+                            vulnerability_type='xxe',
+                            severity='info',
+                            url=url,
+                            description=(
+                                'XXE payload blocked by WAF/CDN — not a confirmed XXE vulnerability'
+                            ),
+                            evidence=(
+                                f'HTTP {response.status_code} response from {server_header} '
+                                f'blocked the XML payload. WAF/CDN responses must not be treated '
+                                f'as evidence of XXE processing by the application.'
+                            ),
+                            remediation=(
+                                'No remediation required for the WAF block. '
+                                'To confirm XXE, bypass the WAF or test on a staging environment '
+                                'that accepts the XML payload directly.'
+                            ),
+                            confidence=0.15,
+                            cwe_id='CWE-611',
+                        )
+                        self._attach_vpoc(
+                            finding, response, payload, 0.15,
+                            reproduction_steps=(
+                                '1. Send the XML payload to the endpoint.\n'
+                                '2. Observe a WAF/CDN block response — NOT proof of XXE.\n'
+                                '3. To confirm, test on a WAF-free staging environment.'
+                            ),
+                        )
+                        findings.append(finding)
+                        logger.info(
+                            f"XXE payload at {url} was blocked by WAF (HTTP {response.status_code}, "
+                            f"Server: {server_header}) — recorded as informational only"
+                        )
+                        return findings
+
+                    # Check for /etc/passwd indicators (confirmed file read)
                     if any(re.search(pattern, response_text) for pattern in self.FILE_SIGNATURES['/etc/passwd']):
                         finding = VulnerabilityFinding(
                             vulnerability_type='xxe',
@@ -201,7 +284,7 @@ class XXEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                         logger.info(f"Found XXE vulnerability at {url}")
                         return findings
                     
-                    # Check for win.ini indicators
+                    # Check for win.ini indicators (confirmed file read)
                     if any(re.search(pattern, response_text, re.IGNORECASE) for pattern in self.FILE_SIGNATURES['win.ini']):
                         finding = VulnerabilityFinding(
                             vulnerability_type='xxe',
@@ -218,7 +301,10 @@ class XXEDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                         logger.info(f"Found XXE vulnerability at {url}")
                         return findings
                     
-                    # Check for XML error messages that might indicate XXE parsing
+                    # Check for XML error messages that might indicate XXE parsing.
+                    # Only flag when the response was NOT blocked by a WAF (already
+                    # handled above) — these keywords in a real application response
+                    # suggest the XML parser processed the entity reference.
                     error_indicators = [
                         'java.io.FileNotFoundException',
                         'XML External Entity',
