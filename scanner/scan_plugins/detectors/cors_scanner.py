@@ -52,6 +52,17 @@ _PROBE_ORIGINS = [
 # Risky HTTP methods that preflight should not permit unless strictly necessary
 _RISKY_METHODS = {'DELETE', 'PUT', 'PATCH'}
 
+# File extensions that are always public static assets — CORS wildcard on
+# these is expected and should not be reported as a vulnerability.
+_STATIC_ASSET_EXTENSIONS = {
+    '.css', '.js', '.mjs', '.ts',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
+    '.mp4', '.mp3', '.webm', '.ogg', '.avi',
+    '.pdf', '.zip', '.tar', '.gz',
+    '.map',  # source maps
+}
+
 _REMEDIATION_WILDCARD = (
     "Do not use Access-Control-Allow-Origin: * for endpoints that return "
     "user-specific or sensitive data. Maintain an explicit allowlist of trusted "
@@ -234,6 +245,13 @@ class CORSScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
         )
 
         if acao == '*':
+            # CORS wildcard on static assets is expected — skip
+            if self._is_static_asset(url):
+                logger.debug(
+                    "CORS wildcard on static asset %s – not reported", url
+                )
+                return findings
+
             if has_credentials:
                 # Browsers reject this combination but it indicates misconfiguration.
                 finding = VulnerabilityFinding(
@@ -267,6 +285,12 @@ class CORSScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
                     remediation=_REMEDIATION_WILDCARD,
                     confidence=0.95,
                     cwe_id='CWE-942',
+                    bounty_notes=(
+                        'ACAO: * without credentials is acceptable on endpoints '
+                        'that exclusively serve public, non-user-specific data. '
+                        'Verify the endpoint returns sensitive or user-specific '
+                        'data before reporting as a bounty finding.'
+                    ),
                 )
                 self._attach_vpoc(finding, response, origin, 0.95, reproduction_steps="1. Send request with Origin: attacker.example.com header\n2. Observe Access-Control-Allow-Origin reflects attacker origin")
                 findings.append(finding)
@@ -412,6 +436,25 @@ class CORSScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_static_asset(url: str) -> bool:
+        """
+        Return True when the URL path ends with a known static-asset extension.
+
+        CORS wildcard (``Access-Control-Allow-Origin: *``) on static assets is
+        expected and intentional — it should not be flagged as a vulnerability.
+        """
+        try:
+            path = urllib.parse.urlparse(url).path.lower()
+            # Strip query strings / fragments already handled by urlparse
+            dot_idx = path.rfind('.')
+            if dot_idx != -1:
+                ext = path[dot_idx:]
+                return ext in _STATIC_ASSET_EXTENSIONS
+        except Exception:
+            pass
+        return False
 
     @staticmethod
     def _lookalike_origin(url: str) -> Optional[str]:

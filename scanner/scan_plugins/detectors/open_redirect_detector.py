@@ -39,6 +39,7 @@ except ImportError:
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
 from scanner.scan_plugins.vpoc import capture_request_response_evidence
+from scanner.scan_plugins.baseline_request import fetch_baseline
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,17 @@ _REMEDIATION = (
     'Implement redirect token validation for dynamic redirect destinations. '
     'Avoid reflecting user-supplied URLs directly into redirect sinks.'
 )
+
+# Parameter names that are never user-controlled navigation targets
+_NON_NAVIGATION_PARAMS = {'__path__', '__debug__', '__trace__'}
+
+# Known CDN / infrastructure domains whose redirect behaviour is expected
+# (redirect to these is less likely to be a bounty-worthy open redirect)
+_CDN_DOMAINS = {
+    'cloudflare.com', 'cloudfront.net', 'akamai.com', 'akamaiedge.net',
+    'fastly.net', 'fastlylb.net', 'edgesuite.net', 'edgekey.net',
+    'amazonaws.com', 'azureedge.net', 'googleusercontent.com',
+}
 
 
 def _is_external_redirect(target: str, original_host: str) -> bool:
@@ -186,6 +198,12 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
             base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
             existing_params = parse_qs(parsed.query)
 
+            # Fetch a clean baseline to detect pre-existing redirects
+            baseline_response = fetch_baseline(url, verify_ssl=verify_ssl, timeout=timeout)
+            baseline_location = ''
+            if baseline_response is not None and baseline_response.status_code in (301, 302, 303, 307, 308):
+                baseline_location = baseline_response.headers.get('Location', '')
+
             # Build the full set of parameter names to probe
             param_names_to_test: List[str] = list(existing_params.keys())
             for common_param in _COMMON_REDIRECT_PARAMS:
@@ -193,6 +211,13 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                     param_names_to_test.append(common_param)
 
             for param_name in param_names_to_test:
+                # Skip parameters that are never used for user-controlled navigation
+                if param_name in _NON_NAVIGATION_PARAMS:
+                    logger.debug(
+                        "Skipping non-navigation parameter %r for open-redirect probe", param_name
+                    )
+                    continue
+
                 for payload in _REDIRECT_PAYLOADS:
                     dedup_key = f"{param_name}::{payload}"
                     if dedup_key in seen:
@@ -212,6 +237,18 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                         )
                     except Exception as e:
                         logger.debug(f"Error testing open redirect param={param_name}: {e}")
+                        continue
+
+                    # Skip if the server already redirected to this location without our payload
+                    if (
+                        baseline_location
+                        and response.status_code in (301, 302, 303, 307, 308)
+                        and response.headers.get('Location', '') == baseline_location
+                    ):
+                        logger.debug(
+                            "Redirect to %r matches baseline – skipping (pre-existing redirect)",
+                            baseline_location,
+                        )
                         continue
 
                     finding = self._analyse_response(
@@ -237,14 +274,35 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
         """
         Inspect a response for any open redirect mechanism and return a finding
         if an external redirect is detected.
+
+        Confidence is reduced when the redirect target is a known CDN or
+        infrastructure domain because those redirects are often server-side
+        load-balancer behaviour rather than an attacker-controllable vector.
         """
         _PLUGIN_NAME = 'open_redirect_detector'
+
+        def _cdn_adjusted_confidence(target: str, base_confidence: float) -> Tuple[float, Optional[str]]:
+            """Return (confidence, bounty_notes) adjusted for CDN targets."""
+            try:
+                parsed_target = urlparse(target if '://' in target else 'https:' + target)
+                host = (parsed_target.hostname or '').lower()
+            except Exception:
+                host = ''
+            for cdn in _CDN_DOMAINS:
+                if host == cdn or host.endswith('.' + cdn):
+                    return (
+                        min(base_confidence, 0.5),
+                        f'Redirect target ({host}) is a known CDN/infrastructure domain. '
+                        'This may be expected load-balancer behaviour rather than a '
+                        'user-controlled open redirect.',
+                    )
+            return base_confidence, None
 
         # 1. HTTP 3xx Location header
         if response.status_code in (301, 302, 303, 307, 308):
             location = response.headers.get('Location', '')
             if location and _is_external_redirect(location, original_host):
-                confidence = 0.9
+                confidence, cdn_note = _cdn_adjusted_confidence(location, 0.9)
                 redirect_chain = [url, location]
                 vpoc = capture_request_response_evidence(
                     response=response,
@@ -271,6 +329,7 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                     confidence=confidence,
                     cwe_id='CWE-601',
                     vpoc=vpoc,
+                    bounty_notes=cdn_note,
                 )
 
         body = response.text or ''
@@ -280,7 +339,7 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
         if refresh_header:
             refresh_url = self._extract_refresh_url(refresh_header)
             if refresh_url and _is_external_redirect(refresh_url, original_host):
-                confidence = 0.85
+                confidence, cdn_note = _cdn_adjusted_confidence(refresh_url, 0.85)
                 vpoc = capture_request_response_evidence(
                     response=response,
                     plugin_name=_PLUGIN_NAME,
@@ -306,12 +365,13 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                     confidence=confidence,
                     cwe_id='CWE-601',
                     vpoc=vpoc,
+                    bounty_notes=cdn_note,
                 )
 
         # 3. HTML meta refresh
         meta_url = self._extract_meta_refresh_url(body)
         if meta_url and _is_external_redirect(meta_url, original_host):
-            confidence = 0.80
+            confidence, cdn_note = _cdn_adjusted_confidence(meta_url, 0.80)
             vpoc = capture_request_response_evidence(
                 response=response,
                 plugin_name=_PLUGIN_NAME,
@@ -337,12 +397,13 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                 confidence=confidence,
                 cwe_id='CWE-601',
                 vpoc=vpoc,
+                bounty_notes=cdn_note,
             )
 
         # 4. JavaScript-based redirects
         js_target = self._extract_js_redirect_url(body)
         if js_target and _is_external_redirect(js_target, original_host):
-            confidence = 0.75
+            confidence, cdn_note = _cdn_adjusted_confidence(js_target, 0.75)
             vpoc = capture_request_response_evidence(
                 response=response,
                 plugin_name=_PLUGIN_NAME,
@@ -368,6 +429,7 @@ class OpenRedirectDetectorPlugin(BaseScanPlugin):
                 confidence=confidence,
                 cwe_id='CWE-601',
                 vpoc=vpoc,
+                bounty_notes=cdn_note,
             )
 
         return None

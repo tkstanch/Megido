@@ -16,6 +16,7 @@ This is the DETECTION plugin. For EXPLOITATION, see scanner/plugins/exploits/xss
 import logging
 import re
 import uuid
+import html as _html_module
 from typing import Dict, List, Any, Optional, Tuple
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 
@@ -269,10 +270,9 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                 try:
                     resp = session.get(test_url, timeout=timeout, verify=verify_ssl)
                     reflected, context, confidence = self._check_reflection(
-                        marked_payload, marker, resp.text
+                        marked_payload, marker, resp.text, response=resp
                     )
                     if reflected:
-                        # Capture HTTP traffic for this GET XSS finding
                         xss_http_traffic = {
                             'request': {
                                 'method': 'GET',
@@ -365,7 +365,7 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
                         )
 
                     reflected, context, confidence = self._check_reflection(
-                        marked_payload, marker, resp.text
+                        marked_payload, marker, resp.text, response=resp
                     )
                     if reflected:
                         xss_type = 'Reflected' if method == 'get' else 'Potentially Stored'
@@ -680,23 +680,62 @@ class XSSScannerPlugin(VPoCDetectorMixin, StealthScanMixin, BaseScanPlugin):
     # ------------------------------------------------------------------
 
     def _check_reflection(
-        self, payload: str, marker: str, body: str
+        self, payload: str, marker: str, body: str,
+        response: 'Optional[requests.Response]' = None,
     ) -> Tuple[bool, str, float]:
         """
         Determine whether the payload was reflected and in which context.
 
+        Additional false-positive guards:
+        - If the response Content-Type is not HTML-like, confidence is reduced
+          significantly because XSS requires an HTML rendering context.
+        - If the payload is reflected but HTML-entity-encoded (e.g.
+          ``&lt;script&gt;``), confidence is reduced and the context notes it.
+        - If a strong Content-Security-Policy with ``script-src`` restrictions
+          is present, ``exploitability_confirmed`` will be False in the
+          returned context label.
+
         Returns:
             (reflected, context_label, confidence)
         """
+        # Content-Type guard: XSS requires HTML rendering
+        if response is not None:
+            content_type = response.headers.get('Content-Type', '').lower()
+            if content_type and not any(
+                ct in content_type for ct in ('text/html', 'application/xhtml', 'text/xml')
+            ):
+                # Non-HTML content type — XSS is not exploitable here
+                return False, '', 0.0
+
         # Direct full-payload reflection — highest confidence
         if payload in body:
             context = self._detect_context(payload, body)
-            return True, context, 0.9
+            confidence = 0.9
+            # CSP check: reduce confidence if a strong CSP is present
+            if response is not None:
+                csp = response.headers.get('Content-Security-Policy', '')
+                if csp and 'script-src' in csp.lower() and 'unsafe-inline' not in csp.lower():
+                    confidence = 0.5
+                    context = context + ' [CSP script-src restriction present — reduced exploitability]'
+            return True, context, confidence
 
         # Marker-based reflection — high confidence
         if marker in body:
             context = self._detect_context(marker, body)
-            return True, context, 0.8
+            confidence = 0.8
+            if response is not None:
+                csp = response.headers.get('Content-Security-Policy', '')
+                if csp and 'script-src' in csp.lower() and 'unsafe-inline' not in csp.lower():
+                    confidence = 0.45
+                    context = context + ' [CSP script-src restriction present — reduced exploitability]'
+            return True, context, confidence
+
+        # HTML-entity-encoded reflection check (e.g. &lt;script&gt;)
+        entity_encoded = _html_module.escape(payload)
+        if entity_encoded != payload and entity_encoded in body:
+            context = self._detect_context(entity_encoded, body)
+            # HTML-encoded reflection is likely not directly exploitable
+            return True, context + ' [HTML-entity-encoded — likely not directly exploitable]', 0.3
 
         return False, '', 0.0
 

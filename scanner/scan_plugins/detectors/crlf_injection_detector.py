@@ -47,6 +47,11 @@ except ImportError:
 
 from scanner.scan_plugins.base_scan_plugin import BaseScanPlugin, VulnerabilityFinding
 from scanner.scan_plugins.vpoc_mixin import VPoCDetectorMixin
+from scanner.scan_plugins.baseline_request import (
+    fetch_baseline,
+    diff_headers,
+    is_payload_reflected_in_url,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -315,6 +320,9 @@ class CRLFInjectionDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         """
         Attempt each CRLF payload against the identified sink.
 
+        A clean baseline request is sent first so that headers already
+        present in the baseline are not mistaken for injected ones.
+
         Returns (findings, confirmed_payload_label) where confirmed_payload_label
         is the label of the first payload that was confirmed, or '' if none.
         """
@@ -322,6 +330,9 @@ class CRLFInjectionDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         parsed = urllib.parse.urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
         existing_params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
+
+        # Fetch a clean baseline so we can diff new/changed headers
+        baseline_response = fetch_baseline(url, verify_ssl=verify_ssl, timeout=timeout)
 
         for label, payload in _CRLF_PAYLOADS:
             if param == '__path__':
@@ -344,8 +355,23 @@ class CRLFInjectionDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
                 logger.debug("CRLF payload (%s) request failed: %s", label, exc)
                 continue
 
+            # Guard: skip if the evidence is only URL reflection (not real injection)
+            if is_payload_reflected_in_url(response, payload):
+                logger.debug(
+                    "CRLF payload (%s) matched only via URL reflection – skipping", label
+                )
+                continue
+
             confirmed, injected_header = self._confirm_injection(response)
             if confirmed:
+                # Verify this header was not already present in the baseline
+                new_headers = diff_headers(baseline_response, response)
+                if injected_header.lower() not in new_headers and baseline_response is not None:
+                    logger.debug(
+                        "Header %r was already present in baseline – skipping", injected_header
+                    )
+                    continue
+
                 evidence = (
                     f"Parameter: {param!r} | "
                     f"Payload label: {label!r} | "
@@ -384,27 +410,23 @@ class CRLFInjectionDetectorPlugin(VPoCDetectorMixin, BaseScanPlugin):
         self, response: 'requests.Response'
     ) -> Tuple[bool, str]:
         """
-        Check whether any of the injected header names appear as a parsed
-        response header (rather than merely as a substring inside an existing
-        header value).
+        Check whether any of the injected header names appear as a **parsed**
+        response header key (rather than merely as a substring inside an
+        existing header value such as ``Location``).
 
         Returns (confirmed, injected_header_name_or_empty).
+
+        The secondary "inferred" substring check has been intentionally
+        removed because it matched URL-encoded reflections in Location header
+        values and produced false positives (e.g. wallet.opensea.io scenario).
         """
         for header_name in response.headers:
             if header_name.lower() in _INJECTED_HEADER_NAMES:
-                # Check that this header was not already present before injection
-                # (we look for the injected value markers)
                 value = response.headers[header_name]
                 if header_name.lower() == 'x-megido-crlf' and 'injected' in value:
                     return True, header_name
                 if header_name.lower() == 'set-cookie' and 'MegidoCRLF' in value:
                     return True, header_name
-
-        # Secondary check: look for injected header anywhere in raw headers
-        # (some frameworks merge injected lines)
-        raw_headers_str = str(response.headers).lower()
-        if 'x-megido-crlf' in raw_headers_str or 'megidocrlf' in raw_headers_str:
-            return True, 'x-megido-crlf (inferred)'
 
         return False, ''
 
