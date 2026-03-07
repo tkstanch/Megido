@@ -88,47 +88,68 @@ def send_task_update(task_id: str, update_type: str, data: Dict[str, Any]) -> No
         logger.error(f"Failed to send WebSocket update for task {task_id}: {e}")
 
 
-def send_progress_update(task_id: str, current: int, total: int, status: str = None) -> None:
+def send_progress_update(
+    task_id: str,
+    current: int,
+    total: int,
+    status: str = None,
+    extra: Dict[str, Any] = None,
+) -> None:
     """
     Send a progress update for a task.
-    
+
     Args:
         task_id: The Celery task ID
         current: Current progress count
         total: Total items to process
         status: Optional status message
+        extra: Optional additional fields merged into the progress payload
+               (e.g. plugin_name, plugin_status, findings_so_far).
     """
     data = {
         'current': current,
         'total': total,
         'percent': int(current / total * 100) if total > 0 else 0,
     }
-    
+
     if status:
         data['status'] = status
-    
+
+    if extra:
+        data.update(extra)
+
     send_task_update(task_id, 'progress', data)
 
 
-async def send_progress_update_async(task_id: str, current: int, total: int, status: str = None) -> None:
+async def send_progress_update_async(
+    task_id: str,
+    current: int,
+    total: int,
+    status: str = None,
+    extra: Dict[str, Any] = None,
+) -> None:
     """
     Async version: Send a progress update for a task.
-    
+
     Args:
         task_id: The Celery task ID
         current: Current progress count
         total: Total items to process
         status: Optional status message
+        extra: Optional additional fields merged into the progress payload.
     """
     data = {
         'current': current,
         'total': total,
         'percent': int(current / total * 100) if total > 0 else 0,
     }
-    
+
     if status:
         data['status'] = status
-    
+
+    if extra:
+        data.update(extra)
+
     await send_task_update_async(task_id, 'progress', data)
 
 
