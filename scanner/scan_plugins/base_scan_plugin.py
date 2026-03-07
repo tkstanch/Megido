@@ -8,6 +8,9 @@ Note: This is separate from ExploitPlugin which handles exploitation of known vu
       ScanPlugins focus on DETECTION, ExploitPlugins focus on EXPLOITATION.
 """
 
+import logging
+import time
+import random
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Any, Optional
 from dataclasses import dataclass, field
@@ -17,10 +20,21 @@ if TYPE_CHECKING:
     from scanner.scan_plugins.vpoc import VPoCEvidence
 
 try:
+    import requests as _requests
+    _HAS_REQUESTS = True
+except ImportError:
+    _HAS_REQUESTS = False
+
+try:
     from scanner.plugins.adaptive_payload_learner import AdaptivePayloadLearner
     _HAS_LEARNER = True
 except ImportError:
     _HAS_LEARNER = False
+
+_base_logger = logging.getLogger(__name__)
+
+
+logger = _base_logger
 
 
 class ScanSeverity(Enum):
@@ -69,6 +83,38 @@ class VulnerabilityFinding:
     false_positive_risk: Optional[str] = None
     # Notes about bounty eligibility
     bounty_notes: Optional[str] = None
+
+    # CVSS and enrichment fields
+    # CVSS v3.1 base score (0.0-10.0); None if not yet estimated
+    cvss_score: Optional[float] = None
+    # External references such as CVE IDs, CWE links, blog posts
+    references: Optional[List[str]] = None
+    # CVSS attack complexity ('low' or 'high'); None if not set
+    attack_complexity: Optional[str] = None
+
+    @property
+    def risk_score(self) -> float:
+        """
+        Composite risk score (0–100) combining severity, confidence, and CVSS.
+
+        The score weighs:
+        - Severity bucket  (0-40 points)
+        - Confidence       (0-30 points)
+        - CVSS base score  (0-30 points, scaled from 0-10)
+
+        Returns:
+            float: Risk score between 0.0 and 100.0
+        """
+        severity_points = {
+            'critical': 40.0,
+            'high': 30.0,
+            'medium': 20.0,
+            'low': 10.0,
+        }
+        sev_pts = severity_points.get((self.severity or '').lower(), 0.0)
+        conf_pts = float(self.confidence) * 30.0
+        cvss_pts = (float(self.cvss_score) / 10.0) * 30.0 if self.cvss_score is not None else 0.0
+        return round(min(100.0, sev_pts + conf_pts + cvss_pts), 2)
 
     @property
     def bounty_likelihood(self) -> str:
@@ -132,6 +178,17 @@ class VulnerabilityFinding:
 
         if self.bounty_notes is not None:
             result['bounty_notes'] = self.bounty_notes
+
+        if self.cvss_score is not None:
+            result['cvss_score'] = self.cvss_score
+
+        if self.references is not None:
+            result['references'] = self.references
+
+        if self.attack_complexity is not None:
+            result['attack_complexity'] = self.attack_complexity
+
+        result['risk_score'] = self.risk_score
 
         return result
 
@@ -249,6 +306,104 @@ class BaseScanPlugin(ABC):
     #     """Async version of scan method for non-blocking scans"""
     #     pass
     
+    def _make_request(
+        self,
+        url: str,
+        method: str = 'GET',
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Any] = None,
+        json: Optional[Any] = None,
+        config: Optional[Dict[str, Any]] = None,
+        max_retries: int = 2,
+    ) -> Optional[Any]:
+        """
+        Make an HTTP request with optional stealth features and retry logic.
+
+        When ``enable_stealth`` is truthy in *config*, this method:
+        - Rotates User-Agent per request via :class:`~scanner.stealth_engine.StealthEngine`
+        - Applies a timing jitter delay before sending
+        - Merges randomised browser headers with any caller-supplied headers
+
+        Connection errors are retried up to *max_retries* times with a short
+        exponential back-off (0.5s, 1s, …). All request details are logged at
+        DEBUG level only to avoid noisy INFO output.
+
+        Args:
+            url: Target URL.
+            method: HTTP method (GET, POST, etc.).
+            headers: Optional caller-supplied headers (merged with stealth headers).
+            params: Optional URL query parameters.
+            data: Optional request body (form-encoded).
+            json: Optional request body (JSON).
+            config: Plugin configuration dict (used to read ``enable_stealth``,
+                    ``timeout``, ``verify_ssl``).
+            max_retries: Number of retry attempts on connection error.
+
+        Returns:
+            ``requests.Response`` on success, ``None`` if all retries fail or
+            ``requests`` is not available.
+        """
+        if not _HAS_REQUESTS:
+            logger.debug("requests library not available; skipping _make_request")
+            return None
+
+        cfg = config or {}
+        timeout = cfg.get('timeout', 10)
+        verify_ssl = cfg.get('verify_ssl', False)
+        enable_stealth = cfg.get('enable_stealth', False)
+
+        # Build request headers
+        req_headers: Dict[str, str] = {}
+        if enable_stealth:
+            try:
+                from scanner.stealth_engine import StealthEngine
+                _stealth = StealthEngine()
+                req_headers = _stealth.get_randomized_headers()
+                # 0.1–0.5s jitter is intentionally small: it is applied per
+                # individual request (not per plugin run) to add subtle timing
+                # variation without noticeably slowing down the scan.  The
+                # heavier inter-plugin delays are controlled by StealthEngine
+                # and the engine-level _apply_stealth_delay() method.
+                jitter = random.uniform(0.1, 0.5)
+                time.sleep(jitter)
+            except Exception as exc:
+                logger.debug("Stealth header generation failed: %s", exc)
+
+        # Caller-supplied headers take precedence
+        if headers:
+            req_headers.update(headers)
+
+        attempt = 0
+        delay = 0.5
+        while attempt <= max_retries:
+            try:
+                logger.debug(
+                    "_make_request: %s %s (attempt %d/%d)",
+                    method.upper(), url, attempt + 1, max_retries + 1,
+                )
+                response = _requests.request(
+                    method=method.upper(),
+                    url=url,
+                    headers=req_headers if req_headers else None,
+                    params=params,
+                    data=data,
+                    json=json,
+                    timeout=timeout,
+                    verify=verify_ssl,
+                )
+                return response
+            except Exception as exc:
+                logger.debug(
+                    "_make_request: error on attempt %d for %s: %s",
+                    attempt + 1, url, exc,
+                )
+                attempt += 1
+                if attempt <= max_retries:
+                    time.sleep(delay)
+                    delay *= 2
+        return None
+
     def learn_from_failure(
         self,
         payload: str,

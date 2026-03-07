@@ -2,7 +2,7 @@
 Celery tasks for scanner application
 
 This module contains background tasks for long-running operations including:
-- Scan execution (async_scan_task) 
+- Scan execution (async_scan_task, async_stealth_scan_task)
 - Exploit operations (async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities)
 """
 
@@ -29,17 +29,43 @@ from scanner.config_defaults import get_default_proof_config
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Memory helpers
+# ---------------------------------------------------------------------------
+
+def _memory_usage_percent() -> float:
+    """Return the current process memory usage as a percentage of total RAM.
+
+    Uses :mod:`psutil` when available; falls back to ``0.0`` so callers can
+    always treat the return value as a valid percentage.
+
+    Returns:
+        float: Memory usage percentage (0.0–100.0).
+    """
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_percent()
+        return float(mem_info)
+    except Exception:
+        return 0.0
+
+
 @shared_task(bind=True, name='scanner.async_scan_task', time_limit=3600, soft_time_limit=3500)
 def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
     """
     Celery task to perform vulnerability scan asynchronously.
-    
+
     This task runs the scan in the background, allowing Gunicorn to respond immediately
     and preventing worker blocking during long-running scans.
-    
+
+    Per-plugin progress updates are sent via WebSocket so the UI can display
+    real-time status.  Memory usage is monitored; if it exceeds 80 % the scan
+    is stopped gracefully and partial results are saved.
+
     Args:
         scan_id: The scan ID to execute
-    
+
     Returns:
         Dictionary containing:
         - scan_id: The scan ID
@@ -50,7 +76,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
     """
     task_id = self.request.id if self.request.id else 'eager-mode'
     logger.info(f"Starting async scan task for scan {scan_id} (task_id: {task_id})")
-    
+
     try:
         scan = Scan.objects.get(id=scan_id)
     except Scan.DoesNotExist:
@@ -62,41 +88,121 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         }
         logger.error(f"Scan {scan_id} not found")
         return error_result
-    
+
     # Update scan status to 'running'
     scan.status = 'running'
     scan.save()
-    
+
     # Collect visual proof diagnostics at scan start
     try:
         from scanner.visual_proof_diagnostics import get_visual_proof_warnings
         visual_proof_warnings = get_visual_proof_warnings()
         if visual_proof_warnings:
-            # Initialize warnings list if it doesn't exist (for migration compatibility)
-            if not hasattr(scan, 'warnings') or scan.warnings is None:
+            if scan.warnings is None:
                 scan.warnings = []
             scan.warnings.extend(visual_proof_warnings)
             scan.save()
             logger.warning(f"Visual proof diagnostics found {len(visual_proof_warnings)} issue(s) for scan {scan_id}")
     except Exception as e:
         logger.error(f"Failed to collect visual proof warnings for scan {scan_id}: {e}")
-    
+
     try:
-        # Import here to avoid circular imports
-        from scanner.views import perform_basic_scan
-        
-        # Perform the scan
-        logger.info(f"Executing scan for target: {scan.target.url}")
-        perform_basic_scan(scan, scan.target.url, enable_dos_testing=scan.enable_dos_testing)
-        
+        from scanner.scan_plugins import get_scan_registry
+        from scanner.scan_engine import ScanEngine
+
+        registry = get_scan_registry()
+        plugins = registry.get_all_plugins()
+        total_plugins = len(plugins)
+
+        # Send initial progress
+        if self.request.id:
+            send_progress_update(
+                task_id=task_id,
+                current=0,
+                total=total_plugins,
+                status='Starting scan',
+            )
+
+        # Build a scan engine and run each plugin individually for granular
+        # progress reporting, rather than via perform_basic_scan which is
+        # opaque.  Fall back to perform_basic_scan if engine-level scan fails.
+        engine = ScanEngine()
+        config = {}
+        all_findings = []
+
+        for idx, plugin in enumerate(plugins, 1):
+            # Memory guard — stop early if process is using too much RAM
+            mem_pct = _memory_usage_percent()
+            if mem_pct > 80.0:
+                logger.warning(
+                    "Memory usage %.1f%% exceeds 80%% threshold. "
+                    "Stopping scan early for scan %d (processed %d/%d plugins).",
+                    mem_pct, scan_id, idx - 1, total_plugins,
+                )
+                if scan.warnings is None:
+                    scan.warnings = []
+                scan.warnings.append(
+                    f'Scan stopped early: memory usage {mem_pct:.1f}% exceeded 80% threshold.'
+                )
+                break
+
+            plugin_status = 'running'
+            if self.request.id:
+                send_progress_update(
+                    task_id=task_id,
+                    current=idx,
+                    total=total_plugins,
+                    status=f'Running plugin: {plugin.name} ({idx}/{total_plugins})',
+                    extra={
+                        'plugin_name': plugin.name,
+                        'plugin_status': plugin_status,
+                        'findings_so_far': len(all_findings),
+                    },
+                )
+
+            plugin_findings: List = []
+            try:
+                plugin_findings = plugin.scan(scan.target.url, config)
+                all_findings.extend(plugin_findings)
+                plugin_status = 'complete'
+                logger.debug(
+                    "Plugin %s found %d issue(s) for scan %d",
+                    plugin.name, len(plugin_findings), scan_id,
+                )
+            except SoftTimeLimitExceeded:
+                raise
+            except Exception as exc:
+                plugin_status = 'error'
+                logger.error(
+                    "Plugin %s error during scan %d: %s",
+                    plugin.name, scan_id, exc,
+                )
+
+            if self.request.id:
+                send_progress_update(
+                    task_id=task_id,
+                    current=idx,
+                    total=total_plugins,
+                    status=f'Plugin {plugin.name} {plugin_status} ({idx}/{total_plugins})',
+                    extra={
+                        'plugin_name': plugin.name,
+                        'plugin_status': plugin_status,
+                        'plugin_findings': len(plugin_findings),
+                        'findings_so_far': len(all_findings),
+                    },
+                )
+
+        # Persist findings to the database
+        engine.save_findings_to_db(scan, all_findings)
+
         # Update scan status to completed
         scan.status = 'completed'
         scan.completed_at = timezone.now()
         scan.save()
-        
+
         vulnerabilities_count = scan.vulnerabilities.count()
         logger.info(f"Scan {scan_id} completed successfully. Found {vulnerabilities_count} vulnerabilities.")
-        
+
         return {
             'scan_id': scan_id,
             'status': 'completed',
@@ -104,7 +210,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
             'vulnerabilities_found': vulnerabilities_count,
             'task_id': task_id,
         }
-        
+
     except SoftTimeLimitExceeded:
         logger.warning(f"Soft time limit reached for scan {scan_id}.")
         vulnerabilities_count = scan.vulnerabilities.count()
@@ -130,17 +236,131 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
             'vulnerabilities_found': vulnerabilities_count,
             'task_id': task_id,
         }
-        
+
     except Exception as e:
         logger.error(f"Error during scan {scan_id}: {str(e)}", exc_info=True)
         scan.status = 'failed'
         scan.completed_at = timezone.now()
         scan.save()
-        
+
         return {
             'scan_id': scan_id,
             'status': 'failed',
             'error': str(e),
+            'task_id': task_id,
+        }
+
+
+@shared_task(bind=True, name='scanner.async_stealth_scan_task', time_limit=7200, soft_time_limit=7100)
+def async_stealth_scan_task(
+    self,
+    scan_id: int,
+    scan_profile: str = 'balanced',
+) -> Dict[str, Any]:
+    """
+    Celery task to perform a stealth-aware vulnerability scan using a named profile.
+
+    Supported profiles (defined in :attr:`~scanner.scan_engine.ScanEngine.SCAN_PROFILES`):
+    - ``'stealth'``    — slow, paranoid timing, maximum evasion
+    - ``'balanced'``   — moderate timing, standard payloads  *(default)*
+    - ``'aggressive'`` — no delays, maximum payloads
+    - ``'quick'``      — fast, only high-severity checks
+
+    The task has a generous 2-hour time limit to accommodate the stealth profile
+    which inserts long delays between plugin executions.
+
+    Args:
+        scan_id: The database ID of the :class:`~scanner.models.Scan` to execute.
+        scan_profile: Name of the scan profile to apply.
+
+    Returns:
+        Dictionary containing:
+        - scan_id: The scan ID
+        - status: Final status (``'completed'`` or ``'failed'``)
+        - scan_profile: The profile used
+        - vulnerabilities_found: Number of vulnerabilities discovered
+        - task_id: The Celery task ID for tracking
+    """
+    task_id = self.request.id if self.request.id else 'eager-mode'
+    logger.info(
+        "Starting stealth scan task for scan %d (profile=%s, task_id=%s)",
+        scan_id, scan_profile, task_id,
+    )
+
+    try:
+        scan = Scan.objects.get(id=scan_id)
+    except Scan.DoesNotExist:
+        logger.error("Scan %d not found", scan_id)
+        return {
+            'scan_id': scan_id,
+            'status': 'failed',
+            'scan_profile': scan_profile,
+            'error': f'Scan {scan_id} not found',
+            'task_id': task_id,
+        }
+
+    scan.status = 'running'
+    scan.save()
+
+    try:
+        from scanner.scan_engine import ScanEngine
+
+        engine = ScanEngine()
+        findings = engine.scan_with_profile(scan.target.url, profile_name=scan_profile)
+        engine.save_findings_to_db(scan, findings)
+
+        scan.status = 'completed'
+        scan.completed_at = timezone.now()
+        scan.save()
+
+        vulnerabilities_count = scan.vulnerabilities.count()
+        logger.info(
+            "Stealth scan %d completed (profile=%s). Found %d vulnerabilities.",
+            scan_id, scan_profile, vulnerabilities_count,
+        )
+
+        return {
+            'scan_id': scan_id,
+            'status': 'completed',
+            'scan_profile': scan_profile,
+            'message': f"Stealth scan completed using '{scan_profile}' profile",
+            'vulnerabilities_found': vulnerabilities_count,
+            'task_id': task_id,
+        }
+
+    except SoftTimeLimitExceeded:
+        logger.warning("Soft time limit reached for stealth scan %d.", scan_id)
+        vulnerabilities_count = scan.vulnerabilities.count()
+        if vulnerabilities_count > 0:
+            if scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.append('Stealth scan exceeded time limit. Results may be incomplete.')
+            scan.status = 'completed'
+        else:
+            scan.status = 'failed'
+        scan.completed_at = timezone.now()
+        scan.save()
+
+        return {
+            'scan_id': scan_id,
+            'status': scan.status,
+            'scan_profile': scan_profile,
+            'error': 'Scan exceeded time limit',
+            'vulnerabilities_found': vulnerabilities_count,
+            'task_id': task_id,
+        }
+
+    except Exception as exc:
+        logger.error("Error during stealth scan %d: %s", scan_id, exc, exc_info=True)
+        scan.status = 'failed'
+        scan.completed_at = timezone.now()
+        scan.save()
+
+        return {
+            'scan_id': scan_id,
+            'status': 'failed',
+            'scan_profile': scan_profile,
+            'error': str(exc),
             'task_id': task_id,
         }
 
