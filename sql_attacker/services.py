@@ -386,7 +386,7 @@ def _noop_progress_callback(
 def execute_task(
     task_id: int,
     progress_callback: Optional[Callable[..., None]] = None,
-) -> None:
+) -> str:
     """
     Execute a SQL injection attack task.
 
@@ -400,6 +400,14 @@ def execute_task(
                            stage.  Signature:
                            ``callback(stage_name, stage_number, total_stages,
                                       detail_message)``
+
+    Returns:
+        ``'awaiting_confirmation'`` when the task is paused after Stage 1
+        because ``require_confirmation=True`` and parameters were discovered.
+        ``'completed'`` when all pipeline stages finish successfully.
+        ``None`` (implicitly) when an unrecoverable exception occurs before
+        the normal completion path (the exception is recorded on the task
+        record and re-raised is not propagated to the caller).
     """
     if progress_callback is None:
         progress_callback = _noop_progress_callback
@@ -475,7 +483,7 @@ def execute_task(
                     task.status = 'awaiting_confirmation'
                     task.awaiting_confirmation = True
                     task.save()
-                    return
+                    return 'awaiting_confirmation'
 
                 if merged_params.get('GET'):
                     for param_name, param_value in merged_params['GET'].items():
@@ -716,6 +724,7 @@ def execute_task(
         task.completed_at = timezone.now()
         task.vulnerabilities_found = vulnerabilities_count
         task.save()
+        return 'completed'
 
     except Exception as e:
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)
@@ -733,7 +742,7 @@ def execute_task(
 def execute_task_with_selection(
     task_id: int,
     progress_callback: Optional[Callable[..., None]] = None,
-) -> None:
+) -> str:
     """
     Execute a SQL injection task using only the manually selected parameters.
 
@@ -742,7 +751,7 @@ def execute_task_with_selection(
     Running lifecycle management here as well would set those fields twice and
     mask the actual start time recorded by ``execute_task``.
     """
-    execute_task(task_id, progress_callback=progress_callback)
+    return execute_task(task_id, progress_callback=progress_callback)
 
 
 # ---------------------------------------------------------------------------
