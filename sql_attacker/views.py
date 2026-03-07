@@ -331,8 +331,16 @@ def confirm_parameters(request, task_id):
     View to confirm discovered parameters and continue or manually select parameters.
     """
     task = get_object_or_404(SQLInjectionTask, id=task_id)
-    
+
+    # Guard: if task is no longer awaiting confirmation, redirect to task detail
+    if not task.awaiting_confirmation or task.status != 'awaiting_confirmation':
+        return redirect('sql_attacker:task_detail', pk=task.id)
+
     if request.method == 'POST':
+        # Guard against double-submission
+        if not task.awaiting_confirmation or task.status != 'awaiting_confirmation':
+            return redirect('sql_attacker:task_detail', pk=task.id)
+
         action = request.POST.get('action')
         
         if action == 'continue_automated':
