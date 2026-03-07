@@ -295,17 +295,125 @@ Database Type: {result.database_type}
 
 
 # ---------------------------------------------------------------------------
+# Bug report auto-creation helper
+# ---------------------------------------------------------------------------
+
+def _auto_create_bug_report(result: "SQLInjectionResult") -> None:
+    """Auto-create a BugReport for a newly stored SQLInjectionResult.
+
+    Runs the FalsePositiveReducer to score the finding and auto-sets priority
+    based on severity + confidence + risk_score.  Silently no-ops on any error
+    so it never disrupts the main pipeline.
+    """
+    try:
+        from .models import BugReport
+        from .fp_reducer import FalsePositiveReducer
+
+        # Generate a sequential bug_id scoped to the current year
+        import datetime
+        year = datetime.datetime.now().year
+        prefix = f"SQLI-{year}-"
+        last = (
+            BugReport.objects.filter(bug_id__startswith=prefix)
+            .order_by('-bug_id')
+            .values_list('bug_id', flat=True)
+            .first()
+        )
+        if last:
+            try:
+                seq = int(last.split('-')[-1]) + 1
+            except (ValueError, IndexError):
+                seq = BugReport.objects.filter(bug_id__startswith=prefix).count() + 1
+        else:
+            seq = 1
+        bug_id = f"{prefix}{seq:04d}"
+
+        # Auto-generate title
+        injection_label = result.get_injection_type_display()
+        title = (
+            f"{injection_label} in parameter '{result.vulnerable_parameter}' "
+            f"({result.parameter_type}) on {result.task.target_url[:60]}"
+        )
+
+        # Auto-set priority
+        severity = (result.severity or '').lower()
+        confidence = result.confidence_score or 0.0
+        risk = result.risk_score or 0
+        if severity == 'critical' or risk >= 80:
+            priority = 'P1_critical'
+        elif severity == 'high' or risk >= 60:
+            priority = 'P2_high'
+        elif severity == 'medium' or confidence >= 0.7:
+            priority = 'P3_medium'
+        elif severity == 'low' or confidence >= 0.5:
+            priority = 'P4_low'
+        else:
+            priority = 'P5_info'
+
+        # Run FP reducer
+        reducer = FalsePositiveReducer()
+        fp_data = reducer.analyse(result)
+
+        BugReport.objects.create(
+            result=result,
+            bug_id=bug_id,
+            title=title,
+            priority=priority,
+            false_positive_indicators=fp_data,
+        )
+        logger.info("Auto-created BugReport %s for result %s", bug_id, result.id)
+    except Exception as exc:
+        logger.warning("_auto_create_bug_report failed for result %s: %s", getattr(result, 'id', '?'), exc)
+
+
+# ---------------------------------------------------------------------------
 # Public service functions
 # ---------------------------------------------------------------------------
 
-def execute_task(task_id: int) -> None:
+_TOTAL_STAGES = 6
+
+
+def _noop_progress_callback(
+    stage_name: str,
+    stage_number: int,
+    total_stages: int,
+    detail_message: str = '',
+) -> None:
+    """Default no-op progress callback used when none is supplied."""
+
+
+def execute_task(
+    task_id: int,
+    progress_callback: Optional[Callable[..., None]] = None,
+) -> None:
     """
     Execute a SQL injection attack task.
 
     Sets ``status='running'`` / ``started_at`` before beginning, then sets
     ``status='completed'`` / ``completed_at`` on success, or
     ``status='failed'`` / ``error_message`` / ``completed_at`` on failure.
+
+    Args:
+        task_id:           The SQLInjectionTask PK to run.
+        progress_callback: Optional callable invoked at each major pipeline
+                           stage.  Signature:
+                           ``callback(stage_name, stage_number, total_stages,
+                                      detail_message)``
     """
+    if progress_callback is None:
+        progress_callback = _noop_progress_callback
+
+    def _report(stage_name: str, stage_number: int, detail: str = '') -> None:
+        """Persist stage to DB and invoke the caller-supplied callback."""
+        try:
+            SQLInjectionTask.objects.filter(id=task_id).update(current_stage=stage_name)
+        except Exception as _db_exc:
+            logger.debug("Could not persist current_stage: %s", _db_exc)
+        try:
+            progress_callback(stage_name, stage_number, _TOTAL_STAGES, detail)
+        except Exception as _cb_exc:
+            logger.debug("progress_callback raised: %s", _cb_exc)
+
     try:
         task = SQLInjectionTask.objects.get(id=task_id)
         task.status = 'running'
@@ -337,7 +445,8 @@ def execute_task(task_id: int) -> None:
         cookies = task.get_cookies_dict()
         headers = task.get_headers_dict()
 
-        # Automatic parameter discovery
+        # Stage 1: Parameter discovery
+        _report('parameter_discovery', 1, 'Discovering parameters from target page')
         discovered_params_list = []
         if task.auto_discover_params:
             try:
@@ -410,6 +519,8 @@ def execute_task(task_id: int) -> None:
             except Exception as manip_exc:
                 logger.warning("Manipulator integration failed: %s", manip_exc)
 
+        # Stage 2: Vulnerability scanning
+        _report('vulnerability_scanning', 2, 'Running DiscoveryScanner and SQLi engine')
         # Run DiscoveryScanner for verification-first, baseline-aware detection.
         # Results enrich each finding with structured evidence, confidence rationale,
         # and reproduction steps stored in the new schema fields.
@@ -438,6 +549,8 @@ def execute_task(task_id: int) -> None:
         successful_payloads = evidence_result.get('successful_payloads', {})
         extracted_sensitive_data = evidence_result.get('extracted_sensitive_data', {})
 
+        # Stage 3: Exploitation
+        _report('exploitation', 3, f'Testing exploitability for {len(findings)} finding(s)')
         vulnerabilities_count = 0
         oob_payloads_generated = 0
         for finding in findings:
@@ -517,6 +630,8 @@ def execute_task(task_id: int) -> None:
             result = SQLInjectionResult.objects.create(**create_kwargs)
             vulnerabilities_count += 1
 
+            # Stage 4: OOB generation
+            _report('oob_generation', 4, f'Generating OOB payloads for result {result.id}')
             if task.enable_oob and oob_payloads_generated < task.oob_max_payloads:
                 try:
                     oob_db_type = _db_type_to_oob_db_type(finding.get('database_type', ''))
@@ -552,6 +667,8 @@ def execute_task(task_id: int) -> None:
                         "OOB payload generation failed for result %s: %s", result.id, oob_exc
                     )
 
+            # Stage 5: PoC generation
+            _report('poc_generation', 5, f'Generating proof-of-concept evidence for result {result.id}')
             if (
                 result.injection_type == 'union_based'
                 and result.is_exploitable
@@ -585,6 +702,10 @@ def execute_task(task_id: int) -> None:
                         "Could not generate union PoC HTML for result %s: %s", result.id, exc
                     )
 
+            # Stage 6: Result storage & forwarding (BugReport + response_analyser)
+            _report('result_storage', 6, f'Storing results and creating bug report for result {result.id}')
+            _auto_create_bug_report(result)
+
             try:
                 forward_to_response_analyser(task, result)
             except Exception as e:
@@ -608,7 +729,10 @@ def execute_task(task_id: int) -> None:
         task.save()
 
 
-def execute_task_with_selection(task_id: int) -> None:
+def execute_task_with_selection(
+    task_id: int,
+    progress_callback: Optional[Callable[..., None]] = None,
+) -> None:
     """
     Execute a SQL injection task using only the manually selected parameters.
 
@@ -617,7 +741,7 @@ def execute_task_with_selection(task_id: int) -> None:
     Running lifecycle management here as well would set those fields twice and
     mask the actual start time recorded by ``execute_task``.
     """
-    execute_task(task_id)
+    execute_task(task_id, progress_callback=progress_callback)
 
 
 # ---------------------------------------------------------------------------

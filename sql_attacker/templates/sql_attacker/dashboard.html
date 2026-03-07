@@ -76,6 +76,12 @@
         <a href="{% url 'sql_attacker:task_list' %}" class="btn btn-secondary">
             📋 View All Tasks
         </a>
+        <a href="{% url 'sql_attacker:bug_tracker_dashboard' %}" class="btn btn-warning">
+            🐛 Bug Tracker
+        </a>
+        <a href="{% url 'sql_attacker:bounty_dashboard' %}" class="btn btn-success">
+            💰 Bounty Dashboard
+        </a>
         <button class="btn btn-info" onclick="document.querySelector('[data-tab-target=\'payload-library\']').click()">
             💻 Payload Library
         </button>
@@ -84,7 +90,7 @@
     <!-- Tabbed Interface -->
     <div class="card">
         <div class="border-b border-gray-200 dark:border-gray-700">
-            <nav class="flex space-x-1 px-4" role="tablist">
+            <nav class="flex flex-wrap space-x-1 px-4" role="tablist">
                 <button class="tab-link active" data-tab-target="overview">
                     📊 Overview
                 </button>
@@ -108,6 +114,9 @@
                 </button>
                 <button class="tab-link" data-tab-target="manipulator-integration">
                     🔧 Manipulator Integration
+                </button>
+                <button class="tab-link" data-tab-target="bounty-impact">
+                    💰 Bounty Impact
                 </button>
             </nav>
         </div>
@@ -1073,9 +1082,107 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bounty Impact Tab -->
+            <div class="tab-content hidden" id="bounty-impact">
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h5 class="text-lg font-semibold text-gray-900 dark:text-white">💰 Bounty Impact Overview</h5>
+                        <div class="flex gap-2">
+                            <a href="{% url 'sql_attacker:bug_tracker_dashboard' %}" class="btn btn-sm btn-secondary">🐛 Full Bug Tracker</a>
+                            <a href="{% url 'sql_attacker:bounty_dashboard' %}" class="btn btn-sm btn-primary">💰 Full Bounty Dashboard</a>
+                        </div>
+                    </div>
+
+                    <!-- Running task progress -->
+                    {% for task in tasks %}
+                    {% if task.status == 'running' %}
+                    <div class="border border-blue-200 dark:border-blue-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20"
+                         id="progress-task-{{ task.id }}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium text-blue-800 dark:text-blue-200">⚡ Task #{{ task.id }} – Running</span>
+                            <span class="text-xs text-blue-600 dark:text-blue-400 font-mono">{{ task.target_url|truncatechars:50 }}</span>
+                        </div>
+                        <div class="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                            Current Stage:
+                            <span id="stage-name-{{ task.id }}" class="font-semibold">
+                                {{ task.current_stage|default:"initialising" }}
+                            </span>
+                        </div>
+                        <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                            <div id="stage-bar-{{ task.id }}"
+                                 class="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                 style="width: 10%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+
+                    <!-- Recent Bug Reports summary -->
+                    <div>
+                        <h6 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Recent Bug Reports</h6>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Bug reports are automatically created for every detected vulnerability.
+                            Visit the <a href="{% url 'sql_attacker:bug_tracker_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Bug Tracker</a>
+                            to triage, mark false positives, and manage findings.
+                        </p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            Use the <a href="{% url 'sql_attacker:bounty_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Bounty Dashboard</a>
+                            to generate CVSS-scored, ready-to-submit vulnerability reports for HackerOne, Bugcrowd, and other platforms.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+// Poll stage progress for running tasks
+(function pollRunningTaskProgress() {
+    const progressDivs = document.querySelectorAll('[id^="progress-task-"]');
+    if (!progressDivs.length) return;
+
+    const stageOrder = [
+        'parameter_discovery',
+        'vulnerability_scanning',
+        'exploitation',
+        'oob_generation',
+        'poc_generation',
+        'result_storage',
+    ];
+
+    function stageToPercent(stageName) {
+        const idx = stageOrder.indexOf(stageName);
+        if (idx < 0) return 10;
+        return Math.round(((idx + 1) / stageOrder.length) * 100);
+    }
+
+    function pollTask(taskId) {
+        fetch(`/sql-attacker/api/tasks/${taskId}/progress/`)
+            .then(r => r.json())
+            .then(data => {
+                const stageEl = document.getElementById('stage-name-' + taskId);
+                const barEl = document.getElementById('stage-bar-' + taskId);
+                if (stageEl && data.current_stage) {
+                    stageEl.textContent = data.current_stage.replace(/_/g, ' ');
+                }
+                if (barEl && data.current_stage) {
+                    barEl.style.width = stageToPercent(data.current_stage) + '%';
+                }
+                if (data.status === 'running') {
+                    setTimeout(() => pollTask(taskId), 3000);
+                }
+            })
+            .catch(() => {});
+    }
+
+    progressDivs.forEach(div => {
+        const taskId = div.id.replace('progress-task-', '');
+        pollTask(taskId);
+    });
+})();
+</script>
 {% endblock %}
 
 {% block extra_style %}

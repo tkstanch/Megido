@@ -55,7 +55,20 @@ def sql_injection_task(self, task_id: int) -> Dict[str, Any]:
             logger.warning(f"SQLInjectionTask {task_id} not found when storing celery_task_id")
 
         from .services import execute_task
-        execute_task(task_id)
+
+        def _progress(stage_name, stage_number, total_stages, detail_message=''):
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'stage': stage_name,
+                    'stage_number': stage_number,
+                    'total_stages': total_stages,
+                    'detail': detail_message,
+                    'task_id': task_id,
+                },
+            )
+
+        execute_task(task_id, progress_callback=_progress)
         logger.info(f"sql_injection_task for task {task_id} completed successfully.")
         return {'task_id': task_id, 'status': 'completed', 'celery_task_id': celery_task_id}
     except SoftTimeLimitExceeded:
@@ -93,7 +106,20 @@ def sql_injection_task_with_selection(self, task_id: int) -> Dict[str, Any]:
             logger.warning(f"SQLInjectionTask {task_id} not found when storing celery_task_id")
 
         from .services import execute_task_with_selection
-        execute_task_with_selection(task_id)
+
+        def _progress(stage_name, stage_number, total_stages, detail_message=''):
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'stage': stage_name,
+                    'stage_number': stage_number,
+                    'total_stages': total_stages,
+                    'detail': detail_message,
+                    'task_id': task_id,
+                },
+            )
+
+        execute_task_with_selection(task_id, progress_callback=_progress)
         logger.info(f"sql_injection_task_with_selection for task {task_id} completed successfully.")
         return {'task_id': task_id, 'status': 'completed', 'celery_task_id': celery_task_id}
     except SoftTimeLimitExceeded:

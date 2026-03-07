@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ bug.bug_id }} – Bug Detail{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">SQL Attacker</a>
+        <span>/</span>
+        <a href="{% url 'sql_attacker:bug_tracker_dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Bug Tracker</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">{{ bug.bug_id }}</span>
+    </nav>
+
+    <!-- Header -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                        <span class="font-mono text-primary-600 dark:text-primary-400">{{ bug.bug_id }}</span>
+                        – {{ bug.title }}
+                    </h1>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if bug.status == 'new' %}bg-blue-100 text-blue-800
+                            {% elif bug.status == 'confirmed' %}bg-green-100 text-green-800
+                            {% elif bug.status == 'false_positive' %}bg-gray-100 text-gray-600
+                            {% elif bug.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                            {% elif bug.status == 'resolved' or bug.status == 'verified' %}bg-purple-100 text-purple-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ bug.get_status_display }}
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if bug.priority == 'P1_critical' %}bg-red-100 text-red-800
+                            {% elif bug.priority == 'P2_high' %}bg-orange-100 text-orange-800
+                            {% elif bug.priority == 'P3_medium' %}bg-yellow-100 text-yellow-800
+                            {% elif bug.priority == 'P4_low' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ bug.get_priority_display }}
+                        </span>
+                        {% if bug.is_likely_false_positive %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            ⚠ Likely False Positive ({{ bug.fp_score|floatformat:2 }})
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-right text-sm text-gray-500 dark:text-gray-400">
+                    <div>Created: {{ bug.created_at|date:"Y-m-d H:i" }}</div>
+                    <div>Updated: {{ bug.updated_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finding Details -->
+    <div class="card">
+        <div class="card-body">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔍 Finding Details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div><span class="font-medium">Injection Type:</span> {{ result.get_injection_type_display }}</div>
+                <div><span class="font-medium">Parameter:</span> {{ result.vulnerable_parameter }} ({{ result.parameter_type }})</div>
+                <div><span class="font-medium">Severity:</span> {{ result.severity|upper }}</div>
+                <div><span class="font-medium">Confidence:</span> {{ result.confidence_score|floatformat:0 }}%</div>
+                <div><span class="font-medium">Database:</span> {{ result.database_type|default:"unknown" }}</div>
+                <div><span class="font-medium">Exploitable:</span> {% if result.is_exploitable %}✅ Yes{% else %}❌ No{% endif %}</div>
+                <div class="md:col-span-2">
+                    <span class="font-medium">Target URL:</span>
+                    <span class="font-mono text-xs break-all">{{ result.task.target_url }}</span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="font-medium text-sm mb-1">Test Payload:</div>
+                <pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs font-mono overflow-x-auto">{{ result.test_payload }}</pre>
+            </div>
+            <div class="mt-4">
+                <div class="font-medium text-sm mb-1">Detection Evidence:</div>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ result.detection_evidence }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- False Positive Analysis -->
+    {% if bug.false_positive_indicators %}
+    <div class="card border-l-4 {% if bug.is_likely_false_positive %}border-red-500{% else %}border-yellow-400{% endif %}">
+        <div class="card-body">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                🤖 Automated FP Analysis
+                <span class="ml-2 text-sm font-normal text-gray-500">
+                    Score: {{ bug.fp_score|floatformat:2 }}
+                    ({% if bug.is_likely_false_positive %}Likely FP{% else %}Acceptable{% endif %})
+                </span>
+            </h2>
+            {% if bug.false_positive_indicators.fp_indicators %}
+            <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                {% for indicator in bug.false_positive_indicators.fp_indicators %}
+                <li>{{ indicator }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500">No FP indicators detected.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Triage Form -->
+    <div class="card">
+        <div class="card-body">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">⚙️ Triage Actions</h2>
+            <form method="POST" action="{% url 'sql_attacker:bug_triage' bug_id=bug.bug_id %}" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <select name="status" class="form-select w-full">
+                            {% for val, label in status_choices %}
+                            <option value="{{ val }}" {% if bug.status == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                        <select name="priority" class="form-select w-full">
+                            {% for val, label in priority_choices %}
+                            <option value="{{ val }}" {% if bug.priority == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
+                        <input type="text" name="assignee" value="{{ bug.assignee }}" class="form-input w-full" placeholder="e.g. analyst@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Resolution</label>
+                        <input type="text" name="resolution" value="{{ bug.resolution }}" class="form-input w-full" placeholder="Brief resolution summary">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Triage Notes</label>
+                    <textarea name="triage_notes" rows="3" class="form-textarea w-full" placeholder="Analyst observations...">{{ bug.triage_notes }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">False Positive Justification</label>
+                    <textarea name="false_positive_reason" rows="2" class="form-textarea w-full" placeholder="Explain why this is a false positive (if applicable)...">{{ bug.false_positive_reason }}</textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn btn-primary">💾 Save Triage</button>
+                    <button type="submit" name="status" value="confirmed" class="btn btn-success">✅ Confirm Bug</button>
+                    <button type="submit" name="status" value="false_positive" class="btn btn-warning">🚫 Mark as FP</button>
+                    <button type="submit" name="status" value="resolved" class="btn btn-secondary">🏁 Resolve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Impact Report -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">💰 Bounty Impact Report</h2>
+                <div class="flex gap-2">
+                    <button id="generateReportBtn" class="btn btn-primary btn-sm" onclick="generateReport()">
+                        📋 Generate Report
+                    </button>
+                    {% if impact_report %}
+                    <a href="{% url 'sql_attacker:api_export_bounty_report' bug_id=bug.bug_id %}?format=markdown"
+                       class="btn btn-secondary btn-sm">⬇ Download Markdown</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if impact_report %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                    <div class="text-gray-500 text-xs">CVSS Score</div>
+                    <div class="text-2xl font-bold {% if impact_report.cvss_score >= 9.0 %}text-red-600{% elif impact_report.cvss_score >= 7.0 %}text-orange-600{% else %}text-yellow-600{% endif %}">
+                        {{ impact_report.cvss_score|floatformat:1 }}
+                    </div>
+                    <div class="text-xs font-mono text-gray-500 mt-1">{{ impact_report.cvss_vector }}</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                    <div class="text-gray-500 text-xs">CWE</div>
+                    <div class="text-xl font-bold text-blue-600">{{ impact_report.cwe_id }}</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                    <div class="text-gray-500 text-xs">Estimated Bounty</div>
+                    <div class="text-xl font-bold text-green-600">{{ impact_report.estimated_bounty_range }}</div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="font-medium text-sm mb-2">📋 Ready-to-Submit Report</div>
+                <div class="bg-gray-50 dark:bg-gray-900 border rounded p-4 text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">{{ impact_report.ready_to_submit_report }}</div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-sm">No impact report generated yet. Click "Generate Report" to create one.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function generateReport() {
+    const btn = document.getElementById('generateReportBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Generating…';
+    fetch('{% url "sql_attacker:api_generate_impact_report" bug_id=bug.bug_id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({platform: 'hackerone'}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.location.reload();
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = '📋 Generate Report';
+        alert('Error generating report: ' + err);
+    });
+}
+</script>
+{% endblock %}

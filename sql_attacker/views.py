@@ -1093,3 +1093,320 @@ def api_apply_manipulation(request):
     except Exception as exc:
         logger.error("api_apply_manipulation error: %s", exc, exc_info=True)
         return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ---------------------------------------------------------------------------
+# Progress API
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+def api_task_progress(request, pk):
+    """
+    GET /api/tasks/<pk>/progress/
+    Returns the current pipeline stage for a running Celery task.
+    """
+    task = get_object_or_404(SQLInjectionTask, pk=pk)
+    data = {
+        'task_id': task.id,
+        'status': task.status,
+        'current_stage': task.current_stage or '',
+        'celery_task_id': task.celery_task_id or '',
+    }
+
+    # If we have a live Celery task ID, also fetch the Celery state
+    if task.celery_task_id and task.celery_task_id != 'eager-mode':
+        try:
+            from celery.result import AsyncResult
+            ar = AsyncResult(task.celery_task_id)
+            celery_state = ar.state
+            celery_meta = ar.info if isinstance(ar.info, dict) else {}
+            data['celery_state'] = celery_state
+            data['celery_meta'] = celery_meta
+        except Exception:
+            pass
+
+    return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# Bug Tracker Views
+# ---------------------------------------------------------------------------
+
+def bug_tracker_dashboard(request):
+    """
+    Bugzilla-style bug tracker dashboard.
+    GET /sql-attacker/bugs/
+    """
+    from .models import BugReport
+
+    bugs = BugReport.objects.select_related('result', 'result__task').all()
+
+    # Filters
+    status_filter = request.GET.get('status')
+    priority_filter = request.GET.get('priority')
+    fp_filter = request.GET.get('fp')
+
+    if status_filter:
+        bugs = bugs.filter(status=status_filter)
+    if priority_filter:
+        bugs = bugs.filter(priority=priority_filter)
+    if fp_filter == 'likely':
+        bugs = bugs.exclude(false_positive_indicators__isnull=True)
+
+    # Summary stats
+    open_count = BugReport.objects.filter(status__in=['new', 'confirmed', 'in_progress']).count()
+    confirmed_count = BugReport.objects.filter(status='confirmed').count()
+    fp_count = BugReport.objects.filter(status='false_positive').count()
+    resolved_count = BugReport.objects.filter(status='resolved').count()
+
+    context = {
+        'bugs': bugs[:100],
+        'open_count': open_count,
+        'confirmed_count': confirmed_count,
+        'fp_count': fp_count,
+        'resolved_count': resolved_count,
+        'status_choices': BugReport.STATUS_CHOICES,
+        'priority_choices': BugReport.PRIORITY_CHOICES,
+        'current_status': status_filter or '',
+        'current_priority': priority_filter or '',
+    }
+    return render(request, 'sql_attacker/bug_tracker.html', context)
+
+
+def bug_detail(request, bug_id):
+    """
+    Individual bug detail / triage view.
+    GET /sql-attacker/bugs/<bug_id>/
+    """
+    from .models import BugReport, BountyImpactReport
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    impact_report = getattr(bug, 'impact_report', None)
+    context = {
+        'bug': bug,
+        'result': bug.result,
+        'impact_report': impact_report,
+        'status_choices': BugReport.STATUS_CHOICES,
+        'priority_choices': BugReport.PRIORITY_CHOICES,
+    }
+    return render(request, 'sql_attacker/bug_detail.html', context)
+
+
+@csrf_exempt
+def bug_triage(request, bug_id):
+    """
+    POST /sql-attacker/bugs/<bug_id>/triage/
+    Change status, add notes, mark as FP, etc.
+    """
+    from .models import BugReport
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    data = request.POST
+
+    new_status = data.get('status')
+    if new_status and new_status in dict(BugReport.STATUS_CHOICES):
+        bug.status = new_status
+
+    new_priority = data.get('priority')
+    if new_priority and new_priority in dict(BugReport.PRIORITY_CHOICES):
+        bug.priority = new_priority
+
+    notes = data.get('triage_notes')
+    if notes is not None:
+        bug.triage_notes = notes
+
+    fp_reason = data.get('false_positive_reason')
+    if fp_reason is not None:
+        bug.false_positive_reason = fp_reason
+
+    assignee = data.get('assignee')
+    if assignee is not None:
+        bug.assignee = assignee
+
+    resolution = data.get('resolution')
+    if resolution is not None:
+        bug.resolution = resolution
+
+    bug.save()
+    return redirect('sql_attacker:bug_detail', bug_id=bug.bug_id)
+
+
+# Bug Tracker REST API
+
+@api_view(['GET'])
+def api_bugs(request):
+    """GET /sql-attacker/api/bugs/ – list all bug reports."""
+    from .models import BugReport
+    status_filter = request.GET.get('status')
+    priority_filter = request.GET.get('priority')
+    qs = BugReport.objects.select_related('result').all()
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if priority_filter:
+        qs = qs.filter(priority=priority_filter)
+    data = [
+        {
+            'bug_id': b.bug_id,
+            'title': b.title,
+            'status': b.status,
+            'priority': b.priority,
+            'assignee': b.assignee,
+            'fp_score': b.fp_score,
+            'likely_false_positive': b.is_likely_false_positive,
+            'bounty_status': b.bounty_status,
+            'created_at': b.created_at.isoformat(),
+            'result_id': b.result_id,
+        }
+        for b in qs[:100]
+    ]
+    return Response(data)
+
+
+@api_view(['GET', 'PATCH'])
+def api_bug_detail(request, bug_id):
+    """GET/PATCH /sql-attacker/api/bugs/<bug_id>/"""
+    from .models import BugReport
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    if request.method == 'PATCH':
+        for field in ('status', 'priority', 'assignee', 'triage_notes',
+                      'false_positive_reason', 'resolution'):
+            if field in request.data:
+                setattr(bug, field, request.data[field])
+        bug.save()
+    return Response({
+        'bug_id': bug.bug_id,
+        'title': bug.title,
+        'status': bug.status,
+        'priority': bug.priority,
+        'assignee': bug.assignee,
+        'triage_notes': bug.triage_notes,
+        'false_positive_reason': bug.false_positive_reason,
+        'false_positive_indicators': bug.false_positive_indicators,
+        'resolution': bug.resolution,
+        'fp_score': bug.fp_score,
+        'likely_false_positive': bug.is_likely_false_positive,
+        'bounty_status': bug.bounty_status,
+        'bounty_amount': str(bug.bounty_amount) if bug.bounty_amount else None,
+        'bounty_platform': bug.bounty_platform,
+        'bounty_submission_url': bug.bounty_submission_url,
+        'created_at': bug.created_at.isoformat(),
+        'updated_at': bug.updated_at.isoformat(),
+        'result_id': bug.result_id,
+    })
+
+
+@api_view(['POST'])
+def api_bug_triage(request, bug_id):
+    """POST /sql-attacker/api/bugs/<bug_id>/triage/"""
+    from .models import BugReport
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    for field in ('status', 'priority', 'assignee', 'triage_notes',
+                  'false_positive_reason', 'resolution'):
+        if field in request.data:
+            val = request.data[field]
+            if field == 'status' and val not in dict(BugReport.STATUS_CHOICES):
+                return Response({'error': f'Invalid status: {val}'}, status=status.HTTP_400_BAD_REQUEST)
+            if field == 'priority' and val not in dict(BugReport.PRIORITY_CHOICES):
+                return Response({'error': f'Invalid priority: {val}'}, status=status.HTTP_400_BAD_REQUEST)
+            setattr(bug, field, val)
+    bug.save()
+    return Response({'bug_id': bug.bug_id, 'status': bug.status, 'priority': bug.priority})
+
+
+# ---------------------------------------------------------------------------
+# Bounty Dashboard Views
+# ---------------------------------------------------------------------------
+
+def bounty_dashboard(request):
+    """
+    Bounty-focused impact dashboard.
+    GET /sql-attacker/bounty/
+    """
+    from .models import BugReport, BountyImpactReport
+
+    eligible_bugs = (
+        BugReport.objects
+        .select_related('result', 'result__task')
+        .filter(status__in=['confirmed', 'new', 'in_progress'])
+        .exclude(status='false_positive')
+    )
+
+    # Summary stats
+    total_eligible = eligible_bugs.count()
+    submitted_count = BugReport.objects.filter(bounty_status='submitted').count()
+    accepted_count = BugReport.objects.filter(bounty_status='accepted').count()
+    paid_count = BugReport.objects.filter(bounty_status='paid').count()
+
+    context = {
+        'bugs': eligible_bugs[:50],
+        'total_eligible': total_eligible,
+        'submitted_count': submitted_count,
+        'accepted_count': accepted_count,
+        'paid_count': paid_count,
+    }
+    return render(request, 'sql_attacker/bounty_report.html', context)
+
+
+@api_view(['POST'])
+def api_generate_impact_report(request, bug_id):
+    """
+    POST /sql-attacker/api/bugs/<bug_id>/impact-report/
+    Create or refresh the BountyImpactReport for a BugReport.
+    """
+    from .models import BugReport, BountyImpactReport
+    from .bounty_generator import BountyReportGenerator
+
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    platform = request.data.get('platform', 'hackerone')
+
+    generator = BountyReportGenerator(bug, bug.result, platform=platform)
+    report_data = generator.generate()
+
+    impact_report, created = BountyImpactReport.objects.update_or_create(
+        bug_report=bug,
+        defaults=report_data,
+    )
+
+    return Response({
+        'bug_id': bug_id,
+        'created': created,
+        'cvss_score': impact_report.cvss_score,
+        'cvss_vector': impact_report.cvss_vector,
+        'cwe_id': impact_report.cwe_id,
+        'estimated_bounty_range': impact_report.estimated_bounty_range,
+        'ready_to_submit_report': impact_report.ready_to_submit_report,
+    }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def api_export_bounty_report(request, bug_id):
+    """
+    GET /sql-attacker/api/bugs/<bug_id>/export-report/
+    Export the ready-to-submit report as plain text or markdown.
+    """
+    from .models import BugReport, BountyImpactReport
+    from .bounty_generator import BountyReportGenerator
+
+    bug = get_object_or_404(BugReport, bug_id=bug_id)
+    fmt = request.GET.get('format', 'markdown')
+
+    try:
+        impact_report = bug.impact_report
+        report_text = impact_report.ready_to_submit_report
+    except BountyImpactReport.DoesNotExist:
+        platform = request.GET.get('platform', 'hackerone')
+        generator = BountyReportGenerator(bug, bug.result, platform=platform)
+        report_data = generator.generate()
+        report_text = report_data['ready_to_submit_report']
+
+    if fmt == 'text':
+        import re
+        report_text = re.sub(r'\*\*(.+?)\*\*', r'\1', report_text)
+        report_text = re.sub(r'#+\s', '', report_text)
+
+    content_type = 'text/plain; charset=utf-8'
+    filename = f"bug-report-{bug_id}.{'md' if fmt == 'markdown' else 'txt'}"
+    response_obj = HttpResponse(report_text, content_type=content_type)
+    response_obj['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response_obj
