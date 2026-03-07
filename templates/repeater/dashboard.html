@@ -2,159 +2,1184 @@
 
 {% block title %}HTTP Repeater - Megido Security{% endblock %}
 
-{% block extra_style %}
-textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-family: monospace;
-}
-input[type="text"], select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
-}
-button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 5px;
+{% block extra_css %}
+<style>
+  /* ── Layout ───────────────────────────────────────────────── */
+  #repeater-root {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
+    font-family: 'Inter', monospace;
+  }
+
+  /* ── Tab bar ──────────────────────────────────────────────── */
+  #tab-bar {
+    display: flex;
+    align-items: center;
+    background: #1e2130;
+    border-bottom: 2px solid #2d3250;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+  #tab-bar::-webkit-scrollbar { display: none; }
+
+  .repeater-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
     cursor: pointer;
-    font-size: 1em;
-}
-button:hover {
-    opacity: 0.9;
-}
-.form-group {
-    margin-bottom: 15px;
-}
-.response-box {
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin-top: 20px;
-}
+    border-right: 1px solid #2d3250;
+    color: #8b9bc1;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    min-width: 100px;
+    user-select: none;
+  }
+  .repeater-tab:hover { background: #252840; color: #c8d3f5; }
+  .repeater-tab.active { background: #252840; color: #82aaff; border-bottom: 2px solid #82aaff; }
+  .repeater-tab .tab-close {
+    opacity: 0;
+    transition: opacity 0.15s;
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 3px;
+  }
+  .repeater-tab:hover .tab-close { opacity: 1; }
+  .repeater-tab .tab-close:hover { background: #ff5370; color: #fff; }
+
+  #btn-new-tab {
+    padding: 8px 14px;
+    color: #82aaff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  #btn-new-tab:hover { color: #c3e88d; }
+
+  /* ── Action bar ───────────────────────────────────────────── */
+  #action-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #1a1d2e;
+    border-bottom: 1px solid #2d3250;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary   { background: #82aaff; color: #1a1d2e; }
+  .btn-secondary { background: #2d3250; color: #c8d3f5; }
+  .btn-success   { background: #c3e88d; color: #1a1d2e; }
+  .btn-warning   { background: #ffcb6b; color: #1a1d2e; }
+  .btn-danger    { background: #ff5370; color: #fff; }
+  .btn:hover { opacity: 0.85; }
+
+  /* History nav */
+  #history-info {
+    font-size: 12px;
+    color: #8b9bc1;
+    margin-left: auto;
+  }
+
+  /* ── Main split pane ──────────────────────────────────────── */
+  #split-pane {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Request panel ────────────────────────────────────────── */
+  #request-panel {
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+    border-right: 2px solid #2d3250;
+    background: #1a1d2e;
+  }
+
+  #request-header {
+    padding: 8px 12px;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    font-size: 12px;
+    color: #8b9bc1;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* View toggle (Structured / Raw) */
+  .view-toggle {
+    display: flex;
+    gap: 0;
+    background: #14162a;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .view-toggle button {
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #8b9bc1;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .view-toggle button.active { background: #2d3250; color: #82aaff; }
+
+  /* Method + URL bar */
+  #method-url-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  #method-select {
+    background: #2d3250;
+    color: #82aaff;
+    border: 1px solid #3d4470;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #url-input {
+    flex: 1;
+    background: #14162a;
+    color: #c8d3f5;
+    border: 1px solid #3d4470;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: monospace;
+  }
+  #url-input:focus { outline: none; border-color: #82aaff; }
+
+  /* Structured view sections */
+  #structured-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+  #raw-view        { display: none;  flex-direction: column; flex: 1; overflow: hidden; }
+
+  .section-label {
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #8b9bc1;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: #1e2130;
+    border-top: 1px solid #2d3250;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .section-label .badge {
+    font-size: 10px;
+    background: #2d3250;
+    padding: 1px 6px;
+    border-radius: 10px;
+    color: #82aaff;
+  }
+
+  textarea.mono {
+    flex: 1;
+    background: #14162a;
+    color: #c8d3f5;
+    border: none;
+    resize: none;
+    padding: 10px 12px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow: auto;
+  }
+  textarea.mono:focus { outline: none; }
+
+  #headers-section { display: flex; flex-direction: column; height: 35%; flex-shrink: 0; }
+  #body-section    { display: flex; flex-direction: column; flex: 1; }
+
+  /* ── Response panel ───────────────────────────────────────── */
+  #response-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    background: #1a1d2e;
+    overflow: hidden;
+  }
+
+  /* Target info bar */
+  #target-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    font-size: 12px;
+    color: #8b9bc1;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .target-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #252840;
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #c8d3f5;
+  }
+
+  /* Response view tabs */
+  #resp-view-tabs {
+    display: flex;
+    align-items: center;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    flex-shrink: 0;
+  }
+  .resp-tab {
+    padding: 7px 16px;
+    font-size: 12px;
+    color: #8b9bc1;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .resp-tab:hover { color: #c8d3f5; }
+  .resp-tab.active { color: #82aaff; border-bottom-color: #82aaff; }
+
+  /* Status bar */
+  #status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 6px 12px;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .status-item { color: #8b9bc1; }
+  .status-item span {
+    font-weight: 600;
+    font-family: monospace;
+  }
+  .status-2xx span { color: #c3e88d; }
+  .status-3xx span { color: #ffcb6b; }
+  .status-4xx span { color: #f78c6c; }
+  .status-5xx span { color: #ff5370; }
+
+  #response-body-container { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #response-body { flex: 1; overflow: auto; padding: 12px; font-family: monospace; font-size: 13px; line-height: 1.6; color: #c8d3f5; white-space: pre-wrap; word-break: break-all; background: #14162a; }
+
+  /* ── Config panel ─────────────────────────────────────────── */
+  #config-panel {
+    background: #1e2130;
+    border-top: 2px solid #2d3250;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: max-height 0.3s;
+    max-height: 0;
+  }
+  #config-panel.open { max-height: 200px; }
+  #config-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 12px 16px;
+    align-items: center;
+  }
+  .config-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #c8d3f5;
+  }
+  .config-item label { cursor: pointer; }
+  .config-item input[type="number"],
+  .config-item input[type="text"] {
+    background: #14162a;
+    color: #c8d3f5;
+    border: 1px solid #3d4470;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    width: 80px;
+  }
+
+  /* ── Diff view modal ──────────────────────────────────────── */
+  #diff-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
+  }
+  #diff-modal.open { display: flex; }
+  #diff-box {
+    background: #1a1d2e;
+    border: 1px solid #2d3250;
+    border-radius: 10px;
+    width: 90vw;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #diff-header {
+    padding: 12px 16px;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #c8d3f5;
+    font-weight: 600;
+  }
+  #diff-content { flex: 1; overflow: auto; padding: 12px; }
+  .diff-line { font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre; }
+  .diff-add { color: #c3e88d; background: rgba(195,232,141,0.08); display: block; }
+  .diff-remove { color: #ff5370; background: rgba(255,83,112,0.08); display: block; }
+  .diff-context { color: #8b9bc1; display: block; }
+
+  /* ── Utility panel ────────────────────────────────────────── */
+  #util-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.7);
+    align-items: center;
+    justify-content: center;
+  }
+  #util-panel.open { display: flex; }
+  #util-box {
+    background: #1a1d2e;
+    border: 1px solid #2d3250;
+    border-radius: 10px;
+    width: 600px;
+    overflow: hidden;
+  }
+  #util-header {
+    padding: 12px 16px;
+    background: #1e2130;
+    border-bottom: 1px solid #2d3250;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #c8d3f5;
+    font-weight: 600;
+  }
+  #util-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  #util-input, #util-output {
+    background: #14162a;
+    color: #c8d3f5;
+    border: 1px solid #3d4470;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 13px;
+    resize: vertical;
+    min-height: 80px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #util-ops { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* Spinner */
+  .spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #2d3250;
+    border-top-color: #82aaff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  .spinner.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #1a1d2e; }
+  ::-webkit-scrollbar-thumb { background: #2d3250; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3d4470; }
+</style>
 {% endblock %}
 
 {% block content %}
-<h2>HTTP Repeater</h2>
-<p>Manually craft and send HTTP requests for security testing.</p>
+<div id="repeater-root">
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
-    <div>
-        <h3>Request</h3>
-        <div class="form-group">
-            <label>Method:</label>
-            <select id="method">
-                <option>GET</option>
-                <option>POST</option>
-                <option>PUT</option>
-                <option>DELETE</option>
-                <option>PATCH</option>
-            </select>
+  <!-- ── Tab bar ──────────────────────────────────────────────── -->
+  <div id="tab-bar">
+    <!-- tabs inserted by JS -->
+    <div id="btn-new-tab" title="New Tab">＋</div>
+  </div>
+
+  <!-- ── Action bar ──────────────────────────────────────────── -->
+  <div id="action-bar">
+    <button class="btn btn-primary"   onclick="sendCurrentRequest()">
+      <span class="spinner" id="send-spinner"></span>
+      ▶ Send
+    </button>
+    <button class="btn btn-secondary" onclick="toggleConfig()" title="Configuration">⚙ Config</button>
+    <button class="btn btn-secondary" onclick="openUtil()"     title="Encode / Decode">🔢 Encode/Decode</button>
+    <button class="btn btn-secondary" onclick="openDiff()"     title="Compare responses">⇌ Compare</button>
+    <button class="btn btn-warning"   onclick="sendToTool('scanner')"     title="Send to Scanner">🔍 → Scanner</button>
+    <button class="btn btn-warning"   onclick="sendToTool('interceptor')" title="Send to Interceptor">🎯 → Interceptor</button>
+    <button class="btn btn-warning"   onclick="sendToTool('spider')"      title="Send to Spider">🕷 → Spider</button>
+
+    <div id="history-info">No history</div>
+    <button class="btn btn-secondary" id="btn-back"    onclick="navigateHistory('back')"    title="Previous request">◀</button>
+    <button class="btn btn-secondary" id="btn-forward" onclick="navigateHistory('forward')" title="Next request">▶</button>
+  </div>
+
+  <!-- ── Split pane ──────────────────────────────────────────── -->
+  <div id="split-pane">
+
+    <!-- ── Request panel ────────────────────────────────────────── -->
+    <div id="request-panel">
+      <div id="request-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#82aaff" stroke-width="2">
+          <path d="M12 20V4M5 11l7-7 7 7"/>
+        </svg>
+        REQUEST
+        <div class="view-toggle">
+          <button id="btn-structured" class="active" onclick="setReqView('structured')">Structured</button>
+          <button id="btn-raw"                       onclick="setReqView('raw')">Raw</button>
         </div>
-        <div class="form-group">
-            <label>URL:</label>
-            <input type="text" id="url" placeholder="https://example.com/api/endpoint">
+      </div>
+
+      <!-- Method + URL -->
+      <div id="method-url-bar">
+        <select id="method-select">
+          <option>GET</option><option>POST</option><option>PUT</option>
+          <option>PATCH</option><option>DELETE</option><option>HEAD</option>
+          <option>OPTIONS</option>
+        </select>
+        <input id="url-input" type="text" placeholder="https://example.com/path?query=value" autocomplete="off" spellcheck="false">
+        <button class="btn btn-secondary" title="URL encode" onclick="encodeUrlField()" style="padding:4px 8px;font-size:11px;">%</button>
+      </div>
+
+      <!-- Structured view -->
+      <div id="structured-view">
+        <div id="headers-section">
+          <div class="section-label">Headers <span class="badge">JSON</span></div>
+          <textarea id="headers-area" class="mono" spellcheck="false" placeholder='{"Content-Type": "application/json"}'>{}</textarea>
         </div>
-        <div class="form-group">
-            <label>Headers (JSON):</label>
-            <textarea id="headers" rows="4" placeholder='{"Content-Type": "application/json"}'></textarea>
+        <div id="body-section">
+          <div class="section-label">Body</div>
+          <textarea id="body-area" class="mono" spellcheck="false" placeholder="Request body..."></textarea>
         </div>
-        <div class="form-group">
-            <label>Body:</label>
-            <textarea id="body" rows="6" placeholder="Request body..."></textarea>
-        </div>
-        <button onclick="sendRequest()">Send Request</button>
+      </div>
+
+      <!-- Raw view -->
+      <div id="raw-view">
+        <div class="section-label">Raw HTTP Request</div>
+        <textarea id="raw-area" class="mono" style="flex:1" spellcheck="false" placeholder="GET /path HTTP/1.1&#10;Host: example.com&#10;&#10;body"></textarea>
+      </div>
     </div>
-    
-    <div>
-        <h3>Response</h3>
-        <div id="response" class="response-box">
-            <p style="color: #666;">Response will appear here...</p>
-        </div>
+
+    <!-- ── Response panel ────────────────────────────────────────── -->
+    <div id="response-panel">
+
+      <!-- Target info -->
+      <div id="target-info-bar">
+        <span class="target-badge" id="ti-host">🌐 —</span>
+        <span class="target-badge" id="ti-ip">📡 —</span>
+        <span class="target-badge" id="ti-server">🖥 —</span>
+        <span class="target-badge" id="ti-tls" style="display:none">🔒 TLS</span>
+      </div>
+
+      <!-- Status bar -->
+      <div id="status-bar">
+        <div class="status-item" id="status-code-display">Status: <span>—</span></div>
+        <div class="status-item">Time: <span id="resp-time">—</span> ms</div>
+        <div class="status-item">Length: <span id="resp-length">—</span></div>
+        <div class="status-item" id="resp-id-display" style="margin-left:auto;color:#8b9bc1;font-size:11px;"></div>
+      </div>
+
+      <!-- Response view tabs -->
+      <div id="resp-view-tabs">
+        <div class="resp-tab active" data-view="pretty"  onclick="setRespView('pretty')">Pretty</div>
+        <div class="resp-tab"       data-view="raw"      onclick="setRespView('raw')">Raw</div>
+        <div class="resp-tab"       data-view="headers"  onclick="setRespView('headers')">Headers</div>
+        <div class="resp-tab"       data-view="hex"      onclick="setRespView('hex')">Hex</div>
+      </div>
+
+      <!-- Response body -->
+      <div id="response-body-container">
+        <div id="response-body">Send a request to see the response…</div>
+      </div>
     </div>
+  </div>
+
+  <!-- ── Config panel ─────────────────────────────────────────── -->
+  <div id="config-panel">
+    <div id="config-inner">
+      <div class="config-item">
+        <input type="checkbox" id="cfg-follow-redirects" checked>
+        <label for="cfg-follow-redirects">Follow Redirects</label>
+      </div>
+      <div class="config-item">
+        Max:
+        <input type="number" id="cfg-max-redirects" value="10" min="0" max="30" title="Max redirects">
+      </div>
+      <div class="config-item">
+        Timeout (s):
+        <input type="number" id="cfg-timeout" value="30" min="1" max="300">
+      </div>
+      <div class="config-item">
+        <input type="checkbox" id="cfg-verify-ssl">
+        <label for="cfg-verify-ssl">Verify SSL</label>
+      </div>
+      <div class="config-item">
+        <input type="checkbox" id="cfg-auto-cl" checked>
+        <label for="cfg-auto-cl">Auto Content-Length</label>
+      </div>
+      <button class="btn btn-secondary" onclick="saveConfig()" style="margin-left:auto;">💾 Save Config</button>
+    </div>
+  </div>
+
 </div>
+
+<!-- ── Diff modal ─────────────────────────────────────────────── -->
+<div id="diff-modal">
+  <div id="diff-box">
+    <div id="diff-header">
+      Response Comparison
+      <button class="btn btn-secondary" onclick="closeDiff()" style="padding:4px 10px;">✕</button>
+    </div>
+    <div id="diff-content">
+      <p style="color:#8b9bc1;font-size:13px;">Send at least two requests, then select responses to compare.</p>
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <select id="diff-resp-a" style="flex:1;background:#14162a;color:#c8d3f5;border:1px solid #3d4470;border-radius:6px;padding:6px;"></select>
+        <select id="diff-resp-b" style="flex:1;background:#14162a;color:#c8d3f5;border:1px solid #3d4470;border-radius:6px;padding:6px;"></select>
+        <button class="btn btn-primary" onclick="runCompare()">Compare</button>
+      </div>
+      <div id="diff-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Utility panel ──────────────────────────────────────────── -->
+<div id="util-panel">
+  <div id="util-box">
+    <div id="util-header">
+      Encode / Decode
+      <button class="btn btn-secondary" onclick="closeUtil()" style="padding:4px 10px;">✕</button>
+    </div>
+    <div id="util-content">
+      <textarea id="util-input" placeholder="Input value…"></textarea>
+      <div id="util-ops">
+        <button class="btn btn-secondary" onclick="utilOp('url_encode')">URL Encode</button>
+        <button class="btn btn-secondary" onclick="utilOp('url_decode')">URL Decode</button>
+        <button class="btn btn-secondary" onclick="utilOp('base64_encode')">Base64 Encode</button>
+        <button class="btn btn-secondary" onclick="utilOp('base64_decode')">Base64 Decode</button>
+        <button class="btn btn-secondary" onclick="utilOp('unicode_escape')">Unicode Escape</button>
+        <button class="btn btn-secondary" onclick="utilOp('unicode_unescape')">Unicode Unescape</button>
+      </div>
+      <textarea id="util-output" placeholder="Result…" readonly></textarea>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
-{% block extra_script %}
+{% block extra_js %}
 <script>
-async function sendRequest() {
-    const method = document.getElementById('method').value;
-    const url = document.getElementById('url').value;
-    const headersText = document.getElementById('headers').value;
-    const body = document.getElementById('body').value;
-    
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-    
-    // Validate headers JSON
-    let headers = headersText.trim();
-    if (headers === '') {
-        headers = '{}';  // Default to empty object
-    } else {
-        try {
-            // Validate it's valid JSON
-            JSON.parse(headers);
-        } catch (e) {
-            alert('Invalid JSON in Headers field. Please check your syntax.\n\nExample:\n{"Content-Type": "application/json"}');
-            return;
-        }
-    }
-    
-    try {
-        const responseDiv = document.getElementById('response');
-        if (!responseDiv) {
-            console.error('Response div not found');
-            return;
-        }
-        
-        responseDiv.innerHTML = '<p style="color: #666;">Sending request...</p>';
-        
-        // First, create the request
-        const createResponse = await MegidoErrorHandler.fetchWithRetry('/repeater/api/requests/', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({method, url, headers, body}),
-            errorContext: 'Create repeater request'
-        });
-        const created = await createResponse.json();
-        
-        // Then send it
-        const sendResponse = await MegidoErrorHandler.fetchWithRetry(`/repeater/api/requests/${created.id}/send/`, {
-            method: 'POST',
-            errorContext: 'Send repeater request'
-        });
-        const result = await sendResponse.json();
-        
-        responseDiv.innerHTML = `
-            <div><strong>Status:</strong> ${result.status_code || result.error}</div>
-            <div style="margin-top: 10px;"><strong>Response Time:</strong> ${result.response_time ? result.response_time.toFixed(2) + ' ms' : 'N/A'}</div>
-            <div style="margin-top: 10px;"><strong>Headers:</strong></div>
-            <pre style="background: white; padding: 10px; border-radius: 3px; overflow-x: auto;">${result.headers || 'N/A'}</pre>
-            <div style="margin-top: 10px;"><strong>Body:</strong></div>
-            <pre style="background: white; padding: 10px; border-radius: 3px; max-height: 400px; overflow: auto;">${result.body || result.error || 'N/A'}</pre>
-        `;
-    } catch (error) {
-        console.error('Error sending request:', error);
-        const responseDiv = document.getElementById('response');
-        if (responseDiv) {
-            responseDiv.innerHTML = `<p style="color: #dc3545;">Error: ${error.message}</p>`;
-        }
-        
-        // Show user-facing error notification
-        MegidoErrorHandler.showErrorNotification(error, {
-            title: 'Failed to Send Request',
-            retryCallback: sendRequest
-        });
-    }
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+const state = {
+  tabs: [],
+  activeTabId: null,
+  currentReqView: 'structured',   // 'structured' | 'raw'
+  currentRespView: 'pretty',       // 'pretty' | 'raw' | 'headers' | 'hex'
+  lastResponse: null,
+  responseHistory: [],             // [{id, status_code, body, headers, response_time}]
+  historyPos: -1,
+  configOpen: false,
+};
+
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+async function apiFetch(url, options = {}) {
+  const defaults = {
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    credentials: 'same-origin',
+  };
+  const merged = { ...defaults, ...options, headers: { ...defaults.headers, ...(options.headers || {}) } };
+  const resp = await fetch(url, merged);
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${resp.status}`);
+  }
+  return resp.json();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadTabs() {
+  try {
+    state.tabs = await apiFetch('/repeater/api/tabs/');
+    if (state.tabs.length === 0) {
+      await createTab();
+      return;
+    }
+    renderTabs();
+    if (!state.activeTabId || !state.tabs.find(t => t.id === state.activeTabId)) {
+      activateTab(state.tabs[0].id);
+    }
+  } catch (e) {
+    console.error('loadTabs:', e);
+  }
+}
+
+async function createTab() {
+  try {
+    const tab = await apiFetch('/repeater/api/tabs/', { method: 'POST', body: JSON.stringify({ name: `Tab ${state.tabs.length + 1}` }) });
+    state.tabs.push(tab);
+    renderTabs();
+    activateTab(tab.id);
+  } catch (e) {
+    console.error('createTab:', e);
+  }
+}
+
+async function closeTab(tabId, event) {
+  event.stopPropagation();
+  if (state.tabs.length === 1) return; // keep at least one tab
+  try {
+    await apiFetch(`/repeater/api/tabs/${tabId}/`, { method: 'DELETE' });
+    state.tabs = state.tabs.filter(t => t.id !== tabId);
+    renderTabs();
+    if (state.activeTabId === tabId) {
+      activateTab(state.tabs[0].id);
+    }
+  } catch (e) {
+    console.error('closeTab:', e);
+  }
+}
+
+function activateTab(tabId) {
+  state.activeTabId = tabId;
+  renderTabs();
+  loadTabConfig(tabId);
+  loadHistory(tabId);
+  clearResponsePanel();
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tab-bar');
+  // Remove existing tab elements (keep the + button)
+  bar.querySelectorAll('.repeater-tab').forEach(el => el.remove());
+  const plusBtn = document.getElementById('btn-new-tab');
+  state.tabs.forEach(tab => {
+    const el = document.createElement('div');
+    el.className = 'repeater-tab' + (tab.id === state.activeTabId ? ' active' : '');
+    el.dataset.tabId = tab.id;
+    el.innerHTML = `<span class="tab-name">${escHtml(tab.name)}</span><span class="tab-close" onclick="closeTab(${tab.id}, event)">✕</span>`;
+    el.addEventListener('click', () => activateTab(tab.id));
+    el.addEventListener('dblclick', () => renameTab(tab));
+    bar.insertBefore(el, plusBtn);
+  });
+}
+
+async function renameTab(tab) {
+  const newName = prompt('Rename tab:', tab.name);
+  if (!newName || newName === tab.name) return;
+  try {
+    const updated = await apiFetch(`/repeater/api/tabs/${tab.id}/`, { method: 'PATCH', body: JSON.stringify({ name: newName }) });
+    tab.name = updated.name;
+    renderTabs();
+  } catch (e) { console.error('renameTab:', e); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Config
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadTabConfig(tabId) {
+  try {
+    const tab = await apiFetch(`/repeater/api/tabs/${tabId}/`);
+    const cfg = tab.config;
+    document.getElementById('cfg-follow-redirects').checked = cfg.follow_redirects;
+    document.getElementById('cfg-max-redirects').value       = cfg.max_redirects;
+    document.getElementById('cfg-timeout').value             = cfg.timeout;
+    document.getElementById('cfg-verify-ssl').checked        = cfg.verify_ssl;
+    document.getElementById('cfg-auto-cl').checked           = cfg.auto_content_length;
+  } catch (e) { /* non-fatal */ }
+}
+
+async function saveConfig() {
+  if (!state.activeTabId) return;
+  const payload = {
+    follow_redirects:   document.getElementById('cfg-follow-redirects').checked,
+    max_redirects:      parseInt(document.getElementById('cfg-max-redirects').value) || 10,
+    timeout:            parseFloat(document.getElementById('cfg-timeout').value) || 30,
+    verify_ssl:         document.getElementById('cfg-verify-ssl').checked,
+    auto_content_length: document.getElementById('cfg-auto-cl').checked,
+  };
+  try {
+    await apiFetch(`/repeater/api/tabs/${state.activeTabId}/`, { method: 'PATCH', body: JSON.stringify(payload) });
+    showToast('Config saved');
+  } catch (e) { console.error('saveConfig:', e); }
+}
+
+function toggleConfig() {
+  state.configOpen = !state.configOpen;
+  document.getElementById('config-panel').classList.toggle('open', state.configOpen);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request view toggle
+// ─────────────────────────────────────────────────────────────────────────────
+function setReqView(mode) {
+  state.currentReqView = mode;
+  document.getElementById('btn-structured').classList.toggle('active', mode === 'structured');
+  document.getElementById('btn-raw').classList.toggle('active', mode === 'raw');
+  document.getElementById('structured-view').style.display = mode === 'structured' ? 'flex' : 'none';
+  document.getElementById('raw-view').style.display         = mode === 'raw'        ? 'flex' : 'none';
+
+  if (mode === 'raw') {
+    // Convert structured → raw
+    const raw = buildRawFromForm();
+    document.getElementById('raw-area').value = raw;
+  } else {
+    // Convert raw → structured
+    parseRawToForm();
+  }
+}
+
+function buildRawFromForm() {
+  const method  = document.getElementById('method-select').value;
+  const url     = document.getElementById('url-input').value;
+  let headers = {};
+  try { headers = JSON.parse(document.getElementById('headers-area').value || '{}'); } catch(e) {}
+  const body = document.getElementById('body-area').value;
+  return buildRawRequest(method, url, headers, body);
+}
+
+function buildRawRequest(method, url, headers, body) {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname + (parsed.search || '');
+    let lines = [`${method.toUpperCase()} ${path} HTTP/1.1`];
+    if (!headers['Host']) lines.push(`Host: ${parsed.host}`);
+    for (const [k, v] of Object.entries(headers)) lines.push(`${k}: ${v}`);
+    lines.push('');
+    lines.push(body || '');
+    return lines.join('\r\n');
+  } catch(e) {
+    return `${method.toUpperCase()} / HTTP/1.1\r\n\r\n${body || ''}`;
+  }
+}
+
+async function parseRawToForm() {
+  const raw = document.getElementById('raw-area').value;
+  if (!raw.trim()) return;
+  try {
+    const result = await apiFetch('/repeater/api/parse-raw/', { method: 'POST', body: JSON.stringify({ raw }) });
+    document.getElementById('method-select').value = result.method || 'GET';
+    document.getElementById('url-input').value     = result.url || '';
+    document.getElementById('headers-area').value  = JSON.stringify(result.headers || {}, null, 2);
+    document.getElementById('body-area').value     = result.body || '';
+  } catch(e) { console.error('parseRawToForm:', e); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Send request
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendCurrentRequest() {
+  const spinner = document.getElementById('send-spinner');
+  spinner.classList.add('active');
+  try {
+    let method, url, headersStr, body;
+    if (state.currentReqView === 'raw') {
+      await parseRawToForm();
+    }
+    method    = document.getElementById('method-select').value;
+    url       = document.getElementById('url-input').value;
+    headersStr = document.getElementById('headers-area').value;
+    body      = document.getElementById('body-area').value;
+
+    if (!url.trim()) { showToast('Please enter a URL', 'error'); return; }
+
+    // Auto Content-Length
+    const autoCL = document.getElementById('cfg-auto-cl').checked;
+    let headersObj = {};
+    try { headersObj = JSON.parse(headersStr || '{}'); } catch(e) {}
+    if (autoCL && body) {
+      headersObj['Content-Length'] = new TextEncoder().encode(body).length.toString();
+      document.getElementById('headers-area').value = JSON.stringify(headersObj, null, 2);
+      headersStr = JSON.stringify(headersObj);
+    }
+
+    // Create or reuse request object linked to active tab
+    const reqPayload = {
+      url, method, headers: headersStr, body,
+      tab_id: state.activeTabId,
+      name: `${method} ${url}`,
+    };
+
+    const created = await apiFetch('/repeater/api/requests/', { method: 'POST', body: JSON.stringify(reqPayload) });
+    const reqId = created.id;
+
+    // Send it
+    const resp = await apiFetch(`/repeater/api/requests/${reqId}/send/`, { method: 'POST' });
+    state.lastResponse = resp;
+    state.responseHistory.push(resp);
+    state.historyPos = state.responseHistory.length - 1;
+
+    renderResponse(resp);
+    updateHistoryInfo();
+    fetchTargetInfo(reqId);
+
+    // Populate diff dropdowns
+    addRespToDropdowns(resp);
+  } catch (e) {
+    document.getElementById('response-body').textContent = `Error: ${e.message}`;
+    console.error('sendCurrentRequest:', e);
+  } finally {
+    spinner.classList.remove('active');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Response rendering
+// ─────────────────────────────────────────────────────────────────────────────
+function renderResponse(resp) {
+  const statusEl = document.getElementById('status-code-display');
+  statusEl.className = 'status-item ' + statusClass(resp.status_code);
+  statusEl.innerHTML = `Status: <span>${resp.status_code}</span>`;
+  document.getElementById('resp-time').textContent   = Math.round(resp.response_time);
+  document.getElementById('resp-length').textContent = resp.body ? resp.body.length : 0;
+  document.getElementById('resp-id-display').textContent = resp.id ? `Response #${resp.id}` : '';
+  setRespView(state.currentRespView, resp);
+}
+
+function setRespView(view, resp) {
+  state.currentRespView = view;
+  document.querySelectorAll('.resp-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+
+  const r = resp || state.lastResponse;
+  const el = document.getElementById('response-body');
+  if (!r) return;
+
+  if (view === 'pretty') {
+    el.innerHTML = formatPretty(r.body, r.headers);
+  } else if (view === 'raw') {
+    el.textContent = r.body || '';
+  } else if (view === 'headers') {
+    el.innerHTML = formatHeaders(r.headers);
+  } else if (view === 'hex') {
+    el.innerHTML = `<span style="color:#8b9bc1">Loading hex…</span>`;
+    apiFetch('/repeater/api/hexdump/', {
+      method: 'POST',
+      body: JSON.stringify({ text: r.body || '' }),
+    }).then(d => { el.textContent = d.hexdump; }).catch(() => { el.textContent = 'Hex view unavailable'; });
+  }
+}
+
+function formatPretty(body, headersJson) {
+  if (!body) return '<span style="color:#8b9bc1">Empty body</span>';
+  let ct = '';
+  try { const h = JSON.parse(headersJson || '{}'); ct = (h['Content-Type'] || h['content-type'] || '').toLowerCase(); } catch(e) {}
+
+  if (ct.includes('json') || body.trimStart().startsWith('{') || body.trimStart().startsWith('[')) {
+    try {
+      const pretty = JSON.stringify(JSON.parse(body), null, 2);
+      return syntaxHighlightJSON(escHtml(pretty));
+    } catch(e) {}
+  }
+  return `<span style="white-space:pre-wrap">${escHtml(body)}</span>`;
+}
+
+function syntaxHighlightJSON(html) {
+  return html
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, m =>
+      m.endsWith(':') ? `<span style="color:#82aaff">${m}</span>` : `<span style="color:#c3e88d">${m}</span>`)
+    .replace(/\b(true|false|null)\b/g, '<span style="color:#f78c6c">$1</span>')
+    .replace(/\b(-?\d+\.?\d*(?:[eE][+-]?\d+)?)\b/g, '<span style="color:#ffcb6b">$1</span>');
+}
+
+function formatHeaders(headersJson) {
+  try {
+    const h = JSON.parse(headersJson || '{}');
+    const rows = Object.entries(h).map(([k, v]) =>
+      `<tr><td style="color:#82aaff;padding:4px 12px 4px 0;white-space:nowrap;font-weight:600">${escHtml(k)}</td><td style="color:#c8d3f5;padding:4px 0;word-break:break-all">${escHtml(v)}</td></tr>`
+    ).join('');
+    return `<table style="font-family:monospace;font-size:13px;border-collapse:collapse;width:100%">${rows}</table>`;
+  } catch(e) {
+    return `<pre>${escHtml(headersJson || '')}</pre>`;
+  }
+}
+
+function statusClass(code) {
+  if (code >= 200 && code < 300) return 'status-2xx';
+  if (code >= 300 && code < 400) return 'status-3xx';
+  if (code >= 400 && code < 500) return 'status-4xx';
+  return 'status-5xx';
+}
+
+function clearResponsePanel() {
+  document.getElementById('response-body').textContent = 'Send a request to see the response…';
+  document.getElementById('status-code-display').innerHTML = 'Status: <span>—</span>';
+  document.getElementById('resp-time').textContent = '—';
+  document.getElementById('resp-length').textContent = '—';
+  document.getElementById('resp-id-display').textContent = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Target info
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchTargetInfo(reqId) {
+  try {
+    const info = await apiFetch(`/repeater/api/requests/${reqId}/target-info/`);
+    document.getElementById('ti-host').textContent   = `🌐 ${info.host || '—'}`;
+    document.getElementById('ti-ip').textContent     = `📡 ${info.ip_address || '—'}`;
+    document.getElementById('ti-server').textContent = `🖥 ${info.server_header || '—'}`;
+    const tlsBadge = document.getElementById('ti-tls');
+    if (info.tls_certificate && !info.tls_certificate.error) {
+      tlsBadge.style.display = 'inline-flex';
+      const subj = info.tls_certificate.subject || {};
+      tlsBadge.title = `CN=${subj.commonName || '?'} | Expires: ${info.tls_certificate.notAfter || '?'}`;
+    } else {
+      tlsBadge.style.display = 'none';
+    }
+  } catch(e) { /* non-fatal */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// History navigation
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadHistory(tabId) {
+  try {
+    const data = await apiFetch(`/repeater/api/tabs/${tabId}/history/`);
+    state.responseHistory = data.history.map(h => h.last_response).filter(Boolean);
+    state.historyPos = state.responseHistory.length - 1;
+    updateHistoryInfo();
+  } catch(e) { /* non-fatal */ }
+}
+
+function navigateHistory(direction) {
+  const total = state.responseHistory.length;
+  if (total === 0) return;
+  if (direction === 'back')    state.historyPos = Math.max(0, state.historyPos - 1);
+  if (direction === 'forward') state.historyPos = Math.min(total - 1, state.historyPos + 1);
+  renderResponse(state.responseHistory[state.historyPos]);
+  updateHistoryInfo();
+}
+
+function updateHistoryInfo() {
+  const total = state.responseHistory.length;
+  const pos   = state.historyPos + 1;
+  document.getElementById('history-info').textContent = total > 0 ? `Request ${pos} of ${total}` : 'No history';
+  document.getElementById('btn-back').disabled    = state.historyPos <= 0;
+  document.getElementById('btn-forward').disabled = state.historyPos >= total - 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Send to tool
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendToTool(tool) {
+  if (!state.lastResponse) { showToast('Send a request first', 'error'); return; }
+  try {
+    const respId = state.lastResponse.id;
+    // Get the request ID from the response's request (stored as lastReqId)
+    if (!state.lastReqId) { showToast('No request ID available', 'error'); return; }
+    const data = await apiFetch(`/repeater/api/requests/${state.lastReqId}/send-to/${tool}/`, { method: 'POST' });
+    showToast(data.message || `Sent to ${tool}`);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compare / diff
+// ─────────────────────────────────────────────────────────────────────────────
+function openDiff()  { document.getElementById('diff-modal').classList.add('open'); }
+function closeDiff() { document.getElementById('diff-modal').classList.remove('open'); }
+
+function addRespToDropdowns(resp) {
+  if (!resp || !resp.id) return;
+  const label = `Response #${resp.id} (${resp.status_code})`;
+  ['diff-resp-a', 'diff-resp-b'].forEach(id => {
+    const sel = document.getElementById(id);
+    const opt = document.createElement('option');
+    opt.value = resp.id;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+}
+
+async function runCompare() {
+  const aId = document.getElementById('diff-resp-a').value;
+  const bId = document.getElementById('diff-resp-b').value;
+  if (!aId || !bId) { showToast('Select two responses', 'error'); return; }
+  try {
+    const diff = await apiFetch('/repeater/api/compare/', {
+      method: 'POST',
+      body: JSON.stringify({ response_a_id: parseInt(aId), response_b_id: parseInt(bId) }),
+    });
+    renderDiff(diff);
+  } catch(e) { document.getElementById('diff-result').textContent = `Error: ${e.message}`; }
+}
+
+function renderDiff(diff) {
+  const el = document.getElementById('diff-result');
+  let html = '';
+  if (diff.status_code.changed) {
+    html += `<p style="color:#ffcb6b;font-size:13px;margin-bottom:8px">Status changed: <b>${diff.status_code.a}</b> → <b>${diff.status_code.b}</b></p>`;
+  }
+  if (Object.keys(diff.headers).length > 0) {
+    html += `<p style="color:#82aaff;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Header Differences</p>`;
+    for (const [k, v] of Object.entries(diff.headers)) {
+      html += `<div class="diff-line diff-remove">- ${escHtml(k)}: ${escHtml(v.a || '(missing)')}</div>`;
+      html += `<div class="diff-line diff-add">+ ${escHtml(k)}: ${escHtml(v.b || '(missing)')}</div>`;
+    }
+  }
+  if (diff.body_diff) {
+    html += `<p style="color:#82aaff;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;margin:8px 0 4px">Body Diff</p>`;
+    diff.body_diff.split('\n').forEach(line => {
+      const cls = line.startsWith('+') ? 'diff-add' : line.startsWith('-') ? 'diff-remove' : 'diff-context';
+      html += `<div class="diff-line ${cls}">${escHtml(line)}</div>`;
+    });
+  }
+  if (!html) html = '<p style="color:#c3e88d;font-size:13px">Responses are identical</p>';
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Encode / decode utility
+// ─────────────────────────────────────────────────────────────────────────────
+function openUtil()  { document.getElementById('util-panel').classList.add('open'); }
+function closeUtil() { document.getElementById('util-panel').classList.remove('open'); }
+
+async function utilOp(operation) {
+  const value = document.getElementById('util-input').value;
+  try {
+    const data = await apiFetch('/repeater/api/encode-decode/', {
+      method: 'POST',
+      body: JSON.stringify({ operation, value }),
+    });
+    document.getElementById('util-output').value = data.result;
+  } catch(e) {
+    document.getElementById('util-output').value = `Error: ${e.message}`;
+  }
+}
+
+function encodeUrlField() {
+  const inp = document.getElementById('url-input');
+  try {
+    const u = new URL(inp.value);
+    u.search = new URLSearchParams(u.search).toString();
+    inp.value = u.toString();
+  } catch(e) { /* invalid url, skip */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function showToast(msg, type = 'info') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:200;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;color:#fff;background:${type === 'error' ? '#ff5370' : '#82aaff'};box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Override sendCurrentRequest to also track lastReqId
+const _origSend = sendCurrentRequest;
+// Patch: store request id after creation
+async function sendCurrentRequest() {
+  const spinner = document.getElementById('send-spinner');
+  spinner.classList.add('active');
+  try {
+    let method, url, headersStr, body;
+    if (state.currentReqView === 'raw') { await parseRawToForm(); }
+    method     = document.getElementById('method-select').value;
+    url        = document.getElementById('url-input').value;
+    headersStr = document.getElementById('headers-area').value;
+    body       = document.getElementById('body-area').value;
+
+    if (!url.trim()) { showToast('Please enter a URL', 'error'); return; }
+
+    const autoCL = document.getElementById('cfg-auto-cl').checked;
+    let headersObj = {};
+    try { headersObj = JSON.parse(headersStr || '{}'); } catch(e) {}
+    if (autoCL && body) {
+      headersObj['Content-Length'] = new TextEncoder().encode(body).length.toString();
+      document.getElementById('headers-area').value = JSON.stringify(headersObj, null, 2);
+      headersStr = JSON.stringify(headersObj);
+    }
+
+    const reqPayload = { url, method, headers: headersStr, body, tab_id: state.activeTabId, name: `${method} ${url}` };
+    const created = await apiFetch('/repeater/api/requests/', { method: 'POST', body: JSON.stringify(reqPayload) });
+    state.lastReqId = created.id;
+
+    const resp = await apiFetch(`/repeater/api/requests/${created.id}/send/`, { method: 'POST' });
+    state.lastResponse = resp;
+    state.responseHistory.push(resp);
+    state.historyPos = state.responseHistory.length - 1;
+
+    renderResponse(resp);
+    updateHistoryInfo();
+    fetchTargetInfo(created.id);
+    addRespToDropdowns(resp);
+  } catch (e) {
+    document.getElementById('response-body').textContent = `Error: ${e.message}`;
+    console.error('sendCurrentRequest:', e);
+  } finally {
+    spinner.classList.remove('active');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadTabs();
+  setReqView('structured');
+  updateHistoryInfo();
+});
 </script>
 {% endblock %}
