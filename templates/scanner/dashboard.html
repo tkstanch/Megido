@@ -136,7 +136,10 @@ let pollingRetries = 0;
 let unknownStateRetries = 0;
 const MAX_POLLING_RETRIES = 30; // Stop after 30 failed attempts (60 seconds)
 const MAX_UNKNOWN_STATE_RETRIES = 5; // Stop after 5 consecutive unknown states
-let useWebSocket = true;
+// Disable WebSocket when running behind ngrok (free tier has unreliable WS support)
+// or when the server is WSGI-only (no ASGI/Daphne).
+const _host = window.location.hostname;
+let useWebSocket = !(_host.endsWith('.ngrok.io') || _host.endsWith('.ngrok-free.app'));
 
 // Attach event listener securely
 document.addEventListener('DOMContentLoaded', function() {
@@ -196,6 +199,81 @@ function displayError(message) {
     cardBody.appendChild(errorText);
     errorCard.appendChild(cardBody);
     statusDiv.appendChild(errorCard);
+}
+
+// Display an error with a "Load Results from DB" recovery button
+function displayErrorWithRecovery(message, scanId) {
+    const statusDiv = document.getElementById('scan-status');
+    if (!statusDiv) return;
+
+    if (window.MegidoToast) {
+        window.MegidoToast.error(message);
+    }
+
+    statusDiv.textContent = '';
+    const errorCard = document.createElement('div');
+    errorCard.className = 'card border-l-4 border-danger';
+
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+
+    const errorText = document.createElement('p');
+    errorText.className = 'text-danger';
+    errorText.textContent = 'Error: ' + message;
+    cardBody.appendChild(errorText);
+
+    if (scanId) {
+        const hint = document.createElement('p');
+        hint.className = 'text-muted mt-2';
+        hint.textContent = 'The task may have completed in the background. Click below to load the current results from the database.';
+        cardBody.appendChild(hint);
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary mt-2';
+        btn.textContent = 'Load Results from DB';
+        btn.addEventListener('click', () => loadResultsFromDB(scanId));
+        cardBody.appendChild(btn);
+    }
+
+    errorCard.appendChild(cardBody);
+    statusDiv.appendChild(errorCard);
+}
+
+// Fetch results directly from the scan_results endpoint (AllowAny) as a recovery path
+async function loadResultsFromDB(scanId) {
+    try {
+        const response = await fetch(`/scanner/api/scans/${scanId}/results/`, {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        // Clear task tracking
+        currentTaskId = null;
+        sessionStorage.removeItem('exploitTaskId');
+        sessionStorage.removeItem('exploitScanId');
+        // Reload the vulnerability table using existing infrastructure
+        if (typeof loadResults === 'function') {
+            await loadResults(scanId);
+        }
+        const statusDiv = document.getElementById('scan-status');
+        if (statusDiv) {
+            statusDiv.textContent = '';
+            const card = document.createElement('div');
+            card.className = 'card border-l-4 border-success';
+            const body = document.createElement('div');
+            body.className = 'card-body';
+            const msg = document.createElement('strong');
+            msg.className = 'text-success';
+            msg.textContent = 'Results loaded from database successfully.';
+            body.appendChild(msg);
+            card.appendChild(body);
+            statusDiv.appendChild(card);
+        }
+    } catch (error) {
+        displayError('Failed to load results from database: ' + error.message);
+    }
 }
 
 // Helper function to escape HTML to prevent XSS
@@ -1112,11 +1190,8 @@ function startPolling(taskId) {
 
 async function pollTaskStatus(taskId) {
     try {
-        const csrfToken = getCsrfTokenFromCookies('csrftoken');
-        const response = await fetch(`/scanner/api/exploit_status/${taskId}/`, {
-            headers: {
-                'X-CSRFToken': csrfToken
-            },
+        const scanIdParam = currentScanId ? `?scan_id=${currentScanId}` : '';
+        const response = await fetch(`/scanner/api/exploit_status/${taskId}/${scanIdParam}`, {
             credentials: 'same-origin'
         });
         
@@ -1182,7 +1257,10 @@ async function pollTaskStatus(taskId) {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
             }
-            displayError('Unable to fetch task status after multiple attempts. Please refresh the page to check if the task completed.');
+            displayErrorWithRecovery(
+                'Unable to fetch task status after multiple attempts.',
+                currentScanId
+            );
             enableExploitButtons();
         }
     }
@@ -1266,12 +1344,12 @@ async function exploitAll() {
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // Safety-net: also start polling after 5 seconds in case WebSocket never delivers
+        // Safety-net: also start polling after 2 seconds in case WebSocket never delivers
         setTimeout(() => {
             if (!pollingInterval) {
                 fallbackToPolling(currentTaskId);
             }
-        }, 5000);
+        }, 2000);
         
     } catch (error) {
         displayError(error.message);
@@ -1390,12 +1468,12 @@ async function exploitSelected() {
         // Connect to WebSocket for real-time updates
         connectWebSocket(currentTaskId);
         
-        // Safety-net: also start polling after 5 seconds in case WebSocket never delivers
+        // Safety-net: also start polling after 2 seconds in case WebSocket never delivers
         setTimeout(() => {
             if (!pollingInterval) {
                 fallbackToPolling(currentTaskId);
             }
-        }, 5000);
+        }, 2000);
         
     } catch (error) {
         displayError(error.message);

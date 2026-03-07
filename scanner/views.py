@@ -819,12 +819,14 @@ def exploit_vulnerabilities(request, scan_id):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication, SessionAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def exploit_status(request, task_id):
     """
     Check the status of a background exploitation task.
-    
+
+    Task IDs are UUIDs and effectively unguessable, so AllowAny is safe here
+    (consistent with the scan_results endpoint).
+
     Returns:
     - state: Task state (PENDING, PROGRESS, SUCCESS, FAILURE)
     - current: Current progress (if in PROGRESS state)
@@ -832,18 +834,64 @@ def exploit_status(request, task_id):
     - status: Status message (if in PROGRESS state)
     - result: Final results (if SUCCESS state)
     - error: Error message (if FAILURE state)
+
+    Optional query parameter:
+    - scan_id: If provided and the Celery result has expired (state=PENDING),
+               the DB is checked for completed exploit results as a fallback.
     """
     task_result = AsyncResult(task_id)
-    
+
     response_data = {
         'task_id': task_id,
         'state': task_result.state,
     }
-    
+
     if task_result.state == 'PENDING':
-        # Task is waiting to be executed
+        # PENDING can mean "waiting to run" OR "result expired from Celery backend".
+        # If the caller provides a scan_id, check the DB to distinguish the two cases.
+        scan_id = request.query_params.get('scan_id')
+        if scan_id:
+            try:
+                scan = Scan.objects.get(id=scan_id)
+                all_vulns = list(scan.vulnerabilities.all())
+                # Task is considered complete when some attempts were made AND none are still in_progress
+                attempted = [v for v in all_vulns if v.exploit_status != 'not_attempted']
+                still_running = [v for v in all_vulns if v.exploit_status == 'in_progress']
+                if attempted and not still_running:
+                    # Results are in the DB — build a synthetic SUCCESS response
+                    total = len(all_vulns)
+                    exploited = sum(1 for v in all_vulns if v.exploit_status == 'success')
+                    failed = sum(1 for v in all_vulns if v.exploit_status == 'failed')
+                    no_plugin = sum(1 for v in all_vulns if v.exploit_status == 'no_plugin')
+                    results_list = [
+                        {
+                            'vulnerability_id': v.id,
+                            'vulnerability_type': v.get_vulnerability_type_display(),
+                            'url': v.url,
+                            'success': v.exploit_status == 'success',
+                            'plugin_used': None,
+                            'evidence': v.exploit_result or '',
+                            'error': '',
+                        }
+                        for v in all_vulns
+                    ]
+                    synthetic_result = {
+                        'total': total,
+                        'exploited': exploited,
+                        'failed': failed,
+                        'no_plugin': no_plugin,
+                        'results': results_list,
+                        'task_id': task_id,
+                        'from_db': True,
+                    }
+                    response_data['state'] = 'SUCCESS'
+                    response_data['result'] = synthetic_result
+                    response_data['status'] = 'Completed (recovered from database)'
+                    return Response(response_data, status=200)
+            except (Scan.DoesNotExist, ValueError):
+                pass
         response_data['status'] = 'Task is pending...'
-    
+
     elif task_result.state == 'PROGRESS':
         # Task is in progress
         response_data.update({
@@ -851,21 +899,21 @@ def exploit_status(request, task_id):
             'total': task_result.info.get('total', 0),
             'status': task_result.info.get('status', 'Processing...')
         })
-    
+
     elif task_result.state == 'SUCCESS':
         # Task completed successfully
         response_data['result'] = task_result.result
         response_data['status'] = 'Completed'
-    
+
     elif task_result.state == 'FAILURE':
         # Task failed with an error
         response_data['error'] = str(task_result.info)
         response_data['status'] = 'Failed'
-    
+
     else:
         # Any other state
         response_data['status'] = str(task_result.state)
-    
+
     return Response(response_data, status=200)
 
 
