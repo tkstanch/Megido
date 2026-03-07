@@ -65,6 +65,10 @@ class VulnerabilityFinding:
     exploitability_confirmed: bool = False
     # Whether the admin/resource requires authentication to access
     requires_authentication: Optional[bool] = None
+    # Human-readable note about potential false positive conditions
+    false_positive_risk: Optional[str] = None
+    # Notes about bounty eligibility
+    bounty_notes: Optional[str] = None
 
     @property
     def bounty_likelihood(self) -> str:
@@ -122,6 +126,12 @@ class VulnerabilityFinding:
 
         if self.requires_authentication is not None:
             result['requires_authentication'] = self.requires_authentication
+
+        if self.false_positive_risk is not None:
+            result['false_positive_risk'] = self.false_positive_risk
+
+        if self.bounty_notes is not None:
+            result['bounty_notes'] = self.bounty_notes
 
         return result
 

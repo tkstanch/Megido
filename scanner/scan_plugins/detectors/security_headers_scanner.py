@@ -13,6 +13,7 @@ This plugin performs comprehensive security header analysis including:
 
 import logging
 import re
+import dataclasses
 from typing import Dict, List, Any, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -225,6 +226,13 @@ class SecurityHeadersScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
             response = requests.get(url, timeout=timeout, verify=verify_ssl)
             headers = response.headers
             body = response.text
+
+            # Determine if the response is HTML — non-HTML responses have lower
+            # exploitability for header-based attacks
+            content_type = headers.get('Content-Type', '').lower()
+            is_html_response = any(
+                ct in content_type for ct in ('text/html', 'application/xhtml')
+            )
             
             # Check for missing security headers
             missing_findings = self._check_missing_headers(url, headers, body)
@@ -242,6 +250,13 @@ class SecurityHeadersScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
             if config.get('check_security_txt', True):
                 security_txt_findings = self._check_security_txt(url, verify_ssl, timeout)
                 findings.extend(security_txt_findings)
+
+            # Dedup: X-Frame-Options + CSP frame-ancestors missing
+            findings = self._dedup_clickjacking_findings(findings, url)
+
+            # Reduce confidence for header findings on non-HTML responses
+            if not is_html_response:
+                findings = self._downgrade_html_only_findings(findings)
             
             logger.info(f"Security headers scan of {url} found {len(findings)} issue(s)")
             
@@ -620,6 +635,94 @@ class SecurityHeadersScannerPlugin(VPoCDetectorMixin, BaseScanPlugin):
         
         return findings
     
+    def _dedup_clickjacking_findings(
+        self, findings: List[VulnerabilityFinding], url: str
+    ) -> List[VulnerabilityFinding]:
+        """
+        Deduplicate clickjacking-related findings.
+
+        If both X-Frame-Options AND CSP frame-ancestors are missing, replace
+        the two separate findings with one combined finding to avoid noise.
+        """
+        xfo_missing = [
+            f for f in findings
+            if 'X-Frame-Options' in f.description and 'Missing' in f.description
+        ]
+        csp_missing = [
+            f for f in findings
+            if 'Content-Security-Policy' in f.description and 'Missing' in f.description
+        ]
+
+        if not xfo_missing or not csp_missing:
+            return findings
+
+        # Check if an existing CSP finding already mentions frame-ancestors
+        for csp_f in csp_missing:
+            if 'frame-ancestors' in csp_f.description.lower():
+                # Already deduplicated — leave as-is
+                return findings
+
+        # Remove both individual findings and add one combined one
+        combined = [
+            f for f in findings
+            if f not in xfo_missing and f not in csp_missing
+        ]
+        combined.append(VulnerabilityFinding(
+            vulnerability_type='security_misconfiguration',
+            severity='medium',
+            url=url,
+            description=(
+                'Missing clickjacking protection: neither X-Frame-Options nor '
+                'CSP frame-ancestors is set. Either header would mitigate '
+                'clickjacking — only one is needed.'
+            ),
+            evidence=(
+                'X-Frame-Options header not found; '
+                'Content-Security-Policy with frame-ancestors not found'
+            ),
+            remediation=(
+                "Add either 'X-Frame-Options: DENY' or "
+                "Content-Security-Policy with 'frame-ancestors none' "
+                '(or a specific trusted origin). Both are redundant; one is sufficient.'
+            ),
+            confidence=0.95,
+            cwe_id='CWE-1021',
+        ))
+        return combined
+
+    @staticmethod
+    def _downgrade_html_only_findings(
+        findings: List[VulnerabilityFinding],
+    ) -> List[VulnerabilityFinding]:
+        """
+        Reduce confidence for header findings that are only exploitable in an
+        HTML rendering context (X-Frame-Options, CSP, X-XSS-Protection, …).
+
+        Non-HTML responses (API JSON, images, binary blobs, etc.) do not render
+        HTML, so many header findings have little practical security impact.
+        """
+        _HTML_ONLY_DESCRIPTIONS = (
+            'X-Frame-Options',
+            'Content-Security-Policy',
+            'X-XSS-Protection',
+            'clickjacking',
+        )
+        updated: List[VulnerabilityFinding] = []
+        for f in findings:
+            if any(kw in f.description for kw in _HTML_ONLY_DESCRIPTIONS):
+                if f.confidence > 0.5:
+                    f = dataclasses.replace(
+                        f,
+                        confidence=max(f.confidence * 0.5, 0.3),
+                        bounty_notes=(
+                            (f.bounty_notes + ' ' if f.bounty_notes else '') +
+                            'Confidence reduced: response Content-Type is not HTML — '
+                            'this header is less relevant for non-HTML responses.'
+                        ),
+                    )
+            updated.append(f)
+        return updated
+
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration for security headers scanning."""
         return {
