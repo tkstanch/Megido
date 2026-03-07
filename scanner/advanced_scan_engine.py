@@ -18,6 +18,7 @@ from datetime import datetime
 
 from scanner.scan_engine import ScanEngine
 from scanner.scan_plugins import VulnerabilityFinding
+from scanner.vulnerability_chain_advisor import VulnerabilityChainAdvisor
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class AdvancedScanEngine(ScanEngine):
         self.ml_detector = None
         if HAS_SKLEARN:
             self.ml_detector = MLAnomalyDetector()
+        self.chain_advisor = VulnerabilityChainAdvisor()
         logger.info(f"AdvancedScanEngine initialized (ML: {HAS_SKLEARN})")
     
     def scan_with_advanced_features(
@@ -78,12 +80,16 @@ class AdvancedScanEngine(ScanEngine):
         
         # Calculate overall risk
         risk_summary = self._calculate_risk_summary(enhanced_findings)
-        
+
+        # Generate chaining suggestions
+        chain_suggestions = self.chain_advisor.get_chain_suggestions_for_findings(enhanced_findings)
+
         return {
             'url': url,
             'timestamp': datetime.now().isoformat(),
             'findings': enhanced_findings,
             'risk_summary': risk_summary,
+            'chain_suggestions': chain_suggestions,
             'ml_enabled': HAS_SKLEARN,
         }
     

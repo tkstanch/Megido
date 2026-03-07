@@ -658,7 +658,49 @@ function displayVulnerabilities(vulnerabilities) {
      * This ensures security teams never miss critical evidence and understand what's available.
      * Placeholders guide users on how to enable missing features (e.g., visual proof capture).
      */
-    resultsDiv.innerHTML = '<h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Vulnerabilities Detected:</h3>' + vulnerabilities.map(vuln => `
+
+    // -----------------------------------------------------------------
+    // Scan Summary Report section
+    // -----------------------------------------------------------------
+    const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    vulnerabilities.forEach(v => {
+        const s = sanitizeSeverity(v.severity);
+        if (s in severityCounts) severityCounts[s]++;
+    });
+
+    const summaryBadges = Object.entries(severityCounts)
+        .filter(([, count]) => count > 0)
+        .map(([sev, count]) => `<span class="badge badge-${sev} text-sm px-3 py-1">${sev.toUpperCase()}: ${count}</span>`)
+        .join(' ');
+
+    const summaryHtml = `
+        <div class="card glass-refract border-living mb-6">
+            <div class="card-header glass-split-depth">
+                <h3 class="card-title flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Scan Summary Report
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="flex flex-wrap items-center gap-3 mb-3">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Total: <strong>${vulnerabilities.length}</strong></span>
+                    ${summaryBadges}
+                </div>
+                <button
+                    class="btn btn-secondary btn-sm flex items-center gap-2"
+                    onclick="downloadFullReportTemplate(${currentScanId})"
+                    title="Download a combined Markdown report template for all findings">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download Full Report Template
+                </button>
+            </div>
+        </div>`;
+
+    resultsDiv.innerHTML = summaryHtml + '<h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Vulnerabilities Detected:</h3>' + vulnerabilities.map(vuln => `
         <div class="card border-l-4 border-severity-${sanitizeSeverity(vuln.severity)} mb-4 hover:shadow-card-hover transition-shadow" id="vuln-${vuln.id}">
             <div class="card-body">
                 <div class="flex items-start gap-3">
@@ -942,6 +984,18 @@ function displayVulnerabilities(vulnerabilities) {
                                     </div>
                                 </div>
                             ` : ''}
+                            <!-- Generate Report Template Button -->
+                            <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 transition-colors"
+                                    onclick="downloadVulnReportTemplate(${currentScanId}, ${vuln.id}, '${escapeHtml(vuln.type)}')"
+                                    title="Download a pre-filled Markdown report template for this finding">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                    </svg>
+                                    Generate Report Template
+                                </button>
+                            </div>
                             ${vuln.successful_payloads && vuln.successful_payloads.length > 0 ? `
                                 <div class="mt-3">
                                     <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="flex items-center gap-2 text-sm font-medium text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200">
@@ -1005,9 +1059,151 @@ function displayVulnerabilities(vulnerabilities) {
             </div>
         </div>
     `).join('');
+
+    // Append chain suggestions panel after the vulnerability cards
+    if (currentScanId) {
+        loadAndDisplayChainSuggestions(currentScanId);
+    }
 }
 
-function getExploitStatusClass(status) {
+/**
+ * Fetch chain suggestions from the API and render the advisory panel.
+ */
+async function loadAndDisplayChainSuggestions(scanId) {
+    try {
+        const response = await fetch(`/scanner/api/scans/${scanId}/chain-suggestions/`, {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) return;  // Silently skip if unavailable
+        const data = await response.json();
+        renderChainSuggestionsPanel(data);
+    } catch (e) {
+        // Non-critical — chain suggestions are advisory only
+        console.debug('Chain suggestions unavailable:', e.message);
+    }
+}
+
+/**
+ * Render the "Vulnerability Chain Suggestions" collapsible panel.
+ */
+function renderChainSuggestionsPanel(data) {
+    const resultsDiv = document.getElementById('scan-results');
+    if (!resultsDiv) return;
+
+    const suggestions = data.chain_suggestions || [];
+    if (suggestions.length === 0) return;
+
+    const priorityBadge = (p) => {
+        const map = { high: 'badge-danger', medium: 'badge-warning', low: 'badge-success' };
+        return `<span class="badge ${map[p] || 'badge-gray'} text-xs">${(p || 'low').toUpperCase()}</span>`;
+    };
+
+    const rows = suggestions.map(s => `
+        <div class="flex flex-col sm:flex-row sm:items-start gap-2 p-3 bg-gray-800/40 rounded-lg border border-gray-700/50">
+            <div class="flex-shrink-0 pt-0.5">${priorityBadge(s.test_priority)}</div>
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="text-xs font-semibold text-gray-300">${escapeHtml((s.found_vulnerability_type || '').toUpperCase())}</span>
+                    <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    <span class="text-xs font-semibold text-primary-400">${escapeHtml((s.related_vuln_type || '').toUpperCase())}</span>
+                </div>
+                <p class="text-xs text-gray-400">${escapeHtml(s.reason || '')}</p>
+                <p class="text-xs text-gray-500 italic mt-0.5">${escapeHtml(s.common_chain_description || '')}</p>
+            </div>
+        </div>
+    `).join('');
+
+    const panel = document.createElement('div');
+    panel.className = 'card glass-refract border-living mt-6';
+    panel.innerHTML = `
+        <div class="card-header glass-split-depth">
+            <button type="button"
+                class="w-full flex items-center justify-between card-title hover:text-primary-300 transition-colors"
+                onclick="this.closest('.card').querySelector('.chain-suggestions-body').classList.toggle('hidden')">
+                <span class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Vulnerability Chain Suggestions
+                    <span class="badge badge-warning text-xs">${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''}</span>
+                </span>
+                <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="card-body chain-suggestions-body">
+            <div class="mb-3 p-3 bg-yellow-900/20 border border-yellow-700/40 rounded-lg text-xs text-yellow-300">
+                ⚠️  ${escapeHtml(data.disclaimer || 'These are suggestions for manual testing — all decisions should be yours. Only test on authorized systems.')}
+            </div>
+            <p class="text-sm text-gray-400 mb-4">
+                Based on the vulnerabilities detected, the following related vulnerability classes are commonly found together or enable multi-step attack chains.
+                <strong class="text-gray-300">These are suggestions for manual testing — decisions should be yours.</strong>
+            </p>
+            <div class="space-y-2">${rows}</div>
+        </div>
+    `;
+    resultsDiv.appendChild(panel);
+}
+
+/**
+ * Download a combined Markdown report template for all findings in the scan.
+ */
+async function downloadFullReportTemplate(scanId) {
+    if (!scanId) {
+        if (window.MegidoToast) window.MegidoToast.warning('No active scan. Run a scan first.');
+        return;
+    }
+    try {
+        const response = await fetch(`/scanner/api/scans/${scanId}/report-template/`, {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scan_${scanId}_report_template.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
+    } catch (e) {
+        if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
+    }
+}
+
+/**
+ * Download a Markdown report template for a specific vulnerability finding.
+ * Falls back to the full scan template scoped to that vulnerability type.
+ */
+async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
+    if (!scanId) {
+        if (window.MegidoToast) window.MegidoToast.warning('No active scan.');
+        return;
+    }
+    try {
+        // Re-use the scan-level endpoint; the template includes all finding types.
+        // A per-vulnerability endpoint can be added in a future iteration.
+        const response = await fetch(`/scanner/api/scans/${scanId}/report-template/`, {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `vuln_${vulnId}_${(vulnType || 'report').replace(/\s+/g, '_')}_template.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
+    } catch (e) {
+        if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
+    }
+}
     const statusClasses = {
         'success': 'badge-success',
         'failed': 'badge-danger',
