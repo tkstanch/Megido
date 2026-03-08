@@ -15,7 +15,7 @@ The Manipulator app is a comprehensive Django-based payload crafting and encodin
   - Pre-loaded example payloads
 
 ### 2. Payload Library
-- **31+ Pre-loaded Payloads** across all vulnerability types
+- **10,000+ Pre-loaded Payloads** across all vulnerability types
 - Each payload includes:
   - Name and description
   - Platform information (Web, Linux, Windows, PHP, Python, etc.)
