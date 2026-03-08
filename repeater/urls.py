@@ -29,6 +29,7 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     path('api/requests/<int:request_id>/target-info/', views.target_info, name='target_info'),
     path('api/requests/<int:request_id>/send-to/<str:tool>/', views.send_to_tool, name='send_to_tool'),
+    path('api/requests/<int:request_id>/inject/', views.inject_payloads, name='inject_payloads'),
 
     # -------------------------------------------------------------------------
     # Utilities

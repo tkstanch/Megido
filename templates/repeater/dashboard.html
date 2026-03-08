@@ -459,6 +459,8 @@
     <button class="btn btn-warning"   onclick="sendToTool('scanner')"     title="Send to Scanner">🔍 → Scanner</button>
     <button class="btn btn-warning"   onclick="sendToTool('interceptor')" title="Send to Interceptor">🎯 → Interceptor</button>
     <button class="btn btn-warning"   onclick="sendToTool('spider')"      title="Send to Spider">🕷 → Spider</button>
+    <button class="btn btn-warning"   onclick="sendToTool('manipulator')" title="Send to Manipulator">🧪 → Manipulator</button>
+    <button class="btn btn-secondary" onclick="openInjectPanel()"         title="Inject Payloads">💉 Inject Payloads</button>
     <button class="btn btn-secondary" onclick="openScanCaptures()"        title="View Scanner Captures">📋 Scanner Captures</button>
 
     <div id="history-info">No history</div>
@@ -592,6 +594,49 @@
     </div>
   </div>
 
+</div>
+
+<!-- ── Inject Payloads panel ──────────────────────────────────── -->
+<div id="inject-panel" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:110;background:rgba(10,12,20,0.85);overflow:auto;">
+  <div style="max-width:960px;margin:40px auto;background:#1a1d2e;border:1px solid #2d3250;border-radius:12px;padding:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:600;color:#c8d3f5;">💉 Inject Payloads</div>
+      <button class="btn btn-secondary" onclick="closeInjectPanel()" style="padding:5px 10px;">✕</button>
+    </div>
+
+    <!-- Filters -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #2d3250;">
+      <div>
+        <label style="display:block;color:#8b9bc1;font-size:12px;margin-bottom:4px;">Vulnerability Type</label>
+        <input id="inject-vuln-type" type="text" placeholder="e.g. XSS, SQLi (leave blank for all)"
+          style="width:220px;background:#14162a;color:#c8d3f5;border:1px solid #3d4470;border-radius:6px;padding:5px 10px;font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block;color:#8b9bc1;font-size:12px;margin-bottom:4px;">Max Payloads</label>
+        <input id="inject-max-payloads" type="number" min="1" placeholder="e.g. 20"
+          style="width:100px;background:#14162a;color:#c8d3f5;border:1px solid #3d4470;border-radius:6px;padding:5px 10px;font-size:13px;">
+      </div>
+      <button class="btn btn-danger" id="inject-run-btn" onclick="runInjectPayloads()" style="padding:6px 18px;">
+        <span class="spinner" id="inject-spinner" style="display:none;"></span>
+        ▶ Run Injection
+      </button>
+    </div>
+
+    <!-- Injection points preview -->
+    <div id="inject-points-section">
+      <div style="font-size:13px;font-weight:600;color:#c8d3f5;margin-bottom:8px;">Detected Injection Points</div>
+      <div id="inject-points-list" style="font-size:12px;color:#8b9bc1;padding:8px 0;">
+        Send a request first to detect injection points.
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="inject-results-section" style="display:none;margin-top:20px;">
+      <div style="font-size:13px;font-weight:600;color:#c8d3f5;margin-bottom:8px;">Injection Results</div>
+      <div id="inject-summary" style="font-size:13px;color:#8b9bc1;margin-bottom:12px;"></div>
+      <div id="inject-results-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Diff modal ─────────────────────────────────────────────── -->
@@ -1116,6 +1161,170 @@ function encodeUrlField() {
     u.search = new URLSearchParams(u.search).toString();
     inp.value = u.toString();
   } catch(e) { /* invalid url, skip */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inject Payloads panel
+// ─────────────────────────────────────────────────────────────────────────────
+function openInjectPanel() {
+  if (!state.lastReqId) { showToast('Send a request first', 'error'); return; }
+  document.getElementById('inject-panel').style.display = 'block';
+  renderInjectPoints();
+  document.getElementById('inject-results-section').style.display = 'none';
+}
+
+function closeInjectPanel() {
+  document.getElementById('inject-panel').style.display = 'none';
+}
+
+function renderInjectPoints() {
+  const listEl = document.getElementById('inject-points-list');
+  // Parse injection points client-side from current request form
+  const points = detectCurrentInjectionPoints();
+  if (!points.length) {
+    listEl.innerHTML = '<span style="color:#8b9bc1;">No injectable parameters detected in current request.</span>';
+    return;
+  }
+  const typeColor = { GET: '#82aaff', POST: '#c3e88d', json: '#ffcb6b', header: '#ff5370', cookie: '#c792ea' };
+  listEl.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+    points.map(p => {
+      const col = typeColor[p.type] || '#8b9bc1';
+      return `<span style="background:#14162a;border:1px solid #2d3250;border-radius:6px;padding:4px 10px;font-size:12px;">
+        <span style="color:${col};font-weight:600;">${escHtml(p.type)}</span>
+        <span style="color:#c8d3f5;margin-left:6px;">${escHtml(p.name)}</span>
+        ${p.value ? `<span style="color:#8b9bc1;margin-left:4px;">= ${escHtml(p.value.slice(0, 40))}</span>` : ''}
+      </span>`;
+    }).join('') + `</div>`;
+}
+
+function detectCurrentInjectionPoints() {
+  // Client-side parse of current request inputs — mirrors parse_injection_points() on backend
+  const url = (document.getElementById('url-input')?.value || '').trim();
+  const points = [];
+  if (!url) return points;
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.forEach((val, name) => {
+      points.push({ type: 'GET', name, value: val });
+    });
+  } catch(_) { /* invalid URL */ }
+
+  const body = (document.getElementById('body-area')?.value || '').trim();
+  if (body) {
+    let headersRaw = document.getElementById('headers-area')?.value || '{}';
+    let contentType = '';
+    try {
+      const hdrs = JSON.parse(headersRaw);
+      for (const [k, v] of Object.entries(hdrs)) {
+        if (k.toLowerCase() === 'content-type') { contentType = String(v).toLowerCase(); break; }
+      }
+    } catch(_) {}
+
+    if (contentType.includes('application/json')) {
+      try {
+        const obj = JSON.parse(body);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          for (const [k, v] of Object.entries(obj)) {
+            points.push({ type: 'json', name: k, value: v != null ? String(v) : '' });
+          }
+        }
+      } catch(_) {}
+    } else {
+      try {
+        new URLSearchParams(body).forEach((val, name) => {
+          points.push({ type: 'POST', name, value: val });
+        });
+      } catch(_) {}
+    }
+  }
+
+  const injectableHeaders = new Set(['User-Agent', 'Referer', 'X-Forwarded-For', 'Accept', 'Cookie']);
+  // Keep in sync with _INJECTABLE_HEADERS in repeater/views.py
+  let headersRaw = document.getElementById('headers-area')?.value || '{}';
+  try {
+    const hdrs = JSON.parse(headersRaw);
+    for (const [k, v] of Object.entries(hdrs)) {
+      if (injectableHeaders.has(k)) {
+        points.push({ type: 'header', name: k, value: String(v) });
+      }
+    }
+  } catch(_) {}
+
+  return points;
+}
+
+async function runInjectPayloads() {
+  if (!state.lastReqId) { showToast('Send a request first', 'error'); return; }
+
+  const vulnType = (document.getElementById('inject-vuln-type')?.value || '').trim();
+  const maxPayloads = document.getElementById('inject-max-payloads')?.value?.trim();
+
+  const btn = document.getElementById('inject-run-btn');
+  const spinner = document.getElementById('inject-spinner');
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+
+  try {
+    const body = {};
+    if (vulnType) body.vulnerability_type = vulnType;
+    if (maxPayloads) body.max_payloads = parseInt(maxPayloads, 10);
+
+    const data = await apiFetch(`/repeater/api/requests/${state.lastReqId}/inject/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    renderInjectResults(data);
+    showToast(`Injection complete: ${data.successful_exploits} exploit(s) found`);
+  } catch(e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+function renderInjectResults(data) {
+  const section = document.getElementById('inject-results-section');
+  const summary = document.getElementById('inject-summary');
+  const list = document.getElementById('inject-results-list');
+  section.style.display = 'block';
+
+  const exploitColor = data.successful_exploits > 0 ? '#ff5370' : '#c3e88d';
+  summary.innerHTML = `
+    <span style="margin-right:16px;">🎯 Injection points: <strong style="color:#c8d3f5;">${data.total_injection_points}</strong></span>
+    <span style="margin-right:16px;">🔬 Payloads tested: <strong style="color:#c8d3f5;">${data.total_payloads_tested}</strong></span>
+    <span>💥 Exploits found: <strong style="color:${exploitColor};">${data.successful_exploits}</strong></span>
+    ${data.campaign_id ? `<span style="margin-left:16px;font-size:12px;color:#8b9bc1;">Campaign #${data.campaign_id}</span>` : ''}
+  `;
+
+  if (!data.results || !data.results.length) {
+    list.innerHTML = '<p style="color:#8b9bc1;font-size:13px;padding:8px 0;">No successful exploits found.</p>';
+    return;
+  }
+
+  const sevColor = { critical: '#ff5370', high: '#ff5370', medium: '#ffcb6b', low: '#c3e88d', info: '#82aaff' };
+  list.innerHTML = data.results.map(r => {
+    const bg = r.is_successful ? 'background:#2a0a0f;border-color:#ff537044;' : '';
+    const sc = sevColor[r.severity] || '#82aaff';
+    return `
+      <details style="background:#14162a;${bg}border:1px solid #2d3250;border-radius:8px;padding:12px;margin-bottom:8px;">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;list-style:none;outline:none;">
+          <span style="color:${r.is_successful ? '#ff5370' : '#c3e88d'};font-size:16px;">${r.is_successful ? '✓' : '✗'}</span>
+          <span style="color:${sc};font-size:11px;font-weight:600;background:#1a1d2e;padding:2px 7px;border-radius:4px;">${escHtml(r.severity.toUpperCase())}</span>
+          <span style="color:#82aaff;font-weight:600;font-size:12px;">${escHtml(r.parameter_type)}</span>
+          <span style="color:#c8d3f5;font-size:12px;">${escHtml(r.parameter_name)}</span>
+          <span style="color:#8b9bc1;font-size:12px;margin-left:4px;">${escHtml(r.vulnerability_type || 'unknown')}</span>
+          <span style="margin-left:auto;color:#8b9bc1;font-size:11px;">conf: ${(r.confidence * 100).toFixed(0)}%</span>
+        </summary>
+        <div style="margin-top:10px;font-size:12px;color:#8b9bc1;">
+          <div><strong style="color:#c8d3f5;">Payload:</strong> <code style="color:#ffcb6b;font-size:11px;">${escHtml(r.payload_text)}</code></div>
+          ${r.response_status ? `<div style="margin-top:4px;"><strong style="color:#c8d3f5;">Response status:</strong> <span style="color:#c8d3f5;">${r.response_status}</span></div>` : ''}
+          ${r.evidence ? `<div style="margin-top:4px;"><strong style="color:#c8d3f5;">Evidence:</strong> <span>${escHtml(r.evidence)}</span></div>` : ''}
+        </div>
+      </details>`;
+  }).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

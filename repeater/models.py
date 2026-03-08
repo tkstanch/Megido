@@ -6,6 +6,7 @@ SOURCE_CHOICES = [
     ('scanner', 'Scanner'),
     ('interceptor', 'Interceptor'),
     ('exploit', 'Exploit'),
+    ('manipulator', 'Manipulator'),
 ]
 
 
