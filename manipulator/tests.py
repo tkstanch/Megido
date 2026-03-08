@@ -121,3 +121,21 @@ class PopulateManipulatorDataTest(TestCase):
         # Second run should say "already exists"
         self.assertIn('already exists', second_run_output)
 
+    def test_payload_count_per_vulnerability(self):
+        """Test that every vulnerability type has at least 1000 payloads in the payload modules."""
+        from manipulator.payloads import PAYLOADS
+        for vuln_name, payload_list in PAYLOADS.items():
+            self.assertGreaterEqual(
+                len(payload_list), 1000,
+                f"{vuln_name} has only {len(payload_list)} payloads, expected >= 1000"
+            )
+
+    def test_total_payload_count(self):
+        """Test that the total payload count across all types is >= 10,000."""
+        from manipulator.payloads import PAYLOADS
+        total = sum(len(v) for v in PAYLOADS.values())
+        self.assertGreaterEqual(
+            total, 10000,
+            f"Total payload count is {total}, expected >= 10,000"
+        )
+

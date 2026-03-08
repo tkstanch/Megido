@@ -87,3 +87,4 @@ scan_results/
 
 # Pip install artifacts (files created when pip install is run incorrectly)
 =*
+manipulator/payloads/__pycache__/
