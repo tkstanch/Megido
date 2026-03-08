@@ -21,6 +21,7 @@ import time
 import os
 import socket
 import ssl
+from urllib.parse import urlparse, parse_qs
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +365,108 @@ def target_info(request, request_id):
 # Send to other tools
 # ---------------------------------------------------------------------------
 
-SUPPORTED_TOOLS = {'scanner', 'interceptor', 'spider'}
+# Headers that are safe to mark as injectable (avoid breaking the request).
+# Keep in sync with the client-side injectableHeaders set in dashboard.html.
+_INJECTABLE_HEADERS = {'User-Agent', 'Referer', 'X-Forwarded-For', 'Accept', 'Cookie'}
+
+
+def parse_injection_points(repeater_request):
+    """Parse a RepeaterRequest and return a list of injection point dicts.
+
+    Each dict is compatible with AutoInjector._inject_payload():
+    {
+        'url': <full URL>,
+        'parameter_name': <param name>,
+        'parameter_type': 'GET' | 'POST' | 'json' | 'header' | 'cookie',
+        'original_value': <current value>,
+        'form_action': <base URL without query string>,
+        'form_method': <HTTP method>,
+    }
+    """
+    injection_points = []
+    url = repeater_request.url
+    method = (repeater_request.method or 'GET').upper()
+
+    parsed_url = urlparse(url)
+    base_url = parsed_url._replace(query='', fragment='').geturl()
+
+    # ── URL query parameters → GET injection points ──────────────────────────
+    qs_params = parse_qs(parsed_url.query, keep_blank_values=True)
+    for param_name, values in qs_params.items():
+        injection_points.append({
+            'url': url,
+            'parameter_name': param_name,
+            'parameter_type': 'GET',
+            'original_value': values[0] if values else '',
+            'form_action': base_url,
+            'form_method': 'GET',
+        })
+
+    # ── Request body ─────────────────────────────────────────────────────────
+    body = repeater_request.body or ''
+    if body:
+        # Determine content type from headers
+        try:
+            hdrs = json.loads(repeater_request.headers or '{}')
+        except (json.JSONDecodeError, TypeError):
+            hdrs = {}
+
+        content_type = ''
+        for k, v in hdrs.items():
+            if k.lower() == 'content-type':
+                content_type = str(v).lower()
+                break
+
+        if 'application/json' in content_type:
+            # JSON body → each top-level key becomes a JSON injection point
+            try:
+                body_data = json.loads(body)
+                if isinstance(body_data, dict):
+                    for param_name, param_value in body_data.items():
+                        injection_points.append({
+                            'url': url,
+                            'parameter_name': param_name,
+                            'parameter_type': 'json',
+                            'original_value': str(param_value) if param_value is not None else '',
+                            'form_action': base_url,
+                            'form_method': method,
+                        })
+            except (json.JSONDecodeError, ValueError):
+                pass
+        else:
+            # Assume form-encoded body
+            body_params = parse_qs(body, keep_blank_values=True)
+            for param_name, values in body_params.items():
+                injection_points.append({
+                    'url': url,
+                    'parameter_name': param_name,
+                    'parameter_type': 'POST',
+                    'original_value': values[0] if values else '',
+                    'form_action': base_url,
+                    'form_method': method,
+                })
+
+    # ── Injectable headers ────────────────────────────────────────────────────
+    try:
+        hdrs = json.loads(repeater_request.headers or '{}')
+    except (json.JSONDecodeError, TypeError):
+        hdrs = {}
+
+    for header_name, header_value in hdrs.items():
+        if header_name in _INJECTABLE_HEADERS:
+            injection_points.append({
+                'url': url,
+                'parameter_name': header_name,
+                'parameter_type': 'header',
+                'original_value': str(header_value),
+                'form_action': base_url,
+                'form_method': method,
+            })
+
+    return injection_points
+
+
+SUPPORTED_TOOLS = {'scanner', 'interceptor', 'spider', 'manipulator'}
 
 
 @api_view(['POST'])
@@ -405,6 +507,37 @@ def send_to_tool(request, request_id, tool):
 
     elif tool == 'spider':
         payload['message'] = 'URL added as spider starting point'
+
+    elif tool == 'manipulator':
+        try:
+            from manipulator.models import AttackCampaign, DiscoveredInjectionPoint
+            campaign = AttackCampaign.objects.create(
+                name=f'Repeater Injection - Request #{repeater_req.id}',
+                target_url=repeater_req.url,
+                mode='manual',
+                status='pending',
+            )
+            injection_points = parse_injection_points(repeater_req)
+            for ip in injection_points:
+                DiscoveredInjectionPoint.objects.create(
+                    campaign=campaign,
+                    url=ip['url'],
+                    parameter_name=ip['parameter_name'],
+                    parameter_type=ip['parameter_type'],
+                    original_value=ip['original_value'],
+                    form_action=ip['form_action'],
+                    form_method=ip['form_method'],
+                )
+            campaign.total_injection_points = len(injection_points)
+            campaign.save(update_fields=['total_injection_points'])
+            payload['campaign_id'] = campaign.id
+            payload['injection_points_found'] = len(injection_points)
+            payload['message'] = (
+                f'Campaign #{campaign.id} created with {len(injection_points)} '
+                f'injection point(s). Open Manipulator to run payloads.'
+            )
+        except Exception as e:
+            payload['message'] = f'Could not create manipulator campaign: {e}'
 
     return Response(payload)
 
@@ -534,6 +667,178 @@ def hexdump_view(request):
 
     return Response({'hexdump': hexdump(text)})
 
+
+
+# ---------------------------------------------------------------------------
+# Inject Manipulator payloads into a Repeater request
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+def inject_payloads(request, request_id):
+    """Run Manipulator payloads against all injection points in a RepeaterRequest.
+
+    Body (all optional):
+      vulnerability_type  – e.g. "XSS", "SQLi"  (filter payloads)
+      payload_ids         – list of specific Payload IDs
+      max_payloads        – int (limit number of payloads tested)
+
+    Returns:
+      campaign_id, total_tested, successful_exploits, results list
+    """
+    try:
+        repeater_req = RepeaterRequest.objects.get(id=request_id)
+    except RepeaterRequest.DoesNotExist:
+        return Response({'error': 'Request not found'}, status=404)
+
+    # ── Parse injection points ────────────────────────────────────────────────
+    injection_points = parse_injection_points(repeater_req)
+    if not injection_points:
+        return Response({'error': 'No injectable parameters found in this request'}, status=400)
+
+    # ── Fetch payloads ────────────────────────────────────────────────────────
+    try:
+        from manipulator.models import AttackCampaign, DiscoveredInjectionPoint, InjectionResult, Payload
+    except ImportError as e:
+        return Response({'error': f'Manipulator module not available: {e}'}, status=500)
+
+    vuln_type = request.data.get('vulnerability_type', '')
+    payload_ids = request.data.get('payload_ids', [])
+    max_payloads = request.data.get('max_payloads')
+
+    payload_qs = Payload.objects.all()
+    if vuln_type:
+        payload_qs = payload_qs.filter(vulnerability__name__icontains=vuln_type)
+    if payload_ids:
+        payload_qs = payload_qs.filter(id__in=payload_ids)
+    if max_payloads:
+        try:
+            payload_qs = payload_qs[:int(max_payloads)]
+        except (TypeError, ValueError):
+            pass
+
+    payloads = list(payload_qs)
+    if not payloads:
+        return Response({'error': 'No payloads found matching the given filters'}, status=400)
+
+    payload_texts = [p.payload_text for p in payloads]
+    payload_map = {p.payload_text: p for p in payloads}
+
+    # ── Create campaign ───────────────────────────────────────────────────────
+    campaign = AttackCampaign.objects.create(
+        name=f'Repeater Injection - Request #{repeater_req.id}',
+        target_url=repeater_req.url,
+        mode='manual',
+        status='injecting',
+    )
+
+    # Create DiscoveredInjectionPoint records and keep mapping to dicts
+    db_injection_points = []
+    for ip in injection_points:
+        dip = DiscoveredInjectionPoint.objects.create(
+            campaign=campaign,
+            url=ip['url'],
+            parameter_name=ip['parameter_name'],
+            parameter_type=ip['parameter_type'],
+            original_value=ip['original_value'],
+            form_action=ip['form_action'],
+            form_method=ip['form_method'],
+        )
+        db_injection_points.append((dip, ip))
+
+    campaign.total_injection_points = len(db_injection_points)
+    campaign.save(update_fields=['total_injection_points'])
+
+    # ── Run injection ─────────────────────────────────────────────────────────
+    try:
+        from manipulator.auto_injector import AutoInjector
+        injector = AutoInjector(concurrency=5, timeout=15)
+        summary = injector.run_campaign(injection_points, payload_texts)
+    except Exception as e:
+        campaign.status = 'failed'
+        campaign.save(update_fields=['status'])
+        return Response({'error': f'Injection engine error: {e}'}, status=500)
+
+    # ── Persist results ───────────────────────────────────────────────────────
+    # Build lookup: injection point dict → db model
+    ip_lookup = {}
+    for dip, ip_dict in db_injection_points:
+        key = (ip_dict['parameter_name'], ip_dict['parameter_type'])
+        ip_lookup[key] = dip
+
+    total_tested = 0
+    successful_exploits = 0
+    results_out = []
+
+    for raw_result in summary.get('results', []):
+        ip_dict = raw_result.get('injection_point', {})
+        key = (ip_dict.get('parameter_name', ''), ip_dict.get('parameter_type', ''))
+        dip = ip_lookup.get(key)
+        if dip is None:
+            continue
+
+        payload_text = raw_result.get('payload_text', '')
+        # payload FK is nullable; matched_payload may be None if the payload text
+        # was not found in payload_map (e.g. crafted by the injector itself).
+        matched_payload = payload_map.get(payload_text)
+
+        inj_result = InjectionResult.objects.create(
+            campaign=campaign,
+            injection_point=dip,
+            payload=matched_payload,
+            payload_text=payload_text,
+            request_method=raw_result.get('request_method', repeater_req.method),
+            request_url=raw_result.get('request_url', repeater_req.url),
+            request_headers=raw_result.get('request_headers', {}),
+            request_body=raw_result.get('request_body', ''),
+            response_status=raw_result.get('response_status'),
+            response_headers=raw_result.get('response_headers', {}),
+            response_body=raw_result.get('response_body', ''),
+            response_time_ms=raw_result.get('response_time_ms'),
+            is_successful=raw_result.get('is_successful', False),
+            vulnerability_type=raw_result.get('vulnerability_type', ''),
+            detection_method=raw_result.get('detection_method', ''),
+            confidence=raw_result.get('confidence', 0.0),
+            evidence=raw_result.get('evidence', ''),
+            poc_curl_command=raw_result.get('poc_curl_command', ''),
+            poc_python_script=raw_result.get('poc_python_script', ''),
+            poc_report=raw_result.get('poc_report', ''),
+            severity=raw_result.get('severity', 'info'),
+        )
+
+        total_tested += 1
+        if inj_result.is_successful:
+            successful_exploits += 1
+
+        results_out.append({
+            'id': inj_result.id,
+            'parameter_name': dip.parameter_name,
+            'parameter_type': dip.parameter_type,
+            'payload_text': payload_text,
+            'is_successful': inj_result.is_successful,
+            'vulnerability_type': inj_result.vulnerability_type,
+            'confidence': inj_result.confidence,
+            'severity': inj_result.severity,
+            'response_status': inj_result.response_status,
+            'evidence': inj_result.evidence,
+        })
+
+    # ── Update campaign totals ────────────────────────────────────────────────
+    campaign.total_payloads_tested = total_tested
+    campaign.successful_exploits = successful_exploits
+    campaign.total_requests_sent = summary.get('total_requests', 0)
+    campaign.status = 'completed'
+    campaign.save(update_fields=[
+        'total_payloads_tested', 'successful_exploits',
+        'total_requests_sent', 'status',
+    ])
+
+    return Response({
+        'campaign_id': campaign.id,
+        'total_injection_points': len(db_injection_points),
+        'total_payloads_tested': total_tested,
+        'successful_exploits': successful_exploits,
+        'results': results_out,
+    })
 
 
 # ---------------------------------------------------------------------------
