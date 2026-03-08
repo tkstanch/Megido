@@ -1144,23 +1144,48 @@ async function loadScanCaptures() {
       listEl.innerHTML = '<p style="color:#8b9bc1;font-size:13px;padding:12px 0;">No captured requests found for this scan.</p>';
       return;
     }
-    listEl.innerHTML = data.map((req, i) => `
-      <div style="background:#14162a;border:1px solid #2d3250;border-radius:8px;padding:16px;margin-bottom:12px;">
+    listEl.innerHTML = data.map((req, i) => {
+      let headersPreview = '';
+      try {
+        const hdrs = JSON.parse(req.headers || '{}');
+        headersPreview = Object.entries(hdrs).map(([k, v]) =>
+          `<div style="margin-bottom:2px;"><span style="color:#82aaff;">${escHtml(k)}:</span> <span style="color:#c8d3f5;">${escHtml(String(v))}</span></div>`
+        ).join('');
+      } catch(_) {
+        headersPreview = `<span style="color:#c8d3f5;">${escHtml(req.headers || '')}</span>`;
+      }
+      const bodyText = req.body || '';
+      const bodyPreview = bodyText.length > 500 ? escHtml(bodyText.slice(0, 500)) + '…' : escHtml(bodyText);
+      return `
+      <div style="background:#14162a;border:1px solid #2d3250;border-radius:8px;padding:16px;margin-bottom:12px;cursor:pointer;transition:border-color 0.15s,box-shadow 0.15s;"
+        onclick="loadCapturIntoTab(${parseInt(req.id, 10)})"
+        onmouseenter="this.style.borderColor='#82aaff';this.style.boxShadow='0 0 0 2px #82aaff33';"
+        onmouseleave="this.style.borderColor='#2d3250';this.style.boxShadow='';">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
           <span style="background:#2d3250;color:#82aaff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">${escHtml(req.method)}</span>
           <span style="color:#c3e88d;font-size:12px;word-break:break-all;">${escHtml(req.url)}</span>
           <span style="margin-left:auto;color:#8b9bc1;font-size:11px;">${escHtml(req.created_at || '')}</span>
-          <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px;"
-            onclick="loadCapturIntoTab(${parseInt(req.id, 10)})">Open in Tab</button>
         </div>
         <div style="color:#a0a8c0;font-size:12px;margin-bottom:6px;font-style:italic;">${escHtml(req.name || '')}</div>
+        ${headersPreview ? `
+        <details style="margin-top:8px;" onclick="event.stopPropagation()">
+          <summary style="cursor:pointer;color:#c8d3f5;font-size:12px;font-weight:600;outline:none;">🗂 Headers</summary>
+          <div style="background:#0d0f1a;border-radius:6px;padding:10px;font-size:11px;margin-top:6px;font-family:monospace;">${headersPreview}</div>
+        </details>` : ''}
+        ${bodyText ? `
+        <details style="margin-top:8px;" onclick="event.stopPropagation()">
+          <summary style="cursor:pointer;color:#c8d3f5;font-size:12px;font-weight:600;outline:none;">📄 Body</summary>
+          <pre style="background:#0d0f1a;color:#c8d3f5;border-radius:6px;padding:10px;font-size:11px;margin-top:6px;white-space:pre-wrap;word-break:break-word;">${bodyPreview}</pre>
+        </details>` : ''}
         ${req.analysis_advice ? `
-        <details style="margin-top:8px;">
+        <details style="margin-top:8px;" onclick="event.stopPropagation()">
           <summary style="cursor:pointer;color:#ffcb6b;font-size:12px;font-weight:600;outline:none;">💡 Analysis Advice</summary>
           <pre style="background:#0d0f1a;color:#c8d3f5;border-radius:6px;padding:12px;font-size:11px;margin-top:6px;white-space:pre-wrap;word-break:break-word;">${escHtml(req.analysis_advice)}</pre>
         </details>` : ''}
       </div>
-    `).join('');
+    `}).join('');
+    // Auto-load the first capture into the request editor
+    await loadCapturIntoTab(parseInt(data[0].id, 10));
   } catch (e) {
     listEl.innerHTML = `<p style="color:#ff5370;font-size:13px;padding:12px 0;">Error: ${escHtml(e.message)}</p>`;
   }
@@ -1187,6 +1212,7 @@ async function loadCapturIntoTab(requestId) {
     document.getElementById('body-area').value = req.body || '';
     setReqView('structured');
 
+    closeScanCaptures();
     showToast(`Loaded request #${requestId} into new tab`, 'info');
   } catch(e) {
     showToast('Could not open request: ' + e.message, 'error');
