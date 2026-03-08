@@ -1291,6 +1291,7 @@ async function sendVulnToRepeater(vulnId) {
     }
 }
 
+function getExploitStatusClass(status) {
     const statusClasses = {
         'success': 'badge-success',
         'failed': 'badge-danger',
