@@ -1,3 +1,6 @@
+from io import StringIO
+from unittest.mock import patch
+
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -143,3 +146,90 @@ class PopulateAppsCommandTest(TestCase):
         
         # Verify the total count
         self.assertEqual(AppConfiguration.objects.count(), len(expected_apps))
+
+
+class PopulateAllCommandTest(TestCase):
+    """Test the populate_all management command"""
+
+    def test_command_runs_successfully(self):
+        """Test that the command runs without errors"""
+        out = StringIO()
+        err = StringIO()
+        call_command('populate_all', stdout=out, stderr=err)
+        output = out.getvalue()
+
+        self.assertIn('Summary:', output)
+        self.assertIn('populate_apps', output)
+        self.assertIn('populate_manipulator_data', output)
+        self.assertIn('populate_malware_data', output)
+
+    def test_all_subcommand_data_is_populated(self):
+        """Test that data from all three sub-commands is populated"""
+        from manipulator.models import VulnerabilityType, Payload, EncodingTechnique
+        from malware_analyser.models import AnalysisGoal, MalwareType
+
+        call_command('populate_all')
+
+        # populate_apps data
+        expected_apps = [
+            'proxy', 'spider', 'scanner', 'repeater', 'interceptor',
+            'mapper', 'bypasser', 'collaborator', 'decompiler',
+            'malware_analyser', 'response_analyser', 'sql_attacker',
+            'data_tracer', 'discover', 'manipulator', 'forensics'
+        ]
+        for app_name in expected_apps:
+            self.assertTrue(
+                AppConfiguration.objects.filter(app_name=app_name).exists(),
+                f"App '{app_name}' should exist after populate_all",
+            )
+
+        # populate_manipulator_data data
+        self.assertTrue(VulnerabilityType.objects.filter(name='XSS').exists())
+        self.assertTrue(Payload.objects.count() > 0)
+        self.assertTrue(EncodingTechnique.objects.filter(name='URL Encoding').exists())
+
+        # populate_malware_data data
+        self.assertTrue(AnalysisGoal.objects.count() > 0)
+        self.assertTrue(MalwareType.objects.count() > 0)
+
+    def test_stop_on_error_flag_stops_execution(self):
+        """Test that --stop-on-error halts execution after a failing command"""
+        out = StringIO()
+        err = StringIO()
+
+        def failing_populate_apps(*args, **kwargs):
+            raise Exception('Simulated failure')
+
+        with patch('app_manager.management.commands.populate_all.call_command', side_effect=failing_populate_apps):
+            call_command('populate_all', stop_on_error=True, stdout=out, stderr=err)
+
+        error_output = err.getvalue()
+        output = out.getvalue()
+        self.assertIn('populate_apps', error_output + output)
+        self.assertIn('Stopped due to --stop-on-error flag.', output)
+
+    def test_continue_on_error_by_default(self):
+        """Test that failures are logged but execution continues by default"""
+        out = StringIO()
+        err = StringIO()
+
+        call_count = []
+
+        original_call_command = __import__('django.core.management', fromlist=['call_command']).call_command
+
+        def patched_call_command(cmd, *args, **kwargs):
+            call_count.append(cmd)
+            if cmd == 'populate_manipulator_data':
+                raise Exception('Simulated failure')
+            return original_call_command(cmd, *args, **kwargs)
+
+        with patch('app_manager.management.commands.populate_all.call_command', side_effect=patched_call_command):
+            call_command('populate_all', stdout=out, stderr=err)
+
+        # All three commands should have been attempted
+        self.assertIn('populate_apps', call_count)
+        self.assertIn('populate_manipulator_data', call_count)
+        self.assertIn('populate_malware_data', call_count)
+
+        output = out.getvalue()
+        self.assertIn('Summary:', output)
