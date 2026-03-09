@@ -1612,6 +1612,24 @@ document.addEventListener('DOMContentLoaded', () => {
   setReqView('structured');
   updateHistoryInfo();
   loadBypassTechniques();
+
+  // Auto-populate scan ID and load scanner captures if ?scan_id= is in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const scanIdParam = urlParams.get('scan_id');
+  if (scanIdParam) {
+    const parsedId = parseInt(scanIdParam, 10);
+    if (!isNaN(parsedId) && parsedId > 0) {
+      const scanIdInput = document.getElementById('scanner-cap-scan-id');
+      if (scanIdInput) {
+        scanIdInput.value = parsedId;
+      }
+      const capturesPanel = document.getElementById('scanner-captures-panel');
+      if (capturesPanel) {
+        capturesPanel.style.display = 'block';
+      }
+      loadScanCaptures();
+    }
+  }
 });
 </script>
 {% endblock %}

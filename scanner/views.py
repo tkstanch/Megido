@@ -1426,7 +1426,11 @@ def vulnerability_bounty_report(request, vuln_id):
 @login_required
 def scanner_dashboard(request):
     """Dashboard view for the scanner"""
-    return render(request, 'scanner/dashboard.html')
+    from scanner.models import Scan
+    recent_scans = Scan.objects.filter(
+        status='completed'
+    ).select_related('target').order_by('-started_at')[:10]
+    return render(request, 'scanner/dashboard.html', {'recent_scans': recent_scans})
 
 
 @login_required
@@ -1892,17 +1896,24 @@ def send_to_repeater(request, vuln_id):
     vuln_type_display = vuln.get_vulnerability_type_display()
     name = f'[Scanner] {vuln_type_display} - {url}'[:255]
 
+    scan_id = vuln.scan.id if vuln.scan else None
+
     repeater_req = _RepeaterRequest.objects.create(
         url=url,
         method=method,
         headers=headers_str,
         body=body,
         name=name,
+        source='scanner',
+        scan=vuln.scan,
     )
+
+    repeater_url = f'/repeater/?scan_id={scan_id}' if scan_id else '/repeater/'
 
     return Response({
         'repeater_request_id': repeater_req.id,
-        'repeater_url': '/repeater/',
+        'scan_id': scan_id,
+        'repeater_url': repeater_url,
         'message': f'Request forwarded to Repeater as "{name}"',
         'advice': _build_repeater_advice(vuln),
     }, status=201)

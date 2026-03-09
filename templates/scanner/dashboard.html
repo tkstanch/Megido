@@ -125,6 +125,91 @@
 
     <div id="scan-results">
     </div>
+
+    {% if recent_scans %}
+    <!-- Scan History Section -->
+    <div class="card-kinetic border-living scroll-reveal" id="scan-history-section">
+        <div class="card-header glass-split-depth">
+            <h3 class="card-title flex items-center gap-3">
+                <div class="p-2 rounded-lg icon-holographic-shift">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                Scan History
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left border-b border-gray-200 dark:border-gray-700">
+                            <th class="pb-2 pr-4 font-semibold text-gray-600 dark:text-gray-400">Target</th>
+                            <th class="pb-2 pr-4 font-semibold text-gray-600 dark:text-gray-400">Date</th>
+                            <th class="pb-2 pr-4 font-semibold text-gray-600 dark:text-gray-400">Vulnerabilities</th>
+                            <th class="pb-2 pr-4 font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                            <th class="pb-2 font-semibold text-gray-600 dark:text-gray-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for scan in recent_scans %}
+                        <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td class="py-3 pr-4 text-gray-800 dark:text-gray-200 font-mono text-xs break-all max-w-xs">
+                                {{ scan.target.url|truncatechars:60 }}
+                            </td>
+                            <td class="py-3 pr-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                {{ scan.started_at|date:"Y-m-d H:i" }}
+                            </td>
+                            <td class="py-3 pr-4">
+                                {% with vulns=scan.vulnerabilities.all %}
+                                {% if vulns %}
+                                <div class="flex flex-wrap gap-1">
+                                    {% regroup vulns by severity as severity_groups %}
+                                    {% for group in severity_groups %}
+                                    <span class="px-2 py-0.5 rounded text-xs font-semibold
+                                        {% if group.grouper == 'critical' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                                        {% elif group.grouper == 'high' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300
+                                        {% elif group.grouper == 'medium' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300
+                                        {% elif group.grouper == 'low' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+                                        {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                                        {{ group.list|length }} {{ group.grouper }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <span class="text-gray-400 dark:text-gray-600 text-xs">None found</span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="py-3 pr-4">
+                                <span class="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                                    {{ scan.status }}
+                                </span>
+                            </td>
+                            <td class="py-3">
+                                <div class="flex gap-2 flex-wrap">
+                                    <button
+                                        class="btn btn-secondary text-xs py-1 px-3"
+                                        onclick="loadResultsFromDB({{ scan.id }})"
+                                        title="Load results for scan #{{ scan.id }}">
+                                        Load Results
+                                    </button>
+                                    <button
+                                        class="btn btn-primary text-xs py-1 px-3"
+                                        onclick="loadResultsFromDB({{ scan.id }}).then(() => document.getElementById('scan-results').scrollIntoView({behavior:'smooth'})).catch(() => {})"
+                                        title="Load results and scroll to them">
+                                        Continue Investigation
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -1316,8 +1401,10 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
     try {
         // Re-use the scan-level endpoint; the template includes all finding types.
         // A per-vulnerability endpoint can be added in a future iteration.
+        const csrfToken = getCsrfToken();
         const response = await fetch(`/scanner/api/scans/${scanId}/report-template/`, {
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const defaultName = `vuln_${vulnId}_${(vulnType || 'report').replace(/\s+/g, '_')}_template.md`;
@@ -1378,25 +1465,24 @@ async function sendVulnToRepeater(vulnId) {
             adviceHtml += '</ul>';
         }
         const toastMsg = data.message || 'Request forwarded to Repeater.';
-        if (window.MegidoToast) window.MegidoToast.success(toastMsg);
-        if (adviceHtml) {
-            const isDark = document.documentElement.classList.contains('dark');
-            const panel = document.createElement('div');
-            panel.setAttribute('role', 'complementary');
-            panel.setAttribute('aria-label', 'Repeater Advice');
-            panel.className = 'repeater-advice-panel';
-            panel.style.cssText = `position:fixed;bottom:1rem;right:1rem;z-index:9999;max-width:400px;border-radius:0.5rem;padding:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.25);border:1px solid #7c3aed;background:${isDark ? '#1e1b2e' : '#ffffff'};color:${isDark ? '#e2d9f3' : '#1f1f1f'};`;
-            panel.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-                    <strong style="color:#7c3aed;" aria-hidden="true">&#x1F501; <span>Repeater Advice</span></strong>
-                    <button onclick="this.closest('.repeater-advice-panel').remove()" aria-label="Dismiss advice panel" style="background:none;border:none;cursor:pointer;font-size:1rem;color:inherit;">&times;</button>
-                </div>
-                ${adviceHtml}
-                <a href="${escapeHtml(data.repeater_url || '/repeater/')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:0.75rem;padding:0.3rem 0.75rem;background:#7c3aed;color:white;border-radius:0.25rem;text-decoration:none;font-size:0.75rem;">Open Repeater &#x2192;</a>
-            `;
-            document.body.appendChild(panel);
-            setTimeout(() => { if (panel.parentNode) panel.remove(); }, 15000);
-        }
+        const toastDetails = data.scan_id ? ` (Scan #${data.scan_id}, Request #${data.repeater_request_id})` : ` (Request #${data.repeater_request_id})`;
+        if (window.MegidoToast) window.MegidoToast.success(toastMsg + toastDetails);
+        const isDark = document.documentElement.classList.contains('dark');
+        const panel = document.createElement('div');
+        panel.setAttribute('role', 'complementary');
+        panel.setAttribute('aria-label', 'Repeater Advice');
+        panel.className = 'repeater-advice-panel';
+        panel.style.cssText = `position:fixed;bottom:1rem;right:1rem;z-index:9999;max-width:400px;border-radius:0.5rem;padding:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.25);border:1px solid #7c3aed;background:${isDark ? '#1e1b2e' : '#ffffff'};color:${isDark ? '#e2d9f3' : '#1f1f1f'};`;
+        panel.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <strong style="color:#7c3aed;" aria-hidden="true">&#x1F501; <span>Repeater Advice</span></strong>
+                <button onclick="this.closest('.repeater-advice-panel').remove()" aria-label="Dismiss advice panel" style="background:none;border:none;cursor:pointer;font-size:1rem;color:inherit;">&times;</button>
+            </div>
+            ${adviceHtml}
+            <a href="${escapeHtml(data.repeater_url || '/repeater/')}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:0.75rem;padding:0.3rem 0.75rem;background:#7c3aed;color:white;border-radius:0.25rem;text-decoration:none;font-size:0.75rem;">Open in Repeater &#x2192;</a>
+        `;
+        document.body.appendChild(panel);
+        setTimeout(() => { if (panel.parentNode) panel.remove(); }, 15000);
     } catch (e) {
         console.error('Failed to send to Repeater:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to send to Repeater: ' + e.message);
