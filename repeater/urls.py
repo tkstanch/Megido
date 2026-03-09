@@ -39,6 +39,7 @@ urlpatterns = [
     path('api/parse-raw/', views.parse_raw, name='parse_raw'),
     path('api/build-raw/', views.build_raw, name='build_raw'),
     path('api/hexdump/', views.hexdump_view, name='hexdump'),
+    path('api/bypass-techniques/', views.bypass_techniques, name='bypass_techniques'),
 
     # Desktop browser launcher
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),

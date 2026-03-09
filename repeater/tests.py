@@ -358,3 +358,122 @@ class SendToToolAPITest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('interceptor', resp.json()['message'].lower())
 
+
+# ---------------------------------------------------------------------------
+# Bypass integration tests
+# ---------------------------------------------------------------------------
+
+class ApplyBypassTechniquesTest(TestCase):
+    """Unit tests for the apply_bypass_techniques helper."""
+
+    def setUp(self):
+        from repeater.views import apply_bypass_techniques
+        self.fn = apply_bypass_techniques
+
+    def test_returns_dict_structure(self):
+        result = self.fn('hello', ['url_encode'])
+        self.assertIn('original', result)
+        self.assertIn('transformed', result)
+        self.assertIn('techniques_applied', result)
+
+    def test_original_preserved(self):
+        result = self.fn('hello world', ['url_encode'])
+        self.assertEqual(result['original'], 'hello world')
+
+    def test_url_encode_applied(self):
+        result = self.fn('hello world', ['url_encode'])
+        self.assertNotIn(' ', result['transformed'])
+        self.assertIn('url_encode', result['techniques_applied'])
+
+    def test_unknown_technique_skipped(self):
+        result = self.fn('hello', ['nonexistent_technique'])
+        self.assertEqual(result['transformed'], 'hello')
+        self.assertEqual(result['techniques_applied'], [])
+
+    def test_no_techniques_passthrough(self):
+        result = self.fn('hello', [])
+        self.assertEqual(result['transformed'], 'hello')
+        self.assertEqual(result['techniques_applied'], [])
+
+    def test_multiple_techniques_sequential(self):
+        result = self.fn('hello', ['upper', 'reverse'])
+        self.assertIn('upper', result['techniques_applied'])
+        self.assertIn('reverse', result['techniques_applied'])
+        self.assertEqual(result['transformed'], 'OLLEH')
+
+
+class BypassTechniquesAPITest(TestCase):
+    """Tests for the GET /repeater/api/bypass-techniques/ endpoint."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_returns_200(self):
+        resp = self.client.get('/repeater/api/bypass-techniques/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_returns_list(self):
+        resp = self.client.get('/repeater/api/bypass-techniques/')
+        data = resp.json()
+        self.assertIsInstance(data, list)
+        self.assertGreater(len(data), 0)
+
+    def test_items_have_name_and_description(self):
+        resp = self.client.get('/repeater/api/bypass-techniques/')
+        for item in resp.json():
+            self.assertIn('name', item)
+            self.assertIn('description', item)
+
+    def test_known_techniques_present(self):
+        resp = self.client.get('/repeater/api/bypass-techniques/')
+        names = [t['name'] for t in resp.json()]
+        self.assertIn('url_encode', names)
+        self.assertIn('html_decimal', names)
+
+
+class SendRequestBypassModeTest(TestCase):
+    """Tests for send_request with bypass_mode parameter."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_send_without_bypass_mode_backward_compatible(self):
+        """Sending without bypass_mode must not break existing behaviour."""
+        req = RepeaterRequest.objects.create(
+            url='http://example.com/path',
+            method='GET',
+            headers='{}',
+        )
+        # Without mocking the actual HTTP call, we expect a network error (500).
+        # We only verify the response is not a 404 (i.e. the endpoint was found).
+        resp = self.client.post(
+            f'/repeater/api/requests/{req.id}/send/',
+            {},
+            format='json',
+        )
+        self.assertNotEqual(resp.status_code, 404)
+
+    def test_send_with_bypass_mode_not_found(self):
+        resp = self.client.post(
+            '/repeater/api/requests/999999/send/',
+            {'bypass_mode': {'enabled': True, 'techniques': ['url_encode'], 'apply_to': ['url']}},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_send_with_bypass_mode_disabled_no_effect(self):
+        """bypass_mode.enabled=false should behave same as no bypass_mode."""
+        req = RepeaterRequest.objects.create(
+            url='http://example.com/path?q=hello world',
+            method='GET',
+            headers='{}',
+        )
+        resp = self.client.post(
+            f'/repeater/api/requests/{req.id}/send/',
+            {'bypass_mode': {'enabled': False, 'techniques': ['url_encode'], 'apply_to': ['url']}},
+            format='json',
+        )
+        # Should attempt to send (network error is acceptable here)
+        self.assertNotEqual(resp.status_code, 404)
+
+

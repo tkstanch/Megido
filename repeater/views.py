@@ -21,12 +21,37 @@ import time
 import os
 import socket
 import ssl
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode, quote
+from bypasser.technique_parser import TechniqueParser
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def apply_bypass_techniques(text, techniques):
+    """Apply selected bypass encoding techniques sequentially to text.
+
+    Args:
+        text: The input string to transform.
+        techniques: A list of technique names (matching TechniqueParser.TRANSFORMATIONS keys).
+
+    Returns:
+        A dict with 'original', 'transformed', and 'techniques_applied'.
+    """
+    transformations = TechniqueParser.TRANSFORMATIONS
+    result = text
+    applied = []
+    for technique in techniques:
+        fn = transformations.get(technique)
+        if fn is not None:
+            result = fn(result)
+            applied.append(technique)
+    return {
+        'original': text,
+        'transformed': result,
+        'techniques_applied': applied,
+    }
 
 def _tab_to_dict(tab):
     return {
@@ -149,8 +174,48 @@ def send_request(request, request_id):
     except (json.JSONDecodeError, TypeError):
         headers = {}
 
-    if auto_content_length and repeater_req.body:
-        headers = update_content_length(headers, repeater_req.body)
+    # Resolve bypass mode from POST body (optional, backward compatible)
+    bypass_mode = request.data.get('bypass_mode')
+    bypass_info = None
+    url = repeater_req.url
+    body = repeater_req.body
+
+    if bypass_mode and bypass_mode.get('enabled'):
+        techniques = bypass_mode.get('techniques', [])
+        apply_to = bypass_mode.get('apply_to', [])
+
+        if techniques:
+            # Apply to URL query parameter values
+            if 'url' in apply_to:
+                parsed = urlparse(url)
+                params = parse_qs(parsed.query, keep_blank_values=True)
+                encoded_params = {}
+                for key, values in params.items():
+                    encoded_params[key] = [
+                        apply_bypass_techniques(v, techniques)['transformed']
+                        for v in values
+                    ]
+                new_query = urlencode(encoded_params, doseq=True)
+                url = parsed._replace(query=new_query).geturl()
+
+            # Apply to header values
+            if 'headers' in apply_to:
+                headers = {
+                    k: apply_bypass_techniques(v, techniques)['transformed']
+                    for k, v in headers.items()
+                }
+
+            # Apply to body
+            if 'body' in apply_to and body:
+                body = apply_bypass_techniques(body, techniques)['transformed']
+
+            bypass_info = {
+                'techniques_applied': techniques,
+                'apply_to': apply_to,
+            }
+
+    if auto_content_length and body:
+        headers = update_content_length(headers, body)
 
     start_time = time.time()
     try:
@@ -159,9 +224,9 @@ def send_request(request, request_id):
 
         response = session.request(
             method=repeater_req.method,
-            url=repeater_req.url,
+            url=url,
             headers=headers,
-            data=repeater_req.body if repeater_req.body else None,
+            data=body if body else None,
             timeout=timeout,
             verify=verify_ssl,
             allow_redirects=follow_redirects,
@@ -176,17 +241,30 @@ def send_request(request, request_id):
             response_time=response_time,
         )
 
-        return Response({
+        result = {
             'id': resp.id,
             'status_code': resp.status_code,
             'headers': resp.headers,
             'body': resp.body,
             'response_time': resp.response_time,
-        })
+        }
+        if bypass_info:
+            result['bypass_info'] = bypass_info
+        return Response(result)
     except requests.TooManyRedirects as e:
         return Response({'error': f'Too many redirects: {e}'}, status=502)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def bypass_techniques(request):
+    """Return available bypass encoding techniques with names and descriptions."""
+    techniques = TechniqueParser.get_available_transformations()
+    return Response([
+        {'name': name, 'description': description}
+        for name, description in techniques.items()
+    ])
 
 
 # ---------------------------------------------------------------------------
