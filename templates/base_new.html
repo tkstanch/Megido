@@ -157,6 +157,26 @@
                 </div>
             </header>
             
+            <!-- Global active-process notification bar -->
+            <div id="active-scan-bar" style="display:none;" class="flex items-center justify-between gap-3 px-4 py-2 text-sm font-medium bg-blue-600 text-white" role="status" aria-live="polite">
+                <span id="active-scan-bar-msg">⚙️ A process is running...</span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <a href="#" id="active-scan-view-btn" class="underline hover:no-underline">View Progress</a>
+                    <button id="active-scan-cancel-btn" type="button" class="ml-2 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white">Cancel</button>
+                </div>
+            </div>
+            <!-- Sidebar navigation interception confirmation dialog -->
+            <div id="scan-nav-dialog" style="display:none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="scan-nav-dialog-title">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6">
+                    <h3 id="scan-nav-dialog-title" class="text-base font-bold text-gray-900 dark:text-white mb-2">⚠ Process in Progress</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">A background process is currently running. It will continue in the background. Do you want to navigate away?</p>
+                    <div class="flex gap-3 justify-end">
+                        <button id="scan-nav-stay-btn" type="button" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500">Stay</button>
+                        <button id="scan-nav-continue-btn" type="button" class="px-4 py-2 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500">Continue</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Page Content -->
             <div class="page-content">
                 {% block content %}{% endblock %}
@@ -168,6 +188,7 @@
     <script src="/static/megido-error-handler.js"></script>
     <script src="/static/js/megido-utils.js"></script>
     <script src="/static/js/megido-toast.js"></script>
+    <script src="/static/js/megido-process-tracker.js"></script>
     
     <!-- Initialize application -->
     <script>
@@ -225,6 +246,11 @@
             
             // Log initialization
             console.log('✅ Megido Security Platform initialized');
+
+            // ── Active-process bar & nav interception (via shared module) ──────
+            if (window.MegidoProcessTracker) {
+                window.MegidoProcessTracker.initUI();
+            }
         })();
     </script>
     
