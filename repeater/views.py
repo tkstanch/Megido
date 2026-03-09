@@ -21,7 +21,7 @@ import time
 import os
 import socket
 import ssl
-from urllib.parse import urlparse, parse_qs, urlencode, quote
+from urllib.parse import urlparse, parse_qs, quote
 from bypasser.technique_parser import TechniqueParser
 
 
@@ -189,13 +189,14 @@ def send_request(request, request_id):
             if 'url' in apply_to:
                 parsed = urlparse(url)
                 params = parse_qs(parsed.query, keep_blank_values=True)
-                encoded_params = {}
+                # Build query string manually so the already-transformed values
+                # are not re-encoded by urlencode().
+                parts = []
                 for key, values in params.items():
-                    encoded_params[key] = [
-                        apply_bypass_techniques(v, techniques)['transformed']
-                        for v in values
-                    ]
-                new_query = urlencode(encoded_params, doseq=True)
+                    for v in values:
+                        transformed = apply_bypass_techniques(v, techniques)['transformed']
+                        parts.append(f"{quote(key, safe='')}={transformed}")
+                new_query = '&'.join(parts)
                 url = parsed._replace(query=new_query).geturl()
 
             # Apply to header values

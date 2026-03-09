@@ -309,7 +309,7 @@
     transition: max-height 0.3s;
     max-height: 0;
   }
-  #config-panel.open { max-height: 400px; }
+  #config-panel.open { max-height: 60vh; }
   #config-inner {
     display: flex;
     flex-wrap: wrap;
@@ -932,7 +932,16 @@ async function loadBypassTechniques() {
       const item = document.createElement('div');
       item.className = 'bypass-technique-item';
       const id = `bypass-tech-${t.name}`;
-      item.innerHTML = `<input type="checkbox" id="${id}" value="${t.name}"><label for="${id}" title="${t.description}">${t.name}</label>`;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = id;
+      cb.value = t.name;
+      const lbl = document.createElement('label');
+      lbl.htmlFor = id;
+      lbl.title = t.description;
+      lbl.textContent = t.name;
+      item.appendChild(cb);
+      item.appendChild(lbl);
       grid.appendChild(item);
     });
   } catch(e) {
@@ -1084,7 +1093,7 @@ function renderResponse(resp) {
   const bypassBadge = document.getElementById('bypass-badge-display');
   if (resp.bypass_info && resp.bypass_info.techniques_applied && resp.bypass_info.techniques_applied.length > 0) {
     bypassBadge.style.display = '';
-    bypassBadge.innerHTML = `<span class="bypass-badge">🛡 Bypass: ${resp.bypass_info.techniques_applied.length} technique(s) applied</span>`;
+    bypassBadge.innerHTML = `<span class="bypass-badge">🛡 Bypass: ${resp.bypass_info.techniques_applied.length} ${resp.bypass_info.techniques_applied.length === 1 ? 'technique' : 'techniques'} applied</span>`;
   } else {
     bypassBadge.style.display = 'none';
     bypassBadge.innerHTML = '';
