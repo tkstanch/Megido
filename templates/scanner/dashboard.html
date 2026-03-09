@@ -1367,6 +1367,7 @@ async function downloadFullReportTemplate(scanId) {
         if (window.MegidoToast) window.MegidoToast.warning('No active scan. Run a scan first.');
         return;
     }
+    if (window.MegidoToast) window.MegidoToast.info('Generating report template...', { duration: 3000 });
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/report-template/`, {
             credentials: 'same-origin'
@@ -1382,7 +1383,7 @@ async function downloadFullReportTemplate(scanId) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
+        if (window.MegidoToast) window.MegidoToast.success('Report template generated and downloaded!');
     } catch (e) {
         console.error('Failed to download report template:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
@@ -1398,6 +1399,7 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
         if (window.MegidoToast) window.MegidoToast.warning('No active scan.');
         return;
     }
+    if (window.MegidoToast) window.MegidoToast.info('Generating report template...', { duration: 3000 });
     try {
         // Re-use the scan-level endpoint; the template includes all finding types.
         // A per-vulnerability endpoint can be added in a future iteration.
@@ -1418,7 +1420,7 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
+        if (window.MegidoToast) window.MegidoToast.success('Report template generated and downloaded!');
     } catch (e) {
         console.error('Failed to download vuln report template:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
@@ -1431,6 +1433,7 @@ async function sendVulnToRepeater(vulnId) {
         else console.warn('sendVulnToRepeater: No vulnerability selected.');
         return;
     }
+    if (window.MegidoToast) window.MegidoToast.info('Sending to Repeater...', { duration: 3000 });
     try {
         const csrfToken = getCsrfToken();
         if (!csrfToken) {
@@ -1466,7 +1469,7 @@ async function sendVulnToRepeater(vulnId) {
         }
         const toastMsg = data.message || 'Request forwarded to Repeater.';
         const toastDetails = data.scan_id ? ` (Scan #${data.scan_id}, Request #${data.repeater_request_id})` : ` (Request #${data.repeater_request_id})`;
-        if (window.MegidoToast) window.MegidoToast.success(toastMsg + toastDetails);
+        if (window.MegidoToast) window.MegidoToast.success('Sent to Repeater!' + toastDetails);
         const isDark = document.documentElement.classList.contains('dark');
         const panel = document.createElement('div');
         panel.setAttribute('role', 'complementary');
@@ -2155,6 +2158,13 @@ function showVisualProof(path, type, vulnId) {
     
     document.body.appendChild(modal);
 }
+
+    // Expose functions needed by inline onclick handlers to global scope
+    window.downloadFullReportTemplate = downloadFullReportTemplate;
+    window.downloadVulnReportTemplate = downloadVulnReportTemplate;
+    window.sendVulnToRepeater = sendVulnToRepeater;
+    window.showVisualProof = showVisualProof;
+    window.loadResultsFromDB = loadResultsFromDB;
 
 })(); // End IIFE
 </script>
