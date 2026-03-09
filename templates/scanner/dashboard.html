@@ -389,8 +389,8 @@ function displayErrorWithRecovery(message, scanId) {
 
 // Fetch results directly from the scan_results endpoint (AllowAny) as a recovery path
 async function loadResultsFromDB(scanId) {
-    // Ensure currentScanId is set so report/repeater buttons work correctly
-    if (scanId && !currentScanId) {
+    // Always update currentScanId so report/repeater buttons work correctly
+    if (scanId) {
         currentScanId = scanId;
     }
     try {
@@ -405,10 +405,11 @@ async function loadResultsFromDB(scanId) {
         currentTaskId = null;
         sessionStorage.removeItem('exploitTaskId');
         sessionStorage.removeItem('exploitScanId');
-        // Reload the vulnerability table using existing infrastructure
-        if (typeof loadResults === 'function') {
-            await loadResults(scanId);
-        }
+
+        // Update currentVulnerabilities for exploit functionality
+        currentVulnerabilities = data.vulnerabilities || [];
+
+        // Show success banner in scan-status
         const statusDiv = document.getElementById('scan-status');
         if (statusDiv) {
             statusDiv.textContent = '';
@@ -423,6 +424,15 @@ async function loadResultsFromDB(scanId) {
             card.appendChild(body);
             statusDiv.appendChild(card);
         }
+
+        // Show exploit actions if vulnerabilities found
+        if (currentVulnerabilities.length > 0) {
+            showExploitActions();
+        }
+
+        // Render vulnerability cards directly using the already-fetched data
+        displayVulnerabilities(currentVulnerabilities);
+
     } catch (error) {
         console.error('Error loading results from database:', error);
         displayError('Failed to load results from database: ' + error.message);
