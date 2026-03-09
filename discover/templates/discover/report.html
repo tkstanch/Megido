@@ -368,6 +368,17 @@ function toggleSearchResults(toggleElement) {
 let pollAttempts = 0;
 const maxPollAttempts = 60;
 
+// Register with the global process tracker for cross-page notification bar
+if (window.MegidoProcessTracker) {
+    window.MegidoProcessTracker.registerProcess(
+        'Discover',
+        '{{ scan.id }}',
+        '/discover/scan-status/{{ scan.id }}/',
+        null,
+        '/discover/report/{{ scan.id }}/'
+    );
+}
+
 function checkScanStatus() {
     if (pollAttempts >= maxPollAttempts) {
         document.getElementById('scan-status-text').textContent = 'Scan is taking longer than expected. Please refresh the page.';
@@ -380,6 +391,9 @@ function checkScanStatus() {
         .then(response => response.json())
         .then(data => {
             if (data.success && data.scan_completed) {
+                if (window.MegidoProcessTracker) {
+                    window.MegidoProcessTracker.unregisterProcess('Discover');
+                }
                 window.location.reload();
             } else {
                 if (data.total_findings > 0) {

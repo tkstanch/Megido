@@ -14,6 +14,7 @@
  *   getActiveProcesses()        → array of process descriptors
  *   isAnyProcessRunning()       → boolean
  *   getProcessForTool(toolName) → descriptor or null
+ *   getLastPollData(toolName)   → last polled data object or null
  *
  * Custom events dispatched on document:
  *   megido:process-completed  { detail: { toolName, processId, data } }
@@ -91,6 +92,12 @@
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
                     if (!data) return;
+                    // Cache the latest polled data so tool pages can restore state on navigation
+                    var reg = _load();
+                    if (reg[toolName]) {
+                        reg[toolName].lastPollData = data;
+                        _save(reg);
+                    }
                     var status = data.status;
                     if (status === 'completed' || status === 'failed') {
                         _removeFromRegistry(toolName);
@@ -173,6 +180,18 @@
     function getProcessForTool(toolName) {
         var registry = _load();
         return registry[toolName] || null;
+    }
+
+    /**
+     * Returns the last polled data for a specific tool, or null.
+     * This is updated on every successful poll so tool pages can immediately
+     * restore the last known progress state after navigation.
+     * @param {string} toolName
+     * @returns {Object|null}
+     */
+    function getLastPollData(toolName) {
+        var registry = _load();
+        return (registry[toolName] && registry[toolName].lastPollData) || null;
     }
 
     /* ── Bootstrap on load ───────────────────────────────────────── */
@@ -377,6 +396,7 @@
         getActiveProcesses: getActiveProcesses,
         isAnyProcessRunning: isAnyProcessRunning,
         getProcessForTool: getProcessForTool,
+        getLastPollData: getLastPollData,
         initUI: initUI
     };
 

@@ -148,6 +148,17 @@
     var campaignId = {{ campaign.id }};
     var statusUrl = '/manipulator/campaigns/' + campaignId + '/status/';
 
+    // Register with the global process tracker for cross-page notification bar
+    if (window.MegidoProcessTracker) {
+        window.MegidoProcessTracker.registerProcess(
+            'Manipulator',
+            campaignId,
+            statusUrl,
+            null,
+            '/manipulator/campaigns/' + campaignId + '/'
+        );
+    }
+
     function refresh() {
         fetch(statusUrl)
             .then(function(r) { return r.json(); })
@@ -159,6 +170,9 @@
                 document.getElementById('status-text').textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
                 if (data.status === 'completed' || data.status === 'failed') {
                     clearInterval(timer);
+                    if (window.MegidoProcessTracker) {
+                        window.MegidoProcessTracker.unregisterProcess('Manipulator');
+                    }
                     location.reload();
                 }
             })

@@ -345,10 +345,11 @@ def scan_status(request, scan_id):
     """
     try:
         scan = Scan.objects.get(id=scan_id)
-        
+        completed = scan.sensitive_scan_completed
         return JsonResponse({
             'success': True,
-            'scan_completed': scan.sensitive_scan_completed,
+            'scan_completed': completed,
+            'status': 'completed' if completed else 'running',
             'total_findings': scan.total_findings,
             'high_risk_findings': scan.high_risk_findings,
             'scan_date': scan.sensitive_scan_date.isoformat() if scan.sensitive_scan_date else None,
