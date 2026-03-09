@@ -1172,9 +1172,27 @@
                 }
                 if (data.status === 'running') {
                     setTimeout(() => pollTask(taskId), 3000);
+                } else {
+                    // Task finished — remove from global tracker
+                    if (window.MegidoProcessTracker) {
+                        window.MegidoProcessTracker.unregisterProcess('SQL Attacker');
+                    }
                 }
             })
             .catch(() => {});
+    }
+
+    // Register the first running task with the global process tracker so the
+    // notification bar and nav-interception dialog work cross-page.
+    const firstTaskId = progressDivs[0].id.replace('progress-task-', '');
+    if (window.MegidoProcessTracker) {
+        window.MegidoProcessTracker.registerProcess(
+            'SQL Attacker',
+            firstTaskId,
+            '/sql-attacker/api/tasks/' + firstTaskId + '/status/',
+            null,
+            '/sql-attacker/'
+        );
     }
 
     progressDivs.forEach(div => {

@@ -322,6 +322,8 @@ async function startProbing() {
         });
         const session = await probeResponse.json();
         currentSessionId = session.id;
+        // Persist session so results can be restored after navigation
+        sessionStorage.setItem('activeBypasserSessionId', String(session.id));
         
         document.getElementById('status-message').innerHTML = 
             '<p style="color: #28a745;">✓ Probing completed!</p>';
@@ -777,6 +779,15 @@ async function testCustomTechniques() {
 // Load custom techniques when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadCustomTechniques();
+    // Restore bypasser session results if a session was active before navigation
+    var savedSessionId = sessionStorage.getItem('activeBypasserSessionId');
+    if (savedSessionId) {
+        currentSessionId = parseInt(savedSessionId, 10);
+        loadResults(currentSessionId).catch(function() {
+            // If the session no longer exists, clean up the stored ID
+            sessionStorage.removeItem('activeBypasserSessionId');
+        });
+    }
 });
 </script>
 {% endverbatim %}

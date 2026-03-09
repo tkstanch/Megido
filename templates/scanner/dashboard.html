@@ -188,8 +188,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedActiveScanId && !savedTaskId) {
         currentScanId = parseInt(savedActiveScanId, 10);
         console.log('Resuming scan polling from sessionStorage:', currentScanId);
+
+        // Immediately render the last known progress state from the tracker cache
+        if (window.MegidoProcessTracker) {
+            const lastData = MegidoProcessTracker.getLastPollData('Scanner');
+            if (lastData && typeof handleScanProgress === 'function') {
+                try { handleScanProgress(lastData); } catch(e) {}
+            }
+        }
+
         const statusDiv = document.getElementById('scan-status');
-        if (statusDiv) {
+        // Only show the "reconnecting" spinner if there's no progress data to restore
+        const hasLastPollData = window.MegidoProcessTracker && !!MegidoProcessTracker.getLastPollData('Scanner');
+        if (statusDiv && !hasLastPollData) {
             const card = document.createElement('div');
             card.className = 'card border-l-4 border-info';
             const cardBody = document.createElement('div');

@@ -696,7 +696,18 @@ async function startSpider() {
         }
         
         currentSessionId = session.id;
-        
+
+        // Register with global process tracker for cross-page persistence
+        if (window.MegidoProcessTracker) {
+            window.MegidoProcessTracker.registerProcess(
+                'Spider',
+                session.id,
+                '/spider/api/sessions/' + session.id + '/results/',
+                null,
+                '/spider/'
+            );
+        }
+
         // Start polling for results
         pollForResults(session.id);
         
@@ -759,6 +770,9 @@ async function pollForResults(sessionId, attempt = 0) {
         
         if (statusCheck.status === 'completed') {
             // Spider finished successfully
+            if (window.MegidoProcessTracker) {
+                window.MegidoProcessTracker.unregisterProcess('Spider');
+            }
             await loadResults(sessionId);
         } else if (statusCheck.status === 'running') {
             // Spider still running, continue polling
@@ -778,6 +792,9 @@ async function pollForResults(sessionId, attempt = 0) {
             `;
             startBtn.disabled = false;
             startBtn.innerHTML = '🕷️ Start Spider';
+            if (window.MegidoProcessTracker) {
+                window.MegidoProcessTracker.unregisterProcess('Spider');
+            }
         } else {
             // Network or unknown error - already retried by fetchWithRetry
             // Continue polling after a delay
@@ -1475,6 +1492,26 @@ function clearParameterFilters() {
     // Reapply filters (which will show all items)
     filterParameters();
 }
+
+// Resume spider polling on page load if a spider session is still active
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.MegidoProcessTracker) {
+        var proc = MegidoProcessTracker.getProcessForTool('Spider');
+        if (proc) {
+            currentSessionId = proc.processId;
+            // Show the last known progress state immediately
+            var lastData = MegidoProcessTracker.getLastPollData('Spider');
+            if (lastData && lastData.status === 'running') {
+                var statusEl = document.getElementById('spider-status');
+                if (statusEl) {
+                    statusEl.innerHTML = '<div class="info"><strong>⏳ Spider running...</strong><br>Reconnecting to active session...</div>';
+                }
+            }
+            // Resume polling
+            pollForResults(proc.processId);
+        }
+    }
+});
 
 </script>
 {% endblock %}
