@@ -11,6 +11,7 @@
 {% block extra_style %}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="max-w-7xl mx-auto space-y-6">
     <!-- Ultra Extreme Hero Section with Cinema Effects -->
     <div class="relative overflow-hidden rounded-3xl mb-8 shadow-ultra-deep grain light-ray">
@@ -95,16 +96,16 @@
                 </label>
                 <input type="text" id="scan-name" class="form-input glass-refract focus:border-living" placeholder="My Security Scan">
             </div>
-            <div class="form-group" style="border: 2px solid #f59e0b; border-radius: 0.5rem; padding: 1rem; background: rgba(245, 158, 11, 0.05);">
-                <label class="form-label flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" id="enable-dos-testing" style="width:1rem;height:1rem;accent-color:#f59e0b;">
+            <div class="form-group" style="border: 2px solid #f59e0b; border-radius: 0.5rem; padding: 1rem; background: rgba(245, 158, 11, 0.05); position: relative; z-index: 1;">
+                <label class="form-label flex items-center gap-2 cursor-pointer" for="enable-dos-testing">
+                    <input type="checkbox" id="enable-dos-testing" style="width:1rem;height:1rem;accent-color:#f59e0b;position:relative;z-index:1;">
                     <span style="color: #d97706; font-weight: 600;">⚠️ Enable Denial of Service (DoS) Testing</span>
                 </label>
                 <p class="text-sm mt-1" style="color: #92400e;">⚠️ Warning: DoS tests can impact target availability. Only enable if you have explicit authorization to perform availability testing.</p>
             </div>
-            <div class="form-group" style="border: 2px solid #3b82f6; border-radius: 0.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.05);">
-                <label class="form-label flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" id="enable-sqli-testing" style="width:1rem;height:1rem;accent-color:#3b82f6;">
+            <div class="form-group" style="border: 2px solid #3b82f6; border-radius: 0.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.05); position: relative; z-index: 1;">
+                <label class="form-label flex items-center gap-2 cursor-pointer" for="enable-sqli-testing">
+                    <input type="checkbox" id="enable-sqli-testing" style="width:1rem;height:1rem;accent-color:#3b82f6;position:relative;z-index:1;">
                     <span style="color: #1d4ed8; font-weight: 600;">🗃️ Enable SQL Injection Testing (SQL Attacker)</span>
                 </label>
                 <p class="text-sm mt-1" style="color: #1e40af;">When enabled, discovered URLs and parameters will also be tested for SQL injection vulnerabilities using the SQL Attacker engine after the scan completes.</p>
@@ -137,6 +138,7 @@ let currentScanId = null;
 let currentVulnerabilities = [];
 let currentTaskId = null;
 let ws = null;
+let _csrfTokenCache = null;
 let wsConnected = false;
 let pollingInterval = null;
 let pollingRetries = 0;
@@ -248,6 +250,10 @@ function displayErrorWithRecovery(message, scanId) {
 
 // Fetch results directly from the scan_results endpoint (AllowAny) as a recovery path
 async function loadResultsFromDB(scanId) {
+    // Ensure currentScanId is set so report/repeater buttons work correctly
+    if (scanId && !currentScanId) {
+        currentScanId = scanId;
+    }
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/results/`, {
             credentials: 'same-origin'
@@ -279,6 +285,7 @@ async function loadResultsFromDB(scanId) {
             statusDiv.appendChild(card);
         }
     } catch (error) {
+        console.error('Error loading results from database:', error);
         displayError('Failed to load results from database: ' + error.message);
     }
 }
@@ -334,7 +341,14 @@ function getCsrfToken() {
     if (window.MegidoUtils && window.MegidoUtils.Security) {
         return window.MegidoUtils.Security.getCsrfToken();
     }
-    return getCsrfTokenFromCookies('csrftoken');
+    const fromCookie = getCsrfTokenFromCookies('csrftoken');
+    if (fromCookie) return fromCookie;
+    // Fallback: read from a hidden input element rendered by {% csrf_token %} (cached)
+    if (!_csrfTokenCache) {
+        const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        _csrfTokenCache = el ? el.value : null;
+    }
+    return _csrfTokenCache;
 }
 
 // Extract CSRF token from browser cookies for API requests
@@ -539,6 +553,10 @@ function handleScanError(message) {
 
 // Fallback function for backward compatibility
 async function loadResults(scanId) {
+    // Ensure currentScanId is always set so report/repeater buttons work correctly
+    if (scanId && !currentScanId) {
+        currentScanId = scanId;
+    }
     try {
         const response = await fetch(`/scanner/api/scans/${scanId}/results/`);
         
@@ -1197,6 +1215,7 @@ async function downloadFullReportTemplate(scanId) {
         URL.revokeObjectURL(url);
         if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
     } catch (e) {
+        console.error('Failed to download report template:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
     }
 }
@@ -1230,6 +1249,7 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
         URL.revokeObjectURL(url);
         if (window.MegidoToast) window.MegidoToast.success('Report template downloaded.');
     } catch (e) {
+        console.error('Failed to download vuln report template:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to download report template: ' + e.message);
     }
 }
@@ -1237,10 +1257,17 @@ async function downloadVulnReportTemplate(scanId, vulnId, vulnType) {
 async function sendVulnToRepeater(vulnId) {
     if (!vulnId) {
         if (window.MegidoToast) window.MegidoToast.warning('No vulnerability selected.');
+        else console.warn('sendVulnToRepeater: No vulnerability selected.');
         return;
     }
     try {
         const csrfToken = getCsrfToken();
+        if (!csrfToken) {
+            const msg = 'CSRF token not available. Please refresh the page and try again.';
+            if (window.MegidoToast) window.MegidoToast.error(msg);
+            else console.error('sendVulnToRepeater:', msg);
+            return;
+        }
         const response = await fetch(`/scanner/api/vulnerabilities/${vulnId}/send-to-repeater/`, {
             method: 'POST',
             headers: {
@@ -1287,6 +1314,7 @@ async function sendVulnToRepeater(vulnId) {
             setTimeout(() => { if (panel.parentNode) panel.remove(); }, 15000);
         }
     } catch (e) {
+        console.error('Failed to send to Repeater:', e);
         if (window.MegidoToast) window.MegidoToast.error('Failed to send to Repeater: ' + e.message);
     }
 }
