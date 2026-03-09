@@ -506,6 +506,17 @@ async function startScan() {
         sessionStorage.setItem('activeScanId', scan.id);
         sessionStorage.setItem('activeScanStartTime', Date.now().toString());
 
+        // Register with the global process tracker for cross-page persistence
+        if (window.MegidoProcessTracker) {
+            window.MegidoProcessTracker.registerProcess(
+                'Scanner',
+                scan.id,
+                '/scanner/api/scans/' + scan.id + '/results/',
+                '/scanner/api/scans/' + scan.id + '/cancel/',
+                '/scanner/'
+            );
+        }
+
         // Start polling for scan results using the ScannerDashboard API
         if (window.ScannerDashboard) {
             window.ScannerDashboard.startPolling(
@@ -550,6 +561,10 @@ function handleScanComplete(data) {
     // Clear active scan from sessionStorage
     sessionStorage.removeItem('activeScanId');
     sessionStorage.removeItem('activeScanStartTime');
+    // Unregister from the global process tracker
+    if (window.MegidoProcessTracker) {
+        window.MegidoProcessTracker.unregisterProcess('Scanner');
+    }
 
     currentVulnerabilities = data.vulnerabilities;
     
@@ -602,6 +617,10 @@ function handleScanError(message) {
     // Clear active scan from sessionStorage
     sessionStorage.removeItem('activeScanId');
     sessionStorage.removeItem('activeScanStartTime');
+    // Unregister from the global process tracker
+    if (window.MegidoProcessTracker) {
+        window.MegidoProcessTracker.unregisterProcess('Scanner');
+    }
     displayError(message);
 }
 

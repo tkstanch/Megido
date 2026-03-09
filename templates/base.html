@@ -327,19 +327,19 @@
             </header>
             
             <!-- Page Content - Enhanced with better responsive padding and animations -->
-            <!-- Global active-scan notification bar -->
+            <!-- Global active-process notification bar -->
             <div id="active-scan-bar" style="display:none;" class="flex items-center justify-between gap-3 px-4 py-2 text-sm font-medium bg-blue-600 text-white" role="status" aria-live="polite">
-                <span id="active-scan-bar-msg">🔍 Scanner is running...</span>
+                <span id="active-scan-bar-msg">⚙️ A process is running...</span>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <a href="/scanner/" id="active-scan-view-btn" class="underline hover:no-underline">View Progress</a>
+                    <a href="#" id="active-scan-view-btn" class="underline hover:no-underline">View Progress</a>
                     <button id="active-scan-cancel-btn" type="button" class="ml-2 px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white">Cancel</button>
                 </div>
             </div>
             <!-- Sidebar navigation interception confirmation dialog -->
             <div id="scan-nav-dialog" style="display:none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="scan-nav-dialog-title">
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6">
-                    <h3 id="scan-nav-dialog-title" class="text-base font-bold text-gray-900 dark:text-white mb-2">⚠ Scan in Progress</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">A scan is currently running. It will continue in the background. Do you want to navigate away?</p>
+                    <h3 id="scan-nav-dialog-title" class="text-base font-bold text-gray-900 dark:text-white mb-2">⚠ Process in Progress</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">A background process is currently running. It will continue in the background. Do you want to navigate away?</p>
                     <div class="flex gap-3 justify-end">
                         <button id="scan-nav-stay-btn" type="button" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500">Stay</button>
                         <button id="scan-nav-continue-btn" type="button" class="px-4 py-2 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500">Continue</button>
@@ -357,6 +357,7 @@
     <script src="/static/js/megido-utils.js"></script>
     <script src="/static/js/megido-responsive.js"></script>
     <script src="/static/js/megido-toast.js"></script>
+    <script src="/static/js/megido-process-tracker.js"></script>
     <script src="/static/js/megido-extreme-ui.js"></script>
     <script src="/static/js/megido-particles.js"></script>
     <script src="/static/js/megido-cursor.js"></script>
@@ -482,145 +483,10 @@
                 'color: #10b981; font-size: 12px;'
             );
 
-            // ── Active-scan notification bar ────────────────────────────────────
-            (function initActiveScanBar() {
-                const bar = document.getElementById('active-scan-bar');
-                const barMsg = document.getElementById('active-scan-bar-msg');
-                const cancelBtn = document.getElementById('active-scan-cancel-btn');
-                if (!bar) return;
-
-                let scanBarPollTimer = null;
-
-                function showBar(scanId) {
-                    bar.style.display = 'flex';
-                    if (barMsg) barMsg.textContent = '🔍 Scanner is running...';
-                    startBarPolling(scanId);
-                }
-
-                function hideBar() {
-                    bar.style.display = 'none';
-                    stopBarPolling();
-                }
-
-                function startBarPolling(scanId) {
-                    stopBarPolling();
-                    scanBarPollTimer = setInterval(function() {
-                        fetch('/scanner/api/scans/' + scanId + '/results/', { credentials: 'same-origin' })
-                            .then(function(r) { return r.ok ? r.json() : null; })
-                            .then(function(data) {
-                                if (!data) return;
-                                if (data.status === 'completed' || data.status === 'failed') {
-                                    sessionStorage.removeItem('activeScanId');
-                                    sessionStorage.removeItem('activeScanStartTime');
-                                    hideBar();
-                                    if (window.MegidoToast) {
-                                        const vulnCount = (data.vulnerabilities || []).length;
-                                        if (data.status === 'completed') {
-                                            window.MegidoToast.success('Scan completed! Found ' + vulnCount + ' vulnerabilities. View results at /scanner/');
-                                        } else {
-                                            window.MegidoToast.error('Scan failed. ' + vulnCount + ' result(s) found.');
-                                        }
-                                    }
-                                }
-                            })
-                            .catch(function() {});
-                    }, 5000);
-                }
-
-                function stopBarPolling() {
-                    if (scanBarPollTimer) {
-                        clearInterval(scanBarPollTimer);
-                        scanBarPollTimer = null;
-                    }
-                }
-
-                // Check sessionStorage on every page load
-                const activeScanId = sessionStorage.getItem('activeScanId');
-                if (activeScanId) {
-                    showBar(activeScanId);
-                }
-
-                // Cancel button: call API to cancel scan then clear storage
-                if (cancelBtn) {
-                    cancelBtn.addEventListener('click', function() {
-                        const scanId = sessionStorage.getItem('activeScanId');
-                        sessionStorage.removeItem('activeScanId');
-                        sessionStorage.removeItem('activeScanStartTime');
-                        hideBar();
-                        if (scanId) {
-                            const csrf = (function() {
-                                const el = document.querySelector('[name=csrfmiddlewaretoken]');
-                                if (el) return el.value;
-                                const m = document.cookie.match(/csrftoken=([^;]+)/);
-                                return m ? m[1] : '';
-                            })();
-                            fetch('/scanner/api/scans/' + scanId + '/cancel/', {
-                                method: 'POST',
-                                credentials: 'same-origin',
-                                headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' }
-                            }).catch(function() {});
-                        }
-                    });
-                }
-            })();
-
-            // ── Sidebar navigation interception ────────────────────────────────
-            (function initScanNavInterception() {
-                const dialog = document.getElementById('scan-nav-dialog');
-                const stayBtn = document.getElementById('scan-nav-stay-btn');
-                const continueBtn = document.getElementById('scan-nav-continue-btn');
-                if (!dialog) return;
-
-                let pendingNavUrl = null;
-
-                function isScanRunning() {
-                    return !!sessionStorage.getItem('activeScanId');
-                }
-
-                function showDialog(url) {
-                    pendingNavUrl = url;
-                    dialog.style.display = 'flex';
-                    if (stayBtn) stayBtn.focus();
-                }
-
-                function hideDialog() {
-                    dialog.style.display = 'none';
-                    pendingNavUrl = null;
-                }
-
-                if (stayBtn) {
-                    stayBtn.addEventListener('click', function() { hideDialog(); });
-                }
-                if (continueBtn) {
-                    continueBtn.addEventListener('click', function() {
-                        const url = pendingNavUrl;
-                        hideDialog();
-                        if (url) window.location.href = url;
-                    });
-                }
-
-                // Intercept sidebar link clicks
-                const sidebar = document.getElementById('sidebar');
-                if (sidebar) {
-                    sidebar.addEventListener('click', function(e) {
-                        if (!isScanRunning()) return;
-                        const link = e.target.closest('a[href]');
-                        if (!link) return;
-                        const href = link.getAttribute('href');
-                        // Only intercept same-origin page navigations (not anchors)
-                        if (!href || href.startsWith('#')) return;
-                        // Don't intercept if navigating within the scanner section
-                        if (href.startsWith('/scanner/') && window.location.pathname.startsWith('/scanner/')) return;
-                        e.preventDefault();
-                        showDialog(href);
-                    });
-                }
-
-                // Also dismiss dialog on backdrop click
-                dialog.addEventListener('click', function(e) {
-                    if (e.target === dialog) hideDialog();
-                });
-            })();
+            // ── Active-process bar & nav interception (via shared module) ──────
+            if (window.MegidoProcessTracker) {
+                window.MegidoProcessTracker.initUI();
+            }
         })();
     </script>
     
