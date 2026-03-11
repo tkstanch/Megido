@@ -170,22 +170,7 @@ class User(models.Model):
 
 ### Explanation of Enhancements
 
-1. **Validation and Clean Methods**:
-   - Added validation for `SCANNER_URL` in `EngineScan` to ensure it is a valid URL.
-   - Added validation for `FINDING_HASH` in `EngineFinding` to ensure it is generated correctly.
 
-2. **Status Colors**:
-   - Added `get_status_color` methods to `EngineScan`, `EngineExecution`, and `EngineFinding` to provide a color based on the status.
-
-3. **Custom Methods**:
-   - Added `calculate_execution_time` and `get_execution_time` methods to `EngineScan` and `EngineExecution` to calculate the execution time.
-   - Added `generate_hash` and `get_status_color` methods to `EngineFinding` to handle deduplication and status colors.
-
-4. **Additional Fields**:
-   - Added `ENGINE_NAME` to `EngineScan` and `EngineExecution` for better readability.
-   - Added `ENGINE_SCAN` to `EngineExecution` to link it back to the parent `EngineScan`.
-
-5. **User Model**:
    - Added a basic `User` model to handle user authentication and permissions.
    - Ensured fields like `username` and `email` are properly validated.
 
