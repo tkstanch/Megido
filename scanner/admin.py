@@ -1,7 +1,6 @@
 from django.contrib import admin
 from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
 
-
 class ExploitMediaInline(admin.TabularInline):
     """Inline admin for ExploitMedia to show in Vulnerability admin."""
     model = ExploitMedia
@@ -14,20 +13,17 @@ class ExploitMediaInline(admin.TabularInline):
     ]
     ordering = ['sequence_order', 'capture_timestamp']
 
-
 @admin.register(ScanTarget)
 class ScanTargetAdmin(admin.ModelAdmin):
     list_display = ('name', 'url', 'created_at')
     search_fields = ('name', 'url')
     ordering = ('-created_at',)
 
-
 @admin.register(Scan)
 class ScanAdmin(admin.ModelAdmin):
     list_display = ('id', 'target', 'status', 'started_at', 'completed_at')
     list_filter = ('status', 'started_at')
     ordering = ('-started_at',)
-
 
 @admin.register(Vulnerability)
 class VulnerabilityAdmin(admin.ModelAdmin):
@@ -36,13 +32,12 @@ class VulnerabilityAdmin(admin.ModelAdmin):
     search_fields = ('url', 'description')
     ordering = ('-discovered_at',)
     inlines = [ExploitMediaInline]
-    
+
     def media_count(self, obj):
         """Display count of exploit media files."""
         count = obj.exploit_media.count()
         return f"{count} file(s)" if count > 0 else "No media"
     media_count.short_description = 'Visual Proof'
-
 
 @admin.register(ExploitMedia)
 class ExploitMediaAdmin(admin.ModelAdmin):
