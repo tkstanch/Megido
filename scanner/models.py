@@ -168,9 +168,8 @@ class User(models.Model):
         verbose_name = "User"
         verbose_name_plural = "Users"
 
-### Explanation of Enhancements
+
 
 
   
-This setup provides a robust foundation for managing multi-engine vulnerability scans, findings, and related data, with additional features and 
-improvements for better performance and usability.
+
