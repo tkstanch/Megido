@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
+from scanner.models import ScanTarget, Scan, Vulnerability, ExploitMedia
 
 class ExploitMediaInline(admin.TabularInline):
     """Inline admin for ExploitMedia to show in Vulnerability admin."""
