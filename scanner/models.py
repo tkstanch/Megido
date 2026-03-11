@@ -171,8 +171,6 @@ class User(models.Model):
 ### Explanation of Enhancements
 
 
-   - Added a basic `User` model to handle user authentication and permissions.
-   - Ensured fields like `username` and `email` are properly validated.
-
+  
 This setup provides a robust foundation for managing multi-engine vulnerability scans, findings, and related data, with additional features and 
 improvements for better performance and usability.
