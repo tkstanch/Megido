@@ -55,4 +55,4 @@ class ExploitMediaAdmin(admin.ModelAdmin):
             size /= 1024.0
         return f"{size:.1f} TB"
     file_size_display.short_description = 'File Size'
-```
+
