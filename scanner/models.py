@@ -167,7 +167,6 @@ class User(models.Model):
     class Meta:
         verbose_name = "User"
         verbose_name_plural = "Users"
-```
 
 ### Explanation of Enhancements
 
