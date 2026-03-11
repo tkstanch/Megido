@@ -1,175 +1,53 @@
-
 from django.db import models
-from django.core.validators import URLValidator
-from django.core.exceptions import ValidationError
-from django.utils import timezone
 
-class EngineScan(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-    ]
-    
-    STATUS_COLORS = {
-        'pending': 'info',
-        'running': 'warning',
-        'completed': 'success',
-        'failed': 'danger',
-    }
-    
-    STARTED_AT = models.DateTimeField(auto_now_add=True, verbose_name="Started At")
-    COMPLETED_AT = models.DateTimeField(null=True, blank=True, verbose_name="Completed At")
-    STATUS = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    TOTAL_FINDINGS = models.IntegerField(default=0)
-    CONFIGURATION = models.JSONField(default=dict, blank=True, verbose_name="Configuration")
-    ENGINE_NAME = models.CharField(max_length=255, verbose_name="Engine Name")
-    SCANNER_URL = models.URLField(validators=[URLValidator()], verbose_name="Scanner URL")
-    SCANNER_API_KEY = models.CharField(max_length=255, verbose_name="Scanner API Key")
-
-    def clean(self):
-        super().clean()
-        validator = URLValidator()
-        try:
-            validator(self.SCANNER_URL)
-        except ValidationError:
-            raise ValidationError("Invalid URL format")
-
-    def calculate_execution_time(self):
-        """Calculate the total execution time for the scan."""
-        if self.COMPLETED_AT:
-            return self.COMPLETED_AT - self.STARTED_AT
-        return None
-
-    def get_total_findings(self):
-        """Get the total number of findings."""
-        return self.findings.count()
-
-    def get_status_color(self):
-        """Get the status color based on the status."""
-        return self.STATUS_COLORS.get(self.STATUS, 'secondary')
+class ScanTarget(models.Model):
+    name = models.CharField(max_length=255)
+    url = models.URLField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Scan {self.id} - {self.ENGINE_NAME} - {self.STATUS}"
+        return self.name
 
-class EngineExecution(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-    ]
-    
-    STATUS_COLORS = {
-        'pending': 'info',
-        'running': 'warning',
-        'completed': 'success',
-        'failed': 'danger',
-    }
-    
-    STARTED_AT = models.DateTimeField(auto_now_add=True, verbose_name="Started At")
-    COMPLETED_AT = models.DateTimeField(null=True, blank=True, verbose_name="Completed At")
-    STATUS = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    ENGINE_SCAN = models.ForeignKey(EngineScan, on_delete=models.CASCADE, related_name='executions')
-    ENGINE_NAME = models.CharField(max_length=255, verbose_name="Engine Name")
-    EXECUTION_TIME = models.DurationField(null=True, blank=True, verbose_name="Execution Time")
-
-    def get_execution_time(self):
-        """Get the execution time of the engine execution."""
-        if self.COMPLETED_AT:
-            return self.COMPLETED_AT - self.STARTED_AT
-        return None
-
-    def get_status_color(self):
-        """Get the status color based on the status."""
-        return self.STATUS_COLORS.get(self.STATUS, 'secondary')
+class Scan(models.Model):
+    target = models.ForeignKey(ScanTarget, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"Execution {self.id} - {self.ENGINE_NAME} - {self.ENGINE_SCAN}"
+        return f"Scan {self.id} for {self.target.name}"
 
-class EngineFinding(models.Model):
-    SEVERITY_CHOICES = [
-        ('low', 'Low'),
-        ('medium', 'Medium'),
-        ('high', 'High'),
-        ('critical', 'Critical'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('new', 'New'),
-        ('confirmed', 'Confirmed'),
-        ('false_positive', 'False Positive'),
-        ('fixed', 'Fixed'),
-        ('accepted', 'Accepted'),
-    ]
-    
-    FINDING_HASH = models.CharField(max_length=64, unique=True, verbose_name="Finding Hash")
-    ENGINE_EXECUTION = models.ForeignKey(EngineExecution, on_delete=models.CASCADE, related_name='findings')
-    SEVERITY = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='low')
-    TITLE = models.CharField(max_length=255, verbose_name="Title")
-    DESCRIPTION = models.TextField(verbose_name="Description")
-    LOCATION = models.CharField(max_length=255, verbose_name="Location")
-    REMEDIATION_STEPS = models.TextField(verbose_name="Remediation Steps")
-    REFERENCES = models.JSONField(default=list, blank=True, verbose_name="References")
-    STATUS = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
-
-    def clean(self):
-        super().clean()
-        self.FINDING_HASH = self.generate_hash()
-
-    def generate_hash(self):
-        """Generate a hash for the finding."""
-        import hashlib
-        hash_string = f"{self.LOCATION}:{self.TITLE}:{self.SEVERITY}"
-        return hashlib.sha256(hash_string.encode()).hexdigest()
-
-    def get_status_color(self):
-        """Get the status color based on the status."""
-        return {
-            'new': 'secondary',
-            'confirmed': 'success',
-            'false_positive': 'warning',
-            'fixed': 'info',
-            'accepted': 'primary',
-        }.get(self.STATUS, 'secondary')
+class Vulnerability(models.Model):
+    vulnerability_type = models.CharField(max_length=50)
+    severity = models.CharField(max_length=50)
+    url = models.URLField()
+    scan = models.ForeignKey(Scan, on_delete=models.CASCADE)
+    discovered_at = models.DateTimeField(auto_now_add=True)
+    exploited = models.BooleanField(default=False)
+    verified = models.BooleanField(default=False)
+    media_count = models.IntegerField(default=0)
 
     def __str__(self):
-        return f"Finding {self.id} - {self.TITLE}"
+        return f"Vulnerability in {self.url}"
 
-class User(models.Model):
-    USERNAME_MAX_LENGTH = 150
-    USERNAME_MIN_LENGTH = 5
+    def media_count(self):
+        count = self.exploit_media.count()
+        return f"{count} file(s)" if count > 0 else "No media"
+    media_count.short_description = 'Visual Proof'
 
-    USERNAME_VALIDATORS = [
-        lambda u: len(u) >= USERNAME_MIN_LENGTH,
-        lambda u: u.isalnum()
-    ]
+class ExploitMedia(models.Model):
+    media_type = models.CharField(max_length=50)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    file_path = models.FileField(upload_to='exploit_media/')
+    file_name = models.CharField(max_length=255)
+    file_size = models.FloatField()
+    sequence_order = models.IntegerField()
+    exploit_step = models.CharField(max_length=50, null=True, blank=True)
+    payload_used = models.CharField(max_length=255, null=True, blank=True)
+    capture_timestamp = models.DateTimeField(auto_now_add=True)
 
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['email']
-
-    username = models.CharField(
-        max_length=USERNAME_MAX_LENGTH,
-        unique=True,
-        validators=USERNAME_VALIDATORS,
-        error_messages={
-            'unique': "A user with that username already exists.",
-        }
-    )
-    email = models.EmailField(unique=True)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    vulnerability = models.ForeignKey(Vulnerability, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.username
-
-    class Meta:
-        verbose_name = "User"
-        verbose_name_plural = "Users"
-
-
-
-
-  
-
+        return self.title
