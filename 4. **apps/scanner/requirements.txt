@@ -1,0 +1,4 @@
+# apps/scanner/requirements.txt
+# Super exploitative but harmless change
+# Add a harmless dependency
+requests
