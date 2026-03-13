@@ -89,3 +89,5 @@ scan_results/
 =*
 manipulator/payloads/__pycache__/
 .aider*
+
+.venv/
