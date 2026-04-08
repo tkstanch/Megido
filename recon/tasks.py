@@ -38,8 +38,8 @@ def _mark_failed(task_obj, error_message=''):
     task_obj.save(update_fields=['status', 'error_message', 'completed_at'])
 
 
-def _get_or_create_task(project, task_type, target):
-    """Helper – find an existing pending task or create a new one."""
+def _create_task(project, task_type, target):
+    """Helper – create a new ReconTask record for tracking task progress."""
     from .models import ReconTask
     return ReconTask.objects.create(
         project=project,
