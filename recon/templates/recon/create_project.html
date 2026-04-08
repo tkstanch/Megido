@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}New Recon Project{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'recon:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Recon</a>
+        <span>/</span>
+        <span class="text-gray-900 dark:text-white font-medium">New Project</span>
+    </nav>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-xl font-semibold text-white">🕵️ Create Recon Project</h2>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+            <div class="space-y-2 mb-4">
+                {% for message in messages %}
+                <div class="rounded-lg p-3 {% if message.tags == 'error' %}bg-red-900/20 border border-red-700 text-red-300{% else %}bg-blue-900/20 border border-blue-700 text-blue-300{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Project Name *</label>
+                    <input type="text" name="name" class="input" placeholder="e.g. Example Corp Pentest" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                    <textarea name="description" rows="3" class="input" placeholder="Scope and objectives..."></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn btn-primary">Create Project</button>
+                    <a href="{% url 'recon:dashboard' %}" class="btn">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

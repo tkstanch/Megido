@@ -62,6 +62,7 @@ urlpatterns = [
     path('discover/', include('discover.urls')),
     path('manipulator/', include('manipulator.urls')),
     path('forensics/', include('forensics.urls')),
+    path('recon/', include('recon.urls')),
 ]
 
 # Serve media files in development

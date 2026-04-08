@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Recon Report — {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'recon:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Recon</a>
+        <span>/</span>
+        <a href="{% url 'recon:project_detail' project.pk %}" class="hover:text-primary-600 dark:hover:text-primary-400">{{ project.name }}</a>
+        <span>/</span>
+        <span class="text-white font-medium">Report</span>
+    </nav>
+
+    <!-- Title -->
+    <div class="card">
+        <div class="card-body">
+            <h1 class="text-2xl font-bold text-white">📄 Reconnaissance Report</h1>
+            <p class="text-gray-400 mt-1">{{ project.name }}{% if project.description %} — {{ project.description }}{% endif %}</p>
+            <p class="text-xs text-gray-500 mt-2">Generated on {% now "N j, Y" %}</p>
+        </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {% with subdomains.count as sub_count %}
+        <div class="card text-center p-4">
+            <div class="text-2xl font-bold text-primary-400">{{ sub_count }}</div>
+            <div class="text-sm text-gray-500">Subdomains</div>
+        </div>
+        {% endwith %}
+        {% with services.count as svc_count %}
+        <div class="card text-center p-4">
+            <div class="text-2xl font-bold text-yellow-400">{{ svc_count }}</div>
+            <div class="text-sm text-gray-500">Open Ports</div>
+        </div>
+        {% endwith %}
+        {% with directories.count as dir_count %}
+        <div class="card text-center p-4">
+            <div class="text-2xl font-bold text-blue-400">{{ dir_count }}</div>
+            <div class="text-sm text-gray-500">Directories</div>
+        </div>
+        {% endwith %}
+        {% with github_findings.count as gh_count %}
+        <div class="card text-center p-4">
+            <div class="text-2xl font-bold text-purple-400">{{ gh_count }}</div>
+            <div class="text-sm text-gray-500">GitHub Findings</div>
+        </div>
+        {% endwith %}
+    </div>
+
+    <!-- WHOIS -->
+    {% if whois_results %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🌐 WHOIS Results</h3></div>
+        <div class="card-body space-y-3">
+            {% for r in whois_results %}
+            <div class="border border-gray-700 rounded p-3 text-sm">
+                <div class="font-mono text-primary-400 mb-2">{{ r.domain }}</div>
+                <div class="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                    <div>Registrar: {{ r.registrar|default:"—" }}</div>
+                    <div>Org: {{ r.registrant_org|default:"—" }}</div>
+                    <div>Created: {{ r.creation_date|default:"—" }}</div>
+                    <div>Expires: {{ r.expiration_date|default:"—" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Subdomains -->
+    {% if subdomains %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🔎 Subdomains ({{ subdomains.count }})</h3></div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Subdomain</th><th class="text-left pb-2">IP</th>
+                    <th class="text-left pb-2">Status</th><th class="text-left pb-2">Source</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in subdomains %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1 font-mono">{{ r.subdomain }}</td>
+                        <td class="py-1 text-gray-400">{{ r.ip_address|default:"—" }}</td>
+                        <td class="py-1">{% if r.is_alive %}<span class="text-green-400">Alive</span>{% else %}Dead{% endif %}</td>
+                        <td class="py-1 text-gray-500">{{ r.source }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Services -->
+    {% if services %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🔌 Open Ports ({{ services.count }})</h3></div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Host</th><th class="text-left pb-2">Port</th>
+                    <th class="text-left pb-2">Service</th><th class="text-left pb-2">Version</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in services %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1 font-mono">{{ r.host }}</td>
+                        <td class="py-1 text-yellow-400">{{ r.port }}/{{ r.protocol }}</td>
+                        <td class="py-1">{{ r.service_name|default:"—" }}</td>
+                        <td class="py-1 text-gray-400">{{ r.service_version|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Buckets -->
+    {% if buckets %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🪣 Bucket Findings ({{ buckets.count }})</h3></div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Bucket</th><th class="text-left pb-2">Provider</th>
+                    <th class="text-left pb-2">Public</th><th class="text-left pb-2">Listable</th><th class="text-left pb-2">Writable</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in buckets %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1 font-mono">{{ r.bucket_name }}</td>
+                        <td class="py-1">{{ r.provider }}</td>
+                        <td class="py-1">{% if r.is_public %}<span class="text-red-400">Yes</span>{% else %}No{% endif %}</td>
+                        <td class="py-1">{% if r.is_listable %}<span class="text-red-400">Yes</span>{% else %}No{% endif %}</td>
+                        <td class="py-1">{% if r.is_writable %}<span class="text-red-400">Yes</span>{% else %}No{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tech fingerprints -->
+    {% if tech_fingerprints %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🧬 Technology Stack ({{ tech_fingerprints.count }})</h3></div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Technology</th><th class="text-left pb-2">Version</th>
+                    <th class="text-left pb-2">Category</th><th class="text-left pb-2">Confidence</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in tech_fingerprints %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1">{{ r.technology }}</td>
+                        <td class="py-1 font-mono">{{ r.version|default:"—" }}</td>
+                        <td class="py-1 text-gray-400">{{ r.category|default:"—" }}</td>
+                        <td class="py-1">{{ r.confidence }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- GitHub findings -->
+    {% if github_findings %}
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">🐙 GitHub Findings ({{ github_findings.count }})</h3></div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Type</th><th class="text-left pb-2">Repository</th>
+                    <th class="text-left pb-2">Severity</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in github_findings %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1">{{ r.get_finding_type_display }}</td>
+                        <td class="py-1 font-mono">
+                            {% if r.url %}<a href="{{ r.url }}" class="text-primary-400">{{ r.repository|truncatechars:60 }}</a>
+                            {% else %}{{ r.repository|truncatechars:60 }}{% endif %}
+                        </td>
+                        <td class="py-1 {% if r.severity == 'critical' %}text-red-400{% elif r.severity == 'high' %}text-orange-400{% else %}text-gray-400{% endif %}">{{ r.severity }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body text-center">
+            <a href="{% url 'recon:project_detail' project.pk %}" class="btn btn-primary">← Back to Project</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
