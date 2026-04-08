@@ -4,7 +4,7 @@ from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
 class ExploitMediaInline(admin.TabularInline):
     model = ExploitMedia
     extra = 0
-    readonly_fields = ['capture_timestamp', 'file_size', 'width', 'height', 'frame_count']
+    readonly_fields = ['capture_timestamp', 'file_size']
     fields = [
         'media_type', 'title', 'description', 'file_path', 'file_name',
         'file_size', 'sequence_order', 'exploit_step', 'payload_used',
@@ -45,7 +45,7 @@ class ExploitMediaAdmin(admin.ModelAdmin):
     ]
     list_filter = ['media_type', 'capture_timestamp']
     search_fields = ['title', 'description', 'vulnerability__url']
-    readonly_fields = ['capture_timestamp', 'file_size', 'width', 'height', 'frame_count', 'duration_seconds']
+    readonly_fields = ['capture_timestamp', 'file_size']
 
     def file_size_display(self, obj):
         size = obj.file_size

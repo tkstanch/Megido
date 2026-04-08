@@ -929,3 +929,103 @@ def scan_requests(request, scan_id):
     """Return all Repeater requests captured for a specific scan."""
     reqs = RepeaterRequest.objects.filter(scan_id=scan_id).order_by('created_at')
     return Response([_request_to_dict(r) for r in reqs])
+
+
+# ---------------------------------------------------------------------------
+# Scanner → Repeater integration
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+def from_scanner(request):
+    """
+    Receive a vulnerability finding from the Scanner and create a RepeaterRequest.
+
+    Accepts a POST body with the following fields:
+        vuln_id        (int, optional)   – Scanner Vulnerability primary key
+        url            (str, required)   – Target URL
+        method         (str)             – HTTP method (default: GET)
+        headers        (dict|str)        – Request headers (default: {})
+        body           (str)             – Request body (default: "")
+        name           (str)             – Human-readable label for the tab
+        scan_id        (int, optional)   – Associated Scan primary key
+        parameter      (str, optional)   – Vulnerable parameter name
+        payload        (str, optional)   – Payload that triggered the finding
+        vulnerability_type (str, opt)    – Vulnerability type code
+        tab_id         (int, optional)   – Existing RepeaterTab to attach to
+
+    Response (201):
+        id             – RepeaterRequest primary key
+        url            – Repeater dashboard URL with pre-selected request
+        message        – Confirmation string
+    """
+    url = request.data.get('url', '')
+    if not url:
+        return Response({'error': 'url is required'}, status=400)
+
+    method = (request.data.get('method') or 'GET').upper()
+    body = request.data.get('body', '') or ''
+    scan_id = request.data.get('scan_id')
+    vuln_id = request.data.get('vuln_id')
+    parameter = request.data.get('parameter', '')
+    payload = request.data.get('payload', '')
+    vuln_type = request.data.get('vulnerability_type', '')
+
+    # Normalise headers to a JSON string
+    raw_headers = request.data.get('headers', {})
+    if isinstance(raw_headers, dict):
+        headers_str = json.dumps(raw_headers)
+    elif isinstance(raw_headers, str):
+        headers_str = raw_headers
+    else:
+        headers_str = '{}'
+
+    # Build a descriptive tab name
+    name = request.data.get('name', '')
+    if not name:
+        label = vuln_type.upper() if vuln_type else 'Scanner'
+        name = f'[{label}] {url}'[:255]
+
+    # Resolve the associated Scan object
+    scan = None
+    if scan_id:
+        try:
+            from scanner.models import Scan as _Scan
+            scan = _Scan.objects.get(id=scan_id)
+        except Exception:
+            pass
+
+    # Optionally resolve the RepeaterTab
+    tab = None
+    tab_id = request.data.get('tab_id')
+    if tab_id:
+        try:
+            tab = RepeaterTab.objects.get(id=tab_id)
+        except RepeaterTab.DoesNotExist:
+            pass
+
+    # If parameter + payload are supplied, embed them in the body for convenience
+    if not body and parameter and payload:
+        body = f'{parameter}={payload}'
+
+    repeater_req = RepeaterRequest.objects.create(
+        url=url,
+        method=method,
+        headers=headers_str,
+        body=body,
+        name=name,
+        source='scanner',
+        scan=scan,
+        tab=tab,
+    )
+
+    repeater_url = f'/repeater/?request_id={repeater_req.id}'
+    if scan_id:
+        repeater_url += f'&scan_id={scan_id}'
+
+    return Response({
+        'id': repeater_req.id,
+        'vuln_id': vuln_id,
+        'scan_id': scan_id,
+        'url': repeater_url,
+        'message': f'Scanner finding imported into Repeater as "{name}"',
+    }, status=201)

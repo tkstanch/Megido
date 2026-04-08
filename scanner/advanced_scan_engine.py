@@ -183,10 +183,10 @@ class AdvancedScanEngine:
         Parse the raw HTTP response and find potential bugs.
         """
         findings = []
-        soup = BeautifulSoup(response, ’html.parser’)
+        soup = BeautifulSoup(response, 'html.parser')
 
         # --- XSS detection ---
-        for script_tag in soup.find_all(’script’):
+        for script_tag in soup.find_all('script'):
             if "XSS" in script_tag.string:
                 findings.append({
                     "url": response.url,
@@ -196,8 +196,8 @@ class AdvancedScanEngine:
                 })
 
         # --- CSRF detection ---
-        for input_tag in soup.find_all(’input’):
-            if ’csrf_token’ in input_tag.get(’name’, ’’):
+        for input_tag in soup.find_all('input'):
+            if 'csrf_token' in input_tag.get('name', ''):
                 findings.append({
                     "url": response.url,
                     "vulnerability_type": "CSRF",
@@ -265,7 +265,7 @@ class AdvancedScanEngine:
     # Helper methods for payload generation
     # ------------------------------------------------------------------
     def _generate_xss_payload(self) -> str:
-        return "<script>alert(’XSS’);</script>"
+        return "<script>alert('XSS');</script>"
 
     def _generate_csrf_payload(self) -> str:
         return f"csrf_token={random_string(16)}"
@@ -298,13 +298,13 @@ class AdvancedScanEngine:
         """
         try:
             headers = {
-                ’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
             }
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.text
             elif response.status_code == 403:
-                headers[’Cookie’] = ’sessionid=1234567890abcdef’
+                headers['Cookie'] = 'sessionid=1234567890abcdef'
                 response = requests.get(url, headers=headers, timeout=10)
                 if response.status_code == 200:
                     return response.text
@@ -317,7 +317,7 @@ class AdvancedScanEngine:
     # ------------------------------------------------------------------
     def random_string(self, length: int = 10) -> str:
         letters = string.ascii_lowercase
-        return ’’.join(random.choice(letters) for i in range(length))
+        return ''.join(random.choice(letters) for i in range(length))
 
     def random_command(self) -> str:
         commands = ["whoami", "id", "ls -l"]
@@ -383,7 +383,7 @@ import sys
 # =============================================================================
 # CONFIGURATION AND LOGGING
 # =============================================================================
-logging.basicConfig(level=logging.INFO, format=’[%(asctime)s] %(levelname)s: %(message)s’)
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -434,65 +434,65 @@ class ExploitAction:
         # A simple placeholder for SQL injection exploitation
         # In reality, you would build and inject payloads into a database
         # Here we just simulate the request
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’query’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'query': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[SQL Injection] Response status: {response.status_code}")
 
     def _simulate_xss_attack(self):
         # Simulate XSS exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’search’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'search': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[XSS] Response status: {response.status_code}")
 
     def _simulate_csrf_attack(self):
         # Simulate CSRF exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        payload_json = json.dumps({’token’: self.payload})
-        headers[’Content-Type’] = ’application/json’
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        payload_json = json.dumps({'token': self.payload})
+        headers['Content-Type'] = 'application/json'
         response = requests.post(self.target_url, headers=headers, data=payload_json)
         logger.info(f"[CSRF] Response status: {response.status_code}")
 
     def _simulate_api_key_exposure(self):
         # Simulate API key exposure exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’api_key’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'api_key': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[API Key] Response status: {response.status_code}")
 
     def _simulate_file_inclusion(self):
         # Simulate file inclusion exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’file’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'file': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[File Inclusion] Response status: {response.status_code}")
 
     def _simulate_command_injection(self):
         # Simulate command injection exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’cmd’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'cmd': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[Command Injection] Response status: {response.status_code}")
 
     def _simulate_rce(self):
         # Simulate RCE exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’rce’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'rce': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[RCE] Response status: {response.status_code}")
 
     def _simulate_sqli_lfi(self):
         # Simulate SQL injection and LFI exploitation
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’sql_lfi’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'sql_lfi': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[SQLi LFI] Response status: {response.status_code}")
 
     def _simulate_chain_exploit(self):
         # Simulate chaining multiple vulnerabilities
-        headers = {’User-Agent’: ’Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3’}
-        params = {’chain’: self.payload}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        params = {'chain': self.payload}
         response = requests.get(self.target_url, headers=headers, params=params)
         logger.info(f"[Chain Exploit] Response status: {response.status_code}")
 
@@ -505,7 +505,7 @@ class AdvancedScanEngine:
         self.findings = []
         self._configure_logger()
     def _configure_logger(self):
-        logging.basicConfig(level=logging.INFO, format=’[%(asctime)s] %(levelname)s: %(message)s’)
+        logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
     def scan(self, url: str) -> None:
         logger.info(f"Starting scan for URL: {url}")
         self.findings = self._scan_url(url)
@@ -555,12 +555,12 @@ class AdvancedScanEngine:
         return findings
     def _analyze_response(self, response: str, url: str) -> List[dict]:
         findings = []
-        soup = BeautifulSoup(response, ’html.parser’)
+        soup = BeautifulSoup(response, 'html.parser')
         # Check for XSS
-        for script_tag in soup.find_all(’script’):
+        for script_tag in soup.find_all('script'):
             if "XSS" in script_tag.string:
                 findings.append({"url": url, "vulnerability_type": "XSS"})
         # Check for CSRF
-        for form in soup.find_all(’form’):
+        for form in soup.find_all('form'):
             if "CSRF" in form.string:
                 findings.append({"url": response_text, "v

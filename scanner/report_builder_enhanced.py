@@ -1,5 +1,5 @@
 To enhance the `EnhancedReportBuilder` class to generate robust and comprehensive vulnerability reports, we need to ensure it can handle various 
-sections and output formats. Here’s an enhanced version of the `EnhancedReportBuilder` class:
+sections and output formats. Here's an enhanced version of the `EnhancedReportBuilder` class:
 
 ### EnhancedReportBuilder Code
 
