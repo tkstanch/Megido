@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Directories — {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+        <a href="/" class="hover:text-primary-600 dark:hover:text-primary-400">Megido Security</a>
+        <span>/</span>
+        <a href="{% url 'recon:dashboard' %}" class="hover:text-primary-600 dark:hover:text-primary-400">Recon</a>
+        <span>/</span>
+        <a href="{% url 'recon:project_detail' project.pk %}" class="hover:text-primary-600 dark:hover:text-primary-400">{{ project.name }}</a>
+        <span>/</span>
+        <span class="text-white font-medium">Directories</span>
+    </nav>
+
+    {% if messages %}
+    <div class="space-y-2">
+        {% for message in messages %}
+        <div class="rounded-lg p-3 {% if message.tags == 'error' %}bg-red-900/20 border border-red-700 text-red-300{% elif message.tags == 'success' %}bg-green-900/20 border border-green-700 text-green-300{% else %}bg-blue-900/20 border border-blue-700 text-blue-300{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header"><h2 class="text-xl font-semibold text-white">📁 Directory Brute-Force</h2></div>
+        <div class="card-body">
+            <form method="post" action="{% url 'recon:directory_bruteforce' project.pk %}" class="flex gap-3">
+                {% csrf_token %}
+                <input type="url" name="target_url" class="input flex-1" placeholder="https://example.com" required>
+                <button type="submit" class="btn btn-primary">Brute-Force</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="font-semibold text-white">Results <span class="text-gray-500 text-sm">({{ results.count }})</span></h3>
+        </div>
+        <div class="card-body overflow-x-auto">
+            {% if results %}
+            <table class="w-full text-sm text-gray-300">
+                <thead>
+                    <tr class="border-b border-gray-700 text-xs text-gray-500 uppercase">
+                        <th class="text-left pb-2">Path</th>
+                        <th class="text-left pb-2">Code</th>
+                        <th class="text-left pb-2">Size</th>
+                        <th class="text-left pb-2">Content-Type</th>
+                        <th class="text-left pb-2">Interesting</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-2 font-mono text-xs">
+                            {% if r.full_url %}<a href="{{ r.full_url }}" target="_blank" class="text-primary-400 hover:underline">{{ r.path }}</a>
+                            {% else %}{{ r.path }}{% endif %}
+                        </td>
+                        <td class="py-2">
+                            <span class="px-2 py-0.5 rounded text-xs font-mono
+                                {% if r.status_code == 200 %}bg-green-900 text-green-300
+                                {% elif r.status_code == 403 %}bg-yellow-900 text-yellow-300
+                                {% elif r.status_code == 401 %}bg-orange-900 text-orange-300
+                                {% elif r.status_code >= 300 and r.status_code < 400 %}bg-blue-900 text-blue-300
+                                {% else %}bg-gray-700 text-gray-400{% endif %}">
+                                {{ r.status_code }}
+                            </span>
+                        </td>
+                        <td class="py-2 text-xs text-gray-400">{{ r.content_length|default:"—" }}</td>
+                        <td class="py-2 text-xs text-gray-500">{{ r.content_type|truncatechars:40|default:"—" }}</td>
+                        <td class="py-2">
+                            {% if r.is_interesting %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-yellow-900 text-yellow-300">⭐</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">No directory findings yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

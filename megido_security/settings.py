@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'discover',
     'manipulator',
     'forensics',
+    'recon',
 ]
 
 MIDDLEWARE = [
@@ -456,3 +457,13 @@ LOGGING['loggers']['spider'] = {
     'propagate': False,
 }
 # }
+# ============================================================================
+# Recon App API Keys Configuration
+# ============================================================================
+# API keys for the Recon app - read from environment variables
+SHODAN_API_KEY = os.environ.get('SHODAN_API_KEY', SHODAN_API_KEY if 'SHODAN_API_KEY' in vars() else None)
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
+VIEWDNS_API_KEY = os.environ.get('VIEWDNS_API_KEY', '')
+CENSYS_API_ID = os.environ.get('CENSYS_API_ID', '')
+CENSYS_API_SECRET = os.environ.get('CENSYS_API_SECRET', '')
+IPINFO_TOKEN = os.environ.get('IPINFO_TOKEN', '')
