@@ -65,10 +65,6 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Scope Targets',
             },
         ),
-        migrations.AddConstraint(
-            model_name='scopetarget',
-            constraint=models.UniqueConstraint(fields=['project', 'target'], name='unique_scope_target'),
-        ),
         migrations.AlterUniqueTogether(
             name='scopetarget',
             unique_together={('project', 'target')},
