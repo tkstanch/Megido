@@ -41,6 +41,11 @@ urlpatterns = [
     path('api/hexdump/', views.hexdump_view, name='hexdump'),
     path('api/bypass-techniques/', views.bypass_techniques, name='bypass_techniques'),
 
+    # -------------------------------------------------------------------------
+    # Scanner → Repeater integration
+    # -------------------------------------------------------------------------
+    path('api/from-scanner/', views.from_scanner, name='from_scanner'),
+
     # Desktop browser launcher
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]
