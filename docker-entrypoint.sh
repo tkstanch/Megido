@@ -21,14 +21,20 @@ except Exception:
 done
 echo "PostgreSQL is ready."
 
-echo "Running database migrations..."
-python manage.py migrate --noinput
+# Only the web/gunicorn process runs migrations and one-time setup tasks.
+# Celery workers start in parallel with the web container; running migrate
+# in both concurrently on a fresh database causes race conditions that
+# violate the pg_type_typname_nsp_index unique constraint (two processes
+# trying to CREATE TABLE the same tables at the same time).
+if [ "${1}" != "celery" ]; then
+    echo "Running database migrations..."
+    python manage.py migrate --noinput
 
-echo "Collecting static files (including favicon.ico)..."
-python manage.py collectstatic --noinput --clear
+    echo "Collecting static files (including favicon.ico)..."
+    python manage.py collectstatic --noinput --clear
 
-echo "Creating superuser if it doesn't exist..."
-python manage.py shell << END
+    echo "Creating superuser if it doesn't exist..."
+    python manage.py shell << END
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(username='admin').exists():
@@ -37,6 +43,7 @@ if not User.objects.filter(username='admin').exists():
 else:
     print('Superuser already exists')
 END
+fi
 
 echo "Starting application..."
 exec "$@"
