@@ -7,6 +7,15 @@ import threading
 import django
 from django.db import models
 
+from scanner.plugins.plugin_registry import PluginRegistry
+
+try:
+    from scanner.stealth_engine import StealthEngine
+    _HAS_STEALTH = True
+except ImportError:
+    StealthEngine = None
+    _HAS_STEALTH = False
+
 logger = logging.getLogger(__name__)
 
 class ScanEngine:
