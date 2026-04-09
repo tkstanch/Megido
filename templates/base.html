@@ -90,6 +90,14 @@
                             <span>Discover</span>
                             {% if '/discover/' in request.path %}<span class="ml-auto w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>{% endif %}
                         </a>
+                        <a href="/recon/" class="group flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 {% if '/recon/' in request.path %}bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30{% else %}text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md{% endif %}" aria-label="Recon">
+                            <svg class="w-5 h-5 {% if '/recon/' in request.path %}{% else %}group-hover:scale-110 transition-transform{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            <span>Recon</span>
+                            {% if '/recon/' in request.path %}<span class="ml-auto w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>{% endif %}
+                        </a>
                         <a href="/manipulator/" class="group flex items-center gap-3 px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 {% if '/manipulator/' in request.path %}bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30{% else %}text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md{% endif %}" aria-label="Manipulator">
                             <svg class="w-5 h-5 {% if '/manipulator/' in request.path %}{% else %}group-hover:scale-110 transition-transform{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
