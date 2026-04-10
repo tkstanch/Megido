@@ -133,7 +133,8 @@ def whois_results(request, project_id):
     if request.method == 'POST':
         return whois_lookup(request, project_id)
     results = project.whois_results.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='whois', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/whois_results.html', context)
 
 
@@ -174,7 +175,8 @@ def subdomain_results(request, project_id):
     if request.method == 'POST':
         return subdomain_enum(request, project_id)
     results = project.subdomains.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='subdomain_enum', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/subdomains.html', context)
 
 
@@ -215,7 +217,8 @@ def service_results(request, project_id):
     if request.method == 'POST':
         return service_scan(request, project_id)
     results = project.services.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='port_scan', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/services.html', context)
 
 
@@ -256,7 +259,8 @@ def directory_results(request, project_id):
     if request.method == 'POST':
         return directory_bruteforce(request, project_id)
     results = project.directories.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='directory_brute', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/directories.html', context)
 
 
@@ -297,7 +301,8 @@ def bucket_results(request, project_id):
     if request.method == 'POST':
         return bucket_discovery(request, project_id)
     results = project.buckets.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='bucket_discovery', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/buckets.html', context)
 
 
@@ -338,7 +343,8 @@ def github_results(request, project_id):
     if request.method == 'POST':
         return github_recon(request, project_id)
     results = project.github_findings.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='github_recon', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/github_recon.html', context)
 
 
@@ -379,7 +385,8 @@ def fingerprint_results(request, project_id):
     if request.method == 'POST':
         return fingerprint_scan(request, project_id)
     results = project.tech_fingerprints.all()
-    context = {'project': project, 'results': results}
+    failed_tasks = project.tasks.filter(task_type='fingerprinting', status='failed').order_by('-completed_at')[:5]
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
     return render(request, 'recon/fingerprint.html', context)
 
 

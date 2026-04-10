@@ -180,9 +180,19 @@ def run_port_scan(self, project_id: int, host: str, api_key: str = None):
 
     try:
         project = ReconProject.objects.get(pk=project_id)
-        from .services.port_service import passive_scan_shodan
+        from django.conf import settings
+        from .services.port_service import active_scan_socket, passive_scan_shodan
 
         services = passive_scan_shodan(host, api_key)
+        source = 'shodan'
+
+        # Fall back to socket-based scan when Shodan is not configured or
+        # returned no results (e.g. host not indexed yet).
+        if not services and not (api_key or getattr(settings, 'SHODAN_API_KEY', None)):
+            logger.info("Shodan unavailable for %s; using socket-based fallback", host)
+            services = active_scan_socket(host)
+            source = 'socket'
+
         saved = 0
         for s in services:
             _, created = ServicePort.objects.get_or_create(
@@ -194,15 +204,15 @@ def run_port_scan(self, project_id: int, host: str, api_key: str = None):
                     'service_name': s.get('service_name', ''),
                     'service_version': s.get('service_version', ''),
                     'banner': s.get('banner', ''),
-                    'source': 'shodan',
+                    'source': source,
                 },
             )
             if created:
                 saved += 1
 
         if task_obj:
-            _mark_completed(task_obj, f"Found {saved} new services for {host}")
-        logger.info("Port scan complete for %s: %d services", host, saved)
+            _mark_completed(task_obj, f"Found {saved} new services for {host} (source: {source})")
+        logger.info("Port scan complete for %s: %d services (source: %s)", host, saved, source)
     except Exception as exc:
         logger.error("Port scan failed for %s: %s", host, exc)
         if task_obj:

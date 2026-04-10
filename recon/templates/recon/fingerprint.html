@@ -78,5 +78,26 @@
             {% endif %}
         </div>
     </div>
+
+    {% if failed_tasks %}
+    <div class="card border border-red-800">
+        <div class="card-header">
+            <h3 class="font-semibold text-red-400">⚠ Recent Task Failures</h3>
+        </div>
+        <div class="card-body space-y-2">
+            {% for t in failed_tasks %}
+            <div class="rounded p-3 bg-red-900/20 border border-red-800 text-sm">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-mono text-red-300">{{ t.target }}</span>
+                    <span class="text-xs text-gray-500">{{ t.completed_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% if t.error_message %}
+                <p class="text-red-200 text-xs font-mono whitespace-pre-wrap">{{ t.error_message }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
