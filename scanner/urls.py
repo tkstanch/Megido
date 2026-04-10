@@ -53,6 +53,11 @@ urlpatterns = [
     path('api/encoding/recursive-decode/', views.recursive_decode_view, name='recursive_decode'),
     path('api/encoding/url-encode-hostname/', views.url_encode_hostname_view, name='url_encode_hostname'),
 
+    # Program Scope endpoints
+    path('api/scopes/', views.program_scope_list, name='program_scope_list'),
+    path('api/scopes/<int:scope_id>/', views.program_scope_detail, name='program_scope_detail'),
+    path('api/scopes/<int:scope_id>/validate/', views.program_scope_validate, name='program_scope_validate'),
+
     # Engine API routes
     path('api/', include(router.urls)),
 ]

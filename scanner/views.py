@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from .models import ScanTarget, Scan, Vulnerability, ExploitMedia
+from .models import ScanTarget, Scan, Vulnerability, ExploitMedia, ProgramScope
 from django.utils import timezone
 from django.conf import settings
 import os
@@ -18,6 +18,7 @@ from celery.result import AsyncResult
 from scanner.tasks import async_exploit_all_vulnerabilities, async_exploit_selected_vulnerabilities, async_scan_task
 from scanner.config_defaults import get_default_proof_config
 from scanner.bounty_taxonomy import get_bounty_classification, is_dos_vulnerability
+from scanner.scope_validator import ScopeValidator
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +264,11 @@ def start_scan(request, target_id):
     The scan runs in the background, allowing Gunicorn to respond immediately
     without blocking workers during long-running scans.
     
+    Optional request body parameters:
+    - ``scope_id`` / ``program_scope_id``: ID of a ProgramScope to validate against.
+      If the target URL fails scope validation a 400 is returned.
+      If omitted, the scan proceeds with a warning.
+    
     Returns immediately with scan ID and 'pending' status.
     Clients should poll /api/scans/<scan_id>/results/ for progress and results.
     """
@@ -274,24 +280,54 @@ def start_scan(request, target_id):
         # Read optional SQL Injection testing opt-in flag from request body
         enable_sqli_testing = bool(request.data.get('enable_sqli_testing', False))
 
+        # --- Scope validation ---
+        scope_id = request.data.get('scope_id') or request.data.get('program_scope_id')
+        program_scope = None
+        scope_warnings = []
+
+        if scope_id is not None:
+            try:
+                program_scope = ProgramScope.objects.get(id=scope_id)
+            except ProgramScope.DoesNotExist:
+                return Response({'error': f'ProgramScope with id {scope_id} not found'}, status=404)
+
+        validator = ScopeValidator(target.url, program_scope)
+        validation_result = validator.validate()
+
+        if not validation_result['is_valid']:
+            return Response(
+                {
+                    'error': 'Target URL failed scope validation',
+                    'violations': validation_result['violations'],
+                },
+                status=400,
+            )
+
+        scope_warnings = validation_result.get('warnings', [])
+
         # Create scan with 'pending' status
         scan = Scan.objects.create(
             target=target,
             status='pending',
             enable_dos_testing=enable_dos_testing,
             enable_sqli_testing=enable_sqli_testing,
+            program_scope=program_scope,
+            warnings=scope_warnings,
         )
         
         # Trigger Celery task to run scan in background
         task = async_scan_task.delay(scan.id)
         
         # Return immediately with scan ID and task ID
-        return Response({
+        response_data = {
             'id': scan.id,
             'status': 'pending',
             'message': 'Scan started. Poll /api/scans/{}/results/ for progress.'.format(scan.id),
-            'task_id': task.id
-        }, status=201)
+            'task_id': task.id,
+        }
+        if scope_warnings:
+            response_data['warnings'] = scope_warnings
+        return Response(response_data, status=201)
             
     except ScanTarget.DoesNotExist:
         return Response({'error': 'Target not found'}, status=404)
@@ -1929,7 +1965,7 @@ def start_heat_map_scan(request):
     """
     Start a heat map analysis for a given target URL.
 
-    POST body: { "url": "https://example.com" }
+    POST body: { "url": "https://example.com", "scope_id": 1 (optional) }
 
     Returns the created HeatMapScan id and status.
     """
@@ -1940,7 +1976,36 @@ def start_heat_map_scan(request):
     if not target_url:
         return Response({'error': 'url is required'}, status=400)
 
-    heat_scan = HeatMapScan.objects.create(target_url=target_url, status='running')
+    # --- Scope validation ---
+    scope_id = request.data.get('scope_id') or request.data.get('program_scope_id')
+    program_scope = None
+    scope_warnings = []
+
+    if scope_id is not None:
+        try:
+            program_scope = ProgramScope.objects.get(id=scope_id)
+        except ProgramScope.DoesNotExist:
+            return Response({'error': f'ProgramScope with id {scope_id} not found'}, status=404)
+
+    validator = ScopeValidator(target_url, program_scope)
+    validation_result = validator.validate()
+
+    if not validation_result['is_valid']:
+        return Response(
+            {
+                'error': 'Target URL failed scope validation',
+                'violations': validation_result['violations'],
+            },
+            status=400,
+        )
+
+    scope_warnings = validation_result.get('warnings', [])
+
+    heat_scan = HeatMapScan.objects.create(
+        target_url=target_url,
+        status='running',
+        program_scope=program_scope,
+    )
 
     try:
         analyzer = HeatMapAnalyzer(
@@ -1973,12 +2038,15 @@ def start_heat_map_scan(request):
         heat_scan.completed_at = _tz.now()
         heat_scan.save()
 
-        return Response({
+        response_data = {
             'id': heat_scan.id,
             'status': heat_scan.status,
             'total_hotspots': heat_scan.total_hotspots,
             'summary': heat_scan.summary,
-        }, status=201)
+        }
+        if scope_warnings:
+            response_data['warnings'] = scope_warnings
+        return Response(response_data, status=201)
 
     except Exception as exc:
         logger.error("Heat map scan failed: %s", exc, exc_info=True)
@@ -2163,3 +2231,111 @@ def url_encode_hostname_view(request):
     detector = ContentEncodingDetector()
     encoded = detector.url_encode_hostname(hostname)
     return Response({'hostname': hostname, 'url_encoded': encoded}, status=200)
+
+
+# ---------------------------------------------------------------------------
+# Program Scope CRUD views
+# ---------------------------------------------------------------------------
+
+def _scope_to_dict(scope):
+    """Serialize a ProgramScope instance to a dict."""
+    return {
+        'id': scope.id,
+        'name': scope.name,
+        'in_scope_domains': scope.in_scope_domains,
+        'out_of_scope_domains': scope.out_of_scope_domains,
+        'allowed_vulnerability_types': scope.allowed_vulnerability_types,
+        'disallowed_vulnerability_types': scope.disallowed_vulnerability_types,
+        'max_requests_per_second': scope.max_requests_per_second,
+        'testing_window_start': str(scope.testing_window_start) if scope.testing_window_start else None,
+        'testing_window_end': str(scope.testing_window_end) if scope.testing_window_end else None,
+        'notes': scope.notes,
+        'is_active': scope.is_active,
+        'created_at': scope.created_at.isoformat(),
+        'updated_at': scope.updated_at.isoformat(),
+    }
+
+
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def program_scope_list(request):
+    """List all program scopes or create a new one."""
+    if request.method == 'GET':
+        scopes = ProgramScope.objects.all()
+        return Response([_scope_to_dict(s) for s in scopes], status=200)
+
+    # POST — create a new scope
+    data = request.data
+    scope = ProgramScope.objects.create(
+        name=data.get('name', ''),
+        in_scope_domains=data.get('in_scope_domains', []),
+        out_of_scope_domains=data.get('out_of_scope_domains', []),
+        allowed_vulnerability_types=data.get('allowed_vulnerability_types', []),
+        disallowed_vulnerability_types=data.get('disallowed_vulnerability_types', []),
+        max_requests_per_second=data.get('max_requests_per_second'),
+        testing_window_start=data.get('testing_window_start'),
+        testing_window_end=data.get('testing_window_end'),
+        notes=data.get('notes', ''),
+        is_active=bool(data.get('is_active', True)),
+    )
+    return Response(_scope_to_dict(scope), status=201)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def program_scope_detail(request, scope_id):
+    """Retrieve, update or delete a specific program scope."""
+    try:
+        scope = ProgramScope.objects.get(id=scope_id)
+    except ProgramScope.DoesNotExist:
+        return Response({'error': 'ProgramScope not found'}, status=404)
+
+    if request.method == 'GET':
+        return Response(_scope_to_dict(scope), status=200)
+
+    if request.method == 'PUT':
+        data = request.data
+        scope.name = data.get('name', scope.name)
+        scope.in_scope_domains = data.get('in_scope_domains', scope.in_scope_domains)
+        scope.out_of_scope_domains = data.get('out_of_scope_domains', scope.out_of_scope_domains)
+        scope.allowed_vulnerability_types = data.get('allowed_vulnerability_types', scope.allowed_vulnerability_types)
+        scope.disallowed_vulnerability_types = data.get('disallowed_vulnerability_types', scope.disallowed_vulnerability_types)
+        scope.max_requests_per_second = data.get('max_requests_per_second', scope.max_requests_per_second)
+        scope.testing_window_start = data.get('testing_window_start', scope.testing_window_start)
+        scope.testing_window_end = data.get('testing_window_end', scope.testing_window_end)
+        scope.notes = data.get('notes', scope.notes)
+        scope.is_active = bool(data.get('is_active', scope.is_active))
+        scope.save()
+        return Response(_scope_to_dict(scope), status=200)
+
+    # DELETE
+    scope.delete()
+    return Response({'message': 'ProgramScope deleted'}, status=204)
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def program_scope_validate(request, scope_id):
+    """
+    Validate a URL against a specific program scope.
+
+    POST body: { "url": "https://example.com", "vulnerability_types": ["xss", "sqli"] }
+
+    Returns validation result with is_valid, violations, and warnings.
+    """
+    try:
+        scope = ProgramScope.objects.get(id=scope_id)
+    except ProgramScope.DoesNotExist:
+        return Response({'error': 'ProgramScope not found'}, status=404)
+
+    url = request.data.get('url', '').strip()
+    if not url:
+        return Response({'error': 'url is required'}, status=400)
+
+    vuln_types = request.data.get('vulnerability_types', [])
+    validator = ScopeValidator(url, scope)
+    result = validator.validate(requested_vuln_types=vuln_types if vuln_types else None)
+    return Response(result, status=200)
