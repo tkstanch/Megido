@@ -18,8 +18,9 @@ def resolve_domain(domain: str) -> list:
     """
     Resolve *domain* to a list of IP address strings.
 
-    Uses :func:`socket.getaddrinfo` so both IPv4 and IPv6 records are
-    returned.  Returns an empty list on failure.
+    Tries the ``dnspython`` library first for reliable resolution inside
+    Docker containers, then falls back to :func:`socket.getaddrinfo`.
+    Returns an empty list on failure.
 
     Args:
         domain: The domain name to resolve (e.g. ``example.com``).
@@ -28,6 +29,30 @@ def resolve_domain(domain: str) -> list:
         A list of unique IP address strings.
     """
     ips = []
+
+    # Primary: use dnspython for reliable resolution inside Docker
+    try:
+        import dns.resolver
+        resolver = dns.resolver.Resolver()
+        resolver.lifetime = float(_get_timeout())
+        for record_type in ('A', 'AAAA'):
+            try:
+                answers = resolver.resolve(domain, record_type)
+                for rdata in answers:
+                    ip = str(rdata.address)
+                    if ip not in ips:
+                        ips.append(ip)
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer,
+                    dns.resolver.NoNameservers):
+                pass
+        if ips:
+            return ips
+    except ImportError:
+        pass
+    except Exception as exc:
+        logger.debug("dnspython resolution failed for %s: %s", domain, exc)
+
+    # Fallback: socket.getaddrinfo
     try:
         infos = socket.getaddrinfo(domain, None)
         for info in infos:

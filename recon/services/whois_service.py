@@ -2,8 +2,10 @@
 WHOIS and reverse-WHOIS service for the Recon app.
 
 Performs WHOIS lookups using the python-whois library (optional) and
-integrates with ViewDNS.info for reverse WHOIS queries.
+integrates with ViewDNS.info for reverse WHOIS queries.  Falls back to
+the RDAP API when python-whois is unavailable or the lookup fails.
 """
+import json
 import logging
 from django.conf import settings
 
@@ -23,10 +25,10 @@ def perform_whois_lookup(domain: str) -> dict:
     """
     Perform a WHOIS lookup for *domain* and return a structured dict.
 
-    Uses the ``python-whois`` library when available.  If the library is not
-    installed or the lookup fails the function returns the raw text response
-    (if any) together with empty structured fields so that the caller can still
-    save partial data.
+    Tries the ``python-whois`` library first.  If the library is not
+    installed or the lookup fails, falls back to the RDAP API
+    (``https://rdap.org/domain/{domain}``) which requires no library and
+    returns structured JSON.
 
     Args:
         domain: The domain name to look up (e.g. ``example.com``).
@@ -50,45 +52,119 @@ def perform_whois_lookup(domain: str) -> dict:
         'raw_data': '',
     }
 
+    whois_ok = False
     try:
         import whois  # python-whois
+        whois_ok = True
     except ImportError:
-        logger.warning("python-whois not installed; WHOIS lookup unavailable")
-        return result
+        logger.warning("python-whois not installed; falling back to RDAP")
 
+    if whois_ok:
+        try:
+            w = whois.whois(domain)
+            result['raw_data'] = str(w.text) if hasattr(w, 'text') else str(w)
+
+            result['registrar'] = _first(w.get('registrar', ''))
+            result['registrant_name'] = _first(w.get('name', ''))
+            result['registrant_email'] = _first(w.get('emails', ''))
+            result['registrant_org'] = _first(w.get('org', ''))
+
+            ns = w.get('name_servers', [])
+            if isinstance(ns, list):
+                result['name_servers'] = json.dumps([str(n).lower() for n in ns])
+            elif ns:
+                result['name_servers'] = json.dumps([str(ns).lower()])
+
+            creation = w.get('creation_date')
+            if creation:
+                result['creation_date'] = str(_first(creation))
+
+            expiration = w.get('expiration_date')
+            if expiration:
+                result['expiration_date'] = str(_first(expiration))
+
+            status = w.get('status', '')
+            if isinstance(status, list):
+                result['status'] = ', '.join(str(s) for s in status)
+            elif status:
+                result['status'] = str(status)
+
+            # If we got at least a registrar, consider it successful
+            if result['registrar'] or result['raw_data']:
+                return result
+            logger.warning("python-whois returned empty data for %s; trying RDAP", domain)
+        except Exception as exc:
+            logger.warning("python-whois lookup failed for %s: %s; falling back to RDAP", domain, exc)
+
+    # RDAP fallback
+    return _rdap_lookup(domain, result)
+
+
+def _rdap_lookup(domain: str, result: dict) -> dict:
+    """
+    Fetch domain registration data from the RDAP API and populate *result*.
+
+    Args:
+        domain: Domain name to look up.
+        result: Existing result dict to populate (modified in place).
+
+    Returns:
+        The populated result dict.
+    """
     try:
-        w = whois.whois(domain)
-        result['raw_data'] = str(w.text) if hasattr(w, 'text') else str(w)
+        import requests
+        url = f"https://rdap.org/domain/{domain}"
+        response = requests.get(url, timeout=_get_timeout(), headers={'Accept': 'application/json'})
+        response.raise_for_status()
+        data = response.json()
+        result['raw_data'] = json.dumps(data)
 
-        result['registrar'] = _first(w.get('registrar', ''))
-        result['registrant_name'] = _first(w.get('name', ''))
-        result['registrant_email'] = _first(w.get('emails', ''))
-        result['registrant_org'] = _first(w.get('org', ''))
+        # Registrar
+        for entity in data.get('entities', []):
+            roles = entity.get('roles', [])
+            vcard = entity.get('vcardArray', [])
+            if 'registrar' in roles and vcard:
+                for entry in vcard[1] if len(vcard) > 1 else []:
+                    if entry[0] == 'fn':
+                        result['registrar'] = entry[3]
+                        break
+            if 'registrant' in roles and vcard:
+                for entry in vcard[1] if len(vcard) > 1 else []:
+                    if entry[0] == 'fn' and not result['registrant_name']:
+                        result['registrant_name'] = entry[3]
+                    elif entry[0] == 'email' and not result['registrant_email']:
+                        result['registrant_email'] = entry[3]
+                    elif entry[0] == 'org' and not result['registrant_org']:
+                        result['registrant_org'] = entry[3]
+                    elif entry[0] == 'tel' and not result['registrant_phone']:
+                        result['registrant_phone'] = entry[3]
 
-        ns = w.get('name_servers', [])
-        if isinstance(ns, list):
-            import json
-            result['name_servers'] = json.dumps([str(n).lower() for n in ns])
-        elif ns:
-            import json
-            result['name_servers'] = json.dumps([str(ns).lower()])
+        # Name servers
+        ns_list = []
+        for ns in data.get('nameservers', []):
+            ldh_name = ns.get('ldhName', '')
+            if ldh_name:
+                ns_list.append(ldh_name.lower())
+        if ns_list:
+            result['name_servers'] = json.dumps(ns_list)
 
-        creation = w.get('creation_date')
-        if creation:
-            result['creation_date'] = str(_first(creation))
+        # Dates
+        for event in data.get('events', []):
+            action = event.get('eventAction', '')
+            date = event.get('eventDate', '')
+            if action == 'registration' and not result['creation_date']:
+                result['creation_date'] = date
+            elif action == 'expiration' and not result['expiration_date']:
+                result['expiration_date'] = date
 
-        expiration = w.get('expiration_date')
-        if expiration:
-            result['expiration_date'] = str(_first(expiration))
+        # Status
+        statuses = data.get('status', [])
+        if statuses:
+            result['status'] = ', '.join(statuses)
 
-        status = w.get('status', '')
-        if isinstance(status, list):
-            result['status'] = ', '.join(str(s) for s in status)
-        elif status:
-            result['status'] = str(status)
-
+        logger.info("RDAP lookup successful for %s", domain)
     except Exception as exc:
-        logger.error("WHOIS lookup failed for %s: %s", domain, exc)
+        logger.error("RDAP lookup failed for %s: %s", domain, exc)
 
     return result
 
