@@ -89,6 +89,7 @@ def run_whois_lookup(self, project_id: int, domain: str):
             expiration_date=data.get('expiration_date', ''),
             name_servers=data.get('name_servers', '[]'),
             status=data.get('status', ''),
+            warning=data.get('warning', ''),
         )
         if task_obj:
             _mark_completed(task_obj, f"WHOIS lookup completed for {domain}")
