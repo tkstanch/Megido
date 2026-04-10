@@ -1917,3 +1917,249 @@ def send_to_repeater(request, vuln_id):
         'message': f'Request forwarded to Repeater as "{name}"',
         'advice': _build_repeater_advice(vuln),
     }, status=201)
+
+
+# ---------------------------------------------------------------------------
+# Heat Map views
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def start_heat_map_scan(request):
+    """
+    Start a heat map analysis for a given target URL.
+
+    POST body: { "url": "https://example.com" }
+
+    Returns the created HeatMapScan id and status.
+    """
+    from scanner.models import HeatMapScan, HeatMapHotspot
+    from scanner.heat_map_analyzer import HeatMapAnalyzer
+
+    target_url = request.data.get('url', '').strip()
+    if not target_url:
+        return Response({'error': 'url is required'}, status=400)
+
+    heat_scan = HeatMapScan.objects.create(target_url=target_url, status='running')
+
+    try:
+        analyzer = HeatMapAnalyzer(
+            timeout=int(request.data.get('timeout', 10)),
+            verify_ssl=bool(request.data.get('verify_ssl', False)),
+        )
+        result = analyzer.analyze(target_url)
+
+        # Persist hotspots
+        for hs in result.get('hotspots', []):
+            HeatMapHotspot.objects.create(
+                heat_map_scan=heat_scan,
+                category=hs.get('category', ''),
+                category_label=hs.get('category_label', ''),
+                url=hs.get('url', target_url),
+                parameter=hs.get('parameter'),
+                risk_score=hs.get('risk_score', 5),
+                priority=hs.get('priority', 'Medium'),
+                vulnerabilities=hs.get('vulnerabilities', []),
+                payloads=hs.get('payloads', []),
+                description=hs.get('description', ''),
+                evidence=hs.get('evidence', ''),
+            )
+
+        from django.utils import timezone as _tz
+        heat_scan.status = 'completed'
+        heat_scan.total_hotspots = result.get('total_hotspots', 0)
+        heat_scan.summary = result.get('summary', {})
+        heat_scan.risk_scores = result.get('risk_scores', {})
+        heat_scan.completed_at = _tz.now()
+        heat_scan.save()
+
+        return Response({
+            'id': heat_scan.id,
+            'status': heat_scan.status,
+            'total_hotspots': heat_scan.total_hotspots,
+            'summary': heat_scan.summary,
+        }, status=201)
+
+    except Exception as exc:
+        logger.error("Heat map scan failed: %s", exc, exc_info=True)
+        heat_scan.status = 'failed'
+        heat_scan.error_message = str(exc)
+        heat_scan.save()
+        return Response({'error': str(exc)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def heat_map_scan_results(request, scan_id):
+    """
+    Return the results of a completed heat map scan.
+    """
+    from scanner.models import HeatMapScan
+
+    try:
+        heat_scan = HeatMapScan.objects.prefetch_related('hotspots').get(id=scan_id)
+    except HeatMapScan.DoesNotExist:
+        return Response({'error': 'Heat map scan not found'}, status=404)
+
+    hotspots = [
+        {
+            'id': hs.id,
+            'category': hs.category,
+            'category_label': hs.category_label,
+            'url': hs.url,
+            'parameter': hs.parameter,
+            'risk_score': hs.risk_score,
+            'priority': hs.priority,
+            'vulnerabilities': hs.vulnerabilities,
+            'payloads': hs.payloads,
+            'description': hs.description,
+            'evidence': hs.evidence,
+            'discovered_at': hs.discovered_at.isoformat(),
+        }
+        for hs in heat_scan.hotspots.all()
+    ]
+
+    return Response({
+        'id': heat_scan.id,
+        'target_url': heat_scan.target_url,
+        'status': heat_scan.status,
+        'started_at': heat_scan.started_at.isoformat(),
+        'completed_at': heat_scan.completed_at.isoformat() if heat_scan.completed_at else None,
+        'total_hotspots': heat_scan.total_hotspots,
+        'summary': heat_scan.summary,
+        'risk_scores': heat_scan.risk_scores,
+        'hotspots': hotspots,
+        'error_message': heat_scan.error_message,
+    }, status=200)
+
+
+def heat_map_view(request, scan_id=None):
+    """Render the heat map HTML template."""
+    from scanner.models import HeatMapScan
+
+    context = {'scan': None, 'hotspots': [], 'summary': {}}
+
+    if scan_id:
+        try:
+            heat_scan = HeatMapScan.objects.prefetch_related('hotspots').get(id=scan_id)
+            context['scan'] = heat_scan
+            context['hotspots'] = list(heat_scan.hotspots.all())
+            context['summary'] = heat_scan.summary
+        except HeatMapScan.DoesNotExist:
+            pass
+
+    return render(request, 'scanner/heat_map.html', context)
+
+
+# ---------------------------------------------------------------------------
+# Content Encoding views
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def detect_encoding(request):
+    """
+    Detect encoding types present in the given content.
+
+    POST body: { "content": "<encoded string>" }
+
+    Returns: { "content": "...", "detected_encodings": [...] }
+    """
+    from scanner.content_encoding_detector import ContentEncodingDetector
+
+    content = request.data.get('content', '')
+    if not content:
+        return Response({'error': 'content is required'}, status=400)
+
+    detector = ContentEncodingDetector()
+    detected = detector.detect_encoding(content)
+    return Response({
+        'content': content,
+        'detected_encodings': detected,
+    }, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def decode_content_view(request):
+    """
+    Decode content using the specified or auto-detected encoding.
+
+    POST body: {
+        "content": "<encoded string>",
+        "encoding_type": "base64"   // optional; if omitted, auto-detect
+    }
+
+    Returns: { original, encoding, decoded, depth, interesting }
+    """
+    from scanner.content_encoding_detector import ContentEncodingDetector
+
+    content = request.data.get('content', '')
+    if not content:
+        return Response({'error': 'content is required'}, status=400)
+
+    detector = ContentEncodingDetector()
+    encoding_type = request.data.get('encoding_type', '').strip()
+
+    if encoding_type:
+        decoded = detector.decode_content(content, encoding_type)
+        return Response({
+            'original': content,
+            'encoding': encoding_type,
+            'decoded': decoded,
+            'depth': 1,
+            'interesting': detector._is_interesting(decoded),
+        }, status=200)
+
+    result = detector.auto_decode(content)
+    return Response(result, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def recursive_decode_view(request):
+    """
+    Recursively decode nested encodings.
+
+    POST body: {
+        "content": "<encoded string>",
+        "max_depth": 5   // optional
+    }
+
+    Returns: { content, steps: [...] }
+    """
+    from scanner.content_encoding_detector import ContentEncodingDetector
+
+    content = request.data.get('content', '')
+    if not content:
+        return Response({'error': 'content is required'}, status=400)
+
+    max_depth = int(request.data.get('max_depth', 5))
+    detector = ContentEncodingDetector()
+    steps = detector.recursive_decode(content, max_depth=max_depth)
+
+    return Response({
+        'content': content,
+        'steps': steps,
+    }, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def url_encode_hostname_view(request):
+    """
+    Return the URL-encoded (percent-encoded) equivalent of a hostname.
+
+    POST body: { "hostname": "example.com" }
+
+    Returns: { hostname, url_encoded }
+    """
+    from scanner.content_encoding_detector import ContentEncodingDetector
+
+    hostname = request.data.get('hostname', '').strip()
+    if not hostname:
+        return Response({'error': 'hostname is required'}, status=400)
+
+    detector = ContentEncodingDetector()
+    encoded = detector.url_encode_hostname(hostname)
+    return Response({'hostname': hostname, 'url_encoded': encoded}, status=200)

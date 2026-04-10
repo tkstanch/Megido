@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}Heat Map Analyzer - Megido Security{% endblock %}
+
+{% block breadcrumb %}
+<li class="text-gray-500 dark:text-gray-400">Megido Security</li>
+<li class="text-gray-400 dark:text-gray-500 mx-2">/</li>
+<li class="text-gray-900 dark:text-white font-medium">Heat Map</li>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- Hero Section -->
+    <div class="relative overflow-hidden rounded-3xl mb-8 shadow-ultra-deep">
+        <div class="absolute inset-0 bg-gradient-to-br from-red-900 via-orange-800 to-yellow-700 opacity-95"></div>
+        <div class="relative p-8 lg:p-12 text-center">
+            <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-white/10 backdrop-blur">
+                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+                </svg>
+            </div>
+            <h2 class="text-3xl lg:text-5xl font-bold text-white mb-3">Heat Map Analyzer</h2>
+            <p class="text-white/80 text-lg max-w-2xl mx-auto">
+                Identify hot spots in a target web application — exact locations and vulnerability types to test.
+            </p>
+        </div>
+    </div>
+
+    <!-- Scan Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Run Heat Map Analysis</h3>
+        <div class="flex gap-3">
+            <input id="hm-target-url" type="url" placeholder="https://example.com"
+                   class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"/>
+            <button onclick="startHeatMapScan()"
+                    class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">
+                Analyze
+            </button>
+        </div>
+        <div id="hm-status" class="mt-3 text-sm text-gray-600 dark:text-gray-400 hidden"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="hm-results" class="{% if not scan %}hidden{% endif %} space-y-4">
+
+        {% if scan %}
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {{ summary.by_priority.Critical|default:"0" }}
+                </div>
+                <div class="text-sm text-red-700 dark:text-red-300 font-medium mt-1">Critical</div>
+            </div>
+            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {{ summary.by_priority.High|default:"0" }}
+                </div>
+                <div class="text-sm text-orange-700 dark:text-orange-300 font-medium mt-1">High</div>
+            </div>
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {{ summary.by_priority.Medium|default:"0" }}
+                </div>
+                <div class="text-sm text-yellow-700 dark:text-yellow-300 font-medium mt-1">Medium</div>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 text-center">
+                <div class="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {{ summary.by_priority.Low|default:"0" }}
+                </div>
+                <div class="text-sm text-blue-700 dark:text-blue-300 font-medium mt-1">Low</div>
+            </div>
+        </div>
+
+        <!-- Hotspots Table -->
+        {% if hotspots %}
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Hot Spots ({{ hotspots|length }})
+                </h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Target: {{ scan.target_url }}
+                </p>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for hs in hotspots %}
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                <!-- Priority badge -->
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold
+                                    {% if hs.priority == 'Critical' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300
+                                    {% elif hs.priority == 'High' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300
+                                    {% elif hs.priority == 'Medium' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300
+                                    {% else %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% endif %}">
+                                    {{ hs.priority }}
+                                </span>
+                                <span class="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {{ hs.category_label }}
+                                </span>
+                                <span class="text-xs text-gray-400">Risk: {{ hs.risk_score }}/10</span>
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">
+                                {{ hs.url }}{% if hs.parameter %} &bull; param: <strong>{{ hs.parameter }}</strong>{% endif %}
+                            </div>
+                            <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">{{ hs.description }}</div>
+                            {% if hs.vulnerabilities %}
+                            <div class="flex flex-wrap gap-1 mb-2">
+                                {% for v in hs.vulnerabilities %}
+                                <span class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
+                                    {{ v }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if hs.evidence %}
+                            <div class="text-xs text-gray-400 dark:text-gray-500 italic">Evidence: {{ hs.evidence }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 text-center text-gray-500 dark:text-gray-400">
+            No hot spots detected for this target.
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- Dynamic results injected by JS -->
+        <div id="hm-dynamic-results"></div>
+    </div>
+
+</div>
+
+<script>
+function priorityColor(priority) {
+    const map = {
+        'Critical': 'bg-red-100 text-red-700',
+        'High': 'bg-orange-100 text-orange-700',
+        'Medium': 'bg-yellow-100 text-yellow-700',
+        'Low': 'bg-blue-100 text-blue-700',
+    };
+    return map[priority] || 'bg-gray-100 text-gray-700';
+}
+
+async function startHeatMapScan() {
+    const urlInput = document.getElementById('hm-target-url');
+    const statusEl = document.getElementById('hm-status');
+    const resultsEl = document.getElementById('hm-results');
+    const dynamicEl = document.getElementById('hm-dynamic-results');
+
+    const url = urlInput.value.trim();
+    if (!url) {
+        alert('Please enter a target URL.');
+        return;
+    }
+
+    statusEl.textContent = 'Starting heat map analysis…';
+    statusEl.classList.remove('hidden');
+    dynamicEl.innerHTML = '';
+    resultsEl.classList.remove('hidden');
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    try {
+        const resp = await fetch('/scanner/api/heat-map/scan/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ url }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            statusEl.textContent = 'Error: ' + (err.error || resp.statusText);
+            return;
+        }
+
+        const data = await resp.json();
+        statusEl.textContent = `Analysis complete — ${data.total_hotspots} hot spot(s) found.`;
+
+        // Load full results
+        const detailResp = await fetch(`/scanner/api/heat-map/scan/${data.id}/`);
+        const detail = await detailResp.json();
+        renderHeatMap(detail, dynamicEl);
+
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+    }
+}
+
+function renderHeatMap(data, container) {
+    const summary = data.summary || {};
+    const byPriority = summary.by_priority || {};
+    const priorities = ['Critical', 'High', 'Medium', 'Low'];
+    const colors = {
+        Critical: 'bg-red-100 text-red-700 border-red-200',
+        High: 'bg-orange-100 text-orange-700 border-orange-200',
+        Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+        Low: 'bg-blue-100 text-blue-700 border-blue-200',
+    };
+
+    let summaryHtml = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">';
+    for (const p of priorities) {
+        summaryHtml += `
+        <div class="border rounded-xl p-4 text-center ${colors[p] || ''}">
+            <div class="text-3xl font-bold">${byPriority[p] || 0}</div>
+            <div class="text-sm font-medium mt-1">${p}</div>
+        </div>`;
+    }
+    summaryHtml += '</div>';
+
+    let hotspotsHtml = '';
+    for (const hs of (data.hotspots || [])) {
+        const colorClass = colors[hs.priority] || 'bg-gray-100 text-gray-700 border-gray-200';
+        const vulns = (hs.vulnerabilities || []).map(v =>
+            `<span class="px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">${v}</span>`
+        ).join(' ');
+        const payloads = (hs.payloads || []).slice(0, 3).map(p =>
+            `<code class="block text-xs bg-gray-900 text-green-400 px-2 py-1 rounded mb-1 break-all">${escapeHtml(p)}</code>`
+        ).join('');
+
+        hotspotsHtml += `
+        <div class="border rounded-xl p-4 mb-3 ${colorClass}">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold border ${colorClass}">${hs.priority}</span>
+                <strong class="text-sm">${escapeHtml(hs.category_label || hs.category)}</strong>
+                <span class="text-xs opacity-70">Risk: ${hs.risk_score}/10</span>
+            </div>
+            <div class="text-xs opacity-70 mb-1 break-all">${escapeHtml(hs.url)}${hs.parameter ? ' &bull; param: <strong>' + escapeHtml(hs.parameter) + '</strong>' : ''}</div>
+            <div class="text-sm mb-2">${escapeHtml(hs.description)}</div>
+            <div class="flex flex-wrap gap-1 mb-2">${vulns}</div>
+            ${hs.evidence ? `<div class="text-xs opacity-60 italic mb-2">Evidence: ${escapeHtml(hs.evidence)}</div>` : ''}
+            ${payloads ? `<div class="mt-2"><div class="text-xs font-semibold mb-1">Suggested Payloads:</div>${payloads}</div>` : ''}
+        </div>`;
+    }
+
+    container.innerHTML = summaryHtml + `
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Hot Spots (${(data.hotspots || []).length})</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Target: ${escapeHtml(data.target_url)}</p>
+        </div>
+        <div class="p-4">
+            ${hotspotsHtml || '<p class="text-gray-500 text-center py-4">No hot spots detected.</p>'}
+        </div>
+    </div>`;
+}
+
+function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

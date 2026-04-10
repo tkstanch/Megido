@@ -341,3 +341,66 @@ class EngineFinding(models.Model):
     def __str__(self):
         return f"EngineFinding {self.id} [{self.severity}] {self.title}"
 
+
+# ---------------------------------------------------------------------------
+# Heat Map models (migration 0016)
+# ---------------------------------------------------------------------------
+
+class HeatMapScan(models.Model):
+    """Stores the result of a heat map analysis for a target URL."""
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    target_url = models.URLField(max_length=2048)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    total_hotspots = models.IntegerField(default=0)
+    summary = models.JSONField(default=dict, blank=True)
+    risk_scores = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"HeatMapScan {self.id} [{self.status}] {self.target_url}"
+
+
+class HeatMapHotspot(models.Model):
+    """A single hot spot discovered during a heat map analysis."""
+
+    PRIORITY_CHOICES = [
+        ('Critical', 'Critical'),
+        ('High', 'High'),
+        ('Medium', 'Medium'),
+        ('Low', 'Low'),
+    ]
+
+    heat_map_scan = models.ForeignKey(HeatMapScan, on_delete=models.CASCADE, related_name='hotspots')
+    category = models.CharField(max_length=100)
+    category_label = models.CharField(max_length=255, blank=True, null=True)
+    url = models.URLField(max_length=2048)
+    parameter = models.CharField(max_length=255, blank=True, null=True)
+    risk_score = models.IntegerField(default=5)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='Medium')
+    vulnerabilities = models.JSONField(default=list, blank=True)
+    payloads = models.JSONField(default=list, blank=True)
+    description = models.TextField(blank=True, null=True)
+    evidence = models.TextField(blank=True, null=True)
+    discovered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-risk_score', 'priority']
+        indexes = [
+            models.Index(fields=['priority'], name='scanner_hm_priority_idx'),
+            models.Index(fields=['risk_score'], name='scanner_hm_risk_idx'),
+        ]
+
+    def __str__(self):
+        return f"HeatMapHotspot {self.id} [{self.priority}] {self.category} @ {self.url}"
