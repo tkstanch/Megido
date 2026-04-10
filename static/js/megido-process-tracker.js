@@ -267,6 +267,7 @@
                 }
                 if (viewBtn) {
                     viewBtn.href = first.viewUrl || '#';
+                    viewBtn._currentViewUrl = first.viewUrl || null;
                 }
                 if (cancelBtn) {
                     cancelBtn.dataset.toolName = first.toolName;
@@ -304,6 +305,19 @@
                 }
                 refreshBar();
             });
+
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function(e) {
+                    var vUrl = viewBtn._currentViewUrl;
+                    if (vUrl && window.location.pathname.startsWith(vUrl)) {
+                        e.preventDefault();
+                        var target = document.getElementById('scan-status');
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                });
+            }
 
             if (cancelBtn) {
                 cancelBtn.addEventListener('click', function() {

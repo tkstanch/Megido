@@ -8,6 +8,8 @@ This module contains background tasks for long-running operations including:
 
 import logging
 import os
+import threading
+import concurrent.futures
 from typing import Dict, Any, Optional, List
 
 from celery import shared_task
@@ -123,47 +125,33 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                 status='Starting scan',
             )
 
-        # Build a scan engine and run each plugin individually for granular
-        # progress reporting, rather than via perform_basic_scan which is
-        # opaque.  Fall back to perform_basic_scan if engine-level scan fails.
+        # Build a scan engine and run plugins concurrently for faster scanning
+        # while still sending per-plugin progress updates.
         engine = ScanEngine()
         config = {}
         all_findings = []
 
-        for idx, plugin in enumerate(plugins, 1):
-            # Memory guard — stop early if process is using too much RAM
+        MAX_WORKERS = int(os.environ.get('SCAN_MAX_WORKERS', 4))
+        lock = threading.Lock()
+        # Use a single-element list as a mutable counter (avoids nonlocal for Python 2 compat)
+        completed_count = [0]
+
+        def _run_plugin_concurrent(plugin):
+            """Run a single plugin and return (plugin, findings, status)."""
+            # Memory guard — check before running this plugin
             mem_pct = _memory_usage_percent()
             if mem_pct > 80.0:
                 logger.warning(
                     "Memory usage %.1f%% exceeds 80%% threshold. "
-                    "Stopping scan early for scan %d (processed %d/%d plugins).",
-                    mem_pct, scan_id, idx - 1, total_plugins,
+                    "Skipping plugin %s for scan %d.",
+                    mem_pct, plugin.name, scan_id,
                 )
-                if scan.warnings is None:
-                    scan.warnings = []
-                scan.warnings.append(
-                    f'Scan stopped early: memory usage {mem_pct:.1f}% exceeded 80% threshold.'
-                )
-                break
-
-            plugin_status = 'running'
-            if self.request.id:
-                send_progress_update(
-                    task_id=task_id,
-                    current=idx,
-                    total=total_plugins,
-                    status=f'Running plugin: {plugin.name} ({idx}/{total_plugins})',
-                    extra={
-                        'plugin_name': plugin.name,
-                        'plugin_status': plugin_status,
-                        'findings_so_far': len(all_findings),
-                    },
-                )
+                return plugin, [], 'skipped'
 
             plugin_findings: List = []
+            plugin_status = 'error'
             try:
                 plugin_findings = plugin.scan(scan.target.url, config)
-                all_findings.extend(plugin_findings)
                 plugin_status = 'complete'
                 logger.debug(
                     "Plugin %s found %d issue(s) for scan %d",
@@ -177,20 +165,61 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                     "Plugin %s error during scan %d: %s",
                     plugin.name, scan_id, exc,
                 )
+            return plugin, plugin_findings, plugin_status
 
-            if self.request.id:
-                send_progress_update(
-                    task_id=task_id,
-                    current=idx,
-                    total=total_plugins,
-                    status=f'Plugin {plugin.name} {plugin_status} ({idx}/{total_plugins})',
-                    extra={
-                        'plugin_name': plugin.name,
-                        'plugin_status': plugin_status,
-                        'plugin_findings': len(plugin_findings),
-                        'findings_so_far': len(all_findings),
-                    },
-                )
+        # Check memory before submitting — abort if already over threshold
+        mem_pct = _memory_usage_percent()
+        if mem_pct > 80.0:
+            logger.warning(
+                "Memory usage %.1f%% exceeds 80%% threshold before scan %d started.",
+                mem_pct, scan_id,
+            )
+            if scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.append(
+                f'Scan stopped early: memory usage {mem_pct:.1f}% exceeded 80% threshold.'
+            )
+            plugins = []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            future_to_plugin = {
+                executor.submit(_run_plugin_concurrent, plugin): plugin
+                for plugin in plugins
+            }
+
+            for future in concurrent.futures.as_completed(future_to_plugin):
+                try:
+                    plugin, plugin_findings, plugin_status = future.result()
+                except SoftTimeLimitExceeded:
+                    raise
+                except Exception as exc:
+                    plugin = future_to_plugin[future]
+                    plugin_findings = []
+                    plugin_status = 'error'
+                    logger.error(
+                        "Unexpected error running plugin %s for scan %d: %s",
+                        plugin.name, scan_id, exc,
+                    )
+
+                with lock:
+                    all_findings.extend(plugin_findings)
+                    completed_count[0] += 1
+                    current = completed_count[0]
+                    findings_so_far = len(all_findings)
+
+                if self.request.id:
+                    send_progress_update(
+                        task_id=task_id,
+                        current=current,
+                        total=total_plugins,
+                        status=f'Plugin {plugin.name} {plugin_status} ({current}/{total_plugins})',
+                        extra={
+                            'plugin_name': plugin.name,
+                            'plugin_status': plugin_status,
+                            'plugin_findings': len(plugin_findings),
+                            'findings_so_far': findings_so_far,
+                        },
+                    )
 
         # Persist findings to the database
         engine.save_findings_to_db(scan, all_findings)
