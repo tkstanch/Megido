@@ -131,9 +131,10 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         config = {}
         all_findings = []
 
-        MAX_WORKERS = 4
+        MAX_WORKERS = int(os.environ.get('SCAN_MAX_WORKERS', 4))
         lock = threading.Lock()
-        completed_count = [0]  # mutable container for thread-safe counting
+        # Use a single-element list as a mutable counter (avoids nonlocal for Python 2 compat)
+        completed_count = [0]
 
         def _run_plugin_concurrent(plugin):
             """Run a single plugin and return (plugin, findings, status)."""
