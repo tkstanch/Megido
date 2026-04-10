@@ -101,4 +101,35 @@
     </div>
     {% endif %}
 </div>
+
+{% if active_tasks %}
+<script>
+(function () {
+    const taskIds = [{% for t in active_tasks %}{{ t.pk }}{% if not forloop.last %},{% endif %}{% endfor %}];
+    let reloadScheduled = false;
+
+    var banner = document.createElement('div');
+    banner.id = 'scan-progress-banner';
+    banner.className = 'rounded-lg p-3 bg-yellow-900/20 border border-yellow-700 text-yellow-300 text-sm mb-4';
+    banner.innerHTML = '<span class="animate-pulse">⏳</span> Scan in progress… results will appear automatically when complete.';
+    var container = document.querySelector('.max-w-7xl');
+    if (container) container.insertBefore(banner, container.firstChild);
+
+    var timer = setInterval(function () {
+        fetch('/recon/api/task/' + taskIds[0] + '/status/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status !== 'running' && data.status !== 'pending') {
+                    clearInterval(timer);
+                    if (!reloadScheduled) {
+                        reloadScheduled = true;
+                        setTimeout(function () { location.reload(); }, 1500);
+                    }
+                }
+            })
+            .catch(function () {});
+    }, 3000);
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -46,4 +46,8 @@ urlpatterns = [
 
     # API
     path('api/task/<int:task_id>/status/', views.task_status_api, name='task_status_api'),
+    path('api/project/<int:project_id>/active-tasks/', views.project_active_tasks_api, name='project_active_tasks_api'),
+
+    # Report export
+    path('project/<int:project_id>/report/export/json/', views.export_report_json, name='export_report_json'),
 ]
