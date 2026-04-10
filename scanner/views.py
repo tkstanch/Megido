@@ -281,7 +281,7 @@ def start_scan(request, target_id):
         enable_sqli_testing = bool(request.data.get('enable_sqli_testing', False))
 
         # --- Scope validation ---
-        scope_id = request.data.get('scope_id') or request.data.get('program_scope_id')
+        scope_id = request.data.get('scope_id') if 'scope_id' in request.data else request.data.get('program_scope_id')
         program_scope = None
         scope_warnings = []
 
@@ -1977,7 +1977,7 @@ def start_heat_map_scan(request):
         return Response({'error': 'url is required'}, status=400)
 
     # --- Scope validation ---
-    scope_id = request.data.get('scope_id') or request.data.get('program_scope_id')
+    scope_id = request.data.get('scope_id') if 'scope_id' in request.data else request.data.get('program_scope_id')
     program_scope = None
     scope_warnings = []
 
@@ -2267,8 +2267,17 @@ def program_scope_list(request):
 
     # POST — create a new scope
     data = request.data
+    name = data.get('name', '').strip()
+    if not name:
+        return Response({'error': 'name is required'}, status=400)
+
+    list_fields = ['in_scope_domains', 'out_of_scope_domains', 'allowed_vulnerability_types', 'disallowed_vulnerability_types']
+    for field in list_fields:
+        if field in data and not isinstance(data[field], list):
+            return Response({'error': f'{field} must be a list'}, status=400)
+
     scope = ProgramScope.objects.create(
-        name=data.get('name', ''),
+        name=name,
         in_scope_domains=data.get('in_scope_domains', []),
         out_of_scope_domains=data.get('out_of_scope_domains', []),
         allowed_vulnerability_types=data.get('allowed_vulnerability_types', []),
@@ -2297,7 +2306,16 @@ def program_scope_detail(request, scope_id):
 
     if request.method == 'PUT':
         data = request.data
-        scope.name = data.get('name', scope.name)
+        list_fields = ['in_scope_domains', 'out_of_scope_domains', 'allowed_vulnerability_types', 'disallowed_vulnerability_types']
+        for field in list_fields:
+            if field in data and not isinstance(data[field], list):
+                return Response({'error': f'{field} must be a list'}, status=400)
+
+        name = data.get('name', scope.name)
+        if 'name' in data and not str(name).strip():
+            return Response({'error': 'name must not be empty'}, status=400)
+
+        scope.name = name
         scope.in_scope_domains = data.get('in_scope_domains', scope.in_scope_domains)
         scope.out_of_scope_domains = data.get('out_of_scope_domains', scope.out_of_scope_domains)
         scope.allowed_vulnerability_types = data.get('allowed_vulnerability_types', scope.allowed_vulnerability_types)
