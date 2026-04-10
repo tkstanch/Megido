@@ -379,7 +379,7 @@ window.addEventListener('resize', function() {
     <div class="stat-card stat-card-primary">
         <div class="stat-card-header">
             <div>
-                <div class="stat-card-value">17</div>
+                <div class="stat-card-value">18</div>
                 <div class="stat-card-label">Security Tools</div>
             </div>
             <div class="stat-card-icon">🔧</div>
