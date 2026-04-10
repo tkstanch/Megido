@@ -35,12 +35,24 @@ urlpatterns = [
     path('api/scans/<int:scan_id>/chain-suggestions/', views.scan_chain_suggestions, name='scan_chain_suggestions'),
     path('api/exploit_status/<str:task_id>/', views.exploit_status, name='exploit_status'),
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
-    
+
     # Network Health Check endpoints
     path('health/', health_check_api, name='health_check_api'),
     path('health/dashboard/', health_dashboard, name='health_dashboard'),
     path('api/health/check-service/', check_service_health, name='check_service_health'),
-    
+
+    # Heat Map endpoints
+    path('api/heat-map/scan/', views.start_heat_map_scan, name='start_heat_map_scan'),
+    path('api/heat-map/scan/<int:scan_id>/', views.heat_map_scan_results, name='heat_map_scan_results'),
+    path('heat-map/', views.heat_map_view, name='heat_map'),
+    path('heat-map/<int:scan_id>/', views.heat_map_view, name='heat_map_result'),
+
+    # Content Encoding endpoints
+    path('api/encoding/detect/', views.detect_encoding, name='detect_encoding'),
+    path('api/encoding/decode/', views.decode_content_view, name='decode_content'),
+    path('api/encoding/recursive-decode/', views.recursive_decode_view, name='recursive_decode'),
+    path('api/encoding/url-encode-hostname/', views.url_encode_hostname_view, name='url_encode_hostname'),
+
     # Engine API routes
     path('api/', include(router.urls)),
 ]
