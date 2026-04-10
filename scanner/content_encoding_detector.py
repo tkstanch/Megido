@@ -159,7 +159,7 @@ class ContentEncodingDetector:
         result['encoding'] = encoding
         result['decoded'] = decoded
         result['depth'] = 1
-        result['interesting'] = self._is_interesting(decoded)
+        result['interesting'] = self.is_interesting(decoded)
         return result
 
     def url_encode_hostname(self, hostname: str) -> str:
@@ -216,7 +216,7 @@ class ContentEncodingDetector:
                 'encoding': encoding,
                 'input': current,
                 'output': decoded,
-                'interesting': self._is_interesting(decoded),
+                'interesting': self.is_interesting(decoded),
             })
             current = decoded
 
@@ -275,12 +275,16 @@ class ContentEncodingDetector:
 
         return findings
 
+    def is_interesting(self, text: str) -> bool:
+        """Return True if *text* matches any interesting content pattern."""
+        if not text:
+            return False
+        return any(p.search(text) for p in _INTERESTING_PATTERNS)
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
     def _is_interesting(self, text: str) -> bool:
-        """Return True if *text* matches any interesting content pattern."""
-        if not text:
-            return False
-        return any(p.search(text) for p in _INTERESTING_PATTERNS)
+        """Deprecated alias kept for backward compatibility; use is_interesting()."""
+        return self.is_interesting(text)

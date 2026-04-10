@@ -2108,7 +2108,7 @@ def decode_content_view(request):
             'encoding': encoding_type,
             'decoded': decoded,
             'depth': 1,
-            'interesting': detector._is_interesting(decoded),
+            'interesting': detector.is_interesting(decoded),
         }, status=200)
 
     result = detector.auto_decode(content)

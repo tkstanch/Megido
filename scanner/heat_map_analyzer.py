@@ -307,7 +307,7 @@ class HeatMapAnalyzer:
             'summary': summary,
             'risk_scores': self._risk_scores(hotspots),
             'total_hotspots': len(hotspots),
-            'generated_at': datetime.datetime.utcnow().isoformat() + 'Z',
+            'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
         logger.info(
