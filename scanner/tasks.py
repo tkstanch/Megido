@@ -91,6 +91,34 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         logger.error(f"Scan {scan_id} not found")
         return error_result
 
+    # Re-validate scope before running plugins (rules may have changed since submission)
+    if scan.program_scope_id is not None:
+        try:
+            from scanner.scope_validator import ScopeValidator
+            validator = ScopeValidator(scan.target.url, scan.program_scope)
+            validation_result = validator.validate()
+            if not validation_result['is_valid']:
+                logger.warning(
+                    f"Scan {scan_id} failed scope re-validation: {validation_result['violations']}"
+                )
+                scan.status = 'failed'
+                scan.completed_at = timezone.now()
+                if scan.warnings is None:
+                    scan.warnings = []
+                scan.warnings.append(
+                    f'Scan aborted: scope re-validation failed — {validation_result["violations"]}'
+                )
+                scan.save()
+                return {
+                    'scan_id': scan_id,
+                    'status': 'failed',
+                    'error': 'Scope re-validation failed',
+                    'violations': validation_result['violations'],
+                    'task_id': task_id,
+                }
+        except Exception as scope_exc:
+            logger.error(f"Scope re-validation error for scan {scan_id}: {scope_exc}")
+
     # Update scan status to 'running'
     scan.status = 'running'
     scan.save()

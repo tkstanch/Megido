@@ -65,6 +65,13 @@ class Scan(models.Model):
     warnings = models.JSONField(default=list, blank=True)
     enable_dos_testing = models.BooleanField(default=False)
     enable_sqli_testing = models.BooleanField(default=True)
+    program_scope = models.ForeignKey(
+        'ProgramScope',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scans',
+    )
 
     def __str__(self):
         return f"Scan {self.id} for {self.target}"
@@ -346,6 +353,61 @@ class EngineFinding(models.Model):
 # Heat Map models (migration 0016)
 # ---------------------------------------------------------------------------
 
+class ProgramScope(models.Model):
+    """Stores bug bounty program or engagement scope rules."""
+
+    name = models.CharField(max_length=255, help_text='Name of the bug bounty program or engagement')
+    in_scope_domains = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Domains/URLs allowed to be scanned (supports wildcards like *.example.com)',
+    )
+    out_of_scope_domains = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Domains/URLs that must NOT be scanned',
+    )
+    allowed_vulnerability_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Vulnerability types allowed to test; empty means all allowed',
+    )
+    disallowed_vulnerability_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Vulnerability types explicitly prohibited',
+    )
+    max_requests_per_second = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Rate limit: maximum requests per second (optional)',
+    )
+    testing_window_start = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='Start of allowed testing window (optional)',
+    )
+    testing_window_end = models.TimeField(
+        null=True,
+        blank=True,
+        help_text='End of allowed testing window (optional)',
+    )
+    notes = models.TextField(
+        blank=True,
+        default='',
+        help_text='Free-form program rules or special instructions',
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class HeatMapScan(models.Model):
     """Stores the result of a heat map analysis for a target URL."""
 
@@ -364,6 +426,13 @@ class HeatMapScan(models.Model):
     summary = models.JSONField(default=dict, blank=True)
     risk_scores = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True, null=True)
+    program_scope = models.ForeignKey(
+        ProgramScope,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='heat_map_scans',
+    )
 
     class Meta:
         ordering = ['-started_at']
