@@ -15,48 +15,61 @@
         <span class="text-white font-medium">Report</span>
     </nav>
 
+    {% if running_tasks %}
+    <div class="rounded-lg p-3 bg-yellow-900/20 border border-yellow-700 text-yellow-300 text-sm">
+        ⚠ Some scans are still in progress. Report may be incomplete.
+        <span class="ml-2 text-xs text-yellow-500">({{ running_tasks.count }} task{{ running_tasks.count|pluralize }} running/pending)</span>
+    </div>
+    {% endif %}
+
     <!-- Title -->
     <div class="card">
-        <div class="card-body">
-            <h1 class="text-2xl font-bold text-white">📄 Reconnaissance Report</h1>
-            <p class="text-gray-400 mt-1">{{ project.name }}{% if project.description %} — {{ project.description }}{% endif %}</p>
-            <p class="text-xs text-gray-500 mt-2">Generated on {% now "N j, Y" %}</p>
+        <div class="card-body flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-white">📄 Reconnaissance Report</h1>
+                <p class="text-gray-400 mt-1">{{ project.name }}{% if project.description %} — {{ project.description }}{% endif %}</p>
+                <p class="text-xs text-gray-500 mt-2">Generated on {% now "N j, Y" %}</p>
+            </div>
+            <a href="{% url 'recon:export_report_json' project.pk %}" class="btn btn-primary text-sm">📥 Export JSON Report</a>
         </div>
     </div>
+
+    {% if not has_any_data %}
+    <div class="card">
+        <div class="card-body text-center py-12">
+            <div class="text-4xl mb-3">🔍</div>
+            <p class="text-gray-400 text-lg">No data collected yet.</p>
+            <p class="text-gray-600 text-sm mt-2">Run recon modules from the project page to start collecting data.</p>
+            <a href="{% url 'recon:project_detail' project.pk %}" class="btn btn-primary mt-4">← Back to Project</a>
+        </div>
+    </div>
+    {% else %}
 
     <!-- Summary stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {% with subdomains.count as sub_count %}
         <div class="card text-center p-4">
-            <div class="text-2xl font-bold text-primary-400">{{ sub_count }}</div>
+            <div class="text-2xl font-bold text-primary-400">{{ subdomains.count }}</div>
             <div class="text-sm text-gray-500">Subdomains</div>
         </div>
-        {% endwith %}
-        {% with services.count as svc_count %}
         <div class="card text-center p-4">
-            <div class="text-2xl font-bold text-yellow-400">{{ svc_count }}</div>
+            <div class="text-2xl font-bold text-yellow-400">{{ services.count }}</div>
             <div class="text-sm text-gray-500">Open Ports</div>
         </div>
-        {% endwith %}
-        {% with directories.count as dir_count %}
         <div class="card text-center p-4">
-            <div class="text-2xl font-bold text-blue-400">{{ dir_count }}</div>
+            <div class="text-2xl font-bold text-blue-400">{{ directories.count }}</div>
             <div class="text-sm text-gray-500">Directories</div>
         </div>
-        {% endwith %}
-        {% with github_findings.count as gh_count %}
         <div class="card text-center p-4">
-            <div class="text-2xl font-bold text-purple-400">{{ gh_count }}</div>
+            <div class="text-2xl font-bold text-purple-400">{{ github_findings.count }}</div>
             <div class="text-sm text-gray-500">GitHub Findings</div>
         </div>
-        {% endwith %}
     </div>
 
     <!-- WHOIS -->
-    {% if whois_results %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🌐 WHOIS Results</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🌐 WHOIS Results <span class="text-gray-500 text-sm">({{ whois_results.count }})</span></h3></div>
         <div class="card-body space-y-3">
+            {% if whois_results %}
             {% for r in whois_results %}
             <div class="border border-gray-700 rounded p-3 text-sm">
                 <div class="font-mono text-primary-400 mb-2">{{ r.domain }}</div>
@@ -68,15 +81,17 @@
                 </div>
             </div>
             {% endfor %}
+            {% else %}
+            <p class="text-gray-500 text-sm">No WHOIS results — run a WHOIS lookup from the module page.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Subdomains -->
-    {% if subdomains %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🔎 Subdomains ({{ subdomains.count }})</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🔎 Subdomains <span class="text-gray-500 text-sm">({{ subdomains.count }})</span></h3></div>
         <div class="card-body overflow-x-auto">
+            {% if subdomains %}
             <table class="w-full text-xs text-gray-300">
                 <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
                     <th class="text-left pb-2">Subdomain</th><th class="text-left pb-2">IP</th>
@@ -93,15 +108,17 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No subdomains found yet.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Services -->
-    {% if services %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🔌 Open Ports ({{ services.count }})</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🔌 Open Ports <span class="text-gray-500 text-sm">({{ services.count }})</span></h3></div>
         <div class="card-body overflow-x-auto">
+            {% if services %}
             <table class="w-full text-xs text-gray-300">
                 <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
                     <th class="text-left pb-2">Host</th><th class="text-left pb-2">Port</th>
@@ -118,15 +135,47 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No open ports found yet.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
+
+    <!-- Directories -->
+    <div class="card">
+        <div class="card-header"><h3 class="font-semibold text-white">📁 Directories <span class="text-gray-500 text-sm">({{ directories.count }})</span></h3></div>
+        <div class="card-body overflow-x-auto">
+            {% if directories %}
+            <table class="w-full text-xs text-gray-300">
+                <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                    <th class="text-left pb-2">Path</th><th class="text-left pb-2">Code</th>
+                    <th class="text-left pb-2">Size</th><th class="text-left pb-2">Interesting</th>
+                </tr></thead>
+                <tbody>
+                    {% for r in directories %}
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1 font-mono">
+                            {% if r.full_url %}<a href="{{ r.full_url }}" target="_blank" class="text-primary-400 hover:underline">{{ r.path }}</a>
+                            {% else %}{{ r.path }}{% endif %}
+                        </td>
+                        <td class="py-1 font-mono">{{ r.status_code }}</td>
+                        <td class="py-1 text-gray-400">{{ r.content_length|default:"—" }}</td>
+                        <td class="py-1">{% if r.is_interesting %}<span class="text-yellow-400">⭐</span>{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No directory findings yet.</p>
+            {% endif %}
+        </div>
+    </div>
 
     <!-- Buckets -->
-    {% if buckets %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🪣 Bucket Findings ({{ buckets.count }})</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🪣 Bucket Findings <span class="text-gray-500 text-sm">({{ buckets.count }})</span></h3></div>
         <div class="card-body overflow-x-auto">
+            {% if buckets %}
             <table class="w-full text-xs text-gray-300">
                 <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
                     <th class="text-left pb-2">Bucket</th><th class="text-left pb-2">Provider</th>
@@ -144,15 +193,17 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No bucket findings yet.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- Tech fingerprints -->
-    {% if tech_fingerprints %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🧬 Technology Stack ({{ tech_fingerprints.count }})</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🧬 Technology Stack <span class="text-gray-500 text-sm">({{ tech_fingerprints.count }})</span></h3></div>
         <div class="card-body overflow-x-auto">
+            {% if tech_fingerprints %}
             <table class="w-full text-xs text-gray-300">
                 <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
                     <th class="text-left pb-2">Technology</th><th class="text-left pb-2">Version</th>
@@ -169,15 +220,17 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No technology fingerprints yet.</p>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- GitHub findings -->
-    {% if github_findings %}
     <div class="card">
-        <div class="card-header"><h3 class="font-semibold text-white">🐙 GitHub Findings ({{ github_findings.count }})</h3></div>
+        <div class="card-header"><h3 class="font-semibold text-white">🐙 GitHub Findings <span class="text-gray-500 text-sm">({{ github_findings.count }})</span></h3></div>
         <div class="card-body overflow-x-auto">
+            {% if github_findings %}
             <table class="w-full text-xs text-gray-300">
                 <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
                     <th class="text-left pb-2">Type</th><th class="text-left pb-2">Repository</th>
@@ -196,13 +249,18 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p class="text-gray-500 text-sm">No GitHub findings yet.</p>
+            {% endif %}
         </div>
     </div>
+
     {% endif %}
 
     <div class="card">
-        <div class="card-body text-center">
+        <div class="card-body flex items-center justify-between">
             <a href="{% url 'recon:project_detail' project.pk %}" class="btn btn-primary">← Back to Project</a>
+            <a href="{% url 'recon:export_report_json' project.pk %}" class="btn btn-secondary">📥 Export JSON</a>
         </div>
     </div>
 </div>

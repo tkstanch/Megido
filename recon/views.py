@@ -8,8 +8,9 @@ import json
 import logging
 
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .models import (
@@ -89,6 +90,22 @@ def project_detail(request, project_id):
         'tasks': tasks,
         'targets': targets,
         'target_type_choices': ScopeTarget.TARGET_TYPE_CHOICES,
+        # Result counts for module badges
+        'whois_count': project.whois_results.count(),
+        'subdomain_count': project.subdomains.count(),
+        'service_count': project.services.filter(is_open=True).count(),
+        'directory_count': project.directories.count(),
+        'bucket_count': project.buckets.count(),
+        'github_count': project.github_findings.count(),
+        'fingerprint_count': project.tech_fingerprints.count(),
+        # Recent results for inline preview
+        'recent_whois': project.whois_results.all()[:3],
+        'recent_subdomains': project.subdomains.all()[:5],
+        'recent_services': project.services.filter(is_open=True)[:5],
+        'recent_directories': project.directories.all()[:5],
+        'recent_buckets': project.buckets.all()[:5],
+        'recent_github': project.github_findings.all()[:5],
+        'recent_fingerprints': project.tech_fingerprints.all()[:5],
     }
     return render(request, 'recon/project_detail.html', context)
 
@@ -134,7 +151,8 @@ def whois_results(request, project_id):
         return whois_lookup(request, project_id)
     results = project.whois_results.all()
     failed_tasks = project.tasks.filter(task_type='whois', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='whois', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/whois_results.html', context)
 
 
@@ -176,7 +194,8 @@ def subdomain_results(request, project_id):
         return subdomain_enum(request, project_id)
     results = project.subdomains.all()
     failed_tasks = project.tasks.filter(task_type='subdomain_enum', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='subdomain_enum', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/subdomains.html', context)
 
 
@@ -218,7 +237,8 @@ def service_results(request, project_id):
         return service_scan(request, project_id)
     results = project.services.all()
     failed_tasks = project.tasks.filter(task_type='port_scan', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='port_scan', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/services.html', context)
 
 
@@ -260,7 +280,8 @@ def directory_results(request, project_id):
         return directory_bruteforce(request, project_id)
     results = project.directories.all()
     failed_tasks = project.tasks.filter(task_type='directory_brute', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='directory_brute', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/directories.html', context)
 
 
@@ -302,7 +323,8 @@ def bucket_results(request, project_id):
         return bucket_discovery(request, project_id)
     results = project.buckets.all()
     failed_tasks = project.tasks.filter(task_type='bucket_discovery', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='bucket_discovery', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/buckets.html', context)
 
 
@@ -344,7 +366,8 @@ def github_results(request, project_id):
         return github_recon(request, project_id)
     results = project.github_findings.all()
     failed_tasks = project.tasks.filter(task_type='github_recon', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='github_recon', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/github_recon.html', context)
 
 
@@ -386,7 +409,8 @@ def fingerprint_results(request, project_id):
         return fingerprint_scan(request, project_id)
     results = project.tech_fingerprints.all()
     failed_tasks = project.tasks.filter(task_type='fingerprinting', status='failed').order_by('-completed_at')[:5]
-    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks}
+    active_tasks = project.tasks.filter(task_type='fingerprinting', status__in=['pending', 'running']).order_by('-created_at')
+    context = {'project': project, 'results': results, 'failed_tasks': failed_tasks, 'active_tasks': active_tasks}
     return render(request, 'recon/fingerprint.html', context)
 
 
@@ -410,6 +434,16 @@ def generate_report(request, project_id):
         'certificates': project.certificates.all(),
         'ip_discoveries': project.ip_discoveries.all(),
         'tasks': project.tasks.all(),
+        'running_tasks': project.tasks.filter(status__in=['pending', 'running']),
+        'has_any_data': any([
+            project.whois_results.exists(),
+            project.subdomains.exists(),
+            project.services.filter(is_open=True).exists(),
+            project.directories.exists(),
+            project.buckets.exists(),
+            project.github_findings.exists(),
+            project.tech_fingerprints.exists(),
+        ]),
     }
     return render(request, 'recon/report.html', context)
 
@@ -434,3 +468,126 @@ def task_status_api(request, task_id):
         'started_at': task.started_at.isoformat() if task.started_at else None,
         'completed_at': task.completed_at.isoformat() if task.completed_at else None,
     })
+
+
+@require_http_methods(['GET'])
+def project_active_tasks_api(request, project_id):
+    """JSON endpoint returning all pending/running tasks for a project."""
+    project = get_object_or_404(ReconProject, pk=project_id)
+    tasks = project.tasks.filter(status__in=['pending', 'running']).values(
+        'id', 'task_type', 'status', 'progress', 'target', 'result_summary',
+        'created_at', 'started_at',
+    )
+    return JsonResponse({'tasks': list(tasks)})
+
+
+def _serialize_for_json(obj):
+    """Convert model instances to JSON-serialisable dicts."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f'Object of type {type(obj)} is not JSON serialisable')
+
+
+@require_http_methods(['GET'])
+def export_report_json(request, project_id):
+    """Export all recon findings as a downloadable JSON report."""
+    project = get_object_or_404(ReconProject, pk=project_id)
+
+    def whois_to_dict(r):
+        return {
+            'domain': r.domain,
+            'registrar': r.registrar,
+            'registrant_name': r.registrant_name,
+            'registrant_email': r.registrant_email,
+            'registrant_org': r.registrant_org,
+            'creation_date': r.creation_date,
+            'expiration_date': r.expiration_date,
+            'name_servers': r.name_servers,
+            'queried_at': r.queried_at.isoformat() if r.queried_at else None,
+        }
+
+    def subdomain_to_dict(r):
+        return {
+            'subdomain': r.subdomain,
+            'ip_address': r.ip_address,
+            'is_alive': r.is_alive,
+            'status_code': r.status_code,
+            'source': r.source,
+            'discovered_at': r.discovered_at.isoformat() if r.discovered_at else None,
+        }
+
+    def service_to_dict(r):
+        return {
+            'host': r.host,
+            'port': r.port,
+            'protocol': r.protocol,
+            'service_name': r.service_name,
+            'service_version': r.service_version,
+            'is_open': r.is_open,
+            'source': r.source,
+        }
+
+    def directory_to_dict(r):
+        return {
+            'path': r.path,
+            'full_url': r.full_url,
+            'status_code': r.status_code,
+            'content_length': r.content_length,
+            'content_type': r.content_type,
+            'is_interesting': r.is_interesting,
+        }
+
+    def bucket_to_dict(r):
+        return {
+            'bucket_name': r.bucket_name,
+            'bucket_url': r.bucket_url,
+            'provider': r.provider,
+            'is_public': r.is_public,
+            'is_listable': r.is_listable,
+            'is_writable': r.is_writable,
+            'discovered_at': r.discovered_at.isoformat() if r.discovered_at else None,
+        }
+
+    def github_to_dict(r):
+        return {
+            'finding_type': r.finding_type,
+            'repository': r.repository,
+            'url': r.url,
+            'file_path': r.file_path,
+            'severity': r.severity,
+            'is_verified': r.is_verified,
+            'discovered_at': r.discovered_at.isoformat() if r.discovered_at else None,
+        }
+
+    def fingerprint_to_dict(r):
+        return {
+            'technology': r.technology,
+            'version': r.version,
+            'category': r.category,
+            'confidence': r.confidence,
+            'cve_count': r.cve_count,
+            'evidence': r.evidence,
+        }
+
+    report_data = {
+        'project': {
+            'id': project.pk,
+            'name': project.name,
+            'description': project.description,
+            'created_at': project.created_at.isoformat(),
+        },
+        'generated_at': timezone.now().isoformat(),
+        'whois_results': [whois_to_dict(r) for r in project.whois_results.all()],
+        'subdomains': [subdomain_to_dict(r) for r in project.subdomains.all()],
+        'services': [service_to_dict(r) for r in project.services.filter(is_open=True)],
+        'directories': [directory_to_dict(r) for r in project.directories.all()],
+        'buckets': [bucket_to_dict(r) for r in project.buckets.all()],
+        'github_findings': [github_to_dict(r) for r in project.github_findings.all()],
+        'tech_fingerprints': [fingerprint_to_dict(r) for r in project.tech_fingerprints.all()],
+    }
+
+    json_bytes = json.dumps(report_data, indent=2, default=_serialize_for_json).encode('utf-8')
+    filename = f'recon_report_{project.pk}.json'
+    response = HttpResponse(json_bytes, content_type='application/json')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

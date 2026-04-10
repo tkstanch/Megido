@@ -32,7 +32,10 @@
                 {% if project.description %}<p class="text-gray-400 mt-1">{{ project.description }}</p>{% endif %}
                 <p class="text-xs text-gray-500 mt-2">Created {{ project.created_at|date:"M d, Y" }}</p>
             </div>
-            <a href="{% url 'recon:generate_report' project.pk %}" class="btn btn-primary text-sm">📄 Generate Report</a>
+            <div class="flex gap-2">
+                <a href="{% url 'recon:generate_report' project.pk %}" class="btn btn-primary text-sm">📄 Generate Report</a>
+                <a href="{% url 'recon:export_report_json' project.pk %}" class="btn btn-secondary text-sm">📥 Export JSON</a>
+            </div>
         </div>
     </div>
 
@@ -76,13 +79,27 @@
             <div class="card">
                 <div class="card-header"><h3 class="font-semibold text-white">🔧 Recon Modules</h3></div>
                 <div class="card-body grid grid-cols-2 gap-3">
-                    <a href="{% url 'recon:whois_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🌐 WHOIS</a>
-                    <a href="{% url 'recon:subdomain_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🔎 Subdomains</a>
-                    <a href="{% url 'recon:service_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🔌 Ports / Services</a>
-                    <a href="{% url 'recon:directory_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">📁 Directories</a>
-                    <a href="{% url 'recon:bucket_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🪣 Buckets</a>
-                    <a href="{% url 'recon:github_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🐙 GitHub</a>
-                    <a href="{% url 'recon:fingerprint_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">🧬 Fingerprint</a>
+                    <a href="{% url 'recon:whois_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🌐 WHOIS{% if whois_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-primary-900 text-primary-300">{{ whois_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:subdomain_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🔎 Subdomains{% if subdomain_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-primary-900 text-primary-300">{{ subdomain_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:service_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🔌 Ports / Services{% if service_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-yellow-900 text-yellow-300">{{ service_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:directory_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        📁 Directories{% if directory_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-blue-900 text-blue-300">{{ directory_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:bucket_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🪣 Buckets{% if bucket_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-red-900 text-red-300">{{ bucket_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:github_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🐙 GitHub{% if github_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-purple-900 text-purple-300">{{ github_count }}</span>{% endif %}
+                    </a>
+                    <a href="{% url 'recon:fingerprint_results' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">
+                        🧬 Fingerprint{% if fingerprint_count %} <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-green-900 text-green-300">{{ fingerprint_count }}</span>{% endif %}
+                    </a>
                     <a href="{% url 'recon:generate_report' project.pk %}" class="card p-3 hover:border-primary-500 transition-colors text-center text-sm text-gray-300">📄 Report</a>
                 </div>
             </div>
@@ -104,15 +121,16 @@
                             </thead>
                             <tbody>
                                 {% for task in tasks %}
-                                <tr class="border-b border-gray-800 py-2" id="task-{{ task.pk }}">
+                                <tr class="border-b border-gray-800 py-2" id="task-{{ task.pk }}" data-task-id="{{ task.pk }}" data-task-status="{{ task.status }}">
                                     <td class="py-2 font-mono text-xs">{{ task.get_task_type_display }}</td>
                                     <td class="py-2 font-mono text-xs text-gray-400 truncate max-w-xs">{{ task.target }}</td>
                                     <td class="py-2">
-                                        <span class="px-2 py-0.5 rounded text-xs
+                                        <span class="task-status-badge px-2 py-0.5 rounded text-xs
                                             {% if task.status == 'completed' %}bg-green-900 text-green-300
                                             {% elif task.status == 'running' %}bg-yellow-900 text-yellow-300
                                             {% elif task.status == 'failed' %}bg-red-900 text-red-300
                                             {% else %}bg-gray-700 text-gray-400{% endif %}">
+                                            {% if task.status == 'running' %}<span class="inline-block animate-pulse mr-1">⏳</span>{% endif %}
                                             {{ task.status }}
                                         </span>
                                     </td>
@@ -129,5 +147,235 @@
             </div>
         </div>
     </div>
+
+    <!-- Inline results preview -->
+    {% if whois_count or subdomain_count or service_count or directory_count or bucket_count or github_count or fingerprint_count %}
+    <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-white">📊 Results Summary</h2>
+
+        {% if recent_whois %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🌐 WHOIS <span class="text-gray-500 text-sm">({{ whois_count }})</span></h3>
+                <a href="{% url 'recon:whois_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body space-y-2">
+                {% for r in recent_whois %}
+                <div class="text-sm border border-gray-700 rounded p-2">
+                    <span class="font-mono text-primary-400">{{ r.domain }}</span>
+                    <span class="text-gray-500 ml-2 text-xs">{{ r.registrar|default:"" }}</span>
+                    {% if r.expiration_date %}<span class="text-gray-500 ml-2 text-xs">Expires: {{ r.expiration_date }}</span>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_subdomains %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🔎 Subdomains <span class="text-gray-500 text-sm">({{ subdomain_count }})</span></h3>
+                <a href="{% url 'recon:subdomain_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Subdomain</th><th class="text-left pb-1">IP</th><th class="text-left pb-1">Status</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_subdomains %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1 font-mono">{{ r.subdomain }}</td>
+                            <td class="py-1 text-gray-400">{{ r.ip_address|default:"—" }}</td>
+                            <td class="py-1">{% if r.is_alive %}<span class="text-green-400">Alive</span>{% else %}<span class="text-gray-500">Dead</span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_services %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🔌 Open Ports <span class="text-gray-500 text-sm">({{ service_count }})</span></h3>
+                <a href="{% url 'recon:service_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Host</th><th class="text-left pb-1">Port</th><th class="text-left pb-1">Service</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_services %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1 font-mono">{{ r.host }}</td>
+                            <td class="py-1 text-yellow-400">{{ r.port }}/{{ r.protocol }}</td>
+                            <td class="py-1">{{ r.service_name|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_directories %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">📁 Directories <span class="text-gray-500 text-sm">({{ directory_count }})</span></h3>
+                <a href="{% url 'recon:directory_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Path</th><th class="text-left pb-1">Code</th><th class="text-left pb-1">Interesting</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_directories %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1 font-mono">{{ r.path }}</td>
+                            <td class="py-1 font-mono">{{ r.status_code }}</td>
+                            <td class="py-1">{% if r.is_interesting %}<span class="text-yellow-400">⭐</span>{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_buckets %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🪣 Buckets <span class="text-gray-500 text-sm">({{ bucket_count }})</span></h3>
+                <a href="{% url 'recon:bucket_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Bucket</th><th class="text-left pb-1">Provider</th><th class="text-left pb-1">Public</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_buckets %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1 font-mono">{{ r.bucket_name }}</td>
+                            <td class="py-1 text-gray-400">{{ r.provider }}</td>
+                            <td class="py-1">{% if r.is_public %}<span class="text-red-400">Public</span>{% else %}Private{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_github %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🐙 GitHub Findings <span class="text-gray-500 text-sm">({{ github_count }})</span></h3>
+                <a href="{% url 'recon:github_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Type</th><th class="text-left pb-1">Repository</th><th class="text-left pb-1">Severity</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_github %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1">{{ r.get_finding_type_display }}</td>
+                            <td class="py-1 font-mono">{{ r.repository|truncatechars:50 }}</td>
+                            <td class="py-1 {% if r.severity == 'critical' %}text-red-400{% elif r.severity == 'high' %}text-orange-400{% else %}text-gray-400{% endif %}">{{ r.severity }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if recent_fingerprints %}
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h3 class="font-semibold text-white">🧬 Tech Fingerprints <span class="text-gray-500 text-sm">({{ fingerprint_count }})</span></h3>
+                <a href="{% url 'recon:fingerprint_results' project.pk %}" class="text-primary-400 text-xs hover:underline">View all →</a>
+            </div>
+            <div class="card-body overflow-x-auto">
+                <table class="w-full text-xs text-gray-300">
+                    <thead><tr class="border-b border-gray-700 text-gray-500 uppercase">
+                        <th class="text-left pb-1">Technology</th><th class="text-left pb-1">Version</th><th class="text-left pb-1">Confidence</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in recent_fingerprints %}
+                        <tr class="border-b border-gray-800">
+                            <td class="py-1 font-semibold">{{ r.technology }}</td>
+                            <td class="py-1 font-mono text-gray-400">{{ r.version|default:"—" }}</td>
+                            <td class="py-1">{{ r.confidence }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
+
+<script>
+(function () {
+    const PROJECT_ID = {{ project.pk }};
+    const TASK_STATUS_BASE = "/recon/api/task/";
+
+    function badgeClass(status) {
+        if (status === 'completed') return 'bg-green-900 text-green-300';
+        if (status === 'running')   return 'bg-yellow-900 text-yellow-300';
+        if (status === 'failed')    return 'bg-red-900 text-red-300';
+        return 'bg-gray-700 text-gray-400';
+    }
+
+    function updateBadge(row, status) {
+        const badge = row.querySelector('.task-status-badge');
+        if (!badge) return;
+        badge.className = 'task-status-badge px-2 py-0.5 rounded text-xs ' + badgeClass(status);
+        badge.innerHTML = (status === 'running' ? '<span class="inline-block animate-pulse mr-1">⏳</span>' : '') + status;
+        row.dataset.taskStatus = status;
+    }
+
+    let reloadScheduled = false;
+
+    function pollIndividualTasks() {
+        const rows = document.querySelectorAll('[data-task-id][data-task-status="pending"], [data-task-id][data-task-status="running"]');
+        if (rows.length === 0) return;
+
+        rows.forEach(row => {
+            const taskId = row.dataset.taskId;
+            fetch(TASK_STATUS_BASE + taskId + '/status/')
+                .then(r => r.json())
+                .then(data => {
+                    const prev = row.dataset.taskStatus;
+                    updateBadge(row, data.status);
+                    if ((data.status === 'completed' || data.status === 'failed') && prev !== data.status) {
+                        if (!reloadScheduled) {
+                            reloadScheduled = true;
+                            setTimeout(() => location.reload(), 1500);
+                        }
+                    }
+                })
+                .catch(() => {});
+        });
+    }
+
+    function hasActiveTasks() {
+        return document.querySelectorAll('[data-task-id][data-task-status="pending"], [data-task-id][data-task-status="running"]').length > 0;
+    }
+
+    if (hasActiveTasks()) {
+        setInterval(pollIndividualTasks, 3000);
+        pollIndividualTasks();
+    }
+})();
+</script>
 {% endblock %}
