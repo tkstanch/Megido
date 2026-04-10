@@ -50,6 +50,7 @@ def perform_whois_lookup(domain: str) -> dict:
         'name_servers': '[]',
         'status': '',
         'raw_data': '',
+        'warning': '',
     }
 
     whois_ok = False
@@ -100,6 +101,24 @@ def perform_whois_lookup(domain: str) -> dict:
     return _rdap_lookup(domain, result)
 
 
+def _parse_registrant_vcard(vcard: list, result: dict) -> None:
+    """Extract registrant fields from a vCard array into *result*.
+
+    *vcard* is the ``vcardArray`` value from an RDAP entity, which has the
+    structure ``["vcard", [[field_name, params, type, value], ...]]``.
+    ``vcard[1]`` contains the list of individual field entries.
+    """
+    for entry in vcard[1] if len(vcard) > 1 else []:
+        if entry[0] == 'fn' and not result['registrant_name']:
+            result['registrant_name'] = entry[3]
+        elif entry[0] == 'email' and not result['registrant_email']:
+            result['registrant_email'] = entry[3]
+        elif entry[0] == 'org' and not result['registrant_org']:
+            result['registrant_org'] = entry[3]
+        elif entry[0] == 'tel' and not result['registrant_phone']:
+            result['registrant_phone'] = entry[3]
+
+
 def _rdap_lookup(domain: str, result: dict) -> dict:
     """
     Fetch domain registration data from the RDAP API and populate *result*.
@@ -119,25 +138,38 @@ def _rdap_lookup(domain: str, result: dict) -> dict:
         data = response.json()
         result['raw_data'] = json.dumps(data)
 
-        # Registrar
+        # Registrar and registrant – also search nested sub-entities because
+        # many RDAP servers nest registrant/abuse contacts inside the registrar
+        # entity rather than at the top level.
         for entity in data.get('entities', []):
             roles = entity.get('roles', [])
             vcard = entity.get('vcardArray', [])
-            if 'registrar' in roles and vcard:
-                for entry in vcard[1] if len(vcard) > 1 else []:
-                    if entry[0] == 'fn':
-                        result['registrar'] = entry[3]
-                        break
+
+            if 'registrar' in roles:
+                if vcard:
+                    for entry in vcard[1] if len(vcard) > 1 else []:
+                        if entry[0] == 'fn':
+                            result['registrar'] = entry[3]
+                            break
+                # Fallback: some RDAP responses carry registrar identity in
+                # publicIds (e.g. IANA Registrar ID) when a vCard fn is absent.
+                if not result['registrar']:
+                    for pub_id in entity.get('publicIds', []):
+                        identifier = pub_id.get('identifier', '')
+                        if identifier:
+                            result['registrar'] = identifier
+                            break
+
+                # Search nested sub-entities (registrant info is often nested
+                # inside the registrar entity in real-world RDAP responses).
+                for sub_entity in entity.get('entities', []):
+                    sub_roles = sub_entity.get('roles', [])
+                    sub_vcard = sub_entity.get('vcardArray', [])
+                    if 'registrant' in sub_roles and sub_vcard:
+                        _parse_registrant_vcard(sub_vcard, result)
+
             if 'registrant' in roles and vcard:
-                for entry in vcard[1] if len(vcard) > 1 else []:
-                    if entry[0] == 'fn' and not result['registrant_name']:
-                        result['registrant_name'] = entry[3]
-                    elif entry[0] == 'email' and not result['registrant_email']:
-                        result['registrant_email'] = entry[3]
-                    elif entry[0] == 'org' and not result['registrant_org']:
-                        result['registrant_org'] = entry[3]
-                    elif entry[0] == 'tel' and not result['registrant_phone']:
-                        result['registrant_phone'] = entry[3]
+                _parse_registrant_vcard(vcard, result)
 
         # Name servers
         ns_list = []
@@ -162,9 +194,31 @@ def _rdap_lookup(domain: str, result: dict) -> dict:
         if statuses:
             result['status'] = ', '.join(statuses)
 
-        logger.info("RDAP lookup successful for %s", domain)
+        # Warn when no meaningful registration data was found
+        if not any([
+            result['registrar'],
+            result['registrant_name'],
+            result['registrant_org'],
+            result['creation_date'],
+            result['expiration_date'],
+        ]):
+            logger.warning(
+                "RDAP returned no registration data for %s; "
+                "domain may have privacy protection enabled",
+                domain,
+            )
+            result['warning'] = (
+                'WHOIS data could not be retrieved. '
+                'The domain may have privacy protection enabled.'
+            )
+        else:
+            logger.info("RDAP lookup successful for %s", domain)
     except Exception as exc:
         logger.error("RDAP lookup failed for %s: %s", domain, exc)
+        result['warning'] = (
+            'WHOIS data could not be retrieved. '
+            'Please try again later or check the domain name.'
+        )
 
     return result
 

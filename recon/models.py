@@ -82,6 +82,7 @@ class WhoisResult(models.Model):
     # JSON list of name servers
     name_servers = models.TextField(blank=True)
     status = models.TextField(blank=True)
+    warning = models.TextField(blank=True)
     queried_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
