@@ -63,6 +63,7 @@ class Scan(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     warnings = models.JSONField(default=list, blank=True)
+    error_message = models.TextField(null=True, blank=True)
     enable_dos_testing = models.BooleanField(default=False)
     enable_sqli_testing = models.BooleanField(default=True)
     program_scope = models.ForeignKey(

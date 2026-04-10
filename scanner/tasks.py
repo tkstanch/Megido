@@ -101,8 +101,10 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                 logger.warning(
                     f"Scan {scan_id} failed scope re-validation: {validation_result['violations']}"
                 )
+                scope_error = f"Scope re-validation failed: {validation_result['violations']}"
                 scan.status = 'failed'
                 scan.completed_at = timezone.now()
+                scan.error_message = scope_error
                 if scan.warnings is None:
                     scan.warnings = []
                 scan.warnings.append(
@@ -112,7 +114,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                 return {
                     'scan_id': scan_id,
                     'status': 'failed',
-                    'error': 'Scope re-validation failed',
+                    'error': scope_error,
                     'violations': validation_result['violations'],
                     'task_id': task_id,
                 }
@@ -291,6 +293,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         else:
             logger.warning(f"Scan {scan_id} has no results. Marking as failed.")
             scan.status = 'failed'
+            scan.error_message = 'Scan exceeded time limit'
         scan.completed_at = timezone.now()
         scan.save()
 
@@ -305,6 +308,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error during scan {scan_id}: {str(e)}", exc_info=True)
         scan.status = 'failed'
+        scan.error_message = str(e)
         scan.completed_at = timezone.now()
         scan.save()
 
@@ -403,6 +407,7 @@ def async_stealth_scan_task(
             scan.status = 'completed'
         else:
             scan.status = 'failed'
+            scan.error_message = 'Scan exceeded time limit'
         scan.completed_at = timezone.now()
         scan.save()
 
@@ -418,6 +423,7 @@ def async_stealth_scan_task(
     except Exception as exc:
         logger.error("Error during stealth scan %d: %s", scan_id, exc, exc_info=True)
         scan.status = 'failed'
+        scan.error_message = str(exc)
         scan.completed_at = timezone.now()
         scan.save()
 

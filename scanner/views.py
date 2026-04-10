@@ -580,6 +580,7 @@ def scan_results(request, scan_id):
             'started_at': scan.started_at.isoformat(),
             'completed_at': scan.completed_at.isoformat() if scan.completed_at else None,
             'warnings': scan.warnings if hasattr(scan, 'warnings') else [],
+            'error_message': scan.error_message,
             'vulnerabilities': [{
                 'id': vuln.id,
                 'type': vuln.get_vulnerability_type_display(),

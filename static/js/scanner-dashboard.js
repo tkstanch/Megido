@@ -122,7 +122,8 @@
                 } else {
                     console.error(`Scanner Dashboard: Scan ${currentScanId} failed with no results`);
                     if (onError) {
-                        onError('Scan failed. Please try again.');
+                        const reason = data.error_message || 'Unknown error';
+                        onError(`Scan failed: ${reason}. Please try again.`);
                     }
                 }
             } else if (data.status === 'running' || data.status === 'pending') {
