@@ -353,26 +353,67 @@ def run_github_recon(self, project_id: int, org_name: str):
         task_obj.save(update_fields=['celery_task_id'])
         _mark_running(task_obj)
 
+    # Keywords that make a repository interesting enough to record
+    _INTERESTING_KEYWORDS = (
+        'internal', 'private', 'staging', 'dev', 'secret', 'config',
+        'credential', 'backup', 'infra', 'deploy', 'prod', 'password',
+        'key', 'token', 'auth', 'admin',
+    )
+
+    def _repo_is_interesting(repo: dict) -> bool:
+        """Return True when the repo name/description contains a sensitive keyword."""
+        haystack = (
+            repo.get('name', '') + ' ' + (repo.get('description', '') or '')
+        ).lower()
+        return any(kw in haystack for kw in _INTERESTING_KEYWORDS)
+
     try:
         project = ReconProject.objects.get(pk=project_id)
-        from .services.github_service import search_github_repos
+        from .services.github_service import search_github_repos, search_sensitive_data
 
+        # --- 1. Repositories (filtered to interesting ones only) ---
         repos = search_github_repos(org_name)
-        saved = 0
+        repo_saved = 0
         for repo in repos:
-            GitHubFinding.objects.create(
+            if not _repo_is_interesting(repo):
+                continue
+            GitHubFinding.objects.get_or_create(
                 project=project,
                 finding_type='repo',
-                repository=repo.get('full_name', ''),
-                content=repo.get('description', ''),
                 url=repo.get('html_url', ''),
-                severity='info',
+                defaults={
+                    'repository': repo.get('full_name', ''),
+                    'content': repo.get('description', ''),
+                    'severity': 'info',
+                },
             )
-            saved += 1
+            repo_saved += 1
 
+        # --- 2. Sensitive data / secrets ---
+        sensitive = search_sensitive_data(org_name)
+        secret_saved = 0
+        for finding in sensitive:
+            _, created = GitHubFinding.objects.get_or_create(
+                project=project,
+                url=finding.get('url', ''),
+                defaults={
+                    'finding_type': finding.get('finding_type', 'leak'),
+                    'repository': finding.get('repository', ''),
+                    'file_path': finding.get('file_path', ''),
+                    'content': finding.get('pattern', ''),
+                    'severity': finding.get('severity', 'medium'),
+                },
+            )
+            if created:
+                secret_saved += 1
+
+        summary = (
+            f"Found {repo_saved} interesting repos and "
+            f"{secret_saved} sensitive findings for '{org_name}'"
+        )
         if task_obj:
-            _mark_completed(task_obj, f"Found {saved} repositories for '{org_name}'")
-        logger.info("GitHub recon complete for '%s': %d repos", org_name, saved)
+            _mark_completed(task_obj, summary)
+        logger.info("GitHub recon complete for '%s': %s", org_name, summary)
     except Exception as exc:
         logger.error("GitHub recon failed for '%s': %s", org_name, exc)
         if task_obj:
