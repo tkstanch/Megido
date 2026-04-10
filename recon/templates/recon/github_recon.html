@@ -36,6 +36,41 @@
         </div>
     </div>
 
+    {% if results %}
+    <!-- Severity summary -->
+    <div class="card">
+        <div class="card-body">
+            <div class="flex flex-wrap gap-3 items-center">
+                <span class="text-sm text-gray-400 font-medium">Severity Summary:</span>
+                {% regroup results by severity as by_severity %}
+                {% for group in by_severity %}
+                    {% if group.grouper == 'critical' %}
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-red-900 text-red-200 border border-red-700">
+                        🔴 {{ group.list|length }} Critical
+                    </span>
+                    {% elif group.grouper == 'high' %}
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-orange-900 text-orange-200 border border-orange-700">
+                        🟠 {{ group.list|length }} High
+                    </span>
+                    {% elif group.grouper == 'medium' %}
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-900 text-yellow-200 border border-yellow-700">
+                        🟡 {{ group.list|length }} Medium
+                    </span>
+                    {% elif group.grouper == 'low' %}
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-blue-900 text-blue-200 border border-blue-700">
+                        🔵 {{ group.list|length }} Low
+                    </span>
+                    {% else %}
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-700 text-gray-300 border border-gray-600">
+                        ⚪ {{ group.list|length }} Info
+                    </span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h3 class="font-semibold text-white">Findings <span class="text-gray-500 text-sm">({{ results.count }})</span></h3>
@@ -47,34 +82,59 @@
                     <tr class="border-b border-gray-700 text-xs text-gray-500 uppercase">
                         <th class="text-left pb-2">Type</th>
                         <th class="text-left pb-2">Repository</th>
+                        <th class="text-left pb-2">File Path</th>
                         <th class="text-left pb-2">Severity</th>
                         <th class="text-left pb-2">Verified</th>
                         <th class="text-left pb-2">Found</th>
+                        <th class="text-left pb-2">Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in results %}
-                    <tr class="border-b border-gray-800">
+                    <tr class="border-b border-gray-800
+                        {% if r.severity == 'critical' %}bg-red-950/30
+                        {% elif r.severity == 'high' %}bg-orange-950/20
+                        {% elif r.severity == 'medium' %}bg-yellow-950/10
+                        {% endif %}">
                         <td class="py-2 text-xs">{{ r.get_finding_type_display }}</td>
                         <td class="py-2 font-mono text-xs">
-                            {% if r.url %}<a href="{{ r.url }}" target="_blank" class="text-primary-400 hover:underline">{{ r.repository|truncatechars:60 }}</a>
-                            {% else %}{{ r.repository|truncatechars:60 }}{% endif %}
+                            {% if r.url %}<a href="{{ r.url }}" target="_blank" class="text-primary-400 hover:underline">{{ r.repository|truncatechars:50 }}</a>
+                            {% else %}{{ r.repository|truncatechars:50 }}{% endif %}
+                        </td>
+                        <td class="py-2 font-mono text-xs text-gray-400">
+                            {% if r.file_path %}{{ r.file_path|truncatechars:50 }}{% else %}—{% endif %}
                         </td>
                         <td class="py-2">
-                            <span class="px-2 py-0.5 rounded text-xs
-                                {% if r.severity == 'critical' %}bg-red-900 text-red-300
-                                {% elif r.severity == 'high' %}bg-orange-900 text-orange-300
-                                {% elif r.severity == 'medium' %}bg-yellow-900 text-yellow-300
-                                {% elif r.severity == 'low' %}bg-blue-900 text-blue-300
-                                {% else %}bg-gray-700 text-gray-400{% endif %}">
-                                {{ r.severity }}
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold
+                                {% if r.severity == 'critical' %}bg-red-700 text-red-100
+                                {% elif r.severity == 'high' %}bg-orange-700 text-orange-100
+                                {% elif r.severity == 'medium' %}bg-yellow-700 text-yellow-100
+                                {% elif r.severity == 'low' %}bg-blue-700 text-blue-100
+                                {% else %}bg-gray-700 text-gray-300{% endif %}">
+                                {{ r.severity|upper }}
                             </span>
                         </td>
                         <td class="py-2 text-xs">
                             {% if r.is_verified %}<span class="text-green-400">✓</span>{% else %}—{% endif %}
                         </td>
                         <td class="py-2 text-xs text-gray-500">{{ r.discovered_at|date:"M d H:i" }}</td>
+                        <td class="py-2 text-xs">
+                            {% if r.content %}
+                            <button
+                                type="button"
+                                class="text-primary-400 hover:underline"
+                                onclick="toggleSnippet('snippet-{{ r.pk }}')"
+                            >▶ Show</button>
+                            {% else %}—{% endif %}
+                        </td>
                     </tr>
+                    {% if r.content %}
+                    <tr id="snippet-{{ r.pk }}" class="hidden border-b border-gray-700 bg-gray-900">
+                        <td colspan="7" class="py-2 px-4">
+                            <pre class="text-xs text-green-300 whitespace-pre-wrap break-all bg-gray-950 rounded p-3 max-h-48 overflow-y-auto">{{ r.content|truncatechars:2000|escape }}</pre>
+                        </td>
+                    </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
@@ -105,4 +165,19 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function toggleSnippet(id) {
+    const row = document.getElementById(id);
+    if (!row) return;
+    const btn = row.previousElementSibling.querySelector('button');
+    if (row.classList.contains('hidden')) {
+        row.classList.remove('hidden');
+        if (btn) btn.textContent = '▼ Hide';
+    } else {
+        row.classList.add('hidden');
+        if (btn) btn.textContent = '▶ Show';
+    }
+}
+</script>
 {% endblock %}
