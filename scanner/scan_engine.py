@@ -5,9 +5,8 @@ from threading import Lock
 from typing import List, Optional, Dict, Any
 import threading
 import django
-from django.db import models
-
-from scanner.plugins.plugin_registry import PluginRegistry
+from scanner.scan_plugins.scan_plugin_registry import get_scan_registry
+from scanner.models import Vulnerability
 
 try:
     from scanner.stealth_engine import StealthEngine
@@ -51,7 +50,7 @@ class ScanEngine:
     }
 
     def __init__(self):
-        self.registry = PluginRegistry()
+        self.registry = get_scan_registry()
         self.enable_stealth = False
         self.stealth_timing = 'normal'
         self._stealth_engine = None
@@ -84,13 +83,13 @@ class ScanEngine:
         pass
 
     def _save_findings_to_db(self, scan: 'Scan', findings: List[Dict[str, Any]]) -> List['Vulnerability']:
-        if not django.apps.apps.is_installed('your_app'):
+        if not django.apps.apps.is_installed('scanner'):
             logger.warning("Django models not available, skipping database save")
             return []
         vulnerabilities = []
         for finding in findings:
             http_traffic = finding.get('http_traffic', {})
-            vuln = models.Vulnerability.objects.create(
+            vuln = Vulnerability.objects.create(
                 scan=scan,
                 vulnerability_type=finding.get('vulnerability_type'),
                 severity=finding.get('severity'),
@@ -191,7 +190,7 @@ class ScanEngine:
         return self.scan_concurrent(url, config=config, max_workers=max_workers)
 
     def save_findings_to_db(self, scan: 'Scan', findings: List[Dict[str, Any]]) -> List['Vulnerability']:
-        if not django.apps.apps.is_installed('your_app'):
+        if not django.apps.apps.is_installed('scanner'):
             logger.warning("Django models not available, skipping database save")
             return []
         return self._save_findings_to_db(scan, findings)
