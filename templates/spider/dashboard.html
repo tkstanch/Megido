@@ -313,6 +313,11 @@
                         <input type="checkbox" id="use-random-ua" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
                         <span class="font-medium">Use Random User Agents</span>
                     </label>
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer col-span-1 md:col-span-2">
+                        <input type="checkbox" id="enable-adaptive-stealth" checked class="w-5 h-5 text-primary-600 rounded focus:ring-2 focus:ring-primary-500">
+                        <span class="font-medium">Enable Adaptive Stealth</span>
+                        <span class="text-xs text-gray-400 ml-2" id="adaptive-stealth-note">Stealth settings will auto-adjust based on target defenses</span>
+                    </label>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="form-group">
@@ -330,6 +335,10 @@
                     <div class="form-group">
                         <label class="form-label text-sm">Max Retries:</label>
                         <input type="number" id="max-retries" value="3" step="1" min="0" max="10" class="form-input glass-refract">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Max Parameter Tests:</label>
+                        <input type="number" id="max-parameter-tests" value="100" step="10" min="10" max="1000" class="form-input glass-refract">
                     </div>
                 </div>
             </div>
@@ -606,10 +615,12 @@ async function startSpider() {
     const followExternal = document.getElementById('follow-external').checked;
     const enableStealth = document.getElementById('enable-stealth').checked;
     const useRandomUA = document.getElementById('use-random-ua').checked;
+    const enableAdaptiveStealth = document.getElementById('enable-adaptive-stealth').checked;
     const delayMin = parseFloat(document.getElementById('delay-min').value);
     const delayMax = parseFloat(document.getElementById('delay-max').value);
     const requestTimeout = parseInt(document.getElementById('request-timeout').value);
     const maxRetries = parseInt(document.getElementById('max-retries').value);
+    const maxParameterTests = parseInt(document.getElementById('max-parameter-tests').value);
     
     if (!url) {
         alert('Please enter a target URL');
@@ -643,10 +654,12 @@ async function startSpider() {
                 follow_external_links: followExternal,
                 enable_stealth_mode: enableStealth,
                 use_random_user_agents: useRandomUA,
+                enable_adaptive_stealth: enableAdaptiveStealth,
                 stealth_delay_min: delayMin,
                 stealth_delay_max: delayMax,
                 request_timeout: requestTimeout,
-                max_retries: maxRetries
+                max_retries: maxRetries,
+                max_parameter_tests: maxParameterTests
             })
         }, {
             statusContainerId: 'spider-status',

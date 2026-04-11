@@ -363,7 +363,8 @@ class StealthModeTest(TestCase):
             url='https://example.com',
             enable_stealth_mode=True,
             stealth_delay_min=1.0,
-            stealth_delay_max=3.0
+            stealth_delay_max=3.0,
+            enable_adaptive_stealth=False,  # disable adaptive so delays are not modified
         )
         session = create_stealth_session(target, verify_ssl=False)
         self.assertTrue(session.enable_stealth)
@@ -924,3 +925,376 @@ class ErrorHandlingTest(TestCase):
             
             # Session should have recorded at least one URL
             self.assertGreater(session.urls_crawled, 0)
+
+
+class AdaptiveStealthTest(TestCase):
+    """Test AdaptiveStealthSession behavior"""
+
+    def _make_response(self, status_code, headers=None, body=''):
+        from unittest.mock import Mock
+        resp = Mock()
+        resp.status_code = status_code
+        resp.headers = headers or {}
+        resp.text = body
+        resp.content = body.encode()
+        return resp
+
+    def test_fingerprint_detects_waf_via_cf_ray_header(self):
+        """fingerprint_target sets has_waf=True when cf-ray header is present"""
+        from spider.stealth import fingerprint_target, StealthSession
+        from unittest.mock import patch, Mock
+
+        fake_resp = self._make_response(200, headers={'Server': 'cloudflare', 'CF-Ray': 'abc123'})
+
+        session = StealthSession(enable_stealth=False)
+        with patch.object(session.session, 'get', return_value=fake_resp):
+            fp = fingerprint_target('https://example.com', session)
+
+        self.assertTrue(fp.has_waf)
+        session.close()
+
+    def test_fingerprint_detects_rate_limiting_via_429(self):
+        """fingerprint_target sets has_rate_limiting=True on 429 response"""
+        from spider.stealth import fingerprint_target, StealthSession
+        from unittest.mock import patch
+
+        fake_resp = self._make_response(429, headers={'Retry-After': '5'})
+
+        session = StealthSession(enable_stealth=False)
+        with patch.object(session.session, 'get', return_value=fake_resp):
+            fp = fingerprint_target('https://example.com', session)
+
+        self.assertTrue(fp.has_rate_limiting)
+        self.assertEqual(fp.rate_limit_window, 5.0)
+        session.close()
+
+    def test_fingerprint_no_waf_no_rate_limit(self):
+        """fingerprint_target returns has_waf=False when no WAF signals present"""
+        from spider.stealth import fingerprint_target, StealthSession
+        from unittest.mock import patch
+
+        fake_resp = self._make_response(200, headers={'Server': 'nginx/1.20'})
+
+        session = StealthSession(enable_stealth=False)
+        with patch.object(session.session, 'get', return_value=fake_resp):
+            fp = fingerprint_target('https://example.com', session)
+
+        self.assertFalse(fp.has_waf)
+        self.assertFalse(fp.has_rate_limiting)
+        session.close()
+
+    def test_fingerprint_detects_captcha(self):
+        """fingerprint_target sets uses_captcha=True when body contains 'captcha'"""
+        from spider.stealth import fingerprint_target, StealthSession
+        from unittest.mock import patch
+
+        fake_resp = self._make_response(200, body='Please complete the captcha to continue')
+
+        session = StealthSession(enable_stealth=False)
+        with patch.object(session.session, 'get', return_value=fake_resp):
+            fp = fingerprint_target('https://example.com', session)
+
+        self.assertTrue(fp.uses_captcha)
+        session.close()
+
+    def test_adaptive_session_increases_delays_when_waf_detected(self):
+        """AdaptiveStealthSession doubles delays when WAF is detected"""
+        from spider.stealth import AdaptiveStealthSession
+        from unittest.mock import patch, Mock
+        from spider.stealth import TargetFingerprint
+
+        waf_fp = TargetFingerprint(has_waf=True)
+
+        with patch('spider.stealth.fingerprint_target', return_value=waf_fp):
+            sess = AdaptiveStealthSession(
+                target_url='https://example.com',
+                enable_stealth=True,
+                delay_min=1.0,
+                delay_max=3.0,
+            )
+
+        self.assertAlmostEqual(sess.delay_min, 2.0)
+        self.assertAlmostEqual(sess.delay_max, 6.0)
+        sess.close()
+
+    def test_adaptive_session_reduces_delays_when_no_waf(self):
+        """AdaptiveStealthSession halves delays when no WAF is detected"""
+        from spider.stealth import AdaptiveStealthSession
+        from spider.stealth import TargetFingerprint
+        from unittest.mock import patch
+
+        clean_fp = TargetFingerprint(has_waf=False, has_rate_limiting=False)
+
+        with patch('spider.stealth.fingerprint_target', return_value=clean_fp):
+            sess = AdaptiveStealthSession(
+                target_url='https://example.com',
+                enable_stealth=True,
+                delay_min=1.0,
+                delay_max=3.0,
+            )
+
+        self.assertAlmostEqual(sess.delay_min, 0.5)
+        self.assertAlmostEqual(sess.delay_max, 1.5)
+        sess.close()
+
+    def test_track_response_doubles_delay_after_three_429s(self):
+        """AdaptiveStealthSession doubles delays after 3 consecutive 429 responses"""
+        from spider.stealth import AdaptiveStealthSession
+        from spider.stealth import TargetFingerprint
+        from unittest.mock import patch
+        import time
+
+        clean_fp = TargetFingerprint()
+
+        with patch('spider.stealth.fingerprint_target', return_value=clean_fp):
+            sess = AdaptiveStealthSession(
+                target_url='https://example.com',
+                enable_stealth=False,
+                delay_min=1.0,
+                delay_max=3.0,
+            )
+
+        delay_before = sess.delay_max
+        # track_response does not sleep for 429s without Retry-After
+        for _ in range(3):
+            sess.track_response(self._make_response(429))
+
+        self.assertGreater(sess.delay_max, delay_before)
+        sess.close()
+
+    def test_track_response_increases_delay_on_403_after_200(self):
+        """AdaptiveStealthSession increases delays on 403 after prior 200"""
+        from spider.stealth import AdaptiveStealthSession
+        from spider.stealth import TargetFingerprint
+        from unittest.mock import patch
+
+        clean_fp = TargetFingerprint()
+
+        with patch('spider.stealth.fingerprint_target', return_value=clean_fp):
+            sess = AdaptiveStealthSession(
+                target_url='https://example.com',
+                enable_stealth=False,
+                delay_min=1.0,
+                delay_max=3.0,
+            )
+
+        delay_before = sess.delay_max
+        sess.track_response(self._make_response(200))
+        sess.track_response(self._make_response(403))
+
+        self.assertGreater(sess.delay_max, delay_before)
+        sess.close()
+
+    def test_create_stealth_session_returns_adaptive_when_enabled(self):
+        """create_stealth_session returns AdaptiveStealthSession when adaptive enabled"""
+        from spider.stealth import create_stealth_session, AdaptiveStealthSession
+        from spider.stealth import TargetFingerprint
+        from unittest.mock import patch
+
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Adaptive Test',
+            enable_stealth_mode=True,
+            enable_adaptive_stealth=True,
+        )
+
+        clean_fp = TargetFingerprint()
+        with patch('spider.stealth.fingerprint_target', return_value=clean_fp):
+            sess = create_stealth_session(target, verify_ssl=False, adaptive=True)
+
+        self.assertIsInstance(sess, AdaptiveStealthSession)
+        sess.close()
+
+    def test_create_stealth_session_returns_base_when_adaptive_disabled(self):
+        """create_stealth_session returns StealthSession when adaptive disabled on target"""
+        from spider.stealth import create_stealth_session, StealthSession, AdaptiveStealthSession
+
+        target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Non-adaptive Test',
+            enable_stealth_mode=True,
+            enable_adaptive_stealth=False,
+        )
+
+        sess = create_stealth_session(target, verify_ssl=False, adaptive=True)
+        self.assertNotIsInstance(sess, AdaptiveStealthSession)
+        self.assertIsInstance(sess, StealthSession)
+        sess.close()
+
+
+class ParameterDiscoveryLimitTest(TestCase):
+    """Tests for max_parameter_tests cap and two-phase parameter discovery"""
+
+    def setUp(self):
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Param Limit Test',
+            enable_parameter_discovery=True,
+            max_parameter_tests=10,
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='running',
+        )
+
+    def test_max_parameter_tests_default(self):
+        """Default max_parameter_tests should be 100"""
+        target = SpiderTarget.objects.create(
+            url='https://default-limit.com',
+            name='Default Limit',
+        )
+        self.assertEqual(target.max_parameter_tests, 100)
+
+    def test_max_parameter_tests_custom(self):
+        """Custom max_parameter_tests value is stored correctly"""
+        self.assertEqual(self.target.max_parameter_tests, 10)
+
+    def test_discover_hidden_parameters_respects_limit(self):
+        """discover_hidden_parameters stops after max_parameter_tests attempts"""
+        from spider.views import discover_hidden_parameters
+        from unittest.mock import patch, Mock
+
+        # Build a fake baseline response
+        fake_baseline = {
+            'status_code': 200,
+            'content_length': 500,
+            'content': 'hello world',
+            'headers': {},
+        }
+
+        call_count = [0]
+
+        def fake_get_baseline(url, session, verify_ssl):
+            return fake_baseline
+
+        def fake_test_get(session, url, pname, pval, baseline, stealth_session, verify_ssl):
+            call_count[0] += 1
+
+        def fake_test_post(*args, **kwargs):
+            call_count[0] += 1
+
+        with patch('spider.views.get_baseline_response', side_effect=fake_get_baseline), \
+             patch('spider.views.test_parameter_get', side_effect=fake_test_get), \
+             patch('spider.views.test_parameter_post', side_effect=fake_test_post), \
+             patch('spider.views.brute_force_discovered_parameters'):
+
+            mock_stealth = Mock()
+            discover_hidden_parameters(self.session, self.target, mock_stealth, False)
+
+        # With max_parameter_tests=10 we should not exceed 10 probe calls
+        self.assertLessEqual(call_count[0], self.target.max_parameter_tests)
+
+    def test_api_creates_target_with_max_parameter_tests(self):
+        """spider_targets API accepts and stores max_parameter_tests"""
+        from django.test import Client
+        from django.urls import reverse
+        import json
+
+        client = Client()
+        response = client.post(
+            reverse('spider:spider_targets'),
+            data=json.dumps({
+                'url': 'https://param-limit-api.com',
+                'name': 'API Limit Test',
+                'max_parameter_tests': 50,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 201)
+        target = SpiderTarget.objects.get(url='https://param-limit-api.com')
+        self.assertEqual(target.max_parameter_tests, 50)
+
+    def test_api_returns_max_parameter_tests_field(self):
+        """spider_targets list API includes max_parameter_tests field"""
+        from django.test import Client
+        from django.urls import reverse
+        import json
+
+        client = Client()
+        response = client.get(reverse('spider:spider_targets'))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertGreater(len(data), 0)
+        self.assertIn('max_parameter_tests', data[0])
+
+
+class EarlyTerminationTest(TestCase):
+    """Tests for early termination in DirBuster and Wikto phases"""
+
+    def setUp(self):
+        self.target = SpiderTarget.objects.create(
+            url='https://example.com',
+            name='Early Termination Test',
+            max_retries=0,
+            request_timeout=5,
+        )
+        self.session = SpiderSession.objects.create(
+            target=self.target,
+            status='running',
+        )
+
+    def _make_response(self, status_code):
+        from unittest.mock import Mock
+        resp = Mock()
+        resp.status_code = status_code
+        resp.headers = {'Content-Type': 'text/html'}
+        resp.content = b''
+        resp.text = ''
+        resp.elapsed.total_seconds.return_value = 0.1
+        return resp
+
+    def test_dirbuster_terminates_after_10_consecutive_failures(self):
+        """run_dirbuster_discovery stops early after 10 consecutive None responses"""
+        from spider.views import run_dirbuster_discovery
+        from unittest.mock import patch, Mock
+
+        call_count = [0]
+
+        def always_none(*args, **kwargs):
+            call_count[0] += 1
+            return None
+
+        mock_stealth = Mock()
+        with patch('spider.views.make_request_with_retry', side_effect=always_none):
+            run_dirbuster_discovery(self.session, self.target, mock_stealth)
+
+        # Should have stopped at or near the EARLY_TERMINATION_LIMIT (10)
+        self.assertLessEqual(call_count[0], 15)
+
+    def test_wikto_terminates_after_10_consecutive_failures(self):
+        """run_wikto_scan stops early after 10 consecutive None responses"""
+        from spider.views import run_wikto_scan
+        from unittest.mock import patch, Mock
+
+        call_count = [0]
+
+        def always_none(*args, **kwargs):
+            call_count[0] += 1
+            return None
+
+        mock_stealth = Mock()
+        with patch('spider.views.make_request_with_retry', side_effect=always_none):
+            run_wikto_scan(self.session, self.target, mock_stealth)
+
+        self.assertLessEqual(call_count[0], 15)
+
+    def test_dirbuster_continues_after_successful_response(self):
+        """run_dirbuster_discovery resets failure counter on success"""
+        from spider.views import run_dirbuster_discovery
+        from unittest.mock import patch, Mock
+
+        call_count = [0]
+        SUCCESS_EVERY = 5  # inject a success every 5 calls
+
+        def mixed_responses(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] % SUCCESS_EVERY == 0:
+                return self._make_response(200)
+            return self._make_response(404)
+
+        mock_stealth = Mock()
+        with patch('spider.views.make_request_with_retry', side_effect=mixed_responses):
+            run_dirbuster_discovery(self.session, self.target, mock_stealth)
+
+        # Should have run through more than 10 paths because successes reset the counter
+        self.assertGreater(call_count[0], 10)
