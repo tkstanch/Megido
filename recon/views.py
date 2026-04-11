@@ -396,8 +396,14 @@ def fingerprint_scan(request, project_id):
         task.save(update_fields=['celery_task_id'])
         messages.success(request, f'Fingerprinting started for {target_url}.')
     except Exception as exc:
-        logger.error("Failed to queue fingerprint task: %s", exc)
-        messages.warning(request, f'Task queued (runner may be offline): {exc}')
+        logger.warning("Celery unavailable, running fingerprinting synchronously: %s", exc)
+        try:
+            from .tasks import _do_fingerprinting
+            _do_fingerprinting(project.pk, target_url, task_obj=task)
+            messages.success(request, f'Fingerprinting complete for {target_url}.')
+        except Exception as sync_exc:
+            logger.error("Synchronous fingerprinting also failed for %s: %s", target_url, sync_exc)
+            messages.error(request, f'Fingerprinting failed: {sync_exc}')
     return redirect('recon:fingerprint_results', project_id=project.pk)
 
 
