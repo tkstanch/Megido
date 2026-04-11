@@ -8,6 +8,8 @@ This module contains background tasks for long-running operations including:
 
 import logging
 import os
+import random
+import time
 import threading
 import concurrent.futures
 from typing import Dict, Any, Optional, List
@@ -142,6 +144,15 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         from scanner.scan_plugins import get_scan_registry
         from scanner.scan_engine import ScanEngine
 
+        # --- WAF / blocking bypass: fingerprint target first ---
+        fingerprint: Dict[str, Any] = {}
+        try:
+            from scanner.scan_plugins.fingerprinter import TargetFingerprinter
+            fingerprinter = TargetFingerprinter()
+            fingerprint = fingerprinter.fingerprint(scan.target.url, {})
+        except Exception as fp_exc:
+            logger.warning("Fingerprinting failed for scan %d: %s", scan_id, fp_exc)
+
         registry = get_scan_registry()
         plugins = registry.get_all_plugins()
         total_plugins = len(plugins)
@@ -158,7 +169,49 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
         # Build a scan engine and run plugins concurrently for faster scanning
         # while still sending per-plugin progress updates.
         engine = ScanEngine()
-        config = {}
+
+        # --- Enable stealth by default to bypass WAF/rate-limiting ---
+        config: Dict[str, Any] = {
+            'enable_stealth': True,
+            'verify_ssl': False,
+            'timeout': 15,
+        }
+
+        waf_detected = fingerprint.get('waf_detected', False)
+        has_rate_limiting = fingerprint.get('has_rate_limiting', False)
+
+        if waf_detected or has_rate_limiting:
+            logger.info(
+                "Scan %d: WAF=%s, rate_limit=%s — applying aggressive stealth",
+                scan_id,
+                fingerprint.get('waf_name', 'unknown'),
+                has_rate_limiting,
+            )
+            config['stealth_timing'] = 'slow'
+            config['timeout'] = 20
+            config['waf_detected'] = True
+            config['waf_name'] = fingerprint.get('waf_name')
+            if scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.append(
+                f"WAF detected ({fingerprint.get('waf_name', 'unknown')}). "
+                "Stealth mode activated with adaptive timing."
+            )
+            scan.save()
+
+        # Inject stealth headers into the engine so all plugins inherit them
+        try:
+            engine.enable_stealth = True
+        except AttributeError:
+            pass
+        try:
+            from scanner.stealth_engine import StealthEngine
+            engine._stealth_engine = StealthEngine()
+        except ImportError:
+            pass
+        if hasattr(engine, '_apply_stealth_session'):
+            engine._apply_stealth_session(config)
+
         all_findings = []
 
         MAX_WORKERS = int(os.environ.get('SCAN_MAX_WORKERS', 4))
@@ -195,6 +248,30 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                     "Plugin %s error during scan %d: %s",
                     plugin.name, scan_id, exc,
                 )
+                # --- Retry with fresh stealth headers on failure ---
+                try:
+                    logger.info(
+                        "Retrying plugin %s for scan %d with fresh stealth headers",
+                        plugin.name, scan_id,
+                    )
+                    retry_config = dict(config)
+                    retry_config['enable_stealth'] = True
+                    retry_config['timeout'] = config.get('timeout', 15) + 10
+                    time.sleep(random.uniform(1.0, 3.0))
+                    plugin_findings = plugin.scan(scan.target.url, retry_config)
+                    plugin_status = 'complete'
+                    logger.info(
+                        "Retry succeeded for plugin %s on scan %d: %d finding(s)",
+                        plugin.name, scan_id, len(plugin_findings),
+                    )
+                except SoftTimeLimitExceeded:
+                    raise
+                except Exception as retry_exc:
+                    plugin_status = 'error'
+                    logger.error(
+                        "Retry also failed for plugin %s on scan %d: %s",
+                        plugin.name, scan_id, retry_exc,
+                    )
             return plugin, plugin_findings, plugin_status
 
         # Check memory before submitting — abort if already over threshold
