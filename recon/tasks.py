@@ -189,7 +189,7 @@ def run_port_scan(self, project_id: int, host: str, api_key: str = None):
 
         # Fall back to socket-based scan when Shodan is not configured or
         # returned no results (e.g. host not indexed yet).
-        if not services and not (api_key or getattr(settings, 'SHODAN_API_KEY', None)):
+        if not services:
             logger.info("Shodan unavailable for %s; using socket-based fallback", host)
             services = active_scan_socket(host)
             source = 'socket'
