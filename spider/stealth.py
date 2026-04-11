@@ -3,6 +3,7 @@ Stealth utilities for spider to avoid detection
 """
 import logging
 import random
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -248,7 +249,6 @@ def fingerprint_target(url: str, stealth_session: 'StealthSession') -> TargetFin
     Returns:
         TargetFingerprint populated with whatever could be detected
     """
-    import re as _re
     fp = TargetFingerprint()
     try:
         response = stealth_session.session.get(
@@ -299,7 +299,7 @@ def fingerprint_target(url: str, stealth_session: 'StealthSession') -> TargetFin
         powered_by = headers.get('X-Powered-By', '')
         if powered_by:
             tech.append(powered_by)
-        meta_gen = _re.findall(
+        meta_gen = re.findall(
             r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)["\']',
             response.text,
             _re.IGNORECASE,
