@@ -117,8 +117,10 @@ def spider_targets(request):
             'use_random_user_agents': target.use_random_user_agents,
             'stealth_delay_min': target.stealth_delay_min,
             'stealth_delay_max': target.stealth_delay_max,
+            'enable_adaptive_stealth': target.enable_adaptive_stealth,
             'request_timeout': target.request_timeout,
             'max_retries': target.max_retries,
+            'max_parameter_tests': target.max_parameter_tests,
             'created_at': target.created_at.isoformat(),
         } for target in targets]
         return Response(data)
@@ -145,8 +147,10 @@ def spider_targets(request):
                 'use_random_user_agents': request.data.get('use_random_user_agents', True),
                 'stealth_delay_min': request.data.get('stealth_delay_min', 1.0),
                 'stealth_delay_max': request.data.get('stealth_delay_max', 3.0),
+                'enable_adaptive_stealth': request.data.get('enable_adaptive_stealth', True),
                 'request_timeout': request.data.get('request_timeout', 30),
                 'max_retries': request.data.get('max_retries', 3),
+                'max_parameter_tests': request.data.get('max_parameter_tests', 100),
             }
         )
         
@@ -432,6 +436,8 @@ def run_dirbuster_discovery(session, target, stealth_session):
     
     findings = []
     failed_requests = 0
+    consecutive_failures = 0
+    EARLY_TERMINATION_LIMIT = 10  # stop after this many consecutive non-2xx/3xx responses
     parsed_url = urlparse(target.url)
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
     
@@ -450,10 +456,18 @@ def run_dirbuster_discovery(session, target, stealth_session):
             if response is None:
                 # Request failed after all retries
                 failed_requests += 1
+                consecutive_failures += 1
+                if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                    logger.info(
+                        f"DirBuster early termination for session {session.id}: "
+                        f"{consecutive_failures} consecutive failures"
+                    )
+                    break
                 continue
             
             # Record if found (200-399 status codes)
             if 200 <= response.status_code < 400:
+                consecutive_failures = 0
                 DiscoveredURL.objects.get_or_create(
                     session=session,
                     url=test_url,
@@ -501,10 +515,25 @@ def run_dirbuster_discovery(session, target, stealth_session):
                 
                 findings.append({'url': test_url, 'status': response.status_code})
                 logger.debug(f"DirBuster found: {test_url} (status: {response.status_code})")
+            else:
+                consecutive_failures += 1
+                if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                    logger.info(
+                        f"DirBuster early termination for session {session.id}: "
+                        f"{consecutive_failures} consecutive non-success responses"
+                    )
+                    break
         
         except Exception as e:
             failed_requests += 1
+            consecutive_failures += 1
             logger.debug(f"DirBuster error testing {test_url}: {e}")
+            if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                logger.info(
+                    f"DirBuster early termination for session {session.id}: "
+                    f"{consecutive_failures} consecutive failures"
+                )
+                break
             continue
     
     tool_result.status = 'completed'
@@ -625,7 +654,9 @@ def run_wikto_scan(session, target, stealth_session):
     
     findings = []
     failed_checks = 0
-    
+    consecutive_failures = 0
+    EARLY_TERMINATION_LIMIT = 10
+
     # Wikto-style checks (Windows/IIS focused)
     wikto_checks = [
         '/web.config',
@@ -666,9 +697,17 @@ def run_wikto_scan(session, target, stealth_session):
             if response is None:
                 # Request failed after all retries
                 failed_checks += 1
+                consecutive_failures += 1
+                if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                    logger.info(
+                        f"Wikto early termination for session {session.id}: "
+                        f"{consecutive_failures} consecutive failures"
+                    )
+                    break
                 continue
             
             if 200 <= response.status_code < 400:
+                consecutive_failures = 0
                 findings.append({
                     'url': test_url,
                     'status_code': response.status_code,
@@ -686,10 +725,25 @@ def run_wikto_scan(session, target, stealth_session):
                     notes=f'Windows/IIS resource found: {path}'
                 )
                 logger.debug(f"Wikto found: {test_url} (status: {response.status_code})")
+            else:
+                consecutive_failures += 1
+                if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                    logger.info(
+                        f"Wikto early termination for session {session.id}: "
+                        f"{consecutive_failures} consecutive non-success responses"
+                    )
+                    break
         
         except Exception as e:
             failed_checks += 1
+            consecutive_failures += 1
             logger.debug(f"Wikto check failed for {path}: {e}")
+            if consecutive_failures >= EARLY_TERMINATION_LIMIT:
+                logger.info(
+                    f"Wikto early termination for session {session.id}: "
+                    f"{consecutive_failures} consecutive failures"
+                )
+                break
             continue
     
     tool_result.status = 'completed'
@@ -1015,8 +1069,22 @@ def spider_results(request, session_id):
 
 
 def discover_hidden_parameters(session, target, stealth_session, verify_ssl):
-    """Discover hidden parameters using common debug parameter names and values"""
-    
+    """Discover hidden parameters using common debug parameter names and values.
+
+    Uses a two-phase approach to reduce the number of total requests:
+
+    Phase 1 (probe): test each parameter name with only two sentinel values
+    ('true' and '1') via GET.  Collect the names that produce any response
+    difference from the baseline.
+
+    Phase 2 (full): for the parameters that showed a difference, run the full
+    set of values (GET + POST).  Parameters that were silent in Phase 1 are
+    skipped entirely.
+
+    The total number of discovery attempts is capped at
+    ``target.max_parameter_tests`` to prevent combinatorial explosion.
+    """
+
     # Common debug parameter names
     parameter_names = [
         'debug', 'test', 'hide', 'source', 'dev', 'developer',
@@ -1026,59 +1094,104 @@ def discover_hidden_parameters(session, target, stealth_session, verify_ssl):
         'demo', 'example', 'sample', 'internal', 'backdoor',
         'old', 'legacy', 'deprecate', 'obsolete', 'temp', 'tmp',
     ]
-    
-    # Common parameter values
+
+    # Full set of parameter values (used only in Phase 2)
     parameter_values = [
         'true', 'false', 'yes', 'no', 'on', 'off',
         '1', '0', 'enabled', 'disabled', 'enable', 'disable',
         'all', 'full', 'complete', 'verbose', 'detailed',
     ]
-    
-    # Get URLs to test - prioritize interesting ones
-    urls_to_test = []
-    
-    # Test target URL
-    urls_to_test.append(target.url)
-    
-    # Add discovered URLs that look interesting
-    interesting_urls = session.discovered_urls.filter(
-        is_interesting=True
-    )[:10]  # Limit to prevent too many requests
-    
+
+    # Sentinel values used in the fast Phase 1 probe
+    PROBE_VALUES = ['true', '1']
+
+    # Cap on total attempts across all URLs (prevents combinatorial explosion)
+    max_tests = getattr(target, 'max_parameter_tests', 100)
+
+    # ── Build list of URLs to test ───────────────────────────────────────────
+    urls_to_test = [target.url]
+
+    interesting_urls = session.discovered_urls.filter(is_interesting=True)[:10]
     for discovered in interesting_urls:
         if discovered.url not in urls_to_test:
             urls_to_test.append(discovered.url)
-    
-    # If no interesting URLs, test a few regular ones
+
     if len(urls_to_test) == 1:
         regular_urls = session.discovered_urls.all()[:5]
         for discovered in regular_urls:
             if discovered.url not in urls_to_test:
                 urls_to_test.append(discovered.url)
-    
-    # Test each URL with parameter combinations
+
+    tests_used = 0  # running count of attempts made
+
+    # ── Per-URL testing ──────────────────────────────────────────────────────
     for test_url in urls_to_test:
-        # Get baseline response first
+        if tests_used >= max_tests:
+            logger.info(
+                f"Parameter discovery: reached max_parameter_tests={max_tests} "
+                f"after {tests_used} attempts (session {session.id})"
+            )
+            break
+
         baseline_response = get_baseline_response(test_url, stealth_session, verify_ssl)
         if not baseline_response:
             continue
-        
-        # Test all parameter combinations
+
+        # ── Phase 1: fast probe ──────────────────────────────────────────────
+        responsive_params = []
         for param_name in parameter_names:
+            if tests_used >= max_tests:
+                break
+            for probe_value in PROBE_VALUES:
+                if tests_used >= max_tests:
+                    break
+                test_parameter_get(
+                    session, test_url, param_name, probe_value,
+                    baseline_response, stealth_session, verify_ssl
+                )
+                tests_used += 1
+
+            # Mark this param as interesting if any attempt produced a diff
+            if session.parameter_attempts.filter(
+                target_url=test_url,
+                parameter_name=param_name,
+                response_diff=True,
+            ).exists():
+                responsive_params.append(param_name)
+
+        logger.debug(
+            f"Parameter discovery Phase 1 on {test_url}: "
+            f"{len(responsive_params)}/{len(parameter_names)} responsive params"
+        )
+
+        # ── Phase 2: full test on responsive params only ─────────────────────
+        for param_name in responsive_params:
             for param_value in parameter_values:
-                # Test GET request with query parameter
+                if tests_used >= max_tests:
+                    break
+                # Skip sentinel values already tested in Phase 1
+                if param_value in PROBE_VALUES:
+                    continue
                 test_parameter_get(
                     session, test_url, param_name, param_value,
                     baseline_response, stealth_session, verify_ssl
                 )
-                
-                # Test POST request (query + body)
+                tests_used += 1
+                if tests_used >= max_tests:
+                    break
                 test_parameter_post(
                     session, test_url, param_name, param_value,
                     baseline_response, stealth_session, verify_ssl
                 )
-                
-    
+                tests_used += 1
+            if tests_used >= max_tests:
+                break
+
+    logger.info(
+        f"Parameter discovery complete for session {session.id}: "
+        f"{tests_used} total attempts (cap={max_tests})"
+    )
+
     # Brute force discovered parameters
     brute_force_discovered_parameters(session, stealth_session, verify_ssl)
 

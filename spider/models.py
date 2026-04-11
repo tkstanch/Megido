@@ -23,10 +23,18 @@ class SpiderTarget(models.Model):
     use_random_user_agents = models.BooleanField(default=True, help_text="Rotate user agents between requests")
     stealth_delay_min = models.FloatField(default=1.0, help_text="Minimum delay between requests in seconds")
     stealth_delay_max = models.FloatField(default=3.0, help_text="Maximum delay between requests in seconds")
+    enable_adaptive_stealth = models.BooleanField(
+        default=True,
+        help_text="Automatically adjust stealth settings based on target behavior",
+    )
     
     # Request resilience options
     request_timeout = models.IntegerField(default=30, help_text="Request timeout in seconds")
     max_retries = models.IntegerField(default=3, help_text="Maximum number of retry attempts for failed requests")
+    max_parameter_tests = models.IntegerField(
+        default=100,
+        help_text="Maximum number of parameter discovery attempts per URL (cap to prevent combinatorial explosion)",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
