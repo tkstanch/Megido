@@ -422,32 +422,22 @@ def run_github_recon(self, project_id: int, org_name: str):
         raise
 
 
-@shared_task(bind=True)
-def run_fingerprinting(self, project_id: int, target_url: str):
+def _do_fingerprinting(project_id: int, target_url: str, task_obj=None) -> int:
     """
-    Run technology fingerprinting and save TechFingerprint records.
+    Core fingerprinting logic – fetch *target_url*, persist findings, and
+    update *task_obj* status.  Returns the number of saved findings.
 
-    Args:
-        project_id: Primary key of the ReconProject.
-        target_url: URL to fingerprint.
+    Extracted so it can be called both from the Celery task and as a
+    synchronous fallback when the broker is unavailable.
     """
-    from .models import ReconProject, ReconTask, TechFingerprint
-
-    task_obj = ReconTask.objects.filter(
-        project_id=project_id,
-        task_type='fingerprinting',
-        target=target_url,
-        status='pending',
-    ).first()
+    from .models import ReconProject, TechFingerprint
+    from .services.fingerprint_service import fingerprint_url
 
     if task_obj:
-        task_obj.celery_task_id = self.request.id
-        task_obj.save(update_fields=['celery_task_id'])
         _mark_running(task_obj)
 
     try:
         project = ReconProject.objects.get(pk=project_id)
-        from .services.fingerprint_service import fingerprint_url
 
         findings = fingerprint_url(target_url)
         saved = 0
@@ -466,11 +456,37 @@ def run_fingerprinting(self, project_id: int, target_url: str):
         if task_obj:
             _mark_completed(task_obj, f"Identified {saved} technologies at {target_url}")
         logger.info("Fingerprinting complete for %s: %d techs", target_url, saved)
+        return saved
     except Exception as exc:
         logger.error("Fingerprinting failed for %s: %s", target_url, exc)
         if task_obj:
             _mark_failed(task_obj, exc)
         raise
+
+
+@shared_task(bind=True)
+def run_fingerprinting(self, project_id: int, target_url: str):
+    """
+    Run technology fingerprinting and save TechFingerprint records.
+
+    Args:
+        project_id: Primary key of the ReconProject.
+        target_url: URL to fingerprint.
+    """
+    from .models import ReconTask
+
+    task_obj = ReconTask.objects.filter(
+        project_id=project_id,
+        task_type='fingerprinting',
+        target=target_url,
+        status='pending',
+    ).first()
+
+    if task_obj:
+        task_obj.celery_task_id = self.request.id
+        task_obj.save(update_fields=['celery_task_id'])
+
+    _do_fingerprinting(project_id, target_url, task_obj=task_obj)
 
 
 @shared_task(bind=True)
