@@ -64,6 +64,7 @@ class BrowserViewsTest(TestCase):
         self.assertNotContains(response, 'cef-launch-btn')
         self.assertNotContains(response, 'launchDesktopBrowser()')
         self.assertContains(response, 'not available in Docker')
+        self.assertContains(response, 'Launch External Browser')
     
     def test_interceptor_status_get(self):
         """Test getting interceptor status from browser"""
