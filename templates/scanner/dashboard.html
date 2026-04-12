@@ -755,7 +755,8 @@ async function loadResults(scanId) {
             if (vulnCount > 0) {
                 handleScanComplete(data);
             } else {
-                handleScanError('Scan failed. Please try again.');
+                const reason = data.error_message || 'Unknown error';
+                handleScanError(`Scan failed: ${reason}. Please try again.`);
             }
         } else {
             // Still running, poll again
