@@ -317,7 +317,11 @@ def start_scan(request, target_id):
         
         # Trigger Celery task to run scan in background
         task = async_scan_task.delay(scan.id)
-        
+
+        # Persist the Celery task ID so we can cancel it later
+        scan.task_id = task.id
+        scan.save(update_fields=['task_id'])
+
         # Return immediately with scan ID and task ID
         response_data = {
             'id': scan.id,

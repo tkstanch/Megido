@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .cancel_views import cancel_scan
 from .engine_api_views import (
     EngineViewSet,
     EngineScanViewSet,
@@ -25,6 +26,7 @@ urlpatterns = [
     path('api/targets/', views.scan_targets, name='scan_targets'),
     path('api/targets/<int:target_id>/scan/', views.start_scan, name='start_scan'),
     path('api/scans/<int:scan_id>/results/', views.scan_results, name='scan_results'),
+    path('api/scans/<int:scan_id>/cancel/', cancel_scan, name='cancel_scan'),
     path('api/scans/<int:scan_id>/exploit/', views.exploit_vulnerabilities, name='exploit_vulnerabilities'),
     path('api/scans/<int:scan_id>/apply_advanced_features/', views.apply_advanced_features, name='apply_advanced_features'),
     path('api/vulnerabilities/<int:vuln_id>/', views.vulnerability_detail, name='vulnerability_detail'),

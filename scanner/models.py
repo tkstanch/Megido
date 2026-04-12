@@ -56,6 +56,7 @@ class Scan(models.Model):
         ('running', 'Running'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
     ]
 
     target = models.ForeignKey(ScanTarget, on_delete=models.CASCADE, related_name='scans')
@@ -66,6 +67,7 @@ class Scan(models.Model):
     error_message = models.TextField(null=True, blank=True)
     enable_dos_testing = models.BooleanField(default=False)
     enable_sqli_testing = models.BooleanField(default=True)
+    task_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     program_scope = models.ForeignKey(
         'ProgramScope',
         on_delete=models.SET_NULL,

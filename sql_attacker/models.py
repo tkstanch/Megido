@@ -14,6 +14,7 @@ class SQLInjectionTask(models.Model):
         ('awaiting_confirmation', 'Awaiting Confirmation'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
     ]
     
     METHOD_CHOICES = [
