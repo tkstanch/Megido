@@ -17,6 +17,25 @@ import webbrowser
 from pathlib import Path
 
 
+def is_running_in_docker():
+    """Detect whether the application is running inside a Docker container."""
+    # Check for the .dockerenv file (present in all Docker containers)
+    if os.path.exists('/.dockerenv'):
+        return True
+    # Check /proc/1/cgroup for docker or containerd references
+    try:
+        with open('/proc/1/cgroup', 'r') as f:
+            cgroup_content = f.read()
+            if 'docker' in cgroup_content or 'containerd' in cgroup_content:
+                return True
+    except (OSError, IOError):
+        pass
+    # Check explicit environment variable
+    if os.environ.get('DOCKER_CONTAINER') or os.environ.get('container'):
+        return True
+    return False
+
+
 def browser_view(request):
     """Main browser interface view"""
     # Get or create browser session
@@ -32,7 +51,8 @@ def browser_view(request):
     return render(request, 'browser/browser.html', {
         'session': session,
         'enabled_apps': enabled_apps,
-        'interceptor_enabled': interceptor_settings.is_enabled
+        'interceptor_enabled': interceptor_settings.is_enabled,
+        'is_docker': is_running_in_docker(),
     })
 
 
@@ -168,6 +188,16 @@ def launch_pyqt_browser(request):
         enable_proxy (bool): Enable mitmproxy integration (default: true)
     """
     try:
+        # Reject immediately if running inside Docker (no display available)
+        if is_running_in_docker():
+            return Response({
+                'success': False,
+                'error': (
+                    'Desktop browser is not available in Docker/container environments. '
+                    'Use the iframe browser or Launch External Browser option instead.'
+                )
+            }, status=400)
+
         # Get Django URL from request or use default
         django_url = request.data.get('django_url', 'http://127.0.0.1:8000')
         

@@ -46,14 +46,24 @@ class BrowserViewsTest(TestCase):
     
     def test_browser_view(self):
         """Test that browser view loads correctly"""
-        response = self.client.get('/browser/')
+        with patch('browser.views.is_running_in_docker', return_value=False):
+            response = self.client.get('/browser/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Integrated Browser')
         self.assertContains(response, 'Available Apps')
         # Check for new interceptor integration
         self.assertContains(response, 'Interceptor')
-        # Check for new desktop browser launch button
+        # Check for new desktop browser launch button (should appear outside Docker)
         self.assertContains(response, 'Launch Desktop Browser (PyQt6)')
+
+    def test_browser_view_in_docker_hides_pyqt_button(self):
+        """Test that the PyQt6 launch button is hidden when running in Docker"""
+        with patch('browser.views.is_running_in_docker', return_value=True):
+            response = self.client.get('/browser/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'cef-launch-btn')
+        self.assertNotContains(response, 'launchDesktopBrowser()')
+        self.assertContains(response, 'not available in Docker')
     
     def test_interceptor_status_get(self):
         """Test getting interceptor status from browser"""
@@ -88,13 +98,14 @@ class BrowserViewsTest(TestCase):
         mock_process.poll.return_value = None
         mock_popen.return_value = mock_process
 
-        with patch('browser.views.importlib.import_module'):
-            with patch('browser.views.Path.exists', return_value=True):
-                response = self.client.post(
-                    '/browser/api/launch-desktop-browser/',
-                    {'django_url': 'http://127.0.0.1:8000', 'enable_proxy': False},
-                    content_type='application/json'
-                )
+        with patch('browser.views.is_running_in_docker', return_value=False):
+            with patch('browser.views.importlib.import_module'):
+                with patch('browser.views.Path.exists', return_value=True):
+                    response = self.client.post(
+                        '/browser/api/launch-desktop-browser/',
+                        {'django_url': 'http://127.0.0.1:8000', 'enable_proxy': False},
+                        content_type='application/json'
+                    )
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -102,6 +113,19 @@ class BrowserViewsTest(TestCase):
         self.assertEqual(data['message'], 'Desktop browser launched successfully!')
         # Verify subprocess.Popen was called
         mock_popen.assert_called_once()
+
+    def test_launch_desktop_browser_blocked_in_docker(self):
+        """Test that desktop browser launch is rejected when running in Docker"""
+        with patch('browser.views.is_running_in_docker', return_value=True):
+            response = self.client.post(
+                '/browser/api/launch-desktop-browser/',
+                {'django_url': 'http://127.0.0.1:8000', 'enable_proxy': False},
+                content_type='application/json'
+            )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data['success'])
+        self.assertIn('Docker', data['error'])
     
     def test_launch_desktop_browser_invalid_url(self):
         """Test desktop browser launch with invalid URL"""
