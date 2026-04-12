@@ -67,6 +67,129 @@ input:checked + .toggle-slider {
 input:checked + .toggle-slider:before {
     transform: translateX(26px);
 }
+.request-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 5px;
+    background: white;
+}
+.request-card .method-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-right: 8px;
+}
+.method-GET    { background: #28a745; color: white; }
+.method-POST   { background: #007bff; color: white; }
+.method-PUT    { background: #fd7e14; color: white; }
+.method-DELETE { background: #dc3545; color: white; }
+.method-PATCH  { background: #6f42c1; color: white; }
+.btn-action {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    margin-right: 5px;
+    transition: opacity 0.2s;
+}
+.btn-action:hover { opacity: 0.85; }
+.btn-forward  { background: #28a745; color: white; }
+.btn-drop     { background: #dc3545; color: white; }
+.btn-edit     { background: #667eea; color: white; }
+.btn-repeater { background: #f093fb; color: white; }
+
+/* Modal styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    overflow-y: auto;
+}
+.modal-box {
+    background: white;
+    border-radius: 8px;
+    padding: 25px;
+    max-width: 700px;
+    margin: 40px auto;
+    position: relative;
+}
+.modal-box h3 { margin-top: 0; }
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 18px;
+    font-size: 1.4em;
+    cursor: pointer;
+    color: #666;
+    background: none;
+    border: none;
+}
+.step-section { display: none; }
+.step-section.active { display: block; }
+.radio-group, .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 15px 0;
+}
+.radio-group label, .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: background 0.15s;
+}
+.radio-group label:hover, .checkbox-group label:hover { background: #f0f4ff; }
+.vuln-category {
+    margin-bottom: 10px;
+}
+.vuln-category-header {
+    font-weight: bold;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.vuln-subcategories {
+    padding: 5px 20px;
+    display: none;
+}
+.vuln-subcategories.open { display: block; }
+.btn-next {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+}
+.btn-next:hover { background: #5568d3; }
+.select-all-btn {
+    padding: 5px 10px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    margin-bottom: 10px;
+}
 {% endblock %}
 
 {% block content %}
@@ -93,18 +216,67 @@ input:checked + .toggle-slider:before {
 <div class="info-message" style="background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0; border-radius: 3px;">
     <strong>ℹ️ How It Works</strong><br>
     When the interceptor is <strong>ON</strong>, HTTP requests from the integrated browser are captured here for inspection and modification before being forwarded.
-    Toggle the switch above to enable or disable interception.
+    Click <strong>Send to Repeater</strong> on any captured request to open an interactive flow where you can choose manual or automatic testing with ready-made vulnerability payloads.
 </div>
 
 <div id="intercepted-list">
-    <div style="padding: 20px; text-align: center; color: #666;">
-        No intercepted requests
-    </div>
+    <div style="padding: 20px; text-align: center; color: #666;">No intercepted requests</div>
 </div>
+
+<!-- =====================================================================
+     Send-to-Repeater Modal
+     ===================================================================== -->
+<div class="modal-overlay" id="repeater-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>📤 Send to Repeater</h3>
+
+    <!-- Step 1: Mode selection -->
+    <div class="step-section active" id="step-mode">
+      <p>How do you want to test this request?</p>
+      <div class="radio-group">
+        <label><input type="radio" name="test-mode" value="manual" checked> ✏️ <strong>Manual</strong> – Open in Repeater for raw editing</label>
+        <label><input type="radio" name="test-mode" value="automatic"> ⚡ <strong>Automatic</strong> – Auto-generate payloads and batch-test</label>
+      </div>
+      <button class="btn-next" onclick="goStep2()">Next →</button>
+    </div>
+
+    <!-- Step 2: Injection location (automatic only) -->
+    <div class="step-section" id="step-location">
+      <p>Where do you want to inject payloads?</p>
+      <div class="checkbox-group" id="location-checkboxes">
+        <label><input type="checkbox" value="url_params" checked> 🔗 URL Parameters</label>
+        <label><input type="checkbox" value="headers"> 📋 Request Headers</label>
+        <label><input type="checkbox" value="body"> 📝 Request Body</label>
+        <label><input type="checkbox" value="cookies"> 🍪 Cookies</label>
+        <label><input type="checkbox" value="all"> 🎯 All of the above</label>
+      </div>
+      <button class="btn-next" onclick="goStep3()">Next →</button>
+    </div>
+
+    <!-- Step 3: Vulnerability selection (automatic only) -->
+    <div class="step-section" id="step-vulns">
+      <p>Select vulnerability types to test:</p>
+      <button class="select-all-btn" onclick="toggleAllVulns(true)">Select All</button>
+      <button class="select-all-btn" onclick="toggleAllVulns(false)">Clear All</button>
+      <div id="vuln-list" style="max-height: 380px; overflow-y: auto; margin-top: 8px;"></div>
+      <button class="btn-next" onclick="submitToRepeater()">🚀 Send to Repeater</button>
+    </div>
+
+    <!-- Result message -->
+    <div class="step-section" id="step-result">
+      <div id="result-message" style="padding: 15px;"></div>
+      <button class="btn-next" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_script %}
 <script>
+let currentRequestId = null;
+
 async function toggleInterceptor() {
     const toggle = document.getElementById('interceptor-toggle');
     const isEnabled = toggle.checked;
@@ -120,14 +292,11 @@ async function toggleInterceptor() {
         });
         
         const data = await response.json();
-        
-        // Update status display
         updateStatusDisplay(data.is_enabled);
         
     } catch (error) {
         console.error('Error toggling interceptor:', error);
         alert('Failed to toggle interceptor. Please try again.');
-        // Revert toggle on error
         toggle.checked = !isEnabled;
     }
 }
@@ -154,22 +323,28 @@ async function loadIntercepted() {
         const requests = await response.json();
         
         const listDiv = document.getElementById('intercepted-list');
-        if (requests.length === 0) {
+        if (!requests.length) {
             listDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No intercepted requests</div>';
             return;
         }
         
-        listDiv.innerHTML = requests.map(req => `
-            <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px;">
-                <div><strong>${req.original_method}</strong> ${req.original_url}</div>
-                <div style="margin-top: 10px; color: #666; font-size: 0.9em;">${new Date(req.timestamp).toLocaleString()}</div>
-                <div style="margin-top: 10px;">
-                    <button onclick="forwardRequest(${req.id})">Forward</button>
-                    <button onclick="dropRequest(${req.id})">Drop</button>
-                    <button onclick="editRequest(${req.id})">Edit</button>
+        listDiv.innerHTML = requests.map(req => {
+            const methodClass = 'method-' + (req.original_method || 'GET');
+            return `
+            <div class="request-card">
+                <div>
+                    <span class="method-badge ${methodClass}">${req.original_method}</span>
+                    <strong>${req.original_url}</strong>
                 </div>
-            </div>
-        `).join('');
+                <div style="margin-top: 6px; color: #666; font-size: 0.85em;">${new Date(req.timestamp).toLocaleString()}</div>
+                <div style="margin-top: 10px;">
+                    <button class="btn-action btn-forward"  onclick="forwardRequest(${req.id})">▶ Forward</button>
+                    <button class="btn-action btn-drop"     onclick="dropRequest(${req.id})">✕ Drop</button>
+                    <button class="btn-action btn-edit"     onclick="editRequest(${req.id})">✏ Edit</button>
+                    <button class="btn-action btn-repeater" onclick="openRepeaterModal(${req.id})">📤 Send to Repeater</button>
+                </div>
+            </div>`;
+        }).join('');
     } catch (error) {
         console.error('Error loading intercepted requests:', error);
     }
@@ -179,36 +354,175 @@ async function forwardRequest(id) {
     try {
         await fetch(`/interceptor/api/intercepted/${id}/`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
             body: JSON.stringify({status: 'forwarded'})
         });
         loadIntercepted();
-    } catch (error) {
-        console.error('Error forwarding request:', error);
-    }
+    } catch (error) { console.error('Error forwarding request:', error); }
 }
 
 async function dropRequest(id) {
     try {
         await fetch(`/interceptor/api/intercepted/${id}/`, {
             method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({status: 'dropped'})
+        });
+        loadIntercepted();
+    } catch (error) { console.error('Error dropping request:', error); }
+}
+
+function editRequest(id) {
+    alert('Edit functionality — coming soon!');
+}
+
+// -------------------------------------------------------------------------
+// Send-to-Repeater modal
+// -------------------------------------------------------------------------
+
+let vulnCategories = [];
+
+async function openRepeaterModal(requestId) {
+    currentRequestId = requestId;
+    // Reset modal steps
+    showStep('step-mode');
+    document.querySelectorAll('input[name="test-mode"]').forEach(r => {
+        r.checked = r.value === 'manual';
+    });
+    document.getElementById('repeater-modal').style.display = 'block';
+
+    // Load vulnerability list if not already loaded
+    if (!vulnCategories.length) {
+        try {
+            const resp = await fetch('/interceptor/api/vulnerability-list/');
+            const data = await resp.json();
+            vulnCategories = data.categories || [];
+            renderVulnList();
+        } catch(e) {
+            console.error('Failed to load vuln list', e);
+        }
+    }
+}
+
+function closeModal() {
+    document.getElementById('repeater-modal').style.display = 'none';
+    currentRequestId = null;
+}
+
+function showStep(stepId) {
+    document.querySelectorAll('.step-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(stepId).classList.add('active');
+}
+
+function goStep2() {
+    const mode = document.querySelector('input[name="test-mode"]:checked').value;
+    if (mode === 'manual') {
+        submitToRepeater();
+    } else {
+        showStep('step-location');
+    }
+}
+
+function goStep3() {
+    showStep('step-vulns');
+}
+
+function renderVulnList() {
+    const container = document.getElementById('vuln-list');
+    container.innerHTML = vulnCategories.map(cat => {
+        const subsHtml = cat.subcategories.length
+            ? `<div class="vuln-subcategories" id="sub-${cat.id}">` +
+              cat.subcategories.map(sub =>
+                `<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;">
+                    <input type="checkbox" class="vuln-check" value="${sub.id}"> ${sub.name}
+                 </label>`
+              ).join('') +
+              '</div>'
+            : '';
+        const toggleArrow = cat.subcategories.length
+            ? `<span onclick="toggleSubcats('${cat.id}')" style="margin-left:auto;cursor:pointer;">▼</span>`
+            : '';
+        return `<div class="vuln-category">
+            <div class="vuln-category-header">
+                <input type="checkbox" class="vuln-check cat-check" value="${cat.id}"
+                    ${!cat.subcategories.length ? '' : 'onchange="toggleSubcatChecks(\''+cat.id+'\',this.checked)"'}>
+                ${cat.name}
+                ${toggleArrow}
+            </div>
+            ${subsHtml}
+        </div>`;
+    }).join('');
+}
+
+function toggleSubcats(catId) {
+    const el = document.getElementById('sub-' + catId);
+    if (el) el.classList.toggle('open');
+}
+
+function toggleSubcatChecks(catId, checked) {
+    const sub = document.getElementById('sub-' + catId);
+    if (!sub) return;
+    sub.querySelectorAll('.vuln-check').forEach(cb => cb.checked = checked);
+}
+
+function toggleAllVulns(checked) {
+    document.querySelectorAll('.vuln-check').forEach(cb => cb.checked = checked);
+}
+
+async function submitToRepeater() {
+    const mode = document.querySelector('input[name="test-mode"]:checked').value;
+
+    // Collect locations
+    const locationBoxes = document.querySelectorAll('#location-checkboxes input[type=checkbox]:checked');
+    const locations = Array.from(locationBoxes).map(cb => cb.value);
+
+    // Collect selected vuln IDs
+    const vulnChecks = document.querySelectorAll('.vuln-check:checked');
+    const vulnIds = Array.from(vulnChecks).map(cb => cb.value);
+
+    try {
+        const resp = await fetch('/interceptor/api/send-to-repeater/', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({status: 'dropped'})
+            body: JSON.stringify({
+                request_id: currentRequestId,
+                mode: mode,
+                locations: locations.length ? locations : ['body'],
+                vuln_ids: vulnIds,
+            })
         });
-        loadIntercepted();
-    } catch (error) {
-        console.error('Error dropping request:', error);
-    }
-}
 
-function editRequest(id) {
-    alert('Edit functionality - coming soon!');
+        const data = await resp.json();
+        showStep('step-result');
+
+        if (data.success) {
+            const payloadInfo = data.payloads && data.payloads.length
+                ? `<p>🎯 <strong>${data.payloads.length}</strong> test payload(s) generated across locations: <em>${(data.locations || []).join(', ')}</em></p>`
+                : '';
+            document.getElementById('result-message').innerHTML = `
+                <div style="color:#155724;background:#d4edda;padding:15px;border-radius:5px;">
+                    <strong>✅ ${data.message}</strong>
+                    ${payloadInfo}
+                    <p><a href="${data.repeater_url}" target="_blank" style="color:#0c5460;">
+                        🔗 Open in Repeater →
+                    </a></p>
+                </div>`;
+        } else {
+            document.getElementById('result-message').innerHTML = `
+                <div style="color:#721c24;background:#f8d7da;padding:15px;border-radius:5px;">
+                    <strong>❌ Error:</strong> ${data.error || 'Unknown error'}
+                </div>`;
+        }
+    } catch (error) {
+        showStep('step-result');
+        document.getElementById('result-message').innerHTML = `
+            <div style="color:#721c24;background:#f8d7da;padding:15px;border-radius:5px;">
+                <strong>❌ Network Error:</strong> ${error.message}
+            </div>`;
+    }
 }
 
 function getCookie(name) {

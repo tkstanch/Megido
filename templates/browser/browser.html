@@ -17,6 +17,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 .url-bar {
     flex: 1;
@@ -24,6 +25,7 @@
     border: 1px solid #ccc;
     border-radius: 5px;
     font-size: 14px;
+    min-width: 200px;
 }
 .toolbar-button {
     padding: 10px 15px;
@@ -33,6 +35,7 @@
     border-radius: 5px;
     cursor: pointer;
     transition: background 0.3s;
+    white-space: nowrap;
 }
 .toolbar-button:hover {
     background: #5568d3;
@@ -47,6 +50,27 @@
 }
 .cef-launch-btn:hover {
     background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+}
+.external-browser-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.external-browser-select {
+    padding: 9px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+.external-launch-btn {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: #1a1a1a;
+    font-weight: bold;
+}
+.external-launch-btn:hover {
+    background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
 }
 .interceptor-toggle-btn {
     padding: 8px 15px;
@@ -136,7 +160,9 @@
 <div class="info-message">
     <strong>💡 Browser Options:</strong> 
     Use the iframe browser below for most sites. 
-    Click "Launch Desktop Browser (PyQt6)" to open PyQt6 desktop browser with optional mitmproxy integration for sites that block iframes (Google, Facebook, etc.) or when you need traffic interception and full browser functionality.
+    Click <em>Launch Desktop Browser (PyQt6)</em> to open the built-in PyQt6 browser, or choose an
+    external browser (Firefox, Chrome, Edge, Safari) from the dropdown — all can be automatically
+    configured to route traffic through mitmproxy for interception.
 </div>
 
 <div class="browser-container">
@@ -147,6 +173,16 @@
         <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
         <button class="toolbar-button" onclick="navigate()">Go</button>
         <button class="toolbar-button cef-launch-btn" onclick="launchDesktopBrowser()" title="Launch full desktop browser with PyQt6">🚀 Launch Desktop Browser (PyQt6)</button>
+        <div class="external-browser-group" title="Launch an external browser with proxy pre-configured">
+            <select id="external-browser-select" class="external-browser-select">
+                <option value="firefox">🦊 Firefox</option>
+                <option value="chrome">🌐 Chrome</option>
+                <option value="chromium">🌐 Chromium</option>
+                <option value="edge">🔵 Edge</option>
+                <option value="safari">🧭 Safari</option>
+            </select>
+            <button class="toolbar-button external-launch-btn" onclick="launchExternalBrowser()" title="Launch selected browser with mitmproxy proxy">🌍 Launch External</button>
+        </div>
         <button id="interceptor-toggle" class="interceptor-toggle-btn {% if interceptor_enabled %}enabled{% else %}disabled{% endif %}" onclick="toggleInterceptor()" title="Toggle Interceptor">
             <span id="interceptor-icon">{% if interceptor_enabled %}🟢{% else %}🔴{% endif %}</span>
             <span id="interceptor-label">{% if interceptor_enabled %}Interceptor ON{% else %}Interceptor OFF{% endif %}</span>
@@ -411,6 +447,72 @@ async function launchDesktopBrowser() {
     } finally {
         button.disabled = false;
         button.textContent = '🚀 Launch Desktop Browser (PyQt6)';
+    }
+}
+
+async function launchExternalBrowser() {
+    const button = document.querySelector('.external-launch-btn');
+    const select = document.getElementById('external-browser-select');
+    const browserName = select.value;
+    
+    button.disabled = true;
+    button.textContent = '🌍 Launching...';
+    
+    try {
+        const enableProxy = confirm(
+            `Launch ${select.options[select.selectedIndex].text} with mitmproxy proxy?\n\n` +
+            '✓ Yes = Browser traffic routed through mitmproxy for interception\n' +
+            '✗ No = Direct connection (no interception)'
+        );
+        
+        let proxyPort = 8080;
+        if (enableProxy) {
+            const customPort = prompt('Enter mitmproxy port (leave empty for default 8080):');
+            if (customPort && customPort.trim() !== '') {
+                const port = parseInt(customPort);
+                if (!isNaN(port) && port > 0 && port < 65536) {
+                    proxyPort = port;
+                }
+            }
+        }
+        
+        const urlBar = document.getElementById('url-bar');
+        let startUrl = urlBar.value.trim() || 'http://example.com';
+        if (!startUrl.startsWith('http://') && !startUrl.startsWith('https://')) {
+            startUrl = 'https://' + startUrl;
+        }
+        
+        const response = await fetch('/browser/api/launch-external-browser/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                browser: browserName,
+                url: startUrl,
+                proxy_port: proxyPort,
+                enable_proxy: enableProxy
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            let message = '✅ ' + data.message;
+            if (data.proxy_enabled) {
+                message += '\n\n📝 To intercept HTTPS traffic, install the mitmproxy CA certificate:\n';
+                message += '   → Open http://mitm.it in the browser and follow the instructions.';
+            }
+            alert(message);
+        } else {
+            alert('❌ Failed to launch ' + browserName + ':\n' + data.error);
+        }
+    } catch (error) {
+        alert('❌ Error launching external browser: ' + error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = '🌍 Launch External';
     }
 }
 
