@@ -190,7 +190,7 @@ def double_slash_obfuscation(payload):
 def backslash_to_forward(payload):
     """
     Convert backslashes to forward slashes.
-    Example: ..\etc -> ../etc
+    Example: ..\\etc -> ../etc
     """
     return payload.replace('\\', '/')
 
