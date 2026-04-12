@@ -359,8 +359,31 @@ def launch_external_browser(request):
 # External browser launchers (internal helpers)
 # ---------------------------------------------------------------------------
 
+def _is_docker():
+    """Return True if the process is running inside a Docker container."""
+    if os.environ.get('DOCKER_CONTAINER'):
+        return True
+    return os.path.isfile('/.dockerenv')
+
+
+def _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_name):
+    """Return a response instructing the frontend to open the browser client-side."""
+    return Response({
+        'success': True,
+        'mode': 'client-side',
+        'browser': browser_name,
+        'url': url,
+        'proxy_enabled': enable_proxy,
+        'proxy_host': proxy_host if enable_proxy else None,
+        'proxy_port': proxy_port if enable_proxy else None,
+    })
+
+
 def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
     """Launch Firefox with an optional mitmproxy configuration."""
+    if _is_docker():
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'firefox')
+
     system = platform.system()
     
     # Find Firefox executable
@@ -381,17 +404,15 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
             shutil.which('firefox-esr'),
             '/usr/bin/firefox',
             '/usr/bin/firefox-esr',
+            '/snap/bin/firefox',
         ]
     
     firefox_path = next(
-        (p for p in firefox_candidates if p and os.path.isfile(p)), None
+        (p for p in firefox_candidates if p and os.path.exists(p) and os.access(p, os.X_OK)), None
     )
     
     if not firefox_path:
-        return Response({
-            'success': False,
-            'error': 'Firefox not found. Please install Firefox and try again.'
-        }, status=404)
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'firefox')
     
     cmd = [firefox_path]
     
@@ -435,6 +456,9 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
 
 def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='chrome'):
     """Launch Chrome or Chromium with optional proxy settings."""
+    if _is_docker():
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_name)
+
     system = platform.system()
     
     # Find Chrome/Chromium executable
@@ -465,14 +489,11 @@ def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='ch
         ]
     
     chrome_path = next(
-        (p for p in chrome_candidates if p and os.path.isfile(p)), None
+        (p for p in chrome_candidates if p and os.path.exists(p) and os.access(p, os.X_OK)), None
     )
     
     if not chrome_path:
-        return Response({
-            'success': False,
-            'error': f'{browser_name.title()} not found. Please install Chrome or Chromium and try again.'
-        }, status=404)
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_name)
     
     # Create a temporary user data dir to avoid polluting the default profile
     user_data_dir = tempfile.mkdtemp(prefix='megido_chrome_')
@@ -514,6 +535,9 @@ def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='ch
 
 def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
     """Launch Microsoft Edge with optional proxy settings."""
+    if _is_docker():
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'edge')
+
     system = platform.system()
     
     edge_candidates = []
@@ -537,14 +561,11 @@ def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
         ]
     
     edge_path = next(
-        (p for p in edge_candidates if p and os.path.isfile(p)), None
+        (p for p in edge_candidates if p and os.path.exists(p) and os.access(p, os.X_OK)), None
     )
     
     if not edge_path:
-        return Response({
-            'success': False,
-            'error': 'Microsoft Edge not found. Please install Edge and try again.'
-        }, status=404)
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'edge')
     
     user_data_dir = tempfile.mkdtemp(prefix='megido_edge_')
     
@@ -583,18 +604,12 @@ def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
 
 def _launch_safari(url, proxy_host, proxy_port, enable_proxy):
     """Launch Safari (macOS only)."""
-    if platform.system() != 'Darwin':
-        return Response({
-            'success': False,
-            'error': 'Safari is only available on macOS.'
-        }, status=400)
+    if _is_docker() or platform.system() != 'Darwin':
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'safari')
     
     safari_path = '/Applications/Safari.app/Contents/MacOS/Safari'
-    if not os.path.isfile(safari_path):
-        return Response({
-            'success': False,
-            'error': 'Safari not found at the expected location.'
-        }, status=404)
+    if not os.path.exists(safari_path) or not os.access(safari_path, os.X_OK):
+        return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'safari')
     
     if enable_proxy:
         # Safari uses system proxy settings; guide the user

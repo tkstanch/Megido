@@ -498,7 +498,25 @@ async function launchExternalBrowser() {
         
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && data.mode === 'client-side') {
+            // Server cannot launch the browser (Docker/remote deployment or browser not found).
+            // Open the URL on the user's machine and show proxy setup instructions.
+            window.open(data.url || startUrl, '_blank');
+            let msg = `🌍 URL opened in a new tab on your machine.\n\n`;
+            if (data.proxy_enabled && data.proxy_host && data.proxy_port) {
+                msg += `🔒 To intercept traffic, configure your browser's proxy manually:\n`;
+                msg += `   Host: ${data.proxy_host}\n`;
+                msg += `   Port: ${data.proxy_port}\n\n`;
+                msg += `Browser-specific instructions:\n`;
+                msg += `  • Firefox: Settings → Network Settings → Manual proxy configuration\n`;
+                msg += `  • Chrome/Edge: Use a system proxy or extension (e.g. Proxy SwitchyOmega)\n`;
+                msg += `  • Safari: System Preferences → Network → Advanced → Proxies\n\n`;
+                msg += `Then visit http://mitm.it to install the mitmproxy CA certificate for HTTPS interception.`;
+            } else {
+                msg += `No proxy configured — traffic will not be intercepted.`;
+            }
+            alert(msg);
+        } else if (data.success) {
             let message = '✅ ' + data.message;
             if (data.proxy_enabled) {
                 message += '\n\n📝 To intercept HTTPS traffic, install the mitmproxy CA certificate:\n';
