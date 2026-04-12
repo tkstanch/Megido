@@ -12,4 +12,6 @@ urlpatterns = [
     path('api/enabled-apps/', views.get_enabled_apps, name='get_enabled_apps'),
     path('api/interceptor-status/', views.browser_interceptor_status, name='browser_interceptor_status'),
     path('api/launch-desktop-browser/', views.launch_pyqt_browser, name='launch_desktop_browser'),
+    path('api/launch-external-browser/', views.launch_external_browser, name='launch_external_browser'),
+    path('api/browser-launch-status/', views.browser_launch_status, name='browser_launch_status'),
 ]

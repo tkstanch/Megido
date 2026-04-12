@@ -12,6 +12,10 @@ urlpatterns = [
     path('api/status/', views.interceptor_status, name='interceptor_status'),
     path('api/intercepted/', views.list_intercepted, name='list_intercepted'),
     path('api/intercepted/<int:request_id>/', views.intercepted_detail, name='intercepted_detail'),
+
+    # Interceptor → Repeater flow
+    path('api/send-to-repeater/', views.send_to_repeater, name='send_to_repeater'),
+    path('api/vulnerability-list/', views.vulnerability_list, name='vulnerability_list'),
     
     # New mitmproxy integration API endpoints
     path('api/request/', api.receive_request, name='receive_request'),

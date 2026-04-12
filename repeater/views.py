@@ -1029,3 +1029,97 @@ def from_scanner(request):
         'url': repeater_url,
         'message': f'Scanner finding imported into Repeater as "{name}"',
     }, status=201)
+
+
+# ---------------------------------------------------------------------------
+# Interceptor → Repeater integration
+# ---------------------------------------------------------------------------
+
+@api_view(['POST'])
+def from_interceptor(request):
+    """
+    Receive an intercepted request from the Interceptor and create a RepeaterRequest.
+    Optionally includes auto-generated vulnerability test payloads.
+
+    POST /repeater/api/from-interceptor/
+
+    Request body:
+        request_id     (int, required)  – InterceptedRequest primary key
+        url            (str, required)  – Target URL
+        method         (str)            – HTTP method (default: GET)
+        headers        (dict|str)       – Request headers
+        body           (str)            – Request body
+        name           (str)            – Human-readable label for the tab
+        mode           (str)            – 'manual' or 'automatic'
+        locations      (list[str])      – Injection points when mode='automatic'
+        vuln_ids       (list[str])      – Vulnerability sub-ids when mode='automatic'
+        payloads       (list[dict])     – Pre-generated payloads from interceptor
+
+    Response (201):
+        id             – RepeaterRequest primary key
+        url            – Repeater dashboard URL with pre-selected request
+        message        – Confirmation string
+    """
+    url = request.data.get('url', '')
+    if not url:
+        return Response({'error': 'url is required'}, status=400)
+
+    method = (request.data.get('method') or 'GET').upper()
+    body = request.data.get('body', '') or ''
+    request_id = request.data.get('request_id')
+    mode = (request.data.get('mode') or 'manual').lower()
+    payloads = request.data.get('payloads', [])
+
+    # Normalise headers to a JSON string
+    raw_headers = request.data.get('headers', {})
+    if isinstance(raw_headers, dict):
+        headers_str = json.dumps(raw_headers)
+    elif isinstance(raw_headers, str):
+        headers_str = raw_headers
+    else:
+        headers_str = '{}'
+
+    # Build descriptive tab name
+    name = request.data.get('name', '')
+    if not name:
+        name = f'[Interceptor] {url}'[:255]
+
+    # Optionally resolve the RepeaterTab
+    tab = None
+    tab_id = request.data.get('tab_id')
+    if tab_id:
+        try:
+            tab = RepeaterTab.objects.get(id=tab_id)
+        except RepeaterTab.DoesNotExist:
+            pass
+
+    repeater_req = RepeaterRequest.objects.create(
+        url=url,
+        method=method,
+        headers=headers_str,
+        body=body,
+        name=name,
+        source='interceptor',
+        tab=tab,
+    )
+
+    repeater_url = f'/repeater/?request_id={repeater_req.id}'
+    if request_id:
+        repeater_url += f'&interceptor_id={request_id}'
+
+    payload_count = len(payloads) if isinstance(payloads, list) else 0
+
+    return Response({
+        'id': repeater_req.id,
+        'interceptor_request_id': request_id,
+        'url': repeater_url,
+        'mode': mode,
+        'payload_count': payload_count,
+        'payloads': payloads,
+        'message': (
+            f'Intercepted request imported into Repeater as "{name}" '
+            f'with {payload_count} auto-generated payload(s).'
+            if mode == 'automatic'
+            else f'Intercepted request imported into Repeater as "{name}" for manual editing.'
+        ),
+    }, status=201)

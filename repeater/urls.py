@@ -46,6 +46,11 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     path('api/from-scanner/', views.from_scanner, name='from_scanner'),
 
+    # -------------------------------------------------------------------------
+    # Interceptor → Repeater integration
+    # -------------------------------------------------------------------------
+    path('api/from-interceptor/', views.from_interceptor, name='from_interceptor'),
+
     # Desktop browser launcher
     path('api/launch-desktop-browser/', launch_pyqt_browser, name='launch_desktop_browser'),
 ]

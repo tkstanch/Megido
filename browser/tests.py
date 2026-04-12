@@ -83,11 +83,18 @@ class BrowserViewsTest(TestCase):
     @patch('browser.views.subprocess.Popen')
     def test_launch_desktop_browser_success(self, mock_popen):
         """Test successful desktop browser launch"""
-        response = self.client.post(
-            '/browser/api/launch-desktop-browser/',
-            {'django_url': 'http://127.0.0.1:8000'},
-            content_type='application/json'
-        )
+        # Mock process that does not exit immediately (poll returns None)
+        mock_process = MagicMock()
+        mock_process.poll.return_value = None
+        mock_popen.return_value = mock_process
+
+        with patch('browser.views.importlib.import_module'):
+            with patch('browser.views.Path.exists', return_value=True):
+                response = self.client.post(
+                    '/browser/api/launch-desktop-browser/',
+                    {'django_url': 'http://127.0.0.1:8000', 'enable_proxy': False},
+                    content_type='application/json'
+                )
         
         self.assertEqual(response.status_code, 200)
         data = response.json()
