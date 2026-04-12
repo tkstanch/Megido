@@ -128,7 +128,11 @@ class ScanEngine:
     def scan(self, url: str, config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         config = self._inject_env_config(config or {})
         self._apply_stealth_session(config)
-        return self._run_plugin(None, url, config)
+        all_findings = []
+        for plugin in self.registry.get_all_plugins():
+            findings = self._run_plugin(plugin, url, config)
+            all_findings.extend(findings)
+        return all_findings
 
     def scan_with_plugins(self, url: str, plugin_ids: List[str], config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         config = self._inject_env_config(config or {})
@@ -175,7 +179,7 @@ class ScanEngine:
                 f"Unknown scan profile '{profile_name}'. "
                 f"Valid profiles: {list(self.SCAN_PROFILES)}"
             )
-        profile = self.SCAN_PROFILES[profile_name]
+        profile = dict(self.SCAN_PROFILES[profile_name])
         config = extra_config.copy() if extra_config else {}
         max_workers = profile.pop('max_workers', 3)
         max_retries = profile.pop('max_retries', 2)
