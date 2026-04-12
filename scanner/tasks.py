@@ -298,6 +298,15 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                 try:
                     plugin, plugin_findings, plugin_status = future.result()
                 except SoftTimeLimitExceeded:
+                    # Save whatever findings we have collected so far before propagating
+                    if all_findings:
+                        try:
+                            engine.save_findings_to_db(scan, all_findings)
+                        except Exception as save_exc:
+                            logger.error(
+                                "Failed to save partial findings for scan %d before timeout: %s",
+                                scan_id, save_exc,
+                            )
                     raise
                 except Exception as exc:
                     plugin = future_to_plugin[future]
@@ -329,7 +338,16 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
                     )
 
         # Persist findings to the database
-        engine.save_findings_to_db(scan, all_findings)
+        try:
+            engine.save_findings_to_db(scan, all_findings)
+        except Exception as db_exc:
+            logger.error(
+                "Failed to save findings to DB for scan %d: %s. Scan will still be marked completed.",
+                scan_id, db_exc,
+            )
+            if scan.warnings is None:
+                scan.warnings = []
+            scan.warnings.append(f'Findings could not be saved to the database: {db_exc}')
 
         # Update scan status to completed
         scan.status = 'completed'
