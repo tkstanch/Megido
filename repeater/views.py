@@ -1070,7 +1070,7 @@ def from_interceptor(request):
     mode = (request.data.get('mode') or 'manual').lower()
     payloads = request.data.get('payloads', [])
 
-    # Normalise headers to a JSON string
+    # Normalize headers to a JSON string
     raw_headers = request.data.get('headers', {})
     if isinstance(raw_headers, dict):
         headers_str = json.dumps(raw_headers)

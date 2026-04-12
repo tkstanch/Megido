@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import InterceptedRequest, InterceptorSettings
 from proxy.models import ProxyRequest
+import json
 
 
 # ---------------------------------------------------------------------------
@@ -337,8 +338,6 @@ def send_to_repeater(request):
         payloads       – Generated test payload list (when mode='automatic')
         message        – Confirmation string
     """
-    import json as _json
-
     request_id = request.data.get('request_id')
     if not request_id:
         return Response({'error': 'request_id is required'}, status=400)
@@ -353,7 +352,7 @@ def send_to_repeater(request):
     locations_raw = request.data.get('locations', ['body'])
     vuln_ids = request.data.get('vuln_ids', [])
 
-    # Normalise location list
+    # Normalize location list
     all_locations = ['url_params', 'headers', 'body', 'cookies']
     if 'all' in locations_raw:
         locations = all_locations
@@ -366,9 +365,9 @@ def send_to_repeater(request):
     headers = getattr(intercepted, 'original_headers', None) or getattr(intercepted, 'headers', {})
     body = getattr(intercepted, 'original_body', None) or getattr(intercepted, 'body', '')
 
-    # Serialise headers for the RepeaterRequest model (expects a JSON string)
+    # Serialize headers for the RepeaterRequest model (expects a JSON string)
     if isinstance(headers, dict):
-        headers_str = _json.dumps(headers)
+        headers_str = json.dumps(headers)
     elif isinstance(headers, str):
         headers_str = headers
     else:
