@@ -616,6 +616,8 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
     except Terminated:
         logger.info(f"Exploit task for scan {scan_id} was cancelled by user.")
         results['status'] = 'cancelled'
+        scan.status = 'cancelled'
+        scan.save(update_fields=['status'])
     
     logger.info(
         f"Completed exploit task for scan {scan_id}: "
@@ -704,6 +706,17 @@ def async_exploit_selected_vulnerabilities(
     except Terminated:
         logger.info("Selected exploit task was cancelled by user.")
         results['status'] = 'cancelled'
+        # Persist cancelled status on affected scans
+        try:
+            scan_ids = (
+                Vulnerability.objects
+                .filter(id__in=vulnerability_ids)
+                .values_list('scan_id', flat=True)
+                .distinct()
+            )
+            Scan.objects.filter(id__in=scan_ids).update(status='cancelled')
+        except Exception as db_exc:
+            logger.error("Failed to persist cancelled status for selected exploit task: %s", db_exc)
     
     logger.info(
         f"Completed selected exploit task: "

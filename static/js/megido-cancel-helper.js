@@ -87,7 +87,7 @@
     function cancelTask(toolName, cancelUrl, btn) {
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '&#9203; Cancelling&hellip;';
+            btn.innerHTML = '&#9203; Cancelling...';
         }
 
         fetch(cancelUrl, {
