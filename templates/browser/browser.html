@@ -159,10 +159,16 @@
 
 <div class="info-message">
     <strong>💡 Browser Options:</strong> 
+    {% if is_docker %}
+    Use the iframe browser below for most sites. The PyQt6 desktop browser is not available in
+    Docker/container environments — use the iframe browser below or the
+    <em>Launch External Browser</em> option to open Firefox or Chrome on your host machine.
+    {% else %}
     Use the iframe browser below for most sites. 
     Click <em>Launch Desktop Browser (PyQt6)</em> to open the built-in PyQt6 browser, or choose an
     external browser (Firefox, Chrome, Edge, Safari) from the dropdown — all can be automatically
     configured to route traffic through mitmproxy for interception.
+    {% endif %}
 </div>
 
 <div class="browser-container">
@@ -172,7 +178,9 @@
         <button class="toolbar-button" onclick="reload()" title="Reload">⟳</button>
         <input type="text" class="url-bar" id="url-bar" placeholder="Enter URL (e.g., https://example.com)" onkeypress="handleUrlEnter(event)">
         <button class="toolbar-button" onclick="navigate()">Go</button>
+        {% if not is_docker %}
         <button class="toolbar-button cef-launch-btn" onclick="launchDesktopBrowser()" title="Launch full desktop browser with PyQt6">🚀 Launch Desktop Browser (PyQt6)</button>
+        {% endif %}
         <div class="external-browser-group" title="Launch an external browser with proxy pre-configured">
             <select id="external-browser-select" class="external-browser-select">
                 <option value="firefox">🦊 Firefox</option>
