@@ -1,3 +1,4 @@
+import copy
 import os
 import logging
 from concurrent.futures import as_completed
@@ -179,7 +180,7 @@ class ScanEngine:
                 f"Unknown scan profile '{profile_name}'. "
                 f"Valid profiles: {list(self.SCAN_PROFILES)}"
             )
-        profile = dict(self.SCAN_PROFILES[profile_name])
+        profile = copy.deepcopy(self.SCAN_PROFILES[profile_name])
         config = extra_config.copy() if extra_config else {}
         max_workers = profile.pop('max_workers', 3)
         max_retries = profile.pop('max_retries', 2)

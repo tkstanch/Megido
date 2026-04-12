@@ -347,7 +347,7 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
             )
             if scan.warnings is None:
                 scan.warnings = []
-            scan.warnings.append(f'Some findings may not have been saved: {db_exc}')
+            scan.warnings.append(f'Findings could not be saved to the database: {db_exc}')
 
         # Update scan status to completed
         scan.status = 'completed'
