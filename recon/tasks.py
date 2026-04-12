@@ -9,6 +9,7 @@ import json
 import logging
 
 from celery import shared_task
+from celery.exceptions import Terminated
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,13 @@ def _mark_failed(task_obj, error_message=''):
     task_obj.error_message = str(error_message)[:2000]
     task_obj.completed_at = timezone.now()
     task_obj.save(update_fields=['status', 'error_message', 'completed_at'])
+
+
+def _mark_cancelled(task_obj):
+    """Set task status to cancelled."""
+    task_obj.status = 'cancelled'
+    task_obj.completed_at = timezone.now()
+    task_obj.save(update_fields=['status', 'completed_at'])
 
 
 def _create_task(project, task_type, target):
@@ -94,6 +102,11 @@ def run_whois_lookup(self, project_id: int, domain: str):
         if task_obj:
             _mark_completed(task_obj, f"WHOIS lookup completed for {domain}")
         logger.info("WHOIS lookup complete for %s", domain)
+    except Terminated:
+        logger.info("WHOIS task for %s was cancelled by user.", domain)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("WHOIS task failed for %s: %s", domain, exc)
         if task_obj:
@@ -148,6 +161,11 @@ def run_subdomain_enum(self, project_id: int, domain: str):
         if task_obj:
             _mark_completed(task_obj, f"Found {saved} new subdomains for {domain}")
         logger.info("Subdomain enum complete for %s: %d new", domain, saved)
+    except Terminated:
+        logger.info("Subdomain enum for %s was cancelled by user.", domain)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("Subdomain enum failed for %s: %s", domain, exc)
         if task_obj:
@@ -214,6 +232,11 @@ def run_port_scan(self, project_id: int, host: str, api_key: str = None):
         if task_obj:
             _mark_completed(task_obj, f"Found {saved} new services for {host} (source: {source})")
         logger.info("Port scan complete for %s: %d services (source: %s)", host, saved, source)
+    except Terminated:
+        logger.info("Port scan for %s was cancelled by user.", host)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("Port scan failed for %s: %s", host, exc)
         if task_obj:
@@ -267,6 +290,11 @@ def run_directory_bruteforce(self, project_id: int, target_url: str):
         if task_obj:
             _mark_completed(task_obj, f"Found {saved} paths at {target_url}")
         logger.info("Dir brute complete for %s: %d paths", target_url, saved)
+    except Terminated:
+        logger.info("Directory bruteforce for %s was cancelled by user.", target_url)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("Dir brute failed for %s: %s", target_url, exc)
         if task_obj:
@@ -324,6 +352,11 @@ def run_bucket_discovery(self, project_id: int, keyword: str):
         if task_obj:
             _mark_completed(task_obj, f"Found {saved} buckets for keyword '{keyword}'")
         logger.info("Bucket discovery complete for '%s': %d found", keyword, saved)
+    except Terminated:
+        logger.info("Bucket discovery for '%s' was cancelled by user.", keyword)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("Bucket discovery failed for '%s': %s", keyword, exc)
         if task_obj:
@@ -415,6 +448,11 @@ def run_github_recon(self, project_id: int, org_name: str):
         if task_obj:
             _mark_completed(task_obj, summary)
         logger.info("GitHub recon complete for '%s': %s", org_name, summary)
+    except Terminated:
+        logger.info("GitHub recon for '%s' was cancelled by user.", org_name)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("GitHub recon failed for '%s': %s", org_name, exc)
         if task_obj:
@@ -457,6 +495,11 @@ def _do_fingerprinting(project_id: int, target_url: str, task_obj=None) -> int:
             _mark_completed(task_obj, f"Identified {saved} technologies at {target_url}")
         logger.info("Fingerprinting complete for %s: %d techs", target_url, saved)
         return saved
+    except Terminated:
+        logger.info("Fingerprinting for %s was cancelled by user.", target_url)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return 0
     except Exception as exc:
         logger.error("Fingerprinting failed for %s: %s", target_url, exc)
         if task_obj:
@@ -533,6 +576,11 @@ def run_full_recon(self, project_id: int):
                 f"Full recon dispatched {dispatched} subtasks across {len(targets)} targets",
             )
         logger.info("Full recon dispatched for project %d: %d tasks", project_id, dispatched)
+    except Terminated:
+        logger.info("Full recon for project %d was cancelled by user.", project_id)
+        if task_obj:
+            _mark_cancelled(task_obj)
+        return
     except Exception as exc:
         logger.error("Full recon failed for project %d: %s", project_id, exc)
         if task_obj:

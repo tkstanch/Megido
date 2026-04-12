@@ -4,6 +4,7 @@ URL configuration for the Recon app.
 from django.urls import path
 
 from . import views
+from .cancel_views import cancel_recon_task
 
 app_name = 'recon'
 
@@ -46,6 +47,7 @@ urlpatterns = [
 
     # API
     path('api/task/<int:task_id>/status/', views.task_status_api, name='task_status_api'),
+    path('api/task/<int:task_id>/cancel/', cancel_recon_task, name='cancel_recon_task'),
     path('api/project/<int:project_id>/active-tasks/', views.project_active_tasks_api, name='project_active_tasks_api'),
 
     # Report export

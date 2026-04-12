@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict
 
 from celery import shared_task
-from celery.exceptions import SoftTimeLimitExceeded
+from celery.exceptions import SoftTimeLimitExceeded, Terminated
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,20 @@ def _mark_task_failed(task_id: int, error_message: str) -> None:
     except Exception as db_exc:
         logger.error(
             f"Failed to persist failure state for SQLInjectionTask {task_id}: {db_exc}"
+        )
+
+
+def _mark_task_cancelled(task_id: int) -> None:
+    """Persist a cancelled status on the SQLInjectionTask record."""
+    try:
+        from .models import SQLInjectionTask
+        task_obj = SQLInjectionTask.objects.get(id=task_id)
+        task_obj.status = 'cancelled'
+        task_obj.completed_at = timezone.now()
+        task_obj.save(update_fields=['status', 'completed_at'])
+    except Exception as db_exc:
+        logger.error(
+            f"Failed to persist cancelled state for SQLInjectionTask {task_id}: {db_exc}"
         )
 
 
@@ -78,6 +92,10 @@ def sql_injection_task(self, task_id: int) -> Dict[str, Any]:
         logger.warning(f"Soft time limit reached for sql_injection_task {task_id}.")
         _mark_task_failed(task_id, 'Task exceeded time limit')
         return {'task_id': task_id, 'status': 'failed', 'error': 'Task exceeded time limit', 'celery_task_id': celery_task_id}
+    except Terminated:
+        logger.info(f"sql_injection_task for task {task_id} was cancelled by user.")
+        _mark_task_cancelled(task_id)
+        return {'task_id': task_id, 'status': 'cancelled', 'celery_task_id': celery_task_id}
     except Exception as e:
         logger.error(f"Error in sql_injection_task for task {task_id}: {e}", exc_info=True)
         _mark_task_failed(task_id, str(e))
@@ -132,6 +150,10 @@ def sql_injection_task_with_selection(self, task_id: int) -> Dict[str, Any]:
         logger.warning(f"Soft time limit reached for sql_injection_task_with_selection {task_id}.")
         _mark_task_failed(task_id, 'Task exceeded time limit')
         return {'task_id': task_id, 'status': 'failed', 'error': 'Task exceeded time limit', 'celery_task_id': celery_task_id}
+    except Terminated:
+        logger.info(f"sql_injection_task_with_selection for task {task_id} was cancelled by user.")
+        _mark_task_cancelled(task_id)
+        return {'task_id': task_id, 'status': 'cancelled', 'celery_task_id': celery_task_id}
     except Exception as e:
         logger.error(f"Error in sql_injection_task_with_selection for task {task_id}: {e}", exc_info=True)
         _mark_task_failed(task_id, str(e))

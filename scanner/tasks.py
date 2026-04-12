@@ -15,7 +15,7 @@ import concurrent.futures
 from typing import Dict, Any, Optional, List
 
 from celery import shared_task
-from celery.exceptions import SoftTimeLimitExceeded
+from celery.exceptions import SoftTimeLimitExceeded, Terminated
 from django.utils import timezone
 
 from scanner.models import Scan, Vulnerability
@@ -382,6 +382,17 @@ def async_scan_task(self, scan_id: int) -> Dict[str, Any]:
             'task_id': task_id,
         }
 
+    except Terminated:
+        logger.info(f"Scan {scan_id} was cancelled by user.")
+        scan.status = 'cancelled'
+        scan.completed_at = timezone.now()
+        scan.save(update_fields=['status', 'completed_at'])
+        return {
+            'scan_id': scan_id,
+            'status': 'cancelled',
+            'task_id': task_id,
+        }
+
     except Exception as e:
         logger.error(f"Error during scan {scan_id}: {str(e)}", exc_info=True)
         scan.status = 'failed'
@@ -497,6 +508,18 @@ def async_stealth_scan_task(
             'task_id': task_id,
         }
 
+    except Terminated:
+        logger.info("Stealth scan %d was cancelled by user.", scan_id)
+        scan.status = 'cancelled'
+        scan.completed_at = timezone.now()
+        scan.save(update_fields=['status', 'completed_at'])
+        return {
+            'scan_id': scan_id,
+            'status': 'cancelled',
+            'scan_profile': scan_profile,
+            'task_id': task_id,
+        }
+
     except Exception as exc:
         logger.error("Error during stealth scan %d: %s", scan_id, exc, exc_info=True)
         scan.status = 'failed'
@@ -590,6 +613,11 @@ def async_exploit_all_vulnerabilities(self, scan_id: int, config: Optional[Dict[
             "Terminating gracefully."
         )
         results['error'] = f'Task exceeded time limit. Processed {len(results["results"])}/{total} vulnerabilities.'
+    except Terminated:
+        logger.info(f"Exploit task for scan {scan_id} was cancelled by user.")
+        results['status'] = 'cancelled'
+        scan.status = 'cancelled'
+        scan.save(update_fields=['status'])
     
     logger.info(
         f"Completed exploit task for scan {scan_id}: "
@@ -675,6 +703,20 @@ def async_exploit_selected_vulnerabilities(
             "Terminating gracefully."
         )
         results['error'] = f'Task exceeded time limit. Processed {len(results["results"])}/{total} vulnerabilities.'
+    except Terminated:
+        logger.info("Selected exploit task was cancelled by user.")
+        results['status'] = 'cancelled'
+        # Persist cancelled status on affected scans
+        try:
+            scan_ids = (
+                Vulnerability.objects
+                .filter(id__in=vulnerability_ids)
+                .values_list('scan_id', flat=True)
+                .distinct()
+            )
+            Scan.objects.filter(id__in=scan_ids).update(status='cancelled')
+        except Exception as db_exc:
+            logger.error("Failed to persist cancelled status for selected exploit task: %s", db_exc)
     
     logger.info(
         f"Completed selected exploit task: "

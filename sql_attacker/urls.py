@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .cancel_views import cancel_sql_task
 from browser.views import launch_pyqt_browser
 
 app_name = 'sql_attacker'
@@ -28,6 +29,7 @@ urlpatterns = [
     path('api/tasks/', views.api_tasks, name='api_tasks'),
     path('api/tasks/<int:pk>/', views.api_task_detail, name='api_task_detail'),
     path('api/tasks/<int:pk>/status/', views.api_task_status, name='api_task_status'),
+    path('api/tasks/<int:pk>/cancel/', cancel_sql_task, name='cancel_sql_task'),
     path('api/tasks/<int:pk>/execute/', views.api_task_execute, name='api_task_execute'),
     path('api/tasks/<int:pk>/progress/', views.api_task_progress, name='api_task_progress'),
     path('api/results/', views.api_results, name='api_results'),
