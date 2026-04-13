@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import os
 import logging
 from concurrent.futures import as_completed
@@ -93,10 +94,10 @@ class ScanEngine:
             if hasattr(finding, 'to_dict'):
                 finding = finding.to_dict()
             elif not isinstance(finding, dict):
-                import dataclasses
                 finding = dataclasses.asdict(finding)
 
             http_traffic = finding.get('http_traffic', {})
+            confidence = finding.get('confidence') if finding.get('confidence') is not None else finding.get('confidence_score')
             vuln = Vulnerability.objects.create(
                 scan=scan,
                 vulnerability_type=finding.get('vulnerability_type'),
@@ -106,7 +107,7 @@ class ScanEngine:
                 description=finding.get('description'),
                 evidence=finding.get('evidence'),
                 remediation=finding.get('remediation'),
-                confidence_score=finding.get('confidence', finding.get('confidence_score')),
+                confidence_score=confidence,
                 verified=finding.get('verified'),
                 successful_payloads=finding.get('successful_payloads', []),
                 repeater_data=finding.get('repeater_requests', finding.get('repeater_data', [])),
