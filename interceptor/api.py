@@ -29,10 +29,10 @@ def receive_request(request):
         
         # Create intercepted request
         intercepted_request = InterceptedRequest.objects.create(
-            url=data.get('url'),
-            method=data.get('method', 'GET'),
-            headers=data.get('headers', {}),
-            body=data.get('body', ''),
+            original_url=data.get('url'),
+            original_method=data.get('method', 'GET'),
+            original_headers=data.get('headers', {}),
+            original_body=data.get('body', ''),
             source_app=data.get('source_app', ''),
             user=None  # Can link to user if auth token is provided
         )
@@ -175,8 +175,8 @@ class InterceptHistoryView(generics.ListAPIView):
     serializer_class = InterceptedRequestSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['url', 'method', 'body']
-    ordering_fields = ['timestamp', 'method']
+    search_fields = ['original_url', 'original_method', 'original_body']
+    ordering_fields = ['timestamp', 'original_method']
     ordering = ['-timestamp']
     
     def get_queryset(self):
@@ -190,7 +190,7 @@ class InterceptHistoryView(generics.ListAPIView):
         # Filter by method
         method = self.request.query_params.get('method', None)
         if method:
-            queryset = queryset.filter(method=method.upper())
+            queryset = queryset.filter(original_method=method.upper())
         
         # Filter by date range
         start_date = self.request.query_params.get('start_date', None)

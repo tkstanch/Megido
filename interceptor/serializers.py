@@ -7,7 +7,12 @@ class InterceptedRequestSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InterceptedRequest
-        fields = ['id', 'url', 'method', 'headers', 'body', 'timestamp', 'user', 'source_app']
+        fields = [
+            'id', 'status',
+            'original_url', 'original_method', 'original_headers', 'original_body',
+            'modified_url', 'modified_method', 'modified_headers', 'modified_body',
+            'timestamp', 'user', 'source_app',
+        ]
         read_only_fields = ['id', 'timestamp']
 
 

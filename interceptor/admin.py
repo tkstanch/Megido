@@ -19,18 +19,18 @@ class InterceptorSettingsAdmin(admin.ModelAdmin):
 @admin.register(InterceptedRequest)
 class InterceptedRequestAdmin(admin.ModelAdmin):
     """Admin interface for intercepted requests"""
-    list_display = ['id', 'method', 'url_short', 'source_app', 'timestamp']
-    list_filter = ['method', 'source_app', 'timestamp']
-    search_fields = ['url', 'body']
+    list_display = ['id', 'original_method', 'url_short', 'status', 'source_app', 'timestamp']
+    list_filter = ['original_method', 'status', 'source_app', 'timestamp']
+    search_fields = ['original_url', 'original_body']
     readonly_fields = ['timestamp']
     date_hierarchy = 'timestamp'
     ordering = ('-timestamp',)
-    
+
     def url_short(self, obj):
         """Show truncated URL"""
-        if len(obj.url) > 60:
-            return obj.url[:60] + "..."
-        return obj.url
+        if len(obj.original_url) > 60:
+            return obj.original_url[:60] + "..."
+        return obj.original_url
     url_short.short_description = 'URL'
 
 
