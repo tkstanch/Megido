@@ -119,7 +119,7 @@ class ScanEngine:
     def _get_stealth_headers(self) -> Dict[str, str]:
         if not self._stealth_engine:
             self._stealth_engine = StealthEngine()
-        return self._stealth_engine.get_random_user_agent()
+        return self._stealth_engine.get_randomized_headers()
 
     def _apply_stealth_session(self, config: Dict[str, Any]) -> None:
         if self.enable_stealth:
