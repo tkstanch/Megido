@@ -4,12 +4,29 @@ from django.utils import timezone
 
 class SpiderTarget(models.Model):
     """Model to store spider targets for content discovery"""
+
+    SCAN_PROFILE_CHOICES = [
+        ('quick', 'Quick'),
+        ('standard', 'Standard'),
+        ('aggressive', 'Aggressive'),
+        ('custom', 'Custom'),
+    ]
+
     url = models.URLField(max_length=2048, unique=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    
+
+    # Scan profile preset
+    scan_profile = models.CharField(
+        max_length=20,
+        choices=SCAN_PROFILE_CHOICES,
+        default='custom',
+        help_text="Scan preset: quick (crawl only), standard (all phases + stealth), aggressive (all phases, no stealth), custom (manual)",
+    )
+
     # Configuration options
     max_depth = models.IntegerField(default=3, help_text="Maximum crawl depth")
+    max_crawl_urls = models.IntegerField(default=500, help_text="Maximum number of URLs to crawl")
     follow_external_links = models.BooleanField(default=False)
     use_dirbuster = models.BooleanField(default=True)
     use_nikto = models.BooleanField(default=True)
