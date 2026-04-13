@@ -179,7 +179,7 @@ def fingerprint_url(url: str, timeout: int = None) -> list:
             })
 
     # ---- Cookie-based detection ----
-    for cookie_name in resp.cookies:
+    for cookie_name in resp.cookies.keys():
         if 'wordpress' in cookie_name.lower() or 'wp-' in cookie_name.lower():
             findings.append({
                 'technology': 'WordPress',
