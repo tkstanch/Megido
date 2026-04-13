@@ -35,29 +35,29 @@ class InterceptedRequestTest(TestCase):
     def test_create_request(self):
         """Test creating an intercepted request"""
         request = InterceptedRequest.objects.create(
-            url='http://example.com/test',
-            method='GET',
-            headers={'Content-Type': 'text/html'},
-            body='',
+            original_url='http://example.com/test',
+            original_method='GET',
+            original_headers={'Content-Type': 'text/html'},
+            original_body='',
             source_app='browser',
             user=self.user
         )
-        self.assertEqual(request.url, 'http://example.com/test')
-        self.assertEqual(request.method, 'GET')
+        self.assertEqual(request.original_url, 'http://example.com/test')
+        self.assertEqual(request.original_method, 'GET')
         self.assertEqual(request.source_app, 'browser')
     
     def test_request_ordering(self):
         """Test that requests are ordered by timestamp descending"""
         req1 = InterceptedRequest.objects.create(
-            url='http://example.com/1',
-            method='GET',
-            headers={},
+            original_url='http://example.com/1',
+            original_method='GET',
+            original_headers={},
             source_app='scanner'
         )
         req2 = InterceptedRequest.objects.create(
-            url='http://example.com/2',
-            method='POST',
-            headers={},
+            original_url='http://example.com/2',
+            original_method='POST',
+            original_headers={},
             source_app='spider'
         )
         
@@ -69,9 +69,9 @@ class InterceptedResponseTest(TestCase):
     def test_create_response(self):
         """Test creating an intercepted response"""
         request = InterceptedRequest.objects.create(
-            url='http://example.com/test',
-            method='GET',
-            headers={},
+            original_url='http://example.com/test',
+            original_method='GET',
+            original_headers={},
             source_app='browser'
         )
         
@@ -161,17 +161,17 @@ class InterceptorAPITest(TestCase):
         # Verify request was created
         request_id = result['request_id']
         request = InterceptedRequest.objects.get(id=request_id)
-        self.assertEqual(request.url, 'http://example.com/api')
-        self.assertEqual(request.method, 'POST')
+        self.assertEqual(request.original_url, 'http://example.com/api')
+        self.assertEqual(request.original_method, 'POST')
         self.assertEqual(request.source_app, 'scanner')
     
     def test_receive_response(self):
         """Test receiving a response from mitmproxy"""
         # Create a request first
         request = InterceptedRequest.objects.create(
-            url='http://example.com/api',
-            method='GET',
-            headers={},
+            original_url='http://example.com/api',
+            original_method='GET',
+            original_headers={},
             source_app='browser'
         )
         
@@ -235,15 +235,15 @@ class InterceptorAPITest(TestCase):
         
         # Create some requests
         InterceptedRequest.objects.create(
-            url='http://example.com/1',
-            method='GET',
-            headers={},
+            original_url='http://example.com/1',
+            original_method='GET',
+            original_headers={},
             source_app='scanner'
         )
         InterceptedRequest.objects.create(
-            url='http://example.com/2',
-            method='POST',
-            headers={},
+            original_url='http://example.com/2',
+            original_method='POST',
+            original_headers={},
             source_app='spider'
         )
         

@@ -23,24 +23,37 @@ class InterceptorSettings(models.Model):
 
 class InterceptedRequest(models.Model):
     """Store all intercepted HTTP requests"""
-    url = models.URLField(max_length=2000)
-    method = models.CharField(max_length=10)
-    headers = models.JSONField()
-    body = models.TextField(blank=True)
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('modified', 'Modified'),
+        ('forwarded', 'Forwarded'),
+        ('dropped', 'Dropped'),
+    ]
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    original_url = models.URLField(max_length=2000)
+    original_method = models.CharField(max_length=10)
+    original_headers = models.JSONField()
+    original_body = models.TextField(blank=True)
+    modified_method = models.CharField(max_length=10, blank=True, null=True)
+    modified_url = models.URLField(max_length=2000, blank=True, null=True)
+    modified_headers = models.JSONField(blank=True, null=True)
+    modified_body = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     source_app = models.CharField(max_length=50, blank=True)  # Which app triggered this
-    
+
     class Meta:
         ordering = ['-timestamp']
         indexes = [
             models.Index(fields=['-timestamp']),
             models.Index(fields=['source_app']),
-            models.Index(fields=['method']),
+            models.Index(fields=['original_method']),
+            models.Index(fields=['status']),
         ]
-    
+
     def __str__(self):
-        return f"{self.method} {self.url[:50]}"
+        return f"{self.original_method} {self.original_url[:50]}"
 
 
 class InterceptedResponse(models.Model):
