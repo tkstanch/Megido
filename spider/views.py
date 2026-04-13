@@ -20,9 +20,68 @@ import json
 from collections import deque
 import time
 import logging
+import concurrent.futures
 
 # Configure logger for spider module
 logger = logging.getLogger(__name__)
+
+# Preset configurations for scan profiles
+SCAN_PRESETS = {
+    'quick': {
+        'max_depth': 2,
+        'max_crawl_urls': 200,
+        'use_dirbuster': False,
+        'use_nikto': False,
+        'use_wikto': False,
+        'enable_brute_force': False,
+        'enable_inference': False,
+        'enable_parameter_discovery': False,
+        'enable_stealth_mode': False,
+        'use_random_user_agents': True,
+        'stealth_delay_min': 0.1,
+        'stealth_delay_max': 0.3,
+        'enable_adaptive_stealth': False,
+        'request_timeout': 10,
+        'max_retries': 1,
+        'max_parameter_tests': 100,
+    },
+    'standard': {
+        'max_depth': 3,
+        'max_crawl_urls': 500,
+        'use_dirbuster': True,
+        'use_nikto': True,
+        'use_wikto': True,
+        'enable_brute_force': True,
+        'enable_inference': True,
+        'enable_parameter_discovery': True,
+        'enable_stealth_mode': True,
+        'use_random_user_agents': True,
+        'stealth_delay_min': 1.0,
+        'stealth_delay_max': 3.0,
+        'enable_adaptive_stealth': True,
+        'request_timeout': 30,
+        'max_retries': 3,
+        'max_parameter_tests': 100,
+    },
+    'aggressive': {
+        'max_depth': 3,
+        'max_crawl_urls': 500,
+        'use_dirbuster': True,
+        'use_nikto': True,
+        'use_wikto': True,
+        'enable_brute_force': True,
+        'enable_inference': True,
+        'enable_parameter_discovery': True,
+        'enable_stealth_mode': False,
+        'use_random_user_agents': True,
+        'stealth_delay_min': 0.1,
+        'stealth_delay_max': 0.3,
+        'enable_adaptive_stealth': False,
+        'request_timeout': 10,
+        'max_retries': 1,
+        'max_parameter_tests': 100,
+    },
+}
 
 
 def make_request_with_retry(stealth_session, url, max_retries=3, timeout=30, method='GET', **kwargs):
@@ -106,7 +165,9 @@ def spider_targets(request):
             'id': target.id,
             'name': target.name,
             'url': target.url,
+            'scan_profile': target.scan_profile,
             'max_depth': target.max_depth,
+            'max_crawl_urls': target.max_crawl_urls,
             'use_dirbuster': target.use_dirbuster,
             'use_nikto': target.use_nikto,
             'use_wikto': target.use_wikto,
@@ -129,31 +190,43 @@ def spider_targets(request):
         url = request.data.get('url')
         if not url:
             return Response({'error': 'URL is required'}, status=400)
-        
+
+        # Determine scan profile and apply preset values
+        scan_profile = request.data.get('scan_profile', 'custom')
+        preset = SCAN_PRESETS.get(scan_profile, {})
+
+        def _get(field, default):
+            """Return preset value for non-custom profiles, otherwise use request data."""
+            if preset:
+                return preset.get(field, request.data.get(field, default))
+            return request.data.get(field, default)
+
         target, created = SpiderTarget.objects.get_or_create(
             url=url,
             defaults={
                 'name': request.data.get('name', ''),
                 'description': request.data.get('description', ''),
-                'max_depth': request.data.get('max_depth', 3),
+                'scan_profile': scan_profile,
+                'max_depth': _get('max_depth', 3),
+                'max_crawl_urls': _get('max_crawl_urls', 500),
                 'follow_external_links': request.data.get('follow_external_links', False),
-                'use_dirbuster': request.data.get('use_dirbuster', True),
-                'use_nikto': request.data.get('use_nikto', True),
-                'use_wikto': request.data.get('use_wikto', True),
-                'enable_brute_force': request.data.get('enable_brute_force', True),
-                'enable_inference': request.data.get('enable_inference', True),
-                'enable_parameter_discovery': request.data.get('enable_parameter_discovery', True),
-                'enable_stealth_mode': request.data.get('enable_stealth_mode', True),
-                'use_random_user_agents': request.data.get('use_random_user_agents', True),
-                'stealth_delay_min': request.data.get('stealth_delay_min', 1.0),
-                'stealth_delay_max': request.data.get('stealth_delay_max', 3.0),
-                'enable_adaptive_stealth': request.data.get('enable_adaptive_stealth', True),
-                'request_timeout': request.data.get('request_timeout', 30),
-                'max_retries': request.data.get('max_retries', 3),
-                'max_parameter_tests': request.data.get('max_parameter_tests', 100),
+                'use_dirbuster': _get('use_dirbuster', True),
+                'use_nikto': _get('use_nikto', True),
+                'use_wikto': _get('use_wikto', True),
+                'enable_brute_force': _get('enable_brute_force', True),
+                'enable_inference': _get('enable_inference', True),
+                'enable_parameter_discovery': _get('enable_parameter_discovery', True),
+                'enable_stealth_mode': _get('enable_stealth_mode', True),
+                'use_random_user_agents': _get('use_random_user_agents', True),
+                'stealth_delay_min': _get('stealth_delay_min', 1.0),
+                'stealth_delay_max': _get('stealth_delay_max', 3.0),
+                'enable_adaptive_stealth': _get('enable_adaptive_stealth', True),
+                'request_timeout': _get('request_timeout', 30),
+                'max_retries': _get('max_retries', 3),
+                'max_parameter_tests': _get('max_parameter_tests', 100),
             }
         )
-        
+
         if created:
             return Response({
                 'id': target.id,
@@ -254,39 +327,39 @@ def run_spider_session(session, target):
     logger.debug(f"Created stealth session for {target.url} (SSL verification: {verify_ssl})")
     
     try:
-        # Phase 1: Web Crawling
+        # Phase 1: Web Crawling (must run first — discovers URLs used by later phases)
         logger.info(f"Phase 1: Starting web crawling for session {session.id}")
         crawl_website(session, target, stealth_session)
-        
-        # Phase 2: DirBuster-style directory discovery
+
+        # Phases 2–7: Run concurrently since they are independent of each other
+        phase_tasks = []
         if target.use_dirbuster:
-            logger.info(f"Phase 2: Starting DirBuster discovery for session {session.id}")
-            run_dirbuster_discovery(session, target, stealth_session)
-        
-        # Phase 3: Nikto scanning
+            phase_tasks.append(('Phase 2 (DirBuster)', run_dirbuster_discovery, (session, target, stealth_session)))
         if target.use_nikto:
-            logger.info(f"Phase 3: Starting Nikto scan for session {session.id}")
-            run_nikto_scan(session, target, stealth_session)
-        
-        # Phase 4: Wikto scanning
+            phase_tasks.append(('Phase 3 (Nikto)', run_nikto_scan, (session, target, stealth_session)))
         if target.use_wikto:
-            logger.info(f"Phase 4: Starting Wikto scan for session {session.id}")
-            run_wikto_scan(session, target, stealth_session)
-        
-        # Phase 5: Brute force hidden content
+            phase_tasks.append(('Phase 4 (Wikto)', run_wikto_scan, (session, target, stealth_session)))
         if target.enable_brute_force:
-            logger.info(f"Phase 5: Starting brute force for session {session.id}")
-            brute_force_paths(session, target, stealth_session)
-        
-        # Phase 6: Content inference
+            phase_tasks.append(('Phase 5 (Brute Force)', brute_force_paths, (session, target, stealth_session)))
         if target.enable_inference:
-            logger.info(f"Phase 6: Starting content inference for session {session.id}")
-            infer_content(session, target, stealth_session)
-        
-        # Phase 7: Hidden parameter discovery
+            phase_tasks.append(('Phase 6 (Inference)', infer_content, (session, target, stealth_session)))
         if target.enable_parameter_discovery:
-            logger.info(f"Phase 7: Starting parameter discovery for session {session.id}")
-            discover_hidden_parameters(session, target, stealth_session, verify_ssl)
+            phase_tasks.append(('Phase 7 (Parameter Discovery)', discover_hidden_parameters, (session, target, stealth_session, verify_ssl)))
+
+        if phase_tasks:
+            logger.info(f"Running {len(phase_tasks)} phases concurrently for session {session.id}")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(phase_tasks)) as executor:
+                future_to_phase = {
+                    executor.submit(fn, *args): name
+                    for name, fn, args in phase_tasks
+                }
+                for future in concurrent.futures.as_completed(future_to_phase):
+                    phase_name = future_to_phase[future]
+                    try:
+                        future.result()
+                        logger.info(f"{phase_name} completed for session {session.id}")
+                    except Exception as exc:
+                        logger.error(f"{phase_name} failed for session {session.id}: {exc}", exc_info=True)
         
         # Update session statistics
         session.urls_discovered = session.discovered_urls.count()
@@ -318,7 +391,7 @@ def crawl_website(session, target, stealth_session):
     urls_processed = 0
     urls_failed = 0
     
-    while to_visit and len(visited) < 500:  # Limit to 500 URLs
+    while to_visit and len(visited) < target.max_crawl_urls:  # Limit controlled by target.max_crawl_urls
         current_url, depth = to_visit.popleft()
         
         if current_url in visited or depth > target.max_depth:
