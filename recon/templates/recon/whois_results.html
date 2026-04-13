@@ -58,8 +58,22 @@
                 <div><span class="text-gray-500">Org:</span> <span class="text-gray-200">{{ r.registrant_org|default:"—" }}</span></div>
                 <div><span class="text-gray-500">Created:</span> <span class="text-gray-200">{{ r.creation_date|default:"—" }}</span></div>
                 <div><span class="text-gray-500">Expires:</span> <span class="text-gray-200">{{ r.expiration_date|default:"—" }}</span></div>
+                {% if r.registrant_phone %}
+                <div><span class="text-gray-500">Phone:</span> <span class="text-gray-200">{{ r.registrant_phone }}</span></div>
+                {% endif %}
+                {% if r.registrant_address %}
+                <div><span class="text-gray-500">Address:</span> <span class="text-gray-200">{{ r.registrant_address }}</span></div>
+                {% endif %}
+                {% if r.status %}
+                <div class="md:col-span-2"><span class="text-gray-500">Status:</span> <span class="font-mono text-xs text-gray-300">{{ r.status }}</span></div>
+                {% endif %}
                 {% if r.name_servers %}
                 <div class="md:col-span-2"><span class="text-gray-500">Name Servers:</span> <span class="font-mono text-xs text-gray-300">{{ r.name_servers }}</span></div>
+                {% endif %}
+                {% if not r.registrant_name and r.registrar or not r.registrant_name and r.registrant_org %}
+                <div class="md:col-span-2 rounded p-3 bg-blue-900/20 border border-blue-700 text-blue-300 text-xs">
+                    ℹ Registrant details may be redacted due to WHOIS privacy protection (GDPR/ICANN).
+                </div>
                 {% endif %}
             </div>
         </div>
