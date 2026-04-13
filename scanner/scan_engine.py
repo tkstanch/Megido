@@ -83,12 +83,19 @@ class ScanEngine:
         # Placeholder for any post-scan processing
         pass
 
-    def _save_findings_to_db(self, scan: 'Scan', findings: List[Dict[str, Any]]) -> List['Vulnerability']:
+    def _save_findings_to_db(self, scan: 'Scan', findings: List[Any]) -> List['Vulnerability']:
         if not django.apps.apps.is_installed('scanner'):
             logger.warning("Django models not available, skipping database save")
             return []
         vulnerabilities = []
         for finding in findings:
+            # Convert VulnerabilityFinding dataclass (or any non-dict) to a plain dict
+            if hasattr(finding, 'to_dict'):
+                finding = finding.to_dict()
+            elif not isinstance(finding, dict):
+                import dataclasses
+                finding = dataclasses.asdict(finding)
+
             http_traffic = finding.get('http_traffic', {})
             vuln = Vulnerability.objects.create(
                 scan=scan,
@@ -99,10 +106,10 @@ class ScanEngine:
                 description=finding.get('description'),
                 evidence=finding.get('evidence'),
                 remediation=finding.get('remediation'),
-                confidence_score=finding.get('confidence_score'),
+                confidence_score=finding.get('confidence', finding.get('confidence_score')),
                 verified=finding.get('verified'),
                 successful_payloads=finding.get('successful_payloads', []),
-                repeater_data=finding.get('repeater_requests', []),
+                repeater_data=finding.get('repeater_requests', finding.get('repeater_data', [])),
                 http_traffic=http_traffic,
             )
             vulnerabilities.append(vuln)
@@ -194,7 +201,7 @@ class ScanEngine:
         self._apply_stealth_session(config)
         return self.scan_concurrent(url, config=config, max_workers=max_workers)
 
-    def save_findings_to_db(self, scan: 'Scan', findings: List[Dict[str, Any]]) -> List['Vulnerability']:
+    def save_findings_to_db(self, scan: 'Scan', findings: List[Any]) -> List['Vulnerability']:
         if not django.apps.apps.is_installed('scanner'):
             logger.warning("Django models not available, skipping database save")
             return []
