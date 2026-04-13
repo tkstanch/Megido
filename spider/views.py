@@ -44,6 +44,7 @@ SCAN_PRESETS = {
         'request_timeout': 10,
         'max_retries': 1,
         'max_parameter_tests': 100,
+        'max_duration': 300,
     },
     'standard': {
         'max_depth': 3,
@@ -59,9 +60,10 @@ SCAN_PRESETS = {
         'stealth_delay_min': 1.0,
         'stealth_delay_max': 3.0,
         'enable_adaptive_stealth': True,
-        'request_timeout': 30,
-        'max_retries': 3,
+        'request_timeout': 20,
+        'max_retries': 2,
         'max_parameter_tests': 100,
+        'max_duration': 3600,
     },
     'aggressive': {
         'max_depth': 3,
@@ -80,6 +82,7 @@ SCAN_PRESETS = {
         'request_timeout': 10,
         'max_retries': 1,
         'max_parameter_tests': 100,
+        'max_duration': 900,
     },
 }
 
@@ -224,6 +227,7 @@ def spider_targets(request):
                 'request_timeout': _get('request_timeout', 30),
                 'max_retries': _get('max_retries', 3),
                 'max_parameter_tests': _get('max_parameter_tests', 100),
+                'max_duration': _get('max_duration', 3600),
             }
         )
 
@@ -321,17 +325,54 @@ def run_spider_session(session, target):
     """Main spider logic - orchestrates all discovery methods"""
     logger.info(f"Running spider session {session.id} for target {target.url}")
     verify_ssl = os.environ.get('MEGIDO_VERIFY_SSL', 'False') == 'True'
-    
+
+    # Record start time for global timeout enforcement
+    session_start = time.monotonic()
+    max_duration = getattr(target, 'max_duration', 3600)  # seconds; 0 = no limit
+
+    def _deadline_exceeded():
+        """Return True when the global session deadline has been reached."""
+        if not max_duration:
+            return False
+        return (time.monotonic() - session_start) >= max_duration
+
+    def _set_phase(phase_name):
+        """Persist the current phase on the session row."""
+        try:
+            session.current_phase = phase_name
+            session.save(update_fields=['current_phase'])
+        except Exception as phase_err:
+            logger.warning(f"Could not update current_phase to '{phase_name}': {phase_err}")
+
     # Create stealth session
     stealth_session = create_stealth_session(target, verify_ssl)
     logger.debug(f"Created stealth session for {target.url} (SSL verification: {verify_ssl})")
-    
+
     try:
         # Phase 1: Web Crawling (must run first — discovers URLs used by later phases)
         logger.info(f"Phase 1: Starting web crawling for session {session.id}")
+        _set_phase('crawling')
         crawl_website(session, target, stealth_session)
 
+        if _deadline_exceeded():
+            logger.warning(
+                f"Spider session {session.id} hit global timeout after Phase 1 "
+                f"({time.monotonic() - session_start:.0f}s / {max_duration}s) — "
+                f"saving partial results"
+            )
+            _set_phase('completed')
+            return
+
         # Phases 2–7: Run concurrently since they are independent of each other
+        # Map each (display_name, fn, args) to a stable phase label used for current_phase.
+        PHASE_LABELS = {
+            run_dirbuster_discovery: 'dirbuster',
+            run_nikto_scan: 'nikto',
+            run_wikto_scan: 'wikto',
+            brute_force_paths: 'brute_force',
+            infer_content: 'inference',
+            discover_hidden_parameters: 'parameter_discovery',
+        }
         phase_tasks = []
         if target.use_dirbuster:
             phase_tasks.append(('Phase 2 (DirBuster)', run_dirbuster_discovery, (session, target, stealth_session)))
@@ -348,28 +389,54 @@ def run_spider_session(session, target):
 
         if phase_tasks:
             logger.info(f"Running {len(phase_tasks)} phases concurrently for session {session.id}")
+            # Mark the first active phase as current for progress reporting
+            _set_phase(PHASE_LABELS.get(phase_tasks[0][1], 'running'))
+            elapsed_so_far = time.monotonic() - session_start
+            remaining_seconds = max(0.0, max_duration - elapsed_so_far) if max_duration else None
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(phase_tasks), 6)) as executor:
                 future_to_phase = {
                     executor.submit(fn, *args): name
                     for name, fn, args in phase_tasks
                 }
-                for future in concurrent.futures.as_completed(future_to_phase):
+                for future in concurrent.futures.as_completed(
+                    future_to_phase,
+                    timeout=remaining_seconds,
+                ):
                     phase_name = future_to_phase[future]
                     try:
                         future.result()
                         logger.info(f"{phase_name} completed for session {session.id}")
                     except Exception as exc:
                         logger.error(f"{phase_name} failed for session {session.id}: {exc}", exc_info=True)
-        
+
         # Update session statistics
         session.urls_discovered = session.discovered_urls.count()
         session.hidden_content_found = session.hidden_content.count()
         session.inference_results = session.inferred_content.count()
         session.parameters_discovered = session.discovered_parameters.count()
+        _set_phase('completed')
         session.save()
-        
+
         logger.info(f"Spider session {session.id} phases completed successfully")
-        
+
+    except concurrent.futures.TimeoutError:
+        # Global deadline hit while waiting for concurrent phases — save partial results
+        elapsed = time.monotonic() - session_start
+        logger.warning(
+            f"Spider session {session.id} global timeout reached after {elapsed:.0f}s "
+            f"(limit {max_duration}s) — saving partial results"
+        )
+        session.urls_discovered = session.discovered_urls.count()
+        session.hidden_content_found = session.hidden_content.count()
+        session.inference_results = session.inferred_content.count()
+        session.parameters_discovered = session.discovered_parameters.count()
+        session.error_message = (
+            f"Session time-limited after {elapsed:.0f}s "
+            f"(max_duration={max_duration}s). Partial results saved."
+        )
+        _set_phase('completed')
+        session.save()
+
     finally:
         # Always close stealth session, even if exceptions occur
         try:
@@ -1077,6 +1144,7 @@ def spider_results(request, session_id):
         data = {
             'session_id': session.id,
             'status': session.status,
+            'current_phase': session.current_phase,
             'target': {
                 'id': session.target.id,
                 'name': session.target.name,

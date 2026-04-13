@@ -52,6 +52,10 @@ class SpiderTarget(models.Model):
         default=100,
         help_text="Maximum number of parameter discovery attempts per URL (cap to prevent combinatorial explosion)",
     )
+    max_duration = models.IntegerField(
+        default=3600,
+        help_text="Maximum session duration in seconds before graceful abort (0 = no limit)",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -75,6 +79,12 @@ class SpiderSession(models.Model):
     
     target = models.ForeignKey(SpiderTarget, on_delete=models.CASCADE, related_name='sessions')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    current_phase = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        help_text="Current phase being executed (e.g. crawling, dirbuster, completed)",
+    )
     
     # Statistics
     urls_discovered = models.IntegerField(default=0)

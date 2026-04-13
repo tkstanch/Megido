@@ -10,6 +10,10 @@ from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# Maximum adaptive delay caps for AdaptiveStealthSession to prevent unbounded escalation
+MAX_DELAY_MIN = 10.0  # seconds
+MAX_DELAY_MAX = 15.0  # seconds
+
 
 # List of realistic browser user agents
 USER_AGENTS = [
@@ -431,11 +435,11 @@ class AdaptiveStealthSession(StealthSession):
                     pass
 
             if self._consecutive_429 >= 3:
-                self.delay_min *= 2
-                self.delay_max *= 2
+                self.delay_min = min(self.delay_min * 2, MAX_DELAY_MIN)
+                self.delay_max = min(self.delay_max * 2, MAX_DELAY_MAX)
                 self._consecutive_429 = 0
                 logger.warning(
-                    "AdaptiveStealth: 3 consecutive 429s on %s — doubled delays to %.1f–%.1f s",
+                    "AdaptiveStealth: 3 consecutive 429s on %s — updated delays to %.1f–%.1f s",
                     self.target_url,
                     self.delay_min,
                     self.delay_max,
@@ -447,8 +451,8 @@ class AdaptiveStealthSession(StealthSession):
             self._consecutive_429 = 0
 
             # Increase delay and rotate UA to try to recover
-            self.delay_min = min(self.delay_min * 1.5, 30.0)
-            self.delay_max = min(self.delay_max * 1.5, 60.0)
+            self.delay_min = min(self.delay_min * 1.5, MAX_DELAY_MIN)
+            self.delay_max = min(self.delay_max * 1.5, MAX_DELAY_MAX)
             logger.warning(
                 "AdaptiveStealth: 403 after previous 200s on %s — increasing delays to "
                 "%.1f–%.1f s and rotating user-agent",
