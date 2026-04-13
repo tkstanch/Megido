@@ -60,7 +60,7 @@ def hex_encode_with_prefix(payload):
 
 
 def unicode_encode(payload):
-    """
+    r"""
     Unicode escape encode the payload.
     Example: <script> -> \u003c\u0073\u0063\u0072\u0069\u0070\u0074\u003e
     """
@@ -92,7 +92,7 @@ def html_entity_encode_hex(payload):
 
 
 def octal_encode(payload):
-    """
+    r"""
     Octal encode the payload.
     Example: <script> -> \074\163\143\162\151\160\164\076
     """
@@ -188,9 +188,9 @@ def double_slash_obfuscation(payload):
 
 
 def backslash_to_forward(payload):
-    """
+    r"""
     Convert backslashes to forward slashes.
-    Example: ..\\etc -> ../etc
+    Example: ..\etc -> ../etc
     """
     return payload.replace('\\', '/')
 
@@ -205,7 +205,7 @@ def char_code_obfuscation_js(payload):
 
 
 def unicode_escape_js(payload):
-    """
+    r"""
     Unicode escape for JavaScript.
     Example: <script> -> \u003cscript\u003e
     """
