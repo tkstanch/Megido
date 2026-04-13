@@ -197,7 +197,7 @@ def spider_targets(request):
 
         def _get(field, default):
             """Return preset value for non-custom profiles, otherwise use request data."""
-            if preset:
+            if scan_profile in SCAN_PRESETS:
                 return preset.get(field, request.data.get(field, default))
             return request.data.get(field, default)
 
@@ -348,7 +348,7 @@ def run_spider_session(session, target):
 
         if phase_tasks:
             logger.info(f"Running {len(phase_tasks)} phases concurrently for session {session.id}")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(phase_tasks)) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(phase_tasks), 6)) as executor:
                 future_to_phase = {
                     executor.submit(fn, *args): name
                     for name, fn, args in phase_tasks

@@ -399,7 +399,7 @@ const SCAN_PRESETS = {
         locked: true
     },
     standard: {
-        description: '🔍 All phases with stealth delays. Current default behaviour (~30–60 min).',
+        description: '🔍 All phases with stealth delays. Current default behavior (~30–60 min).',
         max_depth: 3, max_crawl_urls: 500,
         use_dirbuster: true, use_nikto: true, use_wikto: true,
         enable_brute: true, enable_inference: true, enable_param_discovery: true,
@@ -459,7 +459,8 @@ function applyScanProfile(profile) {
     );
     configInputs.forEach(el => {
         el.disabled = preset.locked;
-        el.closest('label, .form-group') && (el.closest('label, .form-group').style.opacity = preset.locked ? '0.6' : '1');
+        const parent = el.closest('label, .form-group');
+        if (parent) parent.style.opacity = preset.locked ? '0.6' : '1';
     });
 }
 
