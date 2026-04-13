@@ -404,7 +404,7 @@ const SCAN_PRESETS = {
         use_dirbuster: true, use_nikto: true, use_wikto: true,
         enable_brute: true, enable_inference: true, enable_param_discovery: true,
         enable_stealth: true, use_random_ua: true, enable_adaptive_stealth: true,
-        delay_min: 1.0, delay_max: 3.0, request_timeout: 30, max_retries: 3, max_parameter_tests: 100,
+        delay_min: 1.0, delay_max: 3.0, request_timeout: 20, max_retries: 2, max_parameter_tests: 100,
         locked: true
     },
     aggressive: {
@@ -896,9 +896,12 @@ async function pollForResults(sessionId, attempt = 0) {
             await loadResults(sessionId);
         } else if (statusCheck.status === 'running') {
             // Spider still running, continue polling
+            const phaseLabel = statusCheck.data && statusCheck.data.current_phase
+                ? ` &mdash; Phase: <strong>${statusCheck.data.current_phase}</strong>`
+                : '';
             document.getElementById('spider-status').innerHTML = `
                 <div class="info">
-                    <strong>⏳ Spider running...</strong><br>
+                    <strong>⏳ Spider running...</strong>${phaseLabel}<br>
                     Checking progress (attempt ${attempt + 1})...
                 </div>
             `;
