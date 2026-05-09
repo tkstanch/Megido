@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch
 import json
+import errno
 
 from .models import (
     ScanTarget, ScanResult, PortScan, ServiceDetection,
@@ -199,7 +200,9 @@ class HostDiscoveryTestCase(TestCase):
         """Connection refused should be interpreted as host reachable across platforms."""
         discovery = HostDiscovery()
         self.assertTrue(discovery._is_connection_refused(111))
-        self.assertTrue(discovery._is_connection_refused(10061))
+        wsa_refused = getattr(errno, 'WSAECONNREFUSED', None)
+        if wsa_refused is not None:
+            self.assertTrue(discovery._is_connection_refused(wsa_refused))
         self.assertFalse(discovery._is_connection_refused(110))
 
 

@@ -408,8 +408,6 @@ class HostDiscovery:
         wsa_refused = getattr(errno, 'WSAECONNREFUSED', None)
         if wsa_refused is not None:
             refused_codes.add(wsa_refused)
-        else:
-            refused_codes.add(10061)
         return code in refused_codes
     
     def _get_randomized_delay(self) -> float:
