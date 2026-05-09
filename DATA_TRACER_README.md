@@ -1,33 +1,23 @@
-# Data Tracer — The #1 Network Intelligence Platform
+# Data Tracer — Network Intelligence Platform
 
 ## Overview
 
-Data Tracer is the most powerful network intelligence, scanning, and analysis platform available — outperforming Nmap, Masscan, ZMap, Shodan, Censys, Wireshark, Nessus, OpenVAS, Burp Suite, Aircrack-ng, and Metasploit combined.
+Data Tracer is a network intelligence, scanning, and analysis module within the Megido security platform. Built as a Django application, it provides comprehensive capabilities for security professionals, penetration testers, and network administrators.
 
-Built as a Django application within the Megido security platform, Data Tracer provides comprehensive capabilities for security professionals, penetration testers, and network administrators.
+> **Development status:** Data Tracer is part of the actively-evolving Megido platform. Some capabilities listed below are fully implemented while others are still under development. See the main [`README.md`](README.md#project-status) for an overview of what is working today versus what is still being built.
 
----
-
-## Competitor Comparison
-
-| Capability | Nmap | Masscan | Wireshark | Nessus | Shodan | Burp Suite | **Data Tracer** |
-|---|---|---|---|---|---|---|---|
-| Port Scanning | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Service Detection | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ 500+ sigs |
-| OS Fingerprinting | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ 100+ sigs |
-| CVE Scanning | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| OWASP Top 10 | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| SSL/TLS Analysis | ⚡ | ❌ | ⚡ | ✅ | ⚡ | ✅ | ✅ |
-| Network Topology | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ D3.js |
-| DPI / Protocol Analysis | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ 200+ |
-| WiFi Analysis | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Threat Intelligence | ❌ | ❌ | ❌ | ❌ | ⚡ | ❌ | ✅ MITRE ATT&CK |
-| Cloud Security | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ AWS/Azure/GCP |
-| API Security | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Credential Scanning | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ 1000+ creds |
-| STIX/TAXII Export | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Compliance Audit | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ PCI/HIPAA/NIST |
-| REST API | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+**Capabilities include:**
+- Host discovery, port scanning, and service/OS detection
+- Deep packet inspection (DPI) for 200+ application protocols
+- Vulnerability scanning — CVE database, OWASP Top 10, SSL/TLS analysis
+- Network topology mapping with D3.js-compatible graph output
+- Wireless (WiFi/BLE) analysis and rogue AP detection
+- Threat intelligence — IOC checking, MITRE ATT&CK mapping, STIX 2.1 export
+- Cloud security assessment — AWS, Azure, GCP, and container environments
+- API security testing — REST, GraphQL, JWT, OAuth2
+- Credential and secret scanning
+- Compliance auditing — PCI-DSS, HIPAA, NIST, ISO 27001
+- Multi-format report generation (JSON, HTML, CSV, Markdown)
 
 ---
 

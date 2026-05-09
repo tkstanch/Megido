@@ -11,6 +11,30 @@ A cutting-edge security app for **security researchers and security teams** work
 [![Stars](https://img.shields.io/github/stars/tkstanch/Megido?style=social)](https://github.com/tkstanch/Megido/stargazers)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20BSD-blue)](#supported-platforms)
 
+## Project Status
+
+Megido is under active development. Some parts of the platform are already
+usable today, while others are still being built.
+
+**Working / usable today (see individual module docs for details):**
+- SQLi engine (`sql_attacker/engine/`) — verification profiles, evidence packs, JSON/SARIF reports
+- Intercepting proxy (`proxy/`) — HTTP/HTTPS/WebSocket capture, replay, CLI/API
+- Scanner engines — Bandit, Semgrep, Trivy, GitLeaks, custom plugins
+- Discover / OSINT app (`discover/`) — multi-source data collection, REST API, analytics
+- Desktop browser with mitmproxy interception
+- Modern Tailwind-based UI
+
+**Still under active development (incomplete or experimental):**
+- `decompiler/` app — currently scaffolded with stub implementations
+- Advanced ML-based recommendations and anomaly detection
+- Some protocol parsers (AMF, Java serialization) and traffic analyzers
+- Items listed in [`docs/ROADMAP.md`](docs/ROADMAP.md)
+
+Check each module's own `README.md` (e.g. `decompiler/README.md`, `discover/README.md`,
+`sql_attacker/README.md`, `PROXY_README.md`) for the current status of that feature,
+and see [`docs/ROADMAP.md`](docs/ROADMAP.md) for upcoming work. Contributions to help
+finish in-progress modules are very welcome.
+
 ## Supported Platforms
 
 Megido is supported on:
