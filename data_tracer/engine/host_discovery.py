@@ -7,6 +7,9 @@ import socket
 import struct
 import random
 import time
+import subprocess
+import platform
+import errno
 from typing import List, Dict, Tuple, Optional
 
 
@@ -72,23 +75,19 @@ class HostDiscovery:
                     delay = self._get_randomized_delay()
                     time.sleep(delay)
                 
-                # Attempt to resolve hostname
-                socket.setdefaulttimeout(2)
-                response = socket.gethostbyname(host)
-                
-                # Check if host is reachable (simplified)
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                
-                # Try common port to verify host is up
-                result = sock.connect_ex((host, 80))
-                sock.close()
-                
-                if result == 0 or result == 111:  # Connection successful or refused (host is up)
+                reachable = self._ping_host(host)
+                discovery_method = 'icmp_ping'
+
+                if not reachable:
+                    reachable = self._is_host_reachable_via_tcp(host)
+                    if reachable:
+                        discovery_method = 'tcp_connect_fallback'
+
+                if reachable:
                     results.append({
                         'ip': host,
                         'status': 'up',
-                        'method': 'icmp_ping',
+                        'method': discovery_method,
                         'response_time': random.uniform(0.01, 0.5),  # Simulated RTT
                     })
             except (socket.error, socket.timeout):
@@ -168,6 +167,9 @@ class HostDiscovery:
                     if result == 0:
                         host_up = True
                         open_ports.append(port)
+                    elif self._is_connection_refused(result):
+                        # Connection refused means the host is reachable even if port is closed
+                        host_up = True
                 except socket.error:
                     pass
             
@@ -361,6 +363,54 @@ class HostDiscovery:
             pass
         
         return []
+
+    def _ping_host(self, host: str, timeout_seconds: int = 1) -> bool:
+        """Probe a host with platform-appropriate ping arguments."""
+        try:
+            if platform.system().lower().startswith('win'):
+                command = ['ping', '-n', '1', '-w', str(timeout_seconds * 1000), host]
+            else:
+                command = ['ping', '-c', '1', '-W', str(timeout_seconds), host]
+
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds + 1,
+            )
+            return result.returncode == 0
+        except (subprocess.SubprocessError, FileNotFoundError):
+            return False
+
+    def _is_host_reachable_via_tcp(self, host: str, ports: Optional[List[int]] = None) -> bool:
+        """Fallback host liveness check using TCP connect probes."""
+        if ports is None:
+            ports = [80, 443, 22, 53]
+
+        for port in ports:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex((host, port))
+                sock.close()
+
+                if result == 0 or self._is_connection_refused(result):
+                    return True
+            except socket.error:
+                continue
+
+        return False
+
+    @staticmethod
+    def _is_connection_refused(code: int) -> bool:
+        """Cross-platform connection-refused detection for connect_ex return codes."""
+        refused_codes = {errno.ECONNREFUSED}
+        wsa_refused = getattr(errno, 'WSAECONNREFUSED', None)
+        if wsa_refused is not None:
+            refused_codes.add(wsa_refused)
+        else:
+            refused_codes.add(10061)
+        return code in refused_codes
     
     def _get_randomized_delay(self) -> float:
         """

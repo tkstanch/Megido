@@ -279,7 +279,29 @@ cvss = reporter.calculate_cvss_v31({'AV': 'N', 'AC': 'L', 'PR': 'N', 'UI': 'N', 
 
 ---
 
+## Running Data Tracer Locally
+
+```bash
+# from repository root
+python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
+USE_SQLITE=true python manage.py migrate --run-syncdb --noinput
+USE_SQLITE=true python manage.py runserver
+```
+
+Create a scan from **Data Tracer → Create Scan** and test with targets such as:
+- `127.0.0.1`
+- `localhost`
+- A permitted remote host you are authorized to test
+
+### Privilege and Probe Behavior
+
+- Data Tracer attempts ICMP host discovery first using the platform ping command.
+- On systems where raw/ICMP operations are restricted, it falls back to TCP connect probes.
+- A TCP **connection refused** response is treated as host reachable (host up, port closed), so scans still return meaningful host results instead of an empty host set.
+- Deeper port/service/OS analysis runs against a discovered host and is reflected in both scan logs and API payloads.
+
+---
+
 ## Security Notice
 
 Data Tracer is designed for authorized security testing and network administration only. All scanning and testing capabilities should only be used against systems you own or have explicit written permission to test. Unauthorized scanning may violate laws including the Computer Fraud and Abuse Act (CFAA) and similar legislation in other jurisdictions.
-

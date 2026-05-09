@@ -109,14 +109,21 @@ def execute_scan(request, scan_id):
         if discovered_hosts:
             scan_result.host_discovered = True
             log_scan_event(scan_result, 'info', f'Discovered {len(discovered_hosts)} host(s)')
+            scan_host = discovered_hosts[0].get('ip') or scan_target.target
+            if len(discovered_hosts) > 1:
+                log_scan_event(
+                    scan_result,
+                    'info',
+                    f"Scanning first discovered host {scan_host} for deep analysis"
+                )
             
             # Step 2: Port Scanning
-            log_scan_event(scan_result, 'info', 'Starting port scan')
+            log_scan_event(scan_result, 'info', f'Starting port scan on {scan_host}')
             port_scanner = PortScanner(stealth_config)
             
             # Use appropriate scan type based on stealth mode
             scan_type = 'syn' if scan_target.stealth_mode else 'connect'
-            port_results = port_scanner.scan_ports(scan_target.target, scan_type=scan_type)
+            port_results = port_scanner.scan_ports(scan_host, scan_type=scan_type)
             
             # Save port scan results
             open_ports = []
@@ -141,7 +148,7 @@ def execute_scan(request, scan_id):
                 service_detector = ServiceDetector()
                 
                 for port in open_ports[:10]:  # Limit to first 10 ports
-                    service_info = service_detector.detect_service(scan_target.target, port)
+                    service_info = service_detector.detect_service(scan_host, port)
                     
                     port_scan = PortScan.objects.filter(
                         scan_result=scan_result,
@@ -161,7 +168,7 @@ def execute_scan(request, scan_id):
             log_scan_event(scan_result, 'info', 'Starting OS fingerprinting')
             os_fingerprinter = OSFingerprinter()
             os_results = os_fingerprinter.fingerprint_os(
-                scan_target.target,
+                scan_host,
                 open_ports=open_ports
             )
             
@@ -173,8 +180,18 @@ def execute_scan(request, scan_id):
                     accuracy=os_result['accuracy'],
                     fingerprint_method=os_result['method']
                 )
+            scan_result.raw_output = json.dumps({
+                'requested_target': scan_target.target,
+                'scan_host': scan_host,
+                'discovered_hosts': discovered_hosts,
+            })
         else:
             log_scan_event(scan_result, 'warning', 'No hosts discovered')
+            scan_result.raw_output = json.dumps({
+                'requested_target': scan_target.target,
+                'scan_host': None,
+                'discovered_hosts': [],
+            })
         
         # Complete scan
         scan_result.completed_at = timezone.now()
@@ -622,6 +639,14 @@ def api_scan_result(request, result_id):
     """REST API: Get scan result details."""
     scan_result = get_object_or_404(ScanResult, id=result_id)
 
+    discovered_hosts = []
+    try:
+        if scan_result.raw_output:
+            raw_data = json.loads(scan_result.raw_output)
+            discovered_hosts = raw_data.get('discovered_hosts', [])
+    except (json.JSONDecodeError, TypeError, ValueError):
+        discovered_hosts = []
+
     data = {
         'id': str(scan_result.id),
         'target': scan_result.scan_target.target,
@@ -629,6 +654,7 @@ def api_scan_result(request, result_id):
         'completed_at': scan_result.completed_at.isoformat() if scan_result.completed_at else None,
         'duration_seconds': scan_result.duration_seconds,
         'host_discovered': scan_result.host_discovered,
+        'discovered_hosts': discovered_hosts,
         'open_ports_count': scan_result.open_ports_count,
         'summary': scan_result.summary,
         'port_scans': list(scan_result.port_scans.values('port', 'protocol', 'state', 'service_name')),

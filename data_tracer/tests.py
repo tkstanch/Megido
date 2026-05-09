@@ -2,6 +2,8 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
+from unittest.mock import patch
+import json
 
 from .models import (
     ScanTarget, ScanResult, PortScan, ServiceDetection,
@@ -193,6 +195,13 @@ class HostDiscoveryTestCase(TestCase):
         self.assertGreater(len(ips), 0)
         self.assertIn('192.168.1.1', ips)
 
+    def test_connection_refused_codes_are_treated_as_host_up(self):
+        """Connection refused should be interpreted as host reachable across platforms."""
+        discovery = HostDiscovery()
+        self.assertTrue(discovery._is_connection_refused(111))
+        self.assertTrue(discovery._is_connection_refused(10061))
+        self.assertFalse(discovery._is_connection_refused(110))
+
 
 class PortScannerTestCase(TestCase):
     """Test PortScanner engine."""
@@ -345,3 +354,91 @@ class DataTracerViewsTestCase(TestCase):
         response = self.client.get('/data-tracer/scans/')
         
         self.assertEqual(response.status_code, 302)  # Redirect to login
+
+    @patch('data_tracer.views.OSFingerprinter')
+    @patch('data_tracer.views.ServiceDetector')
+    @patch('data_tracer.views.PortScanner')
+    @patch('data_tracer.views.HostDiscovery')
+    def test_execute_scan_records_discovered_host_results(
+        self,
+        mock_host_discovery_cls,
+        mock_port_scanner_cls,
+        mock_service_detector_cls,
+        mock_os_fingerprinter_cls,
+    ):
+        """Execute scan should persist real discovered-host data and logs."""
+        self.client.login(username='testuser', password='testpass123!')
+        scan_target = ScanTarget.objects.create(
+            target='localhost',
+            created_by=self.user,
+            scan_type='comprehensive',
+            stealth_mode=False,
+        )
+
+        mock_host_discovery_cls.return_value.discover_hosts.return_value = [
+            {'ip': '127.0.0.1', 'status': 'up', 'method': 'icmp_ping'}
+        ]
+        mock_port_scanner_cls.return_value.scan_ports.return_value = [
+            {'port': 22, 'protocol': 'tcp', 'state': 'open', 'banner': 'OpenSSH'}
+        ]
+        mock_service_detector_cls.return_value.detect_service.return_value = {
+            'service_name': 'ssh',
+            'service_version': '9.0',
+            'product': 'OpenSSH',
+            'confidence': 95,
+        }
+        mock_os_fingerprinter_cls.return_value.fingerprint_os.return_value = [
+            {'os_name': 'Linux', 'os_family': 'linux', 'accuracy': 90, 'method': 'tcp_ip_stack'}
+        ]
+
+        response = self.client.post(f'/data-tracer/scan/{scan_target.id}/execute/')
+        self.assertEqual(response.status_code, 302)
+
+        scan_result = ScanResult.objects.get(scan_target=scan_target)
+        self.assertTrue(scan_result.host_discovered)
+        self.assertEqual(scan_result.open_ports_count, 1)
+        self.assertIn('Host is up', scan_result.summary)
+        self.assertIn('open port(s) discovered', scan_result.summary)
+
+        logs = list(scan_result.logs.values_list('message', flat=True))
+        self.assertIn('Starting host discovery', logs)
+        self.assertIn('Discovered 1 host(s)', logs)
+        self.assertNotIn('No hosts discovered', logs)
+
+        raw_data = json.loads(scan_result.raw_output)
+        self.assertEqual(raw_data['scan_host'], '127.0.0.1')
+        self.assertEqual(len(raw_data['discovered_hosts']), 1)
+
+    def test_api_scan_result_includes_discovered_hosts(self):
+        """API scan result should expose discovered hosts from raw output."""
+        self.client.login(username='testuser', password='testpass123!')
+        scan_target = ScanTarget.objects.create(
+            target='127.0.0.1',
+            created_by=self.user,
+            status='completed',
+        )
+        scan_result = ScanResult.objects.create(
+            scan_target=scan_target,
+            host_discovered=True,
+            open_ports_count=1,
+            summary='Host is up. 1 open port(s) discovered',
+            raw_output=json.dumps({
+                'requested_target': '127.0.0.1',
+                'scan_host': '127.0.0.1',
+                'discovered_hosts': [{'ip': '127.0.0.1', 'status': 'up', 'method': 'tcp_connect_fallback'}],
+            }),
+        )
+        PortScan.objects.create(
+            scan_result=scan_result,
+            port=80,
+            protocol='tcp',
+            state='open',
+            scan_type='connect',
+        )
+
+        response = self.client.get(f'/data-tracer/api/result/{scan_result.id}/')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['host_discovered'])
+        self.assertEqual(len(payload['discovered_hosts']), 1)
+        self.assertEqual(payload['discovered_hosts'][0]['ip'], '127.0.0.1')
