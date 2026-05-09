@@ -48,7 +48,10 @@ def open_in_browser(url: str) -> bool:
 
 
 def open_file(path: str | Path) -> bool:
-    target = str(Path(path).expanduser().resolve())
+    resolved_path = Path(path).expanduser().resolve()
+    if not resolved_path.exists():
+        return False
+    target = str(resolved_path)
     system = platform.system()
 
     try:
@@ -63,7 +66,7 @@ def open_file(path: str | Path) -> bool:
         if opener:
             subprocess.run([opener, target], check=True)
             return True
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return False
 
     return webbrowser.open(Path(target).as_uri())

@@ -8,9 +8,12 @@ on:
 jobs:
   test-matrix:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
+        # Keep both channels for broader macOS runner coverage.
         os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
         python: ["3.10", "3.11", "3.12"]
 
@@ -53,7 +56,12 @@ jobs:
           import time
 
           env = os.environ.copy()
-          proc = subprocess.Popen([sys.executable, "manage.py", "runserver", "127.0.0.1:8765"], env=env)
+          proc = subprocess.Popen(
+              [sys.executable, "manage.py", "runserver", "127.0.0.1:8765"],
+              env=env,
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          )
           ok = False
           try:
               for _ in range(30):

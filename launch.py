@@ -71,7 +71,7 @@ def _run_mode(mode: str, args: argparse.Namespace, extra_args: list[str] | None 
         return _run_desktop_browser(extra_args)
 
     # auto
-    if _display_available() and _module_available("PyQt6"):
+    if _display_available() and (_module_available("PyQt6") or _module_available("PySide6")):
         return _run_desktop_browser(extra_args)
     return _run_web(args)
 

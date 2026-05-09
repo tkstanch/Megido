@@ -12,4 +12,5 @@ def test_platform_dirs_are_created():
 
 def test_find_executable_accepts_known_binary():
     python_path = platform_utils.find_executable("python") or platform_utils.find_executable("python3")
-    assert python_path is None or Path(python_path).name.startswith("python")
+    assert python_path is not None
+    assert Path(python_path).name.startswith("python")

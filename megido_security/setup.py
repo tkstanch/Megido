@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     use_docker = args.with_docker
     if not args.skip_docker and not args.with_docker:
         use_docker = _prompt_yes_no(
-            "Do you want to use Docker (recommended)",
+            "Do you want to use Docker (recommended)?",
             default_yes=True,
             non_interactive=args.non_interactive,
         )

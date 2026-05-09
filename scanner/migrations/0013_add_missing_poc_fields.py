@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 from django.db import migrations, models
+from django.db.utils import NotSupportedError, OperationalError
 
 
 def _run_add_column(table: str, column: str, col_type: str, default: str | None = None):
     default_clause = "" if default is None else f" DEFAULT {default}"
 
-    def operation(apps, schema_editor):  # noqa: ARG001
+    def add_column_forward(apps, schema_editor):  # noqa: ARG001
         connection = schema_editor.connection
         vendor = connection.vendor
 
@@ -40,7 +41,25 @@ def _run_add_column(table: str, column: str, col_type: str, default: str | None 
             """
         )
 
-    return operation
+    return add_column_forward
+
+
+def _run_drop_column(table: str, column: str):
+    def drop_column_reverse(apps, schema_editor):  # noqa: ARG001
+        connection = schema_editor.connection
+        vendor = connection.vendor
+
+        if vendor == "sqlite":
+            # SQLite DROP COLUMN support depends on sqlite version.
+            try:
+                schema_editor.execute(f'ALTER TABLE "{table}" DROP COLUMN "{column}";')
+            except (OperationalError, NotSupportedError):
+                return
+            return
+
+        schema_editor.execute(f'ALTER TABLE "{table}" DROP COLUMN IF EXISTS "{column}";')
+
+    return drop_column_reverse
 
 
 def _get_field(column_name):
@@ -67,7 +86,12 @@ def _get_field(column_name):
 
 def _add_column_if_missing(table: str, column: str, col_type: str, default: str | None = None):
     return migrations.SeparateDatabaseAndState(
-        database_operations=[migrations.RunPython(_run_add_column(table, column, col_type, default), migrations.RunPython.noop)],
+        database_operations=[
+            migrations.RunPython(
+                _run_add_column(table, column, col_type, default),
+                _run_drop_column(table, column),
+            )
+        ],
         state_operations=[
             migrations.AddField(
                 model_name=table.split('_', 1)[1],

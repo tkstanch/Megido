@@ -449,7 +449,7 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
         # Create a temporary Firefox profile with proxy settings
         profile_dir = tempfile.mkdtemp(prefix='megido_firefox_')
         prefs_js = os.path.join(profile_dir, 'prefs.js')
-        with open(prefs_js, 'w', encoding='utf-8', newline='\n') as f:
+        with open(prefs_js, 'w', encoding='utf-8') as f:
             f.write(f'user_pref("network.proxy.type", 1);\n')
             f.write(f'user_pref("network.proxy.http", "{proxy_host}");\n')
             f.write(f'user_pref("network.proxy.http_port", {proxy_port});\n')
