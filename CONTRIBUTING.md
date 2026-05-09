@@ -28,18 +28,18 @@ python manage.py runserver
 Run tests:
 
 ```bash
-# Preferred when pytest is available
+# Repository root currently contains pytest-style test files (test_*.py)
 python -m pytest
-
-# TODO: if your team uses another canonical test command, document it here
 ```
 
 Lint/format:
 
-```bash
-# TODO: add the project's canonical lint/format commands if/when standardized
-# Example only: ruff check . && black .
-```
+Megido does not currently define a single required repository-wide lint command.
+
+When submitting code changes, please:
+
+- Follow PEP 8 and keep formatting consistent with nearby code.
+- Use a formatter/linter of your choice (for example `black`, `ruff`, or equivalent) and note what you ran in your PR.
 
 ## Branching and Pull Request Workflow
 

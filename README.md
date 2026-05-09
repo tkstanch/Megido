@@ -45,10 +45,10 @@ Use the interface that best fits your workflow:
 - **Web UI workflows:** launch the Django-based interface for guided testing and result review.
 
 ```bash
-# TODO: replace with canonical CLI commands for your preferred scanner modules
+# Example pattern for script-based workflows:
 # python <module_or_script>.py --target https://example.test
 
-# TODO: replace with canonical web UI launch command if different from Django default
+# Web UI launch (commonly used in this repository):
 # python manage.py runserver
 ```
 
@@ -80,7 +80,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for short-, mid-, and long-term direction
 
 If Megido helps your research or team, consider sponsoring development:
 
-- GitHub Sponsors: <https://github.com/sponsors/tkstanch>
+- GitHub Sponsors: <https://github.com/sponsors/tkstanch> (once enabled)
 - Funding config: [.github/FUNDING.yml](.github/FUNDING.yml)
 - Sponsor details: [docs/SPONSORS.md](docs/SPONSORS.md)
 
