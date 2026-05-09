@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest an improvement to Megido
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+      placeholder: Describe the current limitation
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What should Megido do?
+      placeholder: Describe your preferred approach
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What alternatives have you considered?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: References, links, screenshots, threat model notes, etc.

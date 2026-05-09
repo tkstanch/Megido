@@ -1,0 +1,49 @@
+name: False positive or false negative
+description: Report incorrect scanner/module results
+labels: [bug, security-research]
+body:
+  - type: input
+    id: scanner_module
+    attributes:
+      label: Scanner or module name
+      placeholder: Name of scanner/module/auth test
+    validations:
+      required: true
+  - type: textarea
+    id: target_description
+    attributes:
+      label: Target description (sanitized)
+      description: Share enough context to reproduce without exposing sensitive data
+      placeholder: App type, endpoint shape, auth model, relevant constraints
+    validations:
+      required: true
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected result
+      placeholder: What should Megido have reported?
+    validations:
+      required: true
+  - type: textarea
+    id: actual_result
+    attributes:
+      label: Actual result
+      placeholder: What did Megido report instead?
+    validations:
+      required: true
+  - type: textarea
+    id: payload_request
+    attributes:
+      label: Payload / request sample
+      description: Provide sanitized payload/request and response snippets
+      render: shell
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
