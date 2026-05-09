@@ -9,6 +9,43 @@ A cutting-edge security app for **security researchers and security teams** work
 [![Issues](https://img.shields.io/github/issues/tkstanch/Megido)](https://github.com/tkstanch/Megido/issues)
 [![Pull Requests](https://img.shields.io/github/issues-pr/tkstanch/Megido)](https://github.com/tkstanch/Megido/pulls)
 [![Stars](https://img.shields.io/github/stars/tkstanch/Megido?style=social)](https://github.com/tkstanch/Megido/stargazers)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20BSD-blue)](#supported-platforms)
+
+## Supported Platforms
+
+Megido is supported on:
+
+- Windows 10/11 (native and WSL2)
+- macOS 13+ (Intel + Apple Silicon)
+- Linux (major distros including Ubuntu/Fedora/Arch)
+- BSD environments (best-effort support)
+- Docker on Windows/macOS/Linux
+
+## Cross-Platform Quick Start
+
+### Windows (PowerShell)
+
+```powershell
+./setup.ps1
+python launch.py
+```
+
+### macOS / Linux / BSD
+
+```bash
+./setup.sh
+python launch.py
+```
+
+### Docker (all platforms)
+
+```bash
+docker compose up --build
+```
+
+### WSL
+
+Use the Linux flow above from inside your WSL distribution, then open `http://127.0.0.1:8000` from either Linux or Windows browser.
 
 ## Features
 

@@ -1,0 +1,50 @@
+name: Cross Platform
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test-matrix:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep both channels for broader macOS runner coverage.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
+        python: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Unified setup
+        run: python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
+
+      - name: Django check
+        env:
+          USE_SQLITE: "true"
+        run: python manage.py check
+
+      - name: Django migrate
+        env:
+          USE_SQLITE: "true"
+        run: python manage.py migrate --run-syncdb --noinput
+
+      - name: Run root tests
+        env:
+          USE_SQLITE: "true"
+        run: python -m pytest -q test_*.py
+
+      - name: Boot smoke test
+        env:
+          USE_SQLITE: "true"
+        run: python scripts/ci_boot_smoke.py

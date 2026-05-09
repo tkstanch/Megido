@@ -16,6 +16,15 @@ This guide explains how to test the ClamAV integration with Docker.
 docker compose up --build
 ```
 
+### Multi-arch build note
+
+The Docker image uses `python:3.12-slim` and is intended to run on both `linux/amd64` and `linux/arm64`.
+To validate both architectures explicitly, use Buildx:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t megido:local .
+```
+
 **First startup takes 3-5 minutes** as ClamAV downloads virus definitions (~150MB).
 
 ### 2. Monitor ClamAV Initialization
@@ -59,9 +68,10 @@ The EICAR test file is a standard, safe test file recognized by all antivirus en
 **Method 2: Via Command Line Test**
 ```bash
 # Create EICAR test file
-echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > /tmp/eicar.txt
+echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > ./eicar.txt
 
 # Copy to container and scan
+docker compose cp ./eicar.txt clamav:/tmp/eicar.txt
 docker compose exec clamav clamdscan /tmp/eicar.txt
 ```
 
