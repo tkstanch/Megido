@@ -107,10 +107,11 @@ def execute_scan(request, scan_id):
         raw_discovered_hosts = host_discovery.discover_hosts(scan_target.target, method='combined')
         discovered_hosts = [host for host in raw_discovered_hosts if host.get('ip')]
         if raw_discovered_hosts and not discovered_hosts:
+            invalid_count = len(raw_discovered_hosts)
             log_scan_event(
                 scan_result,
                 'warning',
-                'Host discovery returned invalid host entries without IP addresses',
+                f'Host discovery returned {invalid_count} invalid host entrie(s) without IP addresses',
             )
         
         if discovered_hosts:
