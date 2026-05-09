@@ -77,12 +77,24 @@ Docker provides the simplest, most reliable setup, including all required depend
 
 If you prefer or need to run Megido without Docker, follow these OS-specific guides.
 
+### Unified setup/launch commands
+
+- Setup: `python -m megido_security.setup`
+- Launch: `python launch.py`
+- Desktop browser wrapper: `python launch.py desktop-browser`
+
+Megido desktop mode uses PyQt6/PySide6. On headless/container environments, use web mode (`python launch.py web`).
+
 ### Linux & macOS (Manual Install)
 
 #### 1. Prerequisites
 
 - **Python 3.12+** (install from https://www.python.org/downloads/)
 - **pip** (Python package manager, usually included)
+- **Desktop dependencies (for PyQt6/PySide6 desktop mode):**
+  - Debian/Ubuntu: `sudo apt install -y libxcb1 libxkbcommon-x11-0 libgl1`
+  - Fedora: `sudo dnf install -y libxcb mesa-libGL`
+  - Arch: `sudo pacman -S --needed libxcb libxkbcommon-x11 mesa`
 - **ClamAV Antivirus**  
   - Ubuntu/Debian:
     ```bash
@@ -137,6 +149,7 @@ Open `http://localhost:8000` in your browser. Login with your superuser account.
 - [ClamAV for Windows](https://www.clamav.net/downloads) (install, and launch the **clamd** service)
 - [Git for Windows](https://git-scm.com/download/win) (or download ZIP as above)
 - **(Optional but recommended) [Windows Terminal](https://aka.ms/terminal) or PowerShell**
+- Desktop mode note: keep Microsoft Visual C++ Redistributable installed for Qt runtimes.
 
 #### 2. Setup the Project
 
@@ -167,6 +180,11 @@ python manage.py runserver
 ```
 
 - Go to `http://localhost:8000` in your browser and sign in.
+
+### macOS desktop note (Gatekeeper)
+
+If macOS blocks unsigned binaries used by dependencies, run from Terminal and allow the blocked item in:
+System Settings → Privacy & Security → Security → “Open Anyway”.
 
 ---
 

@@ -128,12 +128,15 @@ ASGI_APPLICATION = 'megido_security.asgi.application'
 # Override with environment variables in production for security.
 
 # Use SQLite for testing when PostgreSQL is not available
-import os
+SQLITE_DB_DIR = BASE_DIR / 'data'
+SQLITE_DB_DIR.mkdir(parents=True, exist_ok=True)
+SQLITE_DB_PATH = SQLITE_DB_DIR / 'db.sqlite3'
+
 if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': SQLITE_DB_PATH,
         }
     }
 else:
@@ -193,8 +196,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # WhiteNoise configuration for production static file serving
 # Uncomment the following line to enable compression and caching with unique filenames:
@@ -206,8 +209,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # SQL Attacker Evidence Capture
 SQL_ATTACKER_ENABLE_VISUAL_EVIDENCE = True
-SQL_ATTACKER_EVIDENCE_DIR = os.path.join(MEDIA_ROOT, 'sql_attacker', 'evidence')
+SQL_ATTACKER_EVIDENCE_DIR = MEDIA_ROOT / 'sql_attacker' / 'evidence'
 SQL_ATTACKER_HEADLESS_BROWSER = True
+
+LOG_DIR = BASE_DIR / 'logs'
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field

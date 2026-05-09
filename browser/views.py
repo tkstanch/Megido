@@ -10,11 +10,10 @@ import json
 import subprocess
 import sys
 import os
-import shutil
 import platform
 import tempfile
-import webbrowser
 from pathlib import Path
+from megido_security.platform_utils import find_executable
 
 
 def is_running_in_docker():
@@ -24,7 +23,7 @@ def is_running_in_docker():
         return True
     # Check /proc/1/cgroup for docker or containerd references
     try:
-        with open('/proc/1/cgroup', 'r') as f:
+        with open('/proc/1/cgroup', 'r', encoding='utf-8') as f:
             cgroup_content = f.read()
             if 'docker' in cgroup_content or 'containerd' in cgroup_content:
                 return True
@@ -426,12 +425,12 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
     elif system == 'Darwin':
         firefox_candidates = [
             '/Applications/Firefox.app/Contents/MacOS/firefox',
-            shutil.which('firefox'),
+            find_executable('firefox'),
         ]
     else:  # Linux / other Unix
         firefox_candidates = [
-            shutil.which('firefox'),
-            shutil.which('firefox-esr'),
+            find_executable('firefox'),
+            find_executable('firefox-esr'),
             '/usr/bin/firefox',
             '/usr/bin/firefox-esr',
             '/snap/bin/firefox',
@@ -450,7 +449,7 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
         # Create a temporary Firefox profile with proxy settings
         profile_dir = tempfile.mkdtemp(prefix='megido_firefox_')
         prefs_js = os.path.join(profile_dir, 'prefs.js')
-        with open(prefs_js, 'w') as f:
+        with open(prefs_js, 'w', encoding='utf-8', newline='\n') as f:
             f.write(f'user_pref("network.proxy.type", 1);\n')
             f.write(f'user_pref("network.proxy.http", "{proxy_host}");\n')
             f.write(f'user_pref("network.proxy.http_port", {proxy_port});\n')
@@ -497,22 +496,22 @@ def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='ch
         chrome_candidates = [
             r'C:\Program Files\Google\Chrome\Application\chrome.exe',
             r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-            shutil.which('chrome'),
-            shutil.which('chromium'),
+            find_executable('chrome'),
+            find_executable('chromium'),
         ]
     elif system == 'Darwin':
         chrome_candidates = [
             '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             '/Applications/Chromium.app/Contents/MacOS/Chromium',
-            shutil.which('google-chrome'),
-            shutil.which('chromium'),
+            find_executable('google-chrome'),
+            find_executable('chromium'),
         ]
     else:  # Linux
         chrome_candidates = [
-            shutil.which('google-chrome'),
-            shutil.which('google-chrome-stable'),
-            shutil.which('chromium'),
-            shutil.which('chromium-browser'),
+            find_executable('google-chrome'),
+            find_executable('google-chrome-stable'),
+            find_executable('chromium'),
+            find_executable('chromium-browser'),
             '/usr/bin/google-chrome',
             '/usr/bin/chromium',
             '/usr/bin/chromium-browser',
@@ -575,17 +574,17 @@ def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
         edge_candidates = [
             r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
             r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-            shutil.which('msedge'),
+            find_executable('msedge'),
         ]
     elif system == 'Darwin':
         edge_candidates = [
             '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-            shutil.which('microsoft-edge'),
+            find_executable('microsoft-edge'),
         ]
     else:  # Linux
         edge_candidates = [
-            shutil.which('microsoft-edge'),
-            shutil.which('microsoft-edge-stable'),
+            find_executable('microsoft-edge'),
+            find_executable('microsoft-edge-stable'),
             '/usr/bin/microsoft-edge',
             '/usr/bin/microsoft-edge-stable',
         ]

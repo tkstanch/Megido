@@ -1,145 +1,115 @@
 #!/usr/bin/env python3
-"""
-Megido Security - Launcher Script
-Intelligent launcher that detects the environment and runs the appropriate mode
-"""
+"""Unified Megido launcher for web and desktop modes."""
 
-import sys
+from __future__ import annotations
+
+import argparse
+import importlib
 import os
+import platform
 import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
 
 
-def is_display_available():
-    """Check if a display is available (for GUI)"""
-    if sys.platform == 'win32':
-        return True  # Windows always has display
-    elif sys.platform == 'darwin':
-        return True  # macOS always has display
-    else:
-        # Linux/Unix - check for DISPLAY or Wayland
-        return bool(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'))
-
-
-def check_pyside6():
-    """Check if PySide6 is properly installed"""
-    try:
-        import PySide6
+def _display_available() -> bool:
+    if platform.system() in {"Windows", "Darwin"}:
         return True
-    except ImportError:
-        return False
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
-def run_desktop_app():
-    """Launch the desktop application"""
-    print("🚀 Starting Megido Security in Desktop Mode...")
-    subprocess.run([sys.executable, 'desktop_app.py'])
+def _module_available(name: str) -> bool:
+    return importlib.util.find_spec(name) is not None
 
 
-def run_web_app():
-    """Launch the web application"""
-    print("🌐 Starting Megido Security in Web Mode...")
-    print("=" * 60)
-    print("  Access the application at: http://localhost:8000")
-    print("  Press Ctrl+C to stop the server")
-    print("=" * 60)
-    print()
-    subprocess.run([sys.executable, 'manage.py', 'runserver'])
+def _run(command: list[str], env: dict[str, str] | None = None) -> int:
+    return subprocess.run(command, cwd=str(ROOT), env=env).returncode
 
 
-def main():
-    """Main launcher logic"""
-    import argparse
-    
-    parser = argparse.ArgumentParser(
-        description='Megido Security Testing Platform Launcher',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+def _run_web(args: argparse.Namespace) -> int:
+    env = os.environ.copy()
+    if args.use_sqlite:
+        env["USE_SQLITE"] = "true"
+
+    # Windows-friendly web server fallback for local runs.
+    if platform.system() == "Windows" and _module_available("waitress"):
+        return _run(
+            [
+                sys.executable,
+                "-m",
+                "waitress",
+                "--listen",
+                f"{args.host}:{args.port}",
+                "megido_security.wsgi:application",
+            ],
+            env=env,
+        )
+
+    return _run(
+        [sys.executable, "manage.py", "runserver", f"{args.host}:{args.port}"],
+        env=env,
     )
+
+
+def _run_desktop_browser(extra_args: list[str] | None = None) -> int:
+    command = [sys.executable, "launch_megido_browser.py"]
+    if extra_args:
+        command.extend(extra_args)
+    return _run(command)
+
+
+def _run_mode(mode: str, args: argparse.Namespace, extra_args: list[str] | None = None) -> int:
+    if mode == "web":
+        return _run_web(args)
+
+    if mode in {"desktop", "desktop-browser"}:
+        if not _display_available():
+            print("No display detected, falling back to web mode.")
+            return _run_web(args)
+        return _run_desktop_browser(extra_args)
+
+    # auto
+    if _display_available() and _module_available("PyQt6"):
+        return _run_desktop_browser(extra_args)
+    return _run_web(args)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Megido unified launcher")
     parser.add_argument(
-        'mode',
-        nargs='?',
-        choices=['web', 'desktop'],
-        help='Launch mode: web or desktop'
+        "mode",
+        nargs="?",
+        choices=["auto", "web", "desktop", "desktop-browser"],
+        default="auto",
+        help="Launch mode",
     )
+    parser.add_argument("--host", default="127.0.0.1", help="Web host")
+    parser.add_argument("--port", type=int, default=8000, help="Web port")
     parser.add_argument(
-        '--web', '-w',
-        action='store_true',
-        help='Launch in web mode'
+        "--no-sqlite",
+        action="store_true",
+        help="Do not force USE_SQLITE=true for local launch",
     )
-    parser.add_argument(
-        '--desktop', '-d',
-        action='store_true',
-        help='Launch in desktop mode (requires PySide6)'
-    )
-    parser.add_argument(
-        '--cef',
-        action='store_true',
-        help='Launch with CEF desktop browser'
-    )
-    
-    args = parser.parse_args()
-    
-    print("=" * 60)
-    print("  Megido Security Testing Platform")
-    print("=" * 60)
-    print()
-    
-    # Handle CEF mode
-    if args.cef:
-        print("🚀 Launching Megido Security with CEF Desktop Browser...")
-        print()
-        try:
-            # Import and launch CEF browser
-            from browser.desktop_launcher import main as launch_cef
-            sys.exit(launch_cef())
-        except ImportError as e:
-            print("❌ Error: CEF browser integration not available.")
-            print(f"   {e}")
-            print()
-            print("To set up CEF browser, run:")
-            print("   python setup_cef_browser.py")
-            print()
-            print("Or use the quick launcher:")
-            print("   ./launch_cef_browser.sh  (Linux/macOS)")
-            print("   launch_cef_browser.bat   (Windows)")
-            sys.exit(1)
-        except Exception as e:
-            print(f"❌ Error launching CEF browser: {e}")
-            sys.exit(1)
-    
-    # Handle explicit mode arguments
-    if args.web or (args.mode and args.mode == 'web'):
-        run_web_app()
-        return
-    elif args.desktop or (args.mode and args.mode == 'desktop'):
-        if not check_pyside6():
-            print("❌ Error: PySide6 is not installed or not working properly.")
-            print("   Install it with: pip install PySide6")
-            sys.exit(1)
-        if not is_display_available():
-            print("❌ Error: No display detected. Desktop mode requires a GUI environment.")
-            print("   Use 'python launch.py web' to run in web mode instead.")
-            sys.exit(1)
-        run_desktop_app()
-        return
-    
-    # Auto-detect best mode
-    if is_display_available() and check_pyside6():
-        print("✅ Display detected and PySide6 available")
-        print("   Launching in Desktop Mode...")
-        print()
-        run_desktop_app()
-    else:
-        if not is_display_available():
-            print("ℹ️  No display detected - running in Web Mode")
-        elif not check_pyside6():
-            print("ℹ️  PySide6 not available - running in Web Mode")
-        print()
-        run_web_app()
+    return parser
 
 
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n✋ Shutting down Megido Security...")
-        sys.exit(0)
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args, passthrough = parser.parse_known_args(argv)
+
+    # Preserve compatibility with old flags.
+    if passthrough:
+        if "--web" in passthrough or "-w" in passthrough:
+            args.mode = "web"
+        if "--desktop" in passthrough or "-d" in passthrough or "--cef" in passthrough:
+            args.mode = "desktop-browser"
+        passthrough = [arg for arg in passthrough if arg not in {"--web", "-w", "--desktop", "-d", "--cef"}]
+
+    args.use_sqlite = not args.no_sqlite
+    return _run_mode(args.mode, args, passthrough)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

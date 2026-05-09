@@ -57,6 +57,8 @@ When submitting code changes, please:
 - Add type hints where reasonable and helpful.
 - Keep changes scoped and avoid unrelated refactors.
 - Update docs when behavior, setup, or workflows change.
+- Keep changes cross-platform: avoid OS-specific shell assumptions such as `os.system("rm -rf ...")`, hardcoded `/tmp`, or `subprocess(..., shell=True)` without guarded fallbacks.
+- Before opening a PR, sanity-check your changes against the cross-platform CI matrix expectations (Windows/macOS/Linux).
 
 ## Adding Scanners, Attack Modules, or Auth Tests
 
