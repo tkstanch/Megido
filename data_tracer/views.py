@@ -111,7 +111,7 @@ def execute_scan(request, scan_id):
             log_scan_event(
                 scan_result,
                 'warning',
-                f'Host discovery returned {invalid_count} invalid host entrie(s) without IP addresses',
+                f'Host discovery returned {invalid_count} invalid host entry(ies) without IP addresses',
             )
         
         if discovered_hosts:
