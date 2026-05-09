@@ -47,33 +47,4 @@ jobs:
       - name: Boot smoke test
         env:
           USE_SQLITE: "true"
-        run: |
-          python - <<'PY'
-          import os
-          import socket
-          import subprocess
-          import sys
-          import time
-
-          env = os.environ.copy()
-          proc = subprocess.Popen(
-              [sys.executable, "manage.py", "runserver", "127.0.0.1:8765"],
-              env=env,
-              stdout=subprocess.DEVNULL,
-              stderr=subprocess.DEVNULL,
-          )
-          ok = False
-          try:
-              for _ in range(30):
-                  with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                      if s.connect_ex(("127.0.0.1", 8765)) == 0:
-                          ok = True
-                          break
-                  time.sleep(1)
-          finally:
-              proc.terminate()
-              proc.wait(timeout=20)
-
-          if not ok:
-              raise SystemExit("Server did not start")
-          PY
+        run: python scripts/ci_boot_smoke.py

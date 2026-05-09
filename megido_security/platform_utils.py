@@ -77,7 +77,7 @@ def is_admin() -> bool:
     if system == "Windows":
         try:
             return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        except Exception:
+        except (AttributeError, OSError):
             return False
 
     if hasattr(os, "geteuid"):
