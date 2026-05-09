@@ -172,6 +172,15 @@ class TestExploitPluginFormatRepeaterRequest(unittest.TestCase):
             
             def execute_attack(self, target_url, vulnerability_data, config=None):
                 return {}
+
+            def build_request(self, url, method='GET', body=None, headers=None):
+                return {'url': url, 'method': method, 'body': body or '', 'headers': headers or {}}
+
+            def run(self, target_url, vulnerability_data):
+                return {}
+
+            def verify(self, result, target_url, vulnerability_data):
+                return True, 'ok'
         
         plugin = TestPlugin()
         req = plugin.format_repeater_request(
@@ -206,6 +215,15 @@ class TestExploitPluginFormatRepeaterRequest(unittest.TestCase):
             
             def execute_attack(self, target_url, vulnerability_data, config=None):
                 return {}
+
+            def build_request(self, url, method='GET', body=None, headers=None):
+                return {'url': url, 'method': method, 'body': body or '', 'headers': headers or {}}
+
+            def run(self, target_url, vulnerability_data):
+                return {}
+
+            def verify(self, result, target_url, vulnerability_data):
+                return True, 'ok'
         
         plugin = TestPlugin()
         response_data = {
