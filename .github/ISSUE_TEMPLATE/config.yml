@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Megido Discussions (placeholder)
+    url: https://github.com/tkstanch/Megido/discussions
+    about: Use Discussions for ideas, Q&A, and larger design proposals.
+  - name: Security policy
+    url: https://github.com/tkstanch/Megido/security/policy
+    about: Read how to report vulnerabilities privately and responsibly.

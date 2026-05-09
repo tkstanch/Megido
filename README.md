@@ -1,6 +1,104 @@
 # Megido Security Testing Platform
 
-[...]existing intro sections...]
+A cutting-edge security app for **security researchers and security teams** working on web and mobile applications. Megido helps you scan for vulnerabilities, automate custom attack workflows, test authentication behavior, analyze source code, and simulate threats in controlled environments.
+
+> **Security researchers are invited:** use Megido in authorized environments, file issues when you find gaps, and submit PRs to improve modules, accuracy, and usability.
+
+[![License](https://img.shields.io/github/license/tkstanch/Megido)](https://github.com/tkstanch/Megido)
+[![Last Commit](https://img.shields.io/github/last-commit/tkstanch/Megido)](https://github.com/tkstanch/Megido/commits)
+[![Issues](https://img.shields.io/github/issues/tkstanch/Megido)](https://github.com/tkstanch/Megido/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/tkstanch/Megido)](https://github.com/tkstanch/Megido/pulls)
+[![Stars](https://img.shields.io/github/stars/tkstanch/Megido?style=social)](https://github.com/tkstanch/Megido/stargazers)
+
+## Features
+
+- Vulnerability scanning across common web and mobile attack surfaces
+- Custom attack automation for repeatable research workflows
+- Authentication testing to evaluate login/session controls
+- Source code analysis support for security-focused review flows
+- Threat simulation in safe lab and authorized assessment environments
+- Coverage for both web application and mobile application research scenarios
+
+## Quick Start
+
+### Python setup
+
+```bash
+git clone https://github.com/tkstanch/Megido.git
+cd Megido
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+### Docker
+
+Docker support appears to be in progress (for example `Dockerfile` and `docker-compose.yml` are present). If your team standardizes on containers, you can use Docker as an optional path while setup docs continue to evolve.
+
+## Usage Examples
+
+Use the interface that best fits your workflow:
+
+- **CLI-oriented workflows:** run scanner/automation modules from Python entry points.
+- **Web UI workflows:** launch the Django-based interface for guided testing and result review.
+
+```bash
+# TODO: replace with canonical CLI commands for your preferred scanner modules
+# python <module_or_script>.py --target https://example.test
+
+# TODO: replace with canonical web UI launch command if different from Django default
+# python manage.py runserver
+```
+
+## Project Structure
+
+High-level directories to help new contributors navigate quickly:
+
+- `megido_security/` – core Django project settings and app wiring
+- `scanner/` – scanning logic and related tooling
+- `sql_attacker/` – SQL injection engine and payload capabilities
+- `discover/`, `recon/`, `proxy/`, `repeater/`, `spider/` – security testing workflow modules
+- `templates/`, `static/` – web UI templates and assets
+- `docs/` – project documentation, roadmap, and contributor-facing references
+- `test_*.py` – Python test files in the repository root (plus module-specific tests)
+
+## Contributing
+
+Megido is built to grow with the security research community.
+
+➡️ Read [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, pick an issue, and open your first PR.
+
+We especially welcome security researchers who can help improve scanner quality, reduce false positives/negatives, and expand real-world test coverage.
+
+## Roadmap
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for short-, mid-, and long-term direction plus open contribution areas.
+
+## Sponsorship
+
+If Megido helps your research or team, consider sponsoring development:
+
+- GitHub Sponsors: <https://github.com/sponsors/tkstanch>
+- Funding config: [.github/FUNDING.yml](.github/FUNDING.yml)
+- Sponsor details: [docs/SPONSORS.md](docs/SPONSORS.md)
+
+Sponsorship helps sustain module development, maintenance, documentation, and infrastructure required to keep an open security tool reliable.
+
+## Security Policy
+
+Please read [SECURITY.md](SECURITY.md) for vulnerability reporting and disclosure expectations.
+
+## Responsible Use / Legal Disclaimer
+
+Megido must only be used against systems you own or systems where you have **explicit written authorization** to test. You are responsible for complying with all applicable laws, contracts, and regulations.
+
+## License
+
+This project uses the MIT license model (as declared in project metadata).
+
+---
 
 ## 🛡️ SQLi Engine: Accuracy, Modularity, Safety & Reporting
 

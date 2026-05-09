@@ -1,0 +1,41 @@
+name: Scanner or module idea
+description: Propose a new scanner/module/auth-test idea for security research
+labels: [feature, security-research]
+body:
+  - type: input
+    id: vuln_class
+    attributes:
+      label: Target vulnerability class
+      placeholder: e.g., SSRF, XXE, IDOR, auth bypass, insecure deserialization
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: CVE/CWE/OWASP links, papers, writeups
+      placeholder: Provide supporting references
+    validations:
+      required: true
+  - type: textarea
+    id: detection_logic
+    attributes:
+      label: Proposed detection logic
+      description: High-level logic and safety checks
+      placeholder: Describe baseline checks, verification strategy, and confidence signals
+    validations:
+      required: true
+  - type: textarea
+    id: payloads
+    attributes:
+      label: Example payloads / requests
+      description: Include sanitized examples only
+      placeholder: Example probes/payloads and expected responses
+  - type: textarea
+    id: fp_considerations
+    attributes:
+      label: False positive / false negative considerations
+      description: How should Megido avoid incorrect results?
+      placeholder: Edge cases, noisy signals, controls, thresholds
+    validations:
+      required: true
