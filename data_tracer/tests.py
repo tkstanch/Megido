@@ -199,11 +199,11 @@ class HostDiscoveryTestCase(TestCase):
     def test_connection_refused_codes_are_treated_as_host_up(self):
         """Connection refused should be interpreted as host reachable across platforms."""
         discovery = HostDiscovery()
-        self.assertTrue(discovery._is_connection_refused(111))
+        self.assertTrue(discovery._is_connection_refused(errno.ECONNREFUSED))
         wsa_refused = getattr(errno, 'WSAECONNREFUSED', None)
         if wsa_refused is not None:
             self.assertTrue(discovery._is_connection_refused(wsa_refused))
-        self.assertFalse(discovery._is_connection_refused(110))
+        self.assertFalse(discovery._is_connection_refused(errno.ETIMEDOUT))
 
 
 class PortScannerTestCase(TestCase):

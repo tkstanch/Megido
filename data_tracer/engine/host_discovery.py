@@ -367,7 +367,7 @@ class HostDiscovery:
     def _ping_host(self, host: str, timeout_seconds: int = 1) -> bool:
         """Probe a host with platform-appropriate ping arguments."""
         try:
-            if platform.system().lower().startswith('win'):
+            if platform.system() == 'Windows':
                 command = ['ping', '-n', '1', '-w', str(timeout_seconds * 1000), host]
             else:
                 command = ['ping', '-c', '1', '-W', str(timeout_seconds), host]
