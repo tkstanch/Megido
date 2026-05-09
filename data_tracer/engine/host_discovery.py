@@ -10,6 +10,7 @@ import time
 import subprocess
 import platform
 import errno
+import re
 from typing import List, Dict, Tuple, Optional
 
 
@@ -75,6 +76,7 @@ class HostDiscovery:
                     delay = self._get_randomized_delay()
                     time.sleep(delay)
                 
+                started = time.perf_counter()
                 reachable = self._ping_host(host)
                 discovery_method = 'icmp_ping'
 
@@ -88,7 +90,7 @@ class HostDiscovery:
                         'ip': host,
                         'status': 'up',
                         'method': discovery_method,
-                        'response_time': random.uniform(0.01, 0.5),  # Simulated RTT
+                        'response_time': max(time.perf_counter() - started, 0.0),
                     })
             except (socket.error, socket.timeout):
                 # Host not reachable
@@ -366,6 +368,8 @@ class HostDiscovery:
 
     def _ping_host(self, host: str, timeout_seconds: int = 1) -> bool:
         """Probe a host with platform-appropriate ping arguments."""
+        if not self._is_safe_probe_target(host):
+            return False
         try:
             if platform.system() == 'Windows':
                 command = ['ping', '-n', '1', '-w', str(timeout_seconds * 1000), host]
@@ -409,6 +413,16 @@ class HostDiscovery:
         if wsa_refused is not None:
             refused_codes.add(wsa_refused)
         return code in refused_codes
+
+    def _is_safe_probe_target(self, host: str) -> bool:
+        """Validate host input before invoking OS-level probe commands."""
+        if not host or len(host) > 253:
+            return False
+        if self._is_valid_ip(host):
+            return True
+        if '..' in host:
+            return False
+        return bool(re.fullmatch(r'[A-Za-z0-9.-]+', host))
     
     def _get_randomized_delay(self) -> float:
         """

@@ -104,12 +104,19 @@ def execute_scan(request, scan_id):
         # Step 1: Host Discovery
         log_scan_event(scan_result, 'info', 'Starting host discovery')
         host_discovery = HostDiscovery(stealth_config)
-        discovered_hosts = host_discovery.discover_hosts(scan_target.target, method='combined')
+        raw_discovered_hosts = host_discovery.discover_hosts(scan_target.target, method='combined')
+        discovered_hosts = [host for host in raw_discovered_hosts if host.get('ip')]
+        if raw_discovered_hosts and not discovered_hosts:
+            log_scan_event(
+                scan_result,
+                'warning',
+                'Host discovery returned invalid host entries without IP addresses',
+            )
         
         if discovered_hosts:
             scan_result.host_discovered = True
             log_scan_event(scan_result, 'info', f'Discovered {len(discovered_hosts)} host(s)')
-            scan_host = discovered_hosts[0].get('ip') or scan_target.target
+            scan_host = discovered_hosts[0]['ip']
             if len(discovered_hosts) > 1:
                 log_scan_event(
                     scan_result,
