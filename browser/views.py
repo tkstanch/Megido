@@ -13,26 +13,7 @@ import os
 import platform
 import tempfile
 from pathlib import Path
-from megido_security.platform_utils import find_executable
-
-
-def is_running_in_docker():
-    """Detect whether the application is running inside a Docker container."""
-    # Check for the .dockerenv file (present in all Docker containers)
-    if os.path.exists('/.dockerenv'):
-        return True
-    # Check /proc/1/cgroup for docker or containerd references
-    try:
-        with open('/proc/1/cgroup', 'r', encoding='utf-8') as f:
-            cgroup_content = f.read()
-            if 'docker' in cgroup_content or 'containerd' in cgroup_content:
-                return True
-    except (OSError, IOError):
-        pass
-    # Check explicit environment variable
-    if os.environ.get('DOCKER_CONTAINER') or os.environ.get('container'):
-        return True
-    return False
+from megido_security.platform_utils import find_executable, is_running_in_docker
 
 
 def browser_view(request):
@@ -388,13 +369,6 @@ def launch_external_browser(request):
 # External browser launchers (internal helpers)
 # ---------------------------------------------------------------------------
 
-def _is_docker():
-    """Return True if the process is running inside a Docker container."""
-    if os.environ.get('DOCKER_CONTAINER'):
-        return True
-    return os.path.isfile('/.dockerenv')
-
-
 def _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_name):
     """Return a response instructing the frontend to open the browser client-side."""
     return Response({
@@ -410,7 +384,7 @@ def _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_nam
 
 def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
     """Launch Firefox with an optional mitmproxy configuration."""
-    if _is_docker():
+    if is_running_in_docker():
         return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'firefox')
 
     system = platform.system()
@@ -485,7 +459,7 @@ def _launch_firefox(url, proxy_host, proxy_port, enable_proxy):
 
 def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='chrome'):
     """Launch Chrome or Chromium with optional proxy settings."""
-    if _is_docker():
+    if is_running_in_docker():
         return _client_side_response(url, proxy_host, proxy_port, enable_proxy, browser_name)
 
     system = platform.system()
@@ -564,7 +538,7 @@ def _launch_chromium(url, proxy_host, proxy_port, enable_proxy, browser_name='ch
 
 def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
     """Launch Microsoft Edge with optional proxy settings."""
-    if _is_docker():
+    if is_running_in_docker():
         return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'edge')
 
     system = platform.system()
@@ -633,7 +607,7 @@ def _launch_edge(url, proxy_host, proxy_port, enable_proxy):
 
 def _launch_safari(url, proxy_host, proxy_port, enable_proxy):
     """Launch Safari (macOS only)."""
-    if _is_docker() or platform.system() != 'Darwin':
+    if is_running_in_docker() or platform.system() != 'Darwin':
         return _client_side_response(url, proxy_host, proxy_port, enable_proxy, 'safari')
     
     safari_path = '/Applications/Safari.app/Contents/MacOS/Safari'

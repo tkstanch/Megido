@@ -17,6 +17,19 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
         python: ["3.10", "3.11", "3.12"]
 
+    # Redis service container for the ubuntu runners that support it.
+    # Other OS runners will use USE_IN_MEMORY_CHANNELS=true instead.
+    services:
+      redis:
+        image: ${{ (matrix.os == 'ubuntu-latest') && 'redis:7-alpine' || '' }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -29,9 +42,14 @@ jobs:
       - name: Unified setup
         run: python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
 
+      - name: Install Node dependencies (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm ci --ignore-scripts
+
       - name: Django check
         env:
           USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: ${{ (matrix.os != 'ubuntu-latest') && 'true' || 'false' }}
         run: python manage.py check
 
       - name: Django migrate
@@ -42,9 +60,11 @@ jobs:
       - name: Run root tests
         env:
           USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: ${{ (matrix.os != 'ubuntu-latest') && 'true' || 'false' }}
         run: python -m pytest -q test_*.py
 
       - name: Boot smoke test
         env:
           USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: ${{ (matrix.os != 'ubuntu-latest') && 'true' || 'false' }}
         run: python scripts/ci_boot_smoke.py

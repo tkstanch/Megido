@@ -72,6 +72,30 @@ def open_file(path: str | Path) -> bool:
     return webbrowser.open(Path(target).as_uri())
 
 
+def is_running_in_docker() -> bool:
+    """Return True if the process is running inside a Docker/container environment.
+
+    Checks (in order):
+
+    1. ``/.dockerenv`` file – present in every Docker container.
+    2. ``/proc/1/cgroup`` – contains "docker" or "containerd" on Linux.
+    3. ``DOCKER_CONTAINER`` or ``container`` environment variables.
+    """
+    if os.path.exists("/.dockerenv"):
+        return True
+    # /proc/1/cgroup only exists on Linux; skip silently on other platforms.
+    try:
+        with open("/proc/1/cgroup", "r", encoding="utf-8") as fh:
+            content = fh.read()
+            if "docker" in content or "containerd" in content:
+                return True
+    except OSError:
+        pass
+    if os.environ.get("DOCKER_CONTAINER") or os.environ.get("container"):
+        return True
+    return False
+
+
 def is_admin() -> bool:
     system = platform.system()
     if system == "Windows":
