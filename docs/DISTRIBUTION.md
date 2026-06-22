@@ -5,7 +5,7 @@ This document defines the current public distribution model for Megido.
 ## Officially Supported Download/Install Paths
 
 1. **Docker** (recommended for most users)
-2. **Source + setup scripts** (`setup.sh`, `setup.ps1`, `setup.bat`)
+2. **Source + setup scripts** (`setup.sh`, `setup.ps1`, `setup.bat`) for automated dependency install and local environment setup
 3. **GitHub Releases** (tagged source bundles)
 
 Megido currently distributes **source-based bundles**, not fully packaged native installers.

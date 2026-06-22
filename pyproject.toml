@@ -10,7 +10,7 @@ description = "Security testing platform for authorized web and mobile assessmen
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Megido contributors" }]
-keywords = ["security", "pentesting", "vulnerability-scanner", "django"]
+keywords = ["security", "penetration-testing", "vulnerability-scanner", "django"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

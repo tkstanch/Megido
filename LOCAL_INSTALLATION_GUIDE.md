@@ -8,9 +8,9 @@ This guide focuses on the fastest supported ways to **download, install, and lau
 2. **Local setup scripts (recommended for developers/security researchers)**
 3. **GitHub Releases / source ZIP download**
 
-Use `python launch.py` as the standard launch command for local installs.
+## Canonical Launch Command
 
----
+Use `python launch.py` as the standard launch command for local installs.
 
 ## Platform Quick-Start Matrix
 
@@ -19,9 +19,7 @@ Use `python launch.py` as the standard launch command for local installs.
 | Windows (PowerShell) | Setup script | `./setup.ps1` | `python launch.py` |
 | Windows (CMD) | Setup script | `setup.bat` | `python launch.py` |
 | macOS / Linux / BSD | Setup script | `./setup.sh` | `python launch.py` |
-| Any platform with Docker | Docker | `docker compose up --build` | Open `http://localhost:8000` |
-
----
+| Any platform with Docker | Docker | `docker compose up --build` | No extra command (open `http://localhost:8000`) |
 
 ## Shortest Path (Recommended): Docker
 
@@ -42,11 +40,9 @@ To stop:
 docker compose down
 ```
 
----
-
 ## Local Setup Scripts (No Docker)
 
-> Use this path if you prefer a native Python environment.
+Use this path if you prefer a native Python environment.
 
 ### 1) Download the source
 
@@ -84,8 +80,6 @@ If you are on a headless machine, use web mode explicitly:
 python launch.py web
 ```
 
----
-
 ## Releases and Direct Downloads
 
 Megido publishes downloadable release bundles for tagged versions.
@@ -98,8 +92,6 @@ After extracting a release/source bundle, run the setup script for your platform
 ```bash
 python launch.py
 ```
-
----
 
 ## Advanced Manual Setup (Fallback)
 
@@ -124,15 +116,11 @@ python manage.py migrate --noinput
 python launch.py
 ```
 
----
-
 ## Troubleshooting
 
 - See [README.md](README.md) for feature and module notes.
 - See [DOCKER_TESTING.md](DOCKER_TESTING.md) for Docker-specific behavior.
 - Open issues at <https://github.com/tkstanch/Megido/issues>.
-
----
 
 ## Responsible Use
 

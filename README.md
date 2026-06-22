@@ -34,6 +34,12 @@ Choose one of the official installation methods:
 For concise platform instructions, see [LOCAL_INSTALLATION_GUIDE.md](LOCAL_INSTALLATION_GUIDE.md).  
 For release/distribution details, see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
+### Project Maturity Note
+
+Megido is still in active **alpha** development.
+
+Release bundles are provided to simplify setup rather than to represent production-hardened installer packaging.
+
 ## Project Status
 
 Megido is under active development. Some parts of the platform are already

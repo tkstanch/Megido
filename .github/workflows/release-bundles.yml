@@ -64,7 +64,8 @@ jobs:
           merge-multiple: true
 
       - name: Publish release bundles
-        uses: softprops/action-gh-release@v2
+        # Pinned to upstream v2.0.0 commit for supply-chain safety; verify before upgrading.
+        uses: softprops/action-gh-release@a6c7483a42ee9d5daced968f6c217562cd680f7f
         with:
           generate_release_notes: true
           files: release-assets/*
