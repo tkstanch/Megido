@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from requests.exceptions import RequestException
 try:
-    import nmap as nmap
+    import nmap
     _NMAP_AVAILABLE = True
 except ImportError:
     nmap = None  # type: ignore[assignment]
@@ -175,7 +175,7 @@ class AdvancedScanEngine:
             # 1. Port & service detection
             if _NMAP_AVAILABLE:
                 nmap_engine = nmap.PortScanner()
-                nmap_engine.scan(hosts=urlparse(url).netloc, s港=5000)
+                nmap_engine.scan(hosts=urlparse(url).netloc, ports="1-5000")
 
             # 2. Grab the HTTP response
             response = self.bypass_403(url)
