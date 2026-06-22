@@ -1,284 +1,140 @@
-# Megido Local Installation & Download Guide
+# Megido Local Installation Guide
 
-This guide explains how to **download, install, and run Megido locally** on **Windows**, **macOS**, and **Linux** – both with Docker (recommended) and standard Python (manual setup). Follow the method that best fits your environment and comfort level!
+This guide focuses on the fastest supported ways to **download, install, and launch Megido**.
 
----
+## Official Install Methods
 
-## Table of Contents
+1. **Docker (recommended for most users)**
+2. **Local setup scripts (recommended for developers/security researchers)**
+3. **GitHub Releases / source ZIP download**
 
-- [Quick Download](#quick-download)
-- [Recommended: Run with Docker (All OS)](#recommended-run-with-docker-all-os)
-- [Manual Python Installation](#manual-python-installation)
-  - [Linux / macOS](#linux--macos-manual-install)
-  - [Windows](#windows-manual-install)
-- [First-time User Checklist](#first-time-user-checklist)
-- [Troubleshooting & Support](#troubleshooting--support)
-- [Uninstall / Clean Up](#uninstall--clean-up)
-- [Legal and Security Notice](#legal-and-security-notice)
+Use `python launch.py` as the standard launch command for local installs.
 
 ---
 
-## Quick Download
+## Platform Quick-Start Matrix
 
-You can download Megido directly from GitHub:
+| Platform | Fastest path | Install command | Launch command |
+| --- | --- | --- | --- |
+| Windows (PowerShell) | Setup script | `./setup.ps1` | `python launch.py` |
+| Windows (CMD) | Setup script | `setup.bat` | `python launch.py` |
+| macOS / Linux / BSD | Setup script | `./setup.sh` | `python launch.py` |
+| Any platform with Docker | Docker | `docker compose up --build` | Open `http://localhost:8000` |
 
-- **Git (all OS):**
+---
+
+## Shortest Path (Recommended): Docker
+
+### Prerequisites
+- Docker Desktop (Windows/macOS) or Docker Engine (Linux)
+
+### Steps
+```bash
+git clone https://github.com/tkstanch/Megido.git
+cd Megido
+docker compose up --build
+```
+
+Then open <http://localhost:8000>.
+
+To stop:
+```bash
+docker compose down
+```
+
+---
+
+## Local Setup Scripts (No Docker)
+
+> Use this path if you prefer a native Python environment.
+
+### 1) Download the source
+
+- Option A: clone the repo
   ```bash
   git clone https://github.com/tkstanch/Megido.git
   cd Megido
   ```
-- **ZIP Download:**
-  1. Go to https://github.com/tkstanch/Megido
-  2. Click the green "Code" button > "Download ZIP"
-  3. Unzip to a folder of your choice
-  4. Open a terminal (PowerShell / Terminal / Git Bash), `cd` to the unzipped folder
+- Option B: download ZIP from GitHub and extract it, then `cd` into the extracted folder.
 
----
+### 2) Run the setup script for your OS
 
-## Recommended: Run with Docker (All OS)
-
-Docker provides the simplest, most reliable setup, including all required dependencies (Python, ClamAV, etc.).
-
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS)
-- [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
-- Terminal or PowerShell
-
-### Quick Start
-
-1. **Clone or download Megido and `cd` into the folder**
-2. **Start the Docker services:**
-   ```bash
-   docker compose up --build
-   ```
-3. **First launch takes 3–5 minutes (ClamAV downloads virus definitions).**
-4. **Access the app:**
-   - Launch your browser and go to http://localhost:8000
-   - Login with:  
-     - Username: `admin`  
-     - Password: `admin`
-   - Navigate to `/malware-analyser/` for malware scanning.
-5. **To stop:**
-   - Press `Ctrl+C` in terminal, then:
-     ```bash
-     docker compose down
-     ```
-6. **(Optional) To remove all data:**
-   ```bash
-   docker compose down -v
-   ```
-
-**For advanced Docker usage or troubleshooting, see [DOCKER_TESTING.md](DOCKER_TESTING.md)**
-
----
-
-## Manual Python Installation
-
-If you prefer or need to run Megido without Docker, follow these OS-specific guides.
-
-### Unified setup/launch commands
-
-- Setup: `python -m megido_security.setup`
-- Launch: `python launch.py`
-- Desktop browser wrapper: `python launch.py desktop-browser`
-
-Megido desktop mode uses PyQt6/PySide6. On headless/container environments, use web mode (`python launch.py web`).
-
-### Linux & macOS (Manual Install)
-
-#### 1. Prerequisites
-
-- **Python 3.12+** (install from https://www.python.org/downloads/)
-- **pip** (Python package manager, usually included)
-- **Desktop dependencies (for PyQt6/PySide6 desktop mode):**
-  - Debian/Ubuntu: `sudo apt install -y libxcb1 libxkbcommon-x11-0 libgl1`
-  - Fedora: `sudo dnf install -y libxcb mesa-libGL`
-  - Arch: `sudo pacman -S --needed libxcb libxkbcommon-x11 mesa`
-- **ClamAV Antivirus**  
-  - Ubuntu/Debian:
-    ```bash
-    sudo apt update
-    sudo apt install clamav clamav-daemon
-    sudo systemctl enable clamav-daemon
-    sudo systemctl start clamav-daemon
-    ```
-  - macOS (with [Homebrew](https://brew.sh/)):
-    ```bash
-    brew install clamav
-    sudo mkdir -p /usr/local/var/run/clamav
-    sudo clamav-freshclam
-    sudo clamd
-    ```
-
-#### 2. Setup Project
-
-```bash
-git clone https://github.com/tkstanch/Megido.git
-cd Megido
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### 3. Database & App Setup
-
-```bash
-python manage.py migrate
-python manage.py createsuperuser  # follow prompts for admin account
-python manage.py collectstatic
-```
-
-#### 4. Run the App
-
-Start ClamAV daemon if not running (see above), then:
-
-```bash
-python manage.py runserver
-```
-
-Open `http://localhost:8000` in your browser. Login with your superuser account.
-
----
-
-### Windows (Manual Install)
-
-#### 1. Prerequisites
-
-- [Python 3.12+](https://www.python.org/downloads/windows/) and pip
-- [ClamAV for Windows](https://www.clamav.net/downloads) (install, and launch the **clamd** service)
-- [Git for Windows](https://git-scm.com/download/win) (or download ZIP as above)
-- **(Optional but recommended) [Windows Terminal](https://aka.ms/terminal) or PowerShell**
-- Desktop mode note: keep Microsoft Visual C++ Redistributable installed for Qt runtimes.
-
-#### 2. Setup the Project
-
-Open Command Prompt or PowerShell:
-
-```powershell
-git clone https://github.com/tkstanch/Megido.git
-cd Megido
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-#### 3. Database & App Setup
-
-```powershell
-python manage.py migrate
-python manage.py createsuperuser     # create admin credentials
-python manage.py collectstatic
-```
-
-#### 4. Run Megido
-
-Make sure ClamAV daemon is running (`clamd.exe`) on the default port (3310):
-
-```powershell
-python manage.py runserver
-```
-
-- Go to `http://localhost:8000` in your browser and sign in.
-
-### macOS desktop note (Gatekeeper)
-
-If macOS blocks unsigned binaries used by dependencies, run from Terminal and allow the blocked item in:
-System Settings → Privacy & Security → Security → “Open Anyway”.
-
----
-
-## External Network Access Configuration
-
-For local testing with external targets:
-
-1. The application is pre-configured to allow external requests in development mode
-2. SSL verification is disabled by default for testing purposes
-3. All Django apps (browser, proxy, scanner, spider, etc.) can reach external sites
-
-### Environment Variables
-
-Control network behavior via environment variables:
-
-- `ALLOW_EXTERNAL_REQUESTS=true` - Enable external network access
-- `VERIFY_SSL=false` - Disable SSL certificate verification (testing only)
-- `REQUESTS_TIMEOUT=30` - Request timeout in seconds
-
-### Security Warning
-
-⚠️ **IMPORTANT**: These settings are for LOCAL TESTING ONLY!
-
-- Never deploy to production with `ALLOWED_HOSTS = ['*']`
-- Never disable SSL verification in production
-- Always obtain explicit permission before testing external targets
-- This is a security testing tool - use responsibly and ethically
-
-### Testing External Access
-
-Test that external requests work:
-
-```bash
-python manage.py shell
-```
-
-```python
-import requests
-from django.conf import settings
-
-# Use the configured timeout and SSL verification settings
-response = requests.get(
-    'https://example.com',
-    verify=settings.REQUESTS_VERIFY_SSL,
-    timeout=settings.REQUESTS_TIMEOUT,
-    allow_redirects=settings.REQUESTS_ALLOW_REDIRECTS
-)
-print(response.status_code)  # Should print 200
-```
-
-**Note**: Django apps should use `settings.REQUESTS_VERIFY_SSL`, `settings.REQUESTS_TIMEOUT`, and `settings.REQUESTS_ALLOW_REDIRECTS` when making external requests to ensure consistent behavior across the application.
-
----
-
-## First-time User Checklist
-
-- [ ] Clone or download the code.
-- [ ] Install Docker (recommended) or all dependencies manually.
-- [ ] Launch ClamAV daemon (manual mode only).
-- [ ] Run `docker compose up` *or* `python manage.py runserver` as above.
-- [ ] Login and try uploading/scanning a file (see [README.md](README.md) for EICAR test file).
-- [ ] For help: see [README.md](README.md), [DOCKER_TESTING.md](DOCKER_TESTING.md), or open an issue.
-
----
-
-## Troubleshooting & Support
-
-- ClamAV errors?  
-  See "Troubleshooting" in [DOCKER_TESTING.md](DOCKER_TESTING.md) or Google your platform for "run ClamAV daemon".
-- App doesn't start?  
-  Re-check prerequisites and [README.md](README.md).
-- Need help?  
-  Visit https://github.com/tkstanch/Megido/issues
-
----
-
-## Uninstall / Clean Up
-
-- **Docker:**  
-  ```bash
-  docker compose down -v
+- **Windows PowerShell**
+  ```powershell
+  ./setup.ps1
   ```
-- **Manual install:**  
-  Simply delete the Megido folder and all data.
+- **Windows CMD**
+  ```bat
+  setup.bat
+  ```
+- **macOS / Linux / BSD**
+  ```bash
+  ./setup.sh
+  ```
+
+### 3) Launch Megido
+
+```bash
+python launch.py
+```
+
+If you are on a headless machine, use web mode explicitly:
+
+```bash
+python launch.py web
+```
 
 ---
 
-## Legal and Security Notice
+## Releases and Direct Downloads
 
-- **Megido and Malware Analyser are for authorized educational and research use only.**
-- Never scan files or systems without explicit permission!
-- Always use in a secure, isolated environment.
-- See [malware_analyser/README.md](malware_analyser/README.md) for legal disclaimers and ethical guidelines.
+Megido publishes downloadable release bundles for tagged versions.
+
+- Releases page: <https://github.com/tkstanch/Megido/releases>
+- Source ZIP (latest branch snapshot): GitHub **Code → Download ZIP**
+
+After extracting a release/source bundle, run the setup script for your platform and then:
+
+```bash
+python launch.py
+```
 
 ---
 
-Enjoy exploring security with Megido!
+## Advanced Manual Setup (Fallback)
+
+Use this only if setup scripts are not suitable for your environment.
+
+### Linux/macOS manual flow
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+USE_SQLITE=true python manage.py migrate --noinput
+python launch.py
+```
+
+### Windows manual flow (PowerShell)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+$env:USE_SQLITE = "true"
+python manage.py migrate --noinput
+python launch.py
+```
+
+---
+
+## Troubleshooting
+
+- See [README.md](README.md) for feature and module notes.
+- See [DOCKER_TESTING.md](DOCKER_TESTING.md) for Docker-specific behavior.
+- Open issues at <https://github.com/tkstanch/Megido/issues>.
+
+---
+
+## Responsible Use
+
+Megido is for authorized educational and security research use only.
+Do not test systems without explicit permission.

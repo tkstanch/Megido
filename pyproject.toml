@@ -6,3 +6,28 @@ build-backend = "setuptools.build_meta"
 name = "megido"
 version = "0.1.0"
 requires-python = ">=3.10"
+description = "Security testing platform for authorized web and mobile assessment workflows"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Megido contributors" }]
+keywords = ["security", "pentesting", "vulnerability-scanner", "django"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: Django",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/tkstanch/Megido"
+Repository = "https://github.com/tkstanch/Megido"
+Issues = "https://github.com/tkstanch/Megido/issues"
+Releases = "https://github.com/tkstanch/Megido/releases"
+Documentation = "https://github.com/tkstanch/Megido/blob/main/README.md"
