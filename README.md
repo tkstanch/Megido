@@ -11,6 +11,35 @@ A cutting-edge security app for **security researchers and security teams** work
 [![Stars](https://img.shields.io/github/stars/tkstanch/Megido?style=social)](https://github.com/tkstanch/Megido/stargazers)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20BSD-blue)](#supported-platforms)
 
+## Download and Install
+
+Choose one of the official installation methods:
+
+1. **Docker (recommended for most users)**
+   ```bash
+   git clone https://github.com/tkstanch/Megido.git
+   cd Megido
+   docker compose up --build
+   ```
+2. **Local setup scripts (recommended for developers/security researchers)**
+   - Windows PowerShell: `./setup.ps1`
+   - Windows CMD: `setup.bat`
+   - macOS/Linux/BSD: `./setup.sh`
+   - Launch Megido: `python launch.py`
+3. **GitHub Releases / Source ZIP download**
+   - Download tagged release bundles from [GitHub Releases](https://github.com/tkstanch/Megido/releases)
+   - Or download source from the green **Code → Download ZIP** button
+   - Then run the matching setup script above and start with `python launch.py`
+
+For concise platform instructions, see [LOCAL_INSTALLATION_GUIDE.md](LOCAL_INSTALLATION_GUIDE.md).  
+For release/distribution details, see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+
+### Project Maturity Note
+
+Megido is still in active **alpha** development.
+
+Release bundles are provided to simplify setup rather than to represent production-hardened installer packaging.
+
 ## Project Status
 
 Megido is under active development. Some parts of the platform are already
@@ -87,16 +116,15 @@ Use the Linux flow above from inside your WSL distribution, then open `http://12
 ```bash
 git clone https://github.com/tkstanch/Megido.git
 cd Megido
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
+./setup.sh   # Windows: ./setup.ps1 or setup.bat
+python launch.py
 ```
 
 ### Docker
 
-Docker support appears to be in progress (for example `Dockerfile` and `docker-compose.yml` are present). If your team standardizes on containers, you can use Docker as an optional path while setup docs continue to evolve.
+```bash
+docker compose up --build
+```
 
 ## Usage Examples
 
@@ -110,7 +138,7 @@ Use the interface that best fits your workflow:
 # python <module_or_script>.py --target https://example.test
 
 # Web UI launch (commonly used in this repository):
-# python manage.py runserver
+# python launch.py
 ```
 
 ## Project Structure
