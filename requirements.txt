@@ -1,6 +1,6 @@
-Django>=5.2.0,<6.0.0
+django>=5.2.0,<6.0.0
 djangorestframework>=3.14.0
-PySide6>=6.6.0
+pyside6>=6.6.0
 requests>=2.31.0
 mitmproxy>=10.0.0
 beautifulsoup4>=4.12.0
@@ -8,12 +8,12 @@ lxml>=4.9.0
 waybackpy>=3.0.6
 clamd>=1.0.2
 psycopg2-binary>=2.8
-PyQt6==6.7.0
-PyQt6-WebEngine==6.7.0
+pyqt6==6.7.0
+pyqt6-webengine==6.7.0
 selenium>=4.15.0
 webdriver-manager>=4.0.1
 fake-useragent>=1.4.0
-Pillow>=10.1.0
+pillow>=10.1.0
 gunicorn>=21.2.0; sys_platform != "win32"
 waitress>=3.0.0; sys_platform == "win32"
 whitenoise>=6.6.0
@@ -22,10 +22,10 @@ redis>=5.0.0
 channels>=4.0.0
 channels-redis>=4.1.0
 daphne>=4.0.0
-PyYAML>=6.0
+pyyaml>=6.0
 playwright>=1.40.0
 platformdirs>=4.3.0
-Flask>=3.0.0
+flask>=3.0.0
 imageio>=2.33.0
 imageio-ffmpeg>=0.4.9
 jsbeautifier>=1.14.0
@@ -45,7 +45,7 @@ dnspython>=2.4.0
 python-whois>=0.9.0
 cryptography>=41.0.0
 python-docx>=0.8.11
-PyPDF2>=3.0.0
+pypdf2>=3.0.0
 openpyxl>=3.1.0
 aiohttp>=3.9.0
 networkx>=3.2
