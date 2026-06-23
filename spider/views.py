@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db import connections
+from django.db import close_old_connections, connections
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
@@ -21,10 +21,13 @@ from collections import deque
 import time
 import logging
 import concurrent.futures
-import threading
 
 # Configure logger for spider module
 logger = logging.getLogger(__name__)
+SPIDER_WORKER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4,
+    thread_name_prefix='spider-session',
+)
 
 # Preset configurations for scan profiles
 SCAN_PRESETS = {
@@ -261,12 +264,7 @@ def start_spider(request, target_id):
         logger.info(f"Created spider session {session.id} for target {target.url}")
 
         try:
-            worker = threading.Thread(
-                target=run_spider_session_worker,
-                args=(session.id,),
-                name=f"spider-session-{session.id}",
-            )
-            worker.start()
+            SPIDER_WORKER_EXECUTOR.submit(run_spider_session_worker, session.id)
 
             return Response({
                 'id': session.id,
@@ -337,7 +335,7 @@ def update_spider_session_statistics(session):
 
 def run_spider_session_worker(session_id):
     """Run a spider session in a background thread and persist final state."""
-    connections.close_all()
+    close_old_connections()
 
     try:
         connections['default'].ensure_connection()
@@ -365,8 +363,7 @@ def run_spider_session_worker(session_id):
         update_spider_session_statistics(session)
         session.status = 'completed'
         session.current_phase = 'completed'
-        if not session.completed_at:
-            session.completed_at = timezone.now()
+        session.completed_at = timezone.now()
         session.save()
 
         logger.info(

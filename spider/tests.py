@@ -758,7 +758,7 @@ class ErrorHandlingTest(TestCase):
         factory = APIRequestFactory()
         request = factory.post(f'/api/targets/{self.target.id}/spider/')
 
-        with patch('spider.views.threading.Thread') as mock_thread_class:
+        with patch('spider.views.SPIDER_WORKER_EXECUTOR.submit') as mock_submit:
             response = start_spider(request, target_id=self.target.id)
 
         self.assertEqual(response.status_code, 202)
@@ -766,10 +766,7 @@ class ErrorHandlingTest(TestCase):
         self.assertEqual(response.data['status'], 'running')
         self.assertEqual(response.data['current_phase'], 'starting')
 
-        mock_thread = mock_thread_class.return_value
-        mock_thread.start.assert_called_once()
-        self.assertEqual(mock_thread_class.call_args.kwargs['target'], run_spider_session_worker)
-        self.assertEqual(mock_thread_class.call_args.kwargs['args'], (response.data['id'],))
+        mock_submit.assert_called_once_with(run_spider_session_worker, response.data['id'])
 
         session = SpiderSession.objects.filter(target=self.target).order_by('-started_at').first()
         self.assertIsNotNone(session)
@@ -1004,6 +1001,43 @@ class ErrorHandlingTest(TestCase):
         self.assertEqual(requested_urls.count('https://example.com/page2'), 1)
         self.assertEqual(set(requested_urls), {'https://example.com', 'https://example.com/page2'})
         self.assertEqual(session.urls_crawled, 2)
+
+    def test_crawl_keeps_distinct_query_strings(self):
+        """crawl_website should preserve query strings while dropping fragments"""
+        from spider.views import crawl_website
+        from unittest.mock import Mock, patch
+
+        session = SpiderSession.objects.create(
+            target=self.target,
+            status='running'
+        )
+        mock_stealth_session = Mock()
+        requested_urls = []
+
+        def mock_request(_stealth_session, url, *args, **kwargs):
+            requested_urls.append(url)
+            response = Mock()
+            response.status_code = 200
+            response.elapsed.total_seconds.return_value = 0.5
+            response.headers = {'Content-Type': 'text/html'}
+
+            if url == 'https://example.com':
+                response.content = (
+                    b'<html><body>'
+                    b'<a href="/page2?a=1#first">One</a>'
+                    b'<a href="/page2?a=2#second">Two</a>'
+                    b'</body></html>'
+                )
+            else:
+                response.content = b'<html><body></body></html>'
+
+            return response
+
+        with patch('spider.views.make_request_with_retry', side_effect=mock_request):
+            crawl_website(session, self.target, mock_stealth_session)
+
+        self.assertEqual(requested_urls.count('https://example.com/page2?a=1'), 1)
+        self.assertEqual(requested_urls.count('https://example.com/page2?a=2'), 1)
 
 
 class AdaptiveStealthTest(TestCase):
