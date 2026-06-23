@@ -77,6 +77,8 @@ class TestDesktopStackAvailable:
                 )
             )
         except ImportError:
+            # megido_security may not be on sys.path in isolated test runs;
+            # the docker check is then simply skipped, which is intentional.
             pass
         return patches
 

@@ -15,6 +15,8 @@ Usage:
 
 import sys
 import os
+import importlib
+import importlib.util
 import time
 import signal
 import subprocess
@@ -77,11 +79,9 @@ class MegidoLauncher:
                 all_ok = False
 
         # PyQt6 WebEngine is required for the embedded browser
-        try:
-            import importlib
-            importlib.import_module('PyQt6.QtWebEngineWidgets')
+        if importlib.util.find_spec('PyQt6.QtWebEngineWidgets') is not None:
             self.print_status("PyQt6-WebEngine is installed", "success")
-        except ImportError:
+        else:
             self.print_status(
                 "PyQt6-WebEngine is NOT installed "
                 "(install with: pip install PyQt6-WebEngine)",

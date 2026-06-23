@@ -37,7 +37,7 @@ def _desktop_stack_available() -> bool:
         from megido_security.platform_utils import is_running_in_docker
         if is_running_in_docker():
             return False
-    except Exception:
+    except ImportError:
         pass
     # The desktop browser uses PyQt6 + QtWebEngineWidgets exclusively.
     return _module_available("PyQt6.QtWidgets") and _module_available("PyQt6.QtWebEngineWidgets")
