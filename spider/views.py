@@ -264,7 +264,6 @@ def start_spider(request, target_id):
             worker = threading.Thread(
                 target=run_spider_session_worker,
                 args=(session.id,),
-                daemon=True,
                 name=f"spider-session-{session.id}",
             )
             worker.start()
@@ -338,9 +337,11 @@ def update_spider_session_statistics(session):
 
 def run_spider_session_worker(session_id):
     """Run a spider session in a background thread and persist final state."""
+    connections.close_all()
     close_old_connections()
 
     try:
+        connections['default'].ensure_connection()
         session = SpiderSession.objects.select_related('target').get(id=session_id)
     except SpiderSession.DoesNotExist:
         logger.error(f"Spider session {session_id} no longer exists; background worker exiting")
@@ -507,18 +508,6 @@ def crawl_website(session, target, stealth_session):
     urls_processed = 0
     urls_failed = 0
 
-    def enqueue_url(candidate_url, depth):
-        parsed = urlparse(candidate_url)
-        clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
-
-        if not clean_url.startswith(('http://', 'https://')):
-            return
-        if clean_url in visited or clean_url in queued:
-            return
-
-        queued.add(clean_url)
-        to_visit.append((clean_url, depth))
-    
     while to_visit and len(visited) < target.max_crawl_urls:  # Limit controlled by target.max_crawl_urls
         current_url, depth = to_visit.popleft()
         queued.discard(current_url)
@@ -577,14 +566,14 @@ def crawl_website(session, target, stealth_session):
                     if not target.follow_external_links and parsed.netloc != base_domain:
                         continue
 
-                    enqueue_url(absolute_url, depth + 1)
+                    enqueue_crawl_url(absolute_url, depth + 1, queued, to_visit, visited)
                 
                 # Look for forms, scripts, images that might reveal hidden content
                 for tag in soup.find_all(['form', 'script', 'img', 'iframe']):
                     for attr in ['action', 'src', 'data-src']:
                         if tag.get(attr):
                             absolute_url = urljoin(current_url, tag[attr])
-                            enqueue_url(absolute_url, depth + 1)
+                            enqueue_crawl_url(absolute_url, depth + 1, queued, to_visit, visited)
         
         except Exception as e:
             urls_failed += 1
@@ -596,6 +585,20 @@ def crawl_website(session, target, stealth_session):
     
     logger.info(f"Crawl complete for session {session.id}: "
                f"{urls_processed} URLs processed, {urls_failed} failed, {len(visited)} visited")
+
+
+def enqueue_crawl_url(candidate_url, depth, queued, to_visit, visited):
+    """Queue a normalized crawl URL once, avoiding redundant work."""
+    parsed = urlparse(candidate_url)
+    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
+
+    if not clean_url.startswith(('http://', 'https://')):
+        return
+    if clean_url in visited or clean_url in queued:
+        return
+
+    queued.add(clean_url)
+    to_visit.append((clean_url, depth))
 
 
 def run_dirbuster_discovery(session, target, stealth_session):

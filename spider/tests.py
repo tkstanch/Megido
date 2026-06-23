@@ -751,7 +751,7 @@ class ErrorHandlingTest(TestCase):
     
     def test_start_spider_returns_accepted_and_starts_background_worker(self):
         """start_spider should return quickly and launch a background worker"""
-        from spider.views import start_spider
+        from spider.views import start_spider, run_spider_session_worker
         from unittest.mock import patch
         from rest_framework.test import APIRequestFactory
         
@@ -768,7 +768,8 @@ class ErrorHandlingTest(TestCase):
 
         mock_thread = mock_thread_class.return_value
         mock_thread.start.assert_called_once()
-        self.assertTrue(mock_thread_class.call_args.kwargs['daemon'])
+        self.assertEqual(mock_thread_class.call_args.kwargs['target'], run_spider_session_worker)
+        self.assertEqual(mock_thread_class.call_args.kwargs['args'], (response.data['id'],))
 
         session = SpiderSession.objects.filter(target=self.target).order_by('-started_at').first()
         self.assertIsNotNone(session)
