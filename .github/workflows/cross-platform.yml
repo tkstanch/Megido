@@ -41,7 +41,7 @@ jobs:
         run: python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
 
       - name: Install Node dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
       - name: Django check
         env:
@@ -56,7 +56,7 @@ jobs:
       - name: Run root tests
         env:
           USE_SQLITE: "true"
-        run: python -m pytest -q test_*.py
+        run: python -m pytest -q
 
       - name: Boot smoke test
         env:
@@ -103,7 +103,7 @@ jobs:
         env:
           USE_SQLITE: "true"
           USE_IN_MEMORY_CHANNELS: "true"
-        run: python -m pytest -q test_*.py
+        run: python -m pytest -q
 
       - name: Boot smoke test
         env:

@@ -31,3 +31,37 @@ Repository = "https://github.com/tkstanch/Megido"
 Issues = "https://github.com/tkstanch/Megido/issues"
 Releases = "https://github.com/tkstanch/Megido/releases"
 Documentation = "https://github.com/tkstanch/Megido/blob/main/README.md"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+norecursedirs = [
+    "app_manager",
+    "browser",
+    "bypasser",
+    "collaborator",
+    "data_tracer",
+    "decompiler",
+    "desktop_browser",
+    "discover",
+    "docs",
+    "forensics",
+    "interceptor",
+    "logs",
+    "malware_analyser",
+    "manipulator",
+    "mapper",
+    "megido_security",
+    "path",
+    "proxy",
+    "recon",
+    "repeater",
+    "response_analyser",
+    "scanner",
+    "scripts",
+    "spider",
+    "sql_attacker",
+    "sqli_web",
+    "static",
+    "templates",
+    "xss_reports",
+]
