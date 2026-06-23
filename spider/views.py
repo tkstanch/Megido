@@ -10,6 +10,7 @@ from .models import (
     DiscoveredParameter, ParameterBruteForce
 )
 from .stealth import create_stealth_session
+import atexit
 import requests
 from requests.exceptions import Timeout, ConnectionError, RequestException, SSLError
 from bs4 import BeautifulSoup
@@ -28,6 +29,7 @@ SPIDER_WORKER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     max_workers=4,
     thread_name_prefix='spider-session',
 )
+atexit.register(lambda: SPIDER_WORKER_EXECUTOR.shutdown(wait=False))
 
 # Preset configurations for scan profiles
 SCAN_PRESETS = {
@@ -447,7 +449,7 @@ def run_spider_session(session, target):
 
         if phase_tasks:
             logger.info(f"Running {len(phase_tasks)} phases concurrently for session {session.id}")
-            completed_phase_count = 0
+            completed_phases = 0
             total_phase_count = len(phase_tasks)
             _set_phase(f'post_crawl_scans (0/{total_phase_count})')
             elapsed_so_far = time.monotonic() - session_start
@@ -468,8 +470,8 @@ def run_spider_session(session, target):
                     except Exception as exc:
                         logger.error(f"{phase_name} failed for session {session.id}: {exc}", exc_info=True)
                     finally:
-                        completed_phase_count += 1
-                        _set_phase(f'post_crawl_scans ({completed_phase_count}/{total_phase_count})')
+                        completed_phases += 1
+                        _set_phase(f'post_crawl_scans ({completed_phases}/{total_phase_count})')
 
         update_spider_session_statistics(session)
         _set_phase('completed')
@@ -508,7 +510,7 @@ def crawl_website(session, target, stealth_session):
     logger.info(f"Starting crawl for session {session.id}, target: {target.url}, max_depth: {target.max_depth}")
     normalized_target_url = normalize_crawl_url(target.url)
     visited = set()
-    queued = {normalized_target_url}
+    queued_urls = {normalized_target_url}
     to_visit = deque([(normalized_target_url, 0)])  # (url, depth)
     base_domain = urlparse(target.url).netloc
     
@@ -517,7 +519,7 @@ def crawl_website(session, target, stealth_session):
 
     while to_visit and len(visited) < target.max_crawl_urls:  # Limit controlled by target.max_crawl_urls
         current_url, depth = to_visit.popleft()
-        queued.discard(current_url)
+        queued_urls.discard(current_url)
         
         if current_url in visited or depth > target.max_depth:
             continue
@@ -573,14 +575,14 @@ def crawl_website(session, target, stealth_session):
                     if not target.follow_external_links and parsed.netloc != base_domain:
                         continue
 
-                    enqueue_crawl_url(absolute_url, depth + 1, queued, to_visit, visited)
+                    enqueue_crawl_url(absolute_url, depth + 1, queued_urls, to_visit, visited)
                 
                 # Look for forms, scripts, images that might reveal hidden content
                 for tag in soup.find_all(['form', 'script', 'img', 'iframe']):
                     for attr in ['action', 'src', 'data-src']:
                         if tag.get(attr):
                             absolute_url = urljoin(current_url, tag[attr])
-                            enqueue_crawl_url(absolute_url, depth + 1, queued, to_visit, visited)
+                            enqueue_crawl_url(absolute_url, depth + 1, queued_urls, to_visit, visited)
         
         except Exception as e:
             urls_failed += 1
