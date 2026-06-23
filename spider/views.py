@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db import close_old_connections, connections
+from django.db import connections
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
@@ -338,10 +338,19 @@ def update_spider_session_statistics(session):
 def run_spider_session_worker(session_id):
     """Run a spider session in a background thread and persist final state."""
     connections.close_all()
-    close_old_connections()
 
     try:
         connections['default'].ensure_connection()
+    except Exception as connection_error:
+        logger.error(
+            f"Spider session {session_id} worker could not establish a database connection: "
+            f"{connection_error}",
+            exc_info=True,
+        )
+        connections.close_all()
+        return
+
+    try:
         session = SpiderSession.objects.select_related('target').get(id=session_id)
     except SpiderSession.DoesNotExist:
         logger.error(f"Spider session {session_id} no longer exists; background worker exiting")
@@ -500,9 +509,10 @@ def run_spider_session(session, target):
 def crawl_website(session, target, stealth_session):
     """Crawl website starting from target URL"""
     logger.info(f"Starting crawl for session {session.id}, target: {target.url}, max_depth: {target.max_depth}")
+    normalized_target_url = normalize_crawl_url(target.url)
     visited = set()
-    queued = {target.url}
-    to_visit = deque([(target.url, 0)])  # (url, depth)
+    queued = {normalized_target_url}
+    to_visit = deque([(normalized_target_url, 0)])  # (url, depth)
     base_domain = urlparse(target.url).netloc
     
     urls_processed = 0
@@ -587,10 +597,15 @@ def crawl_website(session, target, stealth_session):
                f"{urls_processed} URLs processed, {urls_failed} failed, {len(visited)} visited")
 
 
+def normalize_crawl_url(candidate_url):
+    """Normalize a crawl URL by stripping fragments while keeping query semantics."""
+    parsed = urlparse(candidate_url)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
+
+
 def enqueue_crawl_url(candidate_url, depth, queued, to_visit, visited):
     """Queue a normalized crawl URL once, avoiding redundant work."""
-    parsed = urlparse(candidate_url)
-    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
+    clean_url = normalize_crawl_url(candidate_url)
 
     if not clean_url.startswith(('http://', 'https://')):
         return

@@ -1000,7 +1000,10 @@ class ErrorHandlingTest(TestCase):
         with patch('spider.views.make_request_with_retry', side_effect=mock_request):
             crawl_website(session, self.target, mock_stealth_session)
 
+        session.refresh_from_db()
         self.assertEqual(requested_urls.count('https://example.com/page2'), 1)
+        self.assertEqual(set(requested_urls), {'https://example.com', 'https://example.com/page2'})
+        self.assertEqual(session.urls_crawled, 2)
 
 
 class AdaptiveStealthTest(TestCase):
