@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import importlib.util
 import os
 import platform
 import shutil
@@ -94,6 +95,41 @@ def is_running_in_docker() -> bool:
     if os.environ.get("DOCKER_CONTAINER") or os.environ.get("container"):
         return True
     return False
+
+
+def display_available() -> bool:
+    """Return True if a graphical display is reachable on this system.
+
+    Windows and macOS always have a display context; on Linux/BSD a
+    ``DISPLAY`` (X11) or ``WAYLAND_DISPLAY`` environment variable must be set.
+    """
+    system = platform.system()
+    if system in {"Windows", "Darwin"}:
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def desktop_stack_available() -> bool:
+    """Return True if the full desktop-browser stack can run on this system.
+
+    Requires all of the following:
+    - A graphical display (see :func:`display_available`).
+    - Not running inside a Docker/container environment.
+    - ``PyQt6`` and ``PyQt6.QtWebEngineWidgets`` importable.
+    """
+    if not display_available():
+        return False
+    if is_running_in_docker():
+        return False
+    for mod in ("PyQt6.QtWidgets", "PyQt6.QtWebEngineWidgets"):
+        if importlib.util.find_spec(mod) is None:
+            return False
+    return True
+
+
+def mitmdump_available() -> bool:
+    """Return True if ``mitmdump`` is available on PATH."""
+    return find_executable("mitmdump") is not None
 
 
 def is_admin() -> bool:
