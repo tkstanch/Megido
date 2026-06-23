@@ -1,5 +1,5 @@
-from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.db import close_old_connections, connections
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
@@ -10,6 +10,7 @@ from .models import (
     DiscoveredParameter, ParameterBruteForce
 )
 from .stealth import create_stealth_session
+import atexit
 import requests
 from requests.exceptions import Timeout, ConnectionError, RequestException, SSLError
 from bs4 import BeautifulSoup
@@ -24,6 +25,11 @@ import concurrent.futures
 
 # Configure logger for spider module
 logger = logging.getLogger(__name__)
+SPIDER_WORKER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4,
+    thread_name_prefix='spider-session',
+)
+atexit.register(lambda: SPIDER_WORKER_EXECUTOR.shutdown(wait=False))
 
 # Preset configurations for scan profiles
 SCAN_PRESETS = {
@@ -252,56 +258,40 @@ def start_spider(request, target_id):
     
     try:
         target = SpiderTarget.objects.get(id=target_id)
-        session = SpiderSession.objects.create(target=target, status='running')
+        session = SpiderSession.objects.create(
+            target=target,
+            status='running',
+            current_phase='starting',
+        )
         logger.info(f"Created spider session {session.id} for target {target.url}")
-        
+
         try:
-            # Run comprehensive spidering
-            run_spider_session(session, target)
-            
-            session.status = 'completed'
-            session.completed_at = timezone.now()
-            session.save()
-            
-            logger.info(f"Spider session {session.id} completed successfully. "
-                       f"URLs discovered: {session.urls_discovered}, "
-                       f"Hidden content: {session.hidden_content_found}")
-            
+            SPIDER_WORKER_EXECUTOR.submit(run_spider_session_worker, session.id)
+
             return Response({
                 'id': session.id,
-                'message': 'Spider session completed',
+                'message': 'Spider session started',
+                'status': session.status,
+                'current_phase': session.current_phase,
                 'urls_discovered': session.urls_discovered,
                 'hidden_content_found': session.hidden_content_found,
-            })
-            
+            }, status=202)
+
         except Exception as e:
-            # Categorize error type
-            error_category = "unknown_error"
-            error_message = str(e)
-            
-            if "SSL" in error_message or "ssl" in error_message.lower():
-                error_category = "ssl_error"
-            elif "Connection" in error_message or "connection" in error_message.lower():
-                error_category = "connection_error"
-            elif "timeout" in error_message.lower():
-                error_category = "timeout_error"
-            elif "database" in error_message.lower() or "integrity" in error_message.lower():
-                error_category = "database_error"
-            
+            error_category, error_message = categorize_spider_error(e)
             logger.error(f"Spider session {session.id} failed with {error_category}: {error_message}", 
                         exc_info=True)
-            
-            # Update session with detailed error information
+
             session.status = 'failed'
+            session.current_phase = 'failed'
             session.error_message = f"[{error_category}] {error_message}"
             session.completed_at = timezone.now()
-            
+
             try:
                 session.save()
             except Exception as save_error:
                 logger.error(f"Failed to save error status for session {session.id}: {save_error}")
-            
-            # Return structured error response
+
             return Response({
                 'error': error_message,
                 'error_category': error_category,
@@ -319,6 +309,85 @@ def start_spider(request, target_id):
             'error_category': 'unexpected_error',
             'message': 'An unexpected error occurred'
         }, status=500)
+
+
+def categorize_spider_error(error):
+    """Map an exception to a stable spider error category."""
+    error_message = str(error)
+    error_message_lower = error_message.lower()
+
+    if "ssl" in error_message_lower:
+        return "ssl_error", error_message
+    if "connection" in error_message_lower:
+        return "connection_error", error_message
+    if "timeout" in error_message_lower:
+        return "timeout_error", error_message
+    if "database" in error_message_lower or "integrity" in error_message_lower:
+        return "database_error", error_message
+    return "unknown_error", error_message
+
+
+def update_spider_session_statistics(session):
+    """Refresh aggregate counters from discovered spider artifacts."""
+    session.urls_discovered = session.discovered_urls.count()
+    session.hidden_content_found = session.hidden_content.count()
+    session.inference_results = session.inferred_content.count()
+    session.parameters_discovered = session.discovered_parameters.count()
+
+
+def run_spider_session_worker(session_id):
+    """Run a spider session in a background thread and persist final state."""
+    close_old_connections()
+
+    try:
+        connections['default'].ensure_connection()
+    except Exception as connection_error:
+        logger.error(
+            f"Spider session {session_id} worker could not establish a database connection: "
+            f"{connection_error}",
+            exc_info=True,
+        )
+        connections.close_all()
+        return
+
+    try:
+        session = SpiderSession.objects.select_related('target').get(id=session_id)
+    except SpiderSession.DoesNotExist:
+        logger.error(f"Spider session {session_id} no longer exists; background worker exiting")
+        connections.close_all()
+        return
+
+    target = session.target
+    logger.info(f"Background spider worker starting for session {session.id} ({target.url})")
+
+    try:
+        run_spider_session(session, target)
+        update_spider_session_statistics(session)
+        session.status = 'completed'
+        session.current_phase = 'completed'
+        session.completed_at = timezone.now()
+        session.save()
+
+        logger.info(
+            f"Spider session {session.id} completed successfully in background. "
+            f"URLs discovered: {session.urls_discovered}, "
+            f"Hidden content: {session.hidden_content_found}"
+        )
+    except Exception as error:
+        error_category, error_message = categorize_spider_error(error)
+        logger.error(
+            f"Spider session {session.id} failed with {error_category}: {error_message}",
+            exc_info=True,
+        )
+
+        update_spider_session_statistics(session)
+        session.status = 'failed'
+        session.current_phase = 'failed'
+        session.error_message = f"[{error_category}] {error_message}"
+        session.completed_at = timezone.now()
+        session.save()
+    finally:
+        connections.close_all()
 
 
 def run_spider_session(session, target):
@@ -364,15 +433,6 @@ def run_spider_session(session, target):
             return
 
         # Phases 2–7: Run concurrently since they are independent of each other
-        # Map each (display_name, fn, args) to a stable phase label used for current_phase.
-        PHASE_LABELS = {
-            run_dirbuster_discovery: 'dirbuster',
-            run_nikto_scan: 'nikto',
-            run_wikto_scan: 'wikto',
-            brute_force_paths: 'brute_force',
-            infer_content: 'inference',
-            discover_hidden_parameters: 'parameter_discovery',
-        }
         phase_tasks = []
         if target.use_dirbuster:
             phase_tasks.append(('Phase 2 (DirBuster)', run_dirbuster_discovery, (session, target, stealth_session)))
@@ -389,8 +449,9 @@ def run_spider_session(session, target):
 
         if phase_tasks:
             logger.info(f"Running {len(phase_tasks)} phases concurrently for session {session.id}")
-            # Mark the first active phase as current for progress reporting
-            _set_phase(PHASE_LABELS.get(phase_tasks[0][1], 'running'))
+            completed_phases = 0
+            total_phase_count = len(phase_tasks)
+            _set_phase(f'post_crawl_scans (0/{total_phase_count})')
             elapsed_so_far = time.monotonic() - session_start
             remaining_seconds = max(0.0, max_duration - elapsed_so_far) if max_duration else None
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(phase_tasks), 6)) as executor:
@@ -408,12 +469,11 @@ def run_spider_session(session, target):
                         logger.info(f"{phase_name} completed for session {session.id}")
                     except Exception as exc:
                         logger.error(f"{phase_name} failed for session {session.id}: {exc}", exc_info=True)
+                    finally:
+                        completed_phases += 1
+                        _set_phase(f'post_crawl_scans ({completed_phases}/{total_phase_count})')
 
-        # Update session statistics
-        session.urls_discovered = session.discovered_urls.count()
-        session.hidden_content_found = session.hidden_content.count()
-        session.inference_results = session.inferred_content.count()
-        session.parameters_discovered = session.discovered_parameters.count()
+        update_spider_session_statistics(session)
         _set_phase('completed')
         session.save()
 
@@ -426,10 +486,7 @@ def run_spider_session(session, target):
             f"Spider session {session.id} global timeout reached after {elapsed:.0f}s "
             f"(limit {max_duration}s) — saving partial results"
         )
-        session.urls_discovered = session.discovered_urls.count()
-        session.hidden_content_found = session.hidden_content.count()
-        session.inference_results = session.inferred_content.count()
-        session.parameters_discovered = session.discovered_parameters.count()
+        update_spider_session_statistics(session)
         session.error_message = (
             f"Session time-limited after {elapsed:.0f}s "
             f"(max_duration={max_duration}s). Partial results saved."
@@ -451,15 +508,18 @@ def run_spider_session(session, target):
 def crawl_website(session, target, stealth_session):
     """Crawl website starting from target URL"""
     logger.info(f"Starting crawl for session {session.id}, target: {target.url}, max_depth: {target.max_depth}")
+    normalized_target_url = normalize_crawl_url(target.url)
     visited = set()
-    to_visit = deque([(target.url, 0)])  # (url, depth)
+    queued_urls = {normalized_target_url}
+    to_visit = deque([(normalized_target_url, 0)])  # (url, depth)
     base_domain = urlparse(target.url).netloc
     
     urls_processed = 0
     urls_failed = 0
-    
+
     while to_visit and len(visited) < target.max_crawl_urls:  # Limit controlled by target.max_crawl_urls
         current_url, depth = to_visit.popleft()
+        queued_urls.discard(current_url)
         
         if current_url in visited or depth > target.max_depth:
             continue
@@ -514,20 +574,15 @@ def crawl_website(session, target, stealth_session):
                     # Check if we should follow this link
                     if not target.follow_external_links and parsed.netloc != base_domain:
                         continue
-                    
-                    # Clean URL (remove fragments)
-                    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
-                    
-                    if clean_url not in visited and clean_url.startswith(('http://', 'https://')):
-                        to_visit.append((clean_url, depth + 1))
+
+                    enqueue_crawl_url(absolute_url, depth + 1, queued_urls, to_visit, visited)
                 
                 # Look for forms, scripts, images that might reveal hidden content
                 for tag in soup.find_all(['form', 'script', 'img', 'iframe']):
                     for attr in ['action', 'src', 'data-src']:
                         if tag.get(attr):
                             absolute_url = urljoin(current_url, tag[attr])
-                            if absolute_url not in visited:
-                                to_visit.append((absolute_url, depth + 1))
+                            enqueue_crawl_url(absolute_url, depth + 1, queued_urls, to_visit, visited)
         
         except Exception as e:
             urls_failed += 1
@@ -539,6 +594,25 @@ def crawl_website(session, target, stealth_session):
     
     logger.info(f"Crawl complete for session {session.id}: "
                f"{urls_processed} URLs processed, {urls_failed} failed, {len(visited)} visited")
+
+
+def normalize_crawl_url(candidate_url):
+    """Normalize a crawl URL by stripping fragments while keeping query semantics."""
+    parsed = urlparse(candidate_url)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, parsed.query, ''))
+
+
+def enqueue_crawl_url(candidate_url, depth, queued, to_visit, visited):
+    """Queue a normalized crawl URL once, avoiding redundant work."""
+    clean_url = normalize_crawl_url(candidate_url)
+
+    if not clean_url.startswith(('http://', 'https://')):
+        return
+    if clean_url in visited or clean_url in queued:
+        return
+
+    queued.add(clean_url)
+    to_visit.append((clean_url, depth))
 
 
 def run_dirbuster_discovery(session, target, stealth_session):

@@ -817,6 +817,16 @@ async function startSpider() {
         
         currentSessionId = session.id;
 
+        const phaseLabel = session.current_phase
+            ? ` &mdash; Phase: <strong>${session.current_phase}</strong>`
+            : '';
+        document.getElementById('spider-status').innerHTML = `
+            <div class="info">
+                <strong>🚀 Spider started.</strong>${phaseLabel}<br>
+                Live progress updates will appear automatically while results are gathered.
+            </div>
+        `;
+
         // Register with global process tracker for cross-page persistence
         if (window.MegidoProcessTracker) {
             window.MegidoProcessTracker.registerProcess(
