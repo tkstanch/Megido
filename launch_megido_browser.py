@@ -19,6 +19,7 @@ import time
 import signal
 import subprocess
 import argparse
+import platform
 import shutil
 import socket
 from pathlib import Path
@@ -295,17 +296,25 @@ class MegidoLauncher:
             self.print_header("Megido Security - Desktop Browser Launcher")
 
             # Verify a display is available before attempting to start Qt
-            import platform as _platform
-            _sys = _platform.system()
-            if _sys not in {"Windows", "Darwin"}:
-                import os as _os
-                if not (_os.environ.get("DISPLAY") or _os.environ.get("WAYLAND_DISPLAY")):
+            try:
+                from megido_security.platform_utils import display_available as _display_available
+                if not _display_available():
                     self.print_status(
                         "No display detected (DISPLAY/WAYLAND_DISPLAY not set). "
                         "Desktop mode requires a graphical environment.",
                         "error",
                     )
                     return 1
+            except ImportError:
+                # Fallback: manual check if megido_security is not on path
+                if platform.system() not in {"Windows", "Darwin"}:
+                    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+                        self.print_status(
+                            "No display detected (DISPLAY/WAYLAND_DISPLAY not set). "
+                            "Desktop mode requires a graphical environment.",
+                            "error",
+                        )
+                        return 1
 
             # Check dependencies
             if not self.check_dependencies():

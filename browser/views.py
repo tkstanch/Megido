@@ -221,10 +221,9 @@ def launch_pyqt_browser(request):
             if not display_available():
                 missing.append("no display detected")
             else:
-                import importlib as _il
-                if _il.util.find_spec("PyQt6.QtWidgets") is None:
+                if importlib.util.find_spec("PyQt6.QtWidgets") is None:
                     missing.append("PyQt6 not installed")
-                elif _il.util.find_spec("PyQt6.QtWebEngineWidgets") is None:
+                elif importlib.util.find_spec("PyQt6.QtWebEngineWidgets") is None:
                     missing.append("PyQt6-WebEngine not installed")
             reason = "; ".join(missing) if missing else "desktop stack unavailable"
             return Response({

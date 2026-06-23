@@ -88,7 +88,7 @@ def _run_mode(mode: str, args: argparse.Namespace, extra_args: list[str] | None 
             reasons = []
             if not _display_available():
                 reasons.append("no display detected")
-            elif not (_module_available("PyQt6.QtWidgets") and _module_available("PyQt6.QtWebEngineWidgets")):
+            if not (_module_available("PyQt6.QtWidgets") and _module_available("PyQt6.QtWebEngineWidgets")):
                 reasons.append("PyQt6 or PyQt6-WebEngine not installed")
             msg = "; ".join(reasons) if reasons else "desktop stack unavailable"
             print(f"Desktop mode unavailable ({msg}), falling back to web mode.")
