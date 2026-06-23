@@ -39,6 +39,7 @@ androguard>=3.3.5
 olefile>=0.47
 reportlab>=4.0.0
 scapy>=2.5.0
+python-nmap>=0.7.1
 stix2>=3.0.0
 # OSINT engine dependencies (added for enhanced discover app)
 dnspython>=2.4.0

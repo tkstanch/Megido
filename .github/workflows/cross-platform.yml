@@ -6,16 +6,27 @@ on:
   pull_request:
 
 jobs:
-  test-matrix:
-    runs-on: ${{ matrix.os }}
+  # Run the full test suite on Ubuntu with a real Redis service so that
+  # Channels WebSocket and Celery code paths are exercised.
+  test-ubuntu-redis:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        # Keep both channels for broader macOS runner coverage.
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
         python: ["3.10", "3.11", "3.12"]
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +39,9 @@ jobs:
 
       - name: Unified setup
         run: python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
+
+      - name: Install Node dependencies
+        run: npm ci --ignore-scripts
 
       - name: Django check
         env:
@@ -48,3 +62,52 @@ jobs:
         env:
           USE_SQLITE: "true"
         run: python scripts/ci_boot_smoke.py
+
+  # Run the same suite on Windows and macOS using the in-memory channel layer
+  # (no Redis available on these hosted runners without extra setup).
+  test-matrix:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep both channels for broader macOS runner coverage.
+        os: [windows-latest, macos-latest, macos-14]
+        python: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Unified setup
+        run: python -m megido_security.setup --non-interactive --skip-docker --skip-playwright --skip-npm --no-venv
+
+      - name: Django check
+        env:
+          USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: "true"
+        run: python manage.py check
+
+      - name: Django migrate
+        env:
+          USE_SQLITE: "true"
+        run: python manage.py migrate --run-syncdb --noinput
+
+      - name: Run root tests
+        env:
+          USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: "true"
+        run: python -m pytest -q test_*.py
+
+      - name: Boot smoke test
+        env:
+          USE_SQLITE: "true"
+          USE_IN_MEMORY_CHANNELS: "true"
+        run: python scripts/ci_boot_smoke.py
+

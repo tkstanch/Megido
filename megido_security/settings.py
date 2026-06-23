@@ -231,7 +231,9 @@ WAYBACK_MACHINE_TIMEOUT = int(os.environ.get('WAYBACK_MACHINE_TIMEOUT', '10'))
 WAYBACK_MACHINE_MAX_RETRIES = int(os.environ.get('WAYBACK_MACHINE_MAX_RETRIES', '2'))
 
 # ClamAV Configuration (can be overridden via environment variables)
-CLAMAV_HOST = 'clamav'  # Use 'localhost' if running ClamAV locally
+# Default to 'localhost' for native installs; Docker Compose overrides this to 'clamav'
+# via the CLAMAV_HOST environment variable set in docker-compose.yml.
+CLAMAV_HOST = os.environ.get('CLAMAV_HOST', 'localhost')
 CLAMAV_PORT = 3310
 CLAMAV_TIMEOUT = 60
 
@@ -357,26 +359,31 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # ============================================================================
 # Django Channels Configuration (WebSocket Support)
 # ============================================================================
-# Redis is used as the channel layer backend for WebSocket communication
-# This enables real-time updates for exploitation results
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
-            'capacity': 1500,  # Maximum number of messages to store
-            'expiry': 10,  # Message expiry time in seconds
+# Redis is used as the channel layer backend for WebSocket communication.
+# On platforms where Redis is not available (e.g. Windows native), set the
+# environment variable USE_IN_MEMORY_CHANNELS=true to fall back to the
+# in-memory layer.  The in-memory layer does not support multiple processes
+# or workers, so it should only be used for local single-process development.
+if os.environ.get('USE_IN_MEMORY_CHANNELS', 'false').lower() == 'true':
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
-    },
-}
-
-# For testing without Redis, use InMemoryChannelLayer
-# Uncomment the following to use in-memory layer (development only)
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels.layers.InMemoryChannelLayer'
-#     }
-# }
+    }
+    # Also run Celery tasks synchronously when Redis is absent so that
+    # background task features degrade gracefully instead of erroring.
+    CELERY_TASK_ALWAYS_EAGER = True
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
+                'capacity': 1500,  # Maximum number of messages to store
+                'expiry': 10,  # Message expiry time in seconds
+            },
+        },
+    }
 
 # ============================================================================
 # XSS Callback Verification Configuration
