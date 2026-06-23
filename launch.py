@@ -24,6 +24,25 @@ def _module_available(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
 
 
+def _desktop_stack_available() -> bool:
+    """Return True if the full PyQt6 WebEngine desktop stack is usable here.
+
+    Checks display, container environment, and both required Qt modules so
+    that auto-mode never selects desktop when it would immediately fail.
+    """
+    if not _display_available():
+        return False
+    # Containers typically have no display; skip the module probes too.
+    try:
+        from megido_security.platform_utils import is_running_in_docker
+        if is_running_in_docker():
+            return False
+    except ImportError:
+        pass
+    # The desktop browser uses PyQt6 + QtWebEngineWidgets exclusively.
+    return _module_available("PyQt6.QtWidgets") and _module_available("PyQt6.QtWebEngineWidgets")
+
+
 def _run(command: list[str], env: dict[str, str] | None = None) -> int:
     return subprocess.run(command, cwd=str(ROOT), env=env).returncode
 
@@ -65,13 +84,19 @@ def _run_mode(mode: str, args: argparse.Namespace, extra_args: list[str] | None 
         return _run_web(args)
 
     if mode in {"desktop", "desktop-browser"}:
-        if not _display_available():
-            print("No display detected, falling back to web mode.")
+        if not _desktop_stack_available():
+            reasons = []
+            if not _display_available():
+                reasons.append("no display detected")
+            if not (_module_available("PyQt6.QtWidgets") and _module_available("PyQt6.QtWebEngineWidgets")):
+                reasons.append("PyQt6 or PyQt6-WebEngine not installed")
+            msg = "; ".join(reasons) if reasons else "desktop stack unavailable"
+            print(f"Desktop mode unavailable ({msg}), falling back to web mode.")
             return _run_web(args)
         return _run_desktop_browser(extra_args)
 
     # auto
-    if _display_available() and (_module_available("PyQt6") or _module_available("PySide6")):
+    if _desktop_stack_available():
         return _run_desktop_browser(extra_args)
     return _run_web(args)
 

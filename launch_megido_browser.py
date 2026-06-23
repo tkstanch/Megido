@@ -15,10 +15,14 @@ Usage:
 
 import sys
 import os
+import importlib
+import importlib.util
 import time
 import signal
 import subprocess
 import argparse
+import platform
+import shutil
 import socket
 from pathlib import Path
 
@@ -33,6 +37,7 @@ class MegidoLauncher:
         self.django_process = None
         self.proxy_process = None
         self.browser_process = None
+        self._mitmdump_missing = False
     
     def print_header(self, title):
         """Print formatted header"""
@@ -61,22 +66,42 @@ class MegidoLauncher:
     def check_dependencies(self):
         """Check if required dependencies are installed"""
         self.print_header("Checking Dependencies")
-        
-        dependencies = {
-            'django': 'Django',
-            'mitmproxy': 'mitmproxy',
-            'PyQt6': 'PyQt6'
-        }
-        
+
         all_ok = True
-        for module, name in dependencies.items():
+
+        # Core Django dependency
+        for module, name in [('django', 'Django'), ('PyQt6', 'PyQt6')]:
             try:
                 __import__(module)
                 self.print_status(f"{name} is installed", "success")
             except ImportError:
                 self.print_status(f"{name} is NOT installed", "error")
                 all_ok = False
-        
+
+        # PyQt6 WebEngine is required for the embedded browser
+        if importlib.util.find_spec('PyQt6.QtWebEngineWidgets') is not None:
+            self.print_status("PyQt6-WebEngine is installed", "success")
+        else:
+            self.print_status(
+                "PyQt6-WebEngine is NOT installed "
+                "(install with: pip install PyQt6-WebEngine)",
+                "error",
+            )
+            all_ok = False
+
+        # mitmproxy / mitmdump is optional (--no-proxy skips it)
+        mitmdump_path = shutil.which('mitmdump')
+        if mitmdump_path:
+            self.print_status(f"mitmdump found at {mitmdump_path}", "success")
+        else:
+            self.print_status(
+                "mitmdump NOT found on PATH. "
+                "Install mitmproxy (pip install mitmproxy) or use --no-proxy.",
+                "warning",
+            )
+            # Not fatal – caller decides whether proxy is required.
+            self._mitmdump_missing = True
+
         return all_ok
     
     def start_django(self, host, port):
@@ -136,6 +161,15 @@ class MegidoLauncher:
                 "warning"
             )
             return True
+
+        mitmdump_path = shutil.which('mitmdump')
+        if not mitmdump_path:
+            self.print_status(
+                "mitmdump not found on PATH. "
+                "Install mitmproxy (pip install mitmproxy) or re-run with --no-proxy.",
+                "error",
+            )
+            return False
         
         try:
             addon_path = self.base_dir / 'proxy_addon.py'
@@ -149,7 +183,7 @@ class MegidoLauncher:
             # Start mitmproxy in headless mode (mitmdump)
             self.proxy_process = subprocess.Popen(
                 [
-                    'mitmdump',
+                    mitmdump_path,
                     '-s', str(addon_path),
                     '--set', f'api_url={django_url}',
                     '--set', 'source_app=browser',
@@ -260,12 +294,41 @@ class MegidoLauncher:
         """Main execution"""
         try:
             self.print_header("Megido Security - Desktop Browser Launcher")
-            
+
+            # Verify a display is available before attempting to start Qt
+            try:
+                from megido_security.platform_utils import display_available as _display_available
+                if not _display_available():
+                    self.print_status(
+                        "No display detected (DISPLAY/WAYLAND_DISPLAY not set). "
+                        "Desktop mode requires a graphical environment.",
+                        "error",
+                    )
+                    return 1
+            except ImportError:
+                # Fallback: manual check if megido_security is not on path
+                if platform.system() not in {"Windows", "Darwin"}:
+                    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+                        self.print_status(
+                            "No display detected (DISPLAY/WAYLAND_DISPLAY not set). "
+                            "Desktop mode requires a graphical environment.",
+                            "error",
+                        )
+                        return 1
+
             # Check dependencies
             if not self.check_dependencies():
                 self.print_status("Missing dependencies. Install them first:", "error")
                 self.print_status("pip install -r requirements.txt", "info")
                 return 1
+
+            # If proxy is requested but mitmdump is unavailable, auto-disable proxy
+            if not args.no_proxy and self._mitmdump_missing:
+                self.print_status(
+                    "mitmdump not available – launching browser without proxy (--no-proxy).",
+                    "warning",
+                )
+                args.no_proxy = True
             
             django_url = args.django_url if args.external_django else f"http://{args.django_host}:{args.django_port}"
             

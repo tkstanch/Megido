@@ -13,7 +13,7 @@ import os
 import platform
 import tempfile
 from pathlib import Path
-from megido_security.platform_utils import find_executable, is_running_in_docker
+from megido_security.platform_utils import find_executable, is_running_in_docker, desktop_stack_available
 
 
 def browser_view(request):
@@ -214,19 +214,27 @@ def launch_pyqt_browser(request):
                 'error': 'Invalid enable_proxy value. Must be a boolean'
             }, status=400)
         
-        # Check if PyQt6 is installed
-        try:
-            import importlib
-            importlib.import_module('PyQt6.QtWidgets')
-        except ImportError:
+        # Check if the full desktop stack (display + PyQt6 + WebEngine) is available
+        if not desktop_stack_available():
+            missing = []
+            from megido_security.platform_utils import display_available
+            if not display_available():
+                missing.append("no display detected")
+            else:
+                if importlib.util.find_spec("PyQt6.QtWidgets") is None:
+                    missing.append("PyQt6 not installed")
+                elif importlib.util.find_spec("PyQt6.QtWebEngineWidgets") is None:
+                    missing.append("PyQt6-WebEngine not installed")
+            reason = "; ".join(missing) if missing else "desktop stack unavailable"
             return Response({
                 'success': False,
                 'error': (
-                    'PyQt6 is not installed. Install it with: pip install PyQt6 PyQt6-WebEngine\n'
+                    f'Desktop browser is not available on this system ({reason}). '
+                    'Install the required packages with: pip install PyQt6 PyQt6-WebEngine\n'
                     'Alternatively, use the "Launch External Browser" option to open Firefox or Chrome.'
                 )
             }, status=500)
-        
+
         # Path to PyQt6 launcher
         base_dir = Path(__file__).parent.parent
         launcher_path = base_dir / 'launch_megido_browser.py'
