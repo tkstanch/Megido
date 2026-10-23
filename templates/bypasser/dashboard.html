@@ -196,7 +196,7 @@ button:disabled {
                 <label>Technique Template:</label>
                 <textarea id="tech-template" rows="3" style="width: 100%; padding: 10px; font-family: monospace;"></textarea>
                 <small style="color: #666;">
-                    Use {% templatetag openvariable %}payload{% templatetag closevariable %}, {% templatetag openvariable %}char{% templatetag closevariable %}, {% templatetag openvariable %}target{% templatetag closevariable %}, {% templatetag openvariable %}param{% templatetag closevariable %} with transformations like |url_encode|html_hex
+                    Use {{ payload }}, {{ char }}, {{ target }}, {{ param }}
                     <a href="#" onclick="showTechniqueHelp(); return false;" style="margin-left: 10px;">📖 View Syntax Help</a>
                 </small>
             </div>
@@ -228,10 +228,10 @@ button:disabled {
             <h4>📖 Technique Template Syntax</h4>
             <p><strong>Variables:</strong></p>
             <ul>
-                <li><code>{% templatetag openvariable %}payload{% templatetag closevariable %}</code> - The main payload to transform</li>
-                <li><code>{% templatetag openvariable %}char{% templatetag closevariable %}</code> - A single character to test</li>
-                <li><code>{% templatetag openvariable %}target{% templatetag closevariable %}</code> - The target URL</li>
-                <li><code>{% templatetag openvariable %}param{% templatetag closevariable %}</code> - The parameter name</li>
+                <li><code>{{ payload }}</code> - The main payload to transform</li>
+                <li><code>{{ char }}</code> - A single character to test</li>
+                <li><code>{{ target }}</code> - The target URL</li>
+                <li><code>{{ param }}</code> - The parameter name</li>
             </ul>
             <p><strong>Transformations (pipe them together):</strong></p>
             <ul style="column-count: 2;">
@@ -252,9 +252,9 @@ button:disabled {
             </ul>
             <p><strong>Examples:</strong></p>
             <ul>
-                <li><code>{% templatetag openvariable %}payload|url_encode_double{% templatetag closevariable %}</code> - Double URL encode</li>
-                <li><code>{% templatetag openvariable %}payload|html_hex|url_encode{% templatetag closevariable %}</code> - HTML hex then URL encode</li>
-                <li><code>test{% templatetag openvariable %}payload|upper{% templatetag closevariable %}value</code> - Uppercase with surrounding text</li>
+                <li><code>{{ payload|url_encode_double }}</code> - Double URL encode</li>
+                <li><code>{{ payload|html_hex|url_encode }}</code> - HTML hex then URL encode</li>
+                <li><code>test{{ payload|upper }}value</code> - Uppercase with surrounding text</li>
             </ul>
             <button onclick="hideTechniqueHelp()" style="margin-top: 10px;">Close Help</button>
         </div>
@@ -273,11 +273,9 @@ button:disabled {
 let currentSessionId = null;
 
 function switchTab(tabName, event) {
-    // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
     
-    // Show selected tab
     document.getElementById(`tab-${tabName}`).classList.add('active');
     if (event && event.target) {
         event.target.classList.add('active');
@@ -300,7 +298,6 @@ async function startProbing() {
     startBtn.textContent = 'Probing...';
     
     try {
-        // Create target
         const targetResponse = await fetch('/bypasser/api/targets/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -316,19 +313,16 @@ async function startProbing() {
         document.getElementById('status-message').innerHTML = 
             '<p style="color: #007bff;">🔍 Probing for special characters...</p>';
         
-        // Start character probing
         const probeResponse = await fetch(`/bypasser/api/targets/${target.id}/probe/`, {
             method: 'POST'
         });
         const session = await probeResponse.json();
         currentSessionId = session.id;
-        // Persist session so results can be restored after navigation
         sessionStorage.setItem('activeBypasserSessionId', String(session.id));
         
         document.getElementById('status-message').innerHTML = 
             '<p style="color: #28a745;">✓ Probing completed!</p>';
         
-        // Load results
         await loadResults(session.id);
         
     } catch (error) {
@@ -345,10 +339,8 @@ async function loadResults(sessionId) {
         const response = await fetch(`/bypasser/api/sessions/${sessionId}/results/`);
         const data = await response.json();
         
-        // Show results container
         document.getElementById('results-container').style.display = 'block';
         
-        // Update statistics
         document.getElementById('statistics').innerHTML = `
             <div class="stats-box">
                 <h3>📊 Statistics</h3>
@@ -360,7 +352,6 @@ async function loadResults(sessionId) {
             </div>
         `;
         
-        // Display all character probes
         const allChars = data.character_probes.map(probe => `
             <div class="character-item char-${probe.status}">
                 <div style="font-size: 1.5em; font-weight: bold;">${escapeHtml(probe.character)}</div>
@@ -374,7 +365,6 @@ async function loadResults(sessionId) {
             <div class="character-grid">${allChars}</div>
         `;
         
-        // Display blocked characters
         if (data.blocked_characters.length > 0) {
             document.getElementById('blocked-characters').innerHTML = `
                 <h3>🚫 Blocked Characters (${data.blocked_characters.length})</h3>
@@ -395,7 +385,6 @@ async function loadResults(sessionId) {
             `;
         }
         
-        // Display allowed characters
         if (data.allowed_characters.length > 0) {
             document.getElementById('allowed-characters').innerHTML = `
                 <h3>✓ Allowed Characters (${data.allowed_characters.length})</h3>
@@ -432,10 +421,7 @@ async function testEncodingBypasses() {
         });
         const data = await response.json();
         
-        // Load bypass results
         await loadBypassResults(currentSessionId);
-        
-        // Switch to bypasses tab
         switchTab('bypasses');
         document.querySelectorAll('.tab')[3].classList.add('active');
         
@@ -517,15 +503,12 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"'\n\r\t]/g, m => map[m]);
 }
 
-// ==================== Custom Techniques Functions ====================
-
 function showCreateTechniqueForm() {
     document.getElementById('create-technique-form').style.display = 'block';
 }
 
 function hideCreateTechniqueForm() {
     document.getElementById('create-technique-form').style.display = 'none';
-    // Clear form
     document.getElementById('tech-name').value = '';
     document.getElementById('tech-template').value = '';
     document.getElementById('tech-description').value = '';
@@ -555,7 +538,6 @@ async function testTechniqueTemplate() {
     resultDiv.innerHTML = '<p style="color: #007bff;">🧪 Testing template...</p>';
     
     try {
-        // Create a temporary technique to test
         const testResponse = await fetch('/bypasser/api/custom-techniques/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -574,8 +556,6 @@ async function testTechniqueTemplate() {
         }
         
         const tempTech = await testResponse.json();
-        
-        // Test the technique
         const testResult = await fetch(`/bypasser/api/custom-techniques/${tempTech.id}/test/`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -583,8 +563,6 @@ async function testTechniqueTemplate() {
         });
         
         const result = await testResult.json();
-        
-        // Delete the temporary technique
         await fetch(`/bypasser/api/custom-techniques/${tempTech.id}/`, {method: 'DELETE'});
         
         if (result.success) {
@@ -640,7 +618,7 @@ async function saveTechnique() {
         }
         
         const result = await response.json();
-        alert(\"✓ Technique \"${name}" created successfully!`);
+        alert(`✓ Technique "${name}" created successfully!`);
         hideCreateTechniqueForm();
         loadCustomTechniques();
         
@@ -653,7 +631,6 @@ async function loadCustomTechniques() {
     try {
         const response = await fetch('/bypasser/api/custom-techniques/');
         const techniques = await response.json();
-        
         const listDiv = document.getElementById('techniques-list');
         
         if (techniques.length === 0) {
@@ -731,7 +708,7 @@ async function testSingleTechnique(techniqueId) {
 }
 
 async function deleteTechnique(techniqueId, name) {
-    if (!confirm(\"Delete technique \"${name}"?\")) return;
+    if (!confirm(`Delete technique "${name}"?`)) return;
     
     try {
         const response = await fetch(`/bypasser/api/custom-techniques/${techniqueId}/`, {
@@ -739,7 +716,7 @@ async function deleteTechnique(techniqueId, name) {
         });
         
         if (response.ok || response.status === 204) {
-            alert(\"✓ Technique \"${name}" deleted\");
+            alert(`✓ Technique "${name}" deleted`);
             loadCustomTechniques();
         } else {
             alert('Error deleting technique');
@@ -764,8 +741,6 @@ async function testCustomTechniques() {
         const data = await response.json();
         
         alert(`Custom Technique Testing Complete!\n\nTechniques tested: ${data.techniques_tested}\nSuccessful bypasses: ${data.successful_bypasses}`);
-        
-        // Reload results
         await loadResults(currentSessionId);
         
     } catch (error) {
@@ -776,15 +751,12 @@ async function testCustomTechniques() {
     }
 }
 
-// Load custom techniques when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadCustomTechniques();
-    // Restore bypasser session results if a session was active before navigation
-    var savedSessionId = sessionStorage.getItem('activeBypasserSessionId');
+    const savedSessionId = sessionStorage.getItem('activeBypasserSessionId');
     if (savedSessionId) {
         currentSessionId = parseInt(savedSessionId, 10);
         loadResults(currentSessionId).catch(function() {
-            // If the session no longer exists, clean up the stored ID
             sessionStorage.removeItem('activeBypasserSessionId');
         });
     }
