@@ -53,6 +53,7 @@ def apply_bypass_techniques(text, techniques):
         'techniques_applied': applied,
     }
 
+
 def _tab_to_dict(tab):
     return {
         'id': tab.id,
@@ -189,8 +190,6 @@ def send_request(request, request_id):
             if 'url' in apply_to:
                 parsed = urlparse(url)
                 params = parse_qs(parsed.query, keep_blank_values=True)
-                # Build query string manually so the already-transformed values
-                # are not re-encoded by urlencode().
                 parts = []
                 for key, values in params.items():
                     for v in values:
@@ -302,7 +301,6 @@ def tab_detail(request, tab_id):
             tab.name = request.data['name']
         if 'order' in request.data:
             tab.order = request.data['order']
-        # Config fields
         config_fields = ['follow_redirects', 'max_redirects', 'timeout', 'verify_ssl', 'auto_content_length']
         for field in config_fields:
             if field in request.data:
@@ -355,7 +353,6 @@ def tab_navigate(request, tab_id):
     if not reqs:
         return Response({'error': 'No history for this tab'}, status=404)
 
-    # Find current index (latest request by default)
     current_index_value = request.data.get('current_index', len(reqs) - 1)
     try:
         current_pos = int(current_index_value)
@@ -388,7 +385,6 @@ def target_info(request, request_id):
     except RepeaterRequest.DoesNotExist:
         return Response({'error': 'Request not found'}, status=404)
 
-    from urllib.parse import urlparse
     parsed = urlparse(repeater_req.url)
     host = parsed.hostname or ''
     port = parsed.port or (443 if parsed.scheme == 'https' else 80)
@@ -414,7 +410,7 @@ def target_info(request, request_id):
         try:
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE  # Intentionally disabled for security testing tool
+            ctx.verify_mode = ssl.CERT_NONE
             with ctx.wrap_socket(socket.create_connection((host, port), timeout=5), server_hostname=host) as ssock:
                 cert = ssock.getpeercert()
                 info['tls_certificate'] = {
@@ -444,24 +440,11 @@ def target_info(request, request_id):
 # Send to other tools
 # ---------------------------------------------------------------------------
 
-# Headers that are safe to mark as injectable (avoid breaking the request).
-# Keep in sync with the client-side injectableHeaders set in dashboard.html.
 _INJECTABLE_HEADERS = {'User-Agent', 'Referer', 'X-Forwarded-For', 'Accept', 'Cookie'}
 
 
 def parse_injection_points(repeater_request):
-    """Parse a RepeaterRequest and return a list of injection point dicts.
-
-    Each dict is compatible with AutoInjector._inject_payload():
-    {
-        'url': <full URL>,
-        'parameter_name': <param name>,
-        'parameter_type': 'GET' | 'POST' | 'json' | 'header' | 'cookie',
-        'original_value': <current value>,
-        'form_action': <base URL without query string>,
-        'form_method': <HTTP method>,
-    }
-    """
+    """Parse a RepeaterRequest and return a list of injection point dicts."""
     injection_points = []
     url = repeater_request.url
     method = (repeater_request.method or 'GET').upper()
@@ -469,7 +452,6 @@ def parse_injection_points(repeater_request):
     parsed_url = urlparse(url)
     base_url = parsed_url._replace(query='', fragment='').geturl()
 
-    # ── URL query parameters → GET injection points ──────────────────────────
     qs_params = parse_qs(parsed_url.query, keep_blank_values=True)
     for param_name, values in qs_params.items():
         injection_points.append({
@@ -481,10 +463,8 @@ def parse_injection_points(repeater_request):
             'form_method': 'GET',
         })
 
-    # ── Request body ─────────────────────────────────────────────────────────
     body = repeater_request.body or ''
     if body:
-        # Determine content type from headers
         try:
             hdrs = json.loads(repeater_request.headers or '{}')
         except (json.JSONDecodeError, TypeError):
@@ -497,7 +477,6 @@ def parse_injection_points(repeater_request):
                 break
 
         if 'application/json' in content_type:
-            # JSON body → each top-level key becomes a JSON injection point
             try:
                 body_data = json.loads(body)
                 if isinstance(body_data, dict):
@@ -513,7 +492,6 @@ def parse_injection_points(repeater_request):
             except (json.JSONDecodeError, ValueError):
                 pass
         else:
-            # Assume form-encoded body
             body_params = parse_qs(body, keep_blank_values=True)
             for param_name, values in body_params.items():
                 injection_points.append({
@@ -525,7 +503,6 @@ def parse_injection_points(repeater_request):
                     'form_method': method,
                 })
 
-    # ── Injectable headers ────────────────────────────────────────────────────
     try:
         hdrs = json.loads(repeater_request.headers or '{}')
     except (json.JSONDecodeError, TypeError):
@@ -545,7 +522,7 @@ def parse_injection_points(repeater_request):
     return injection_points
 
 
-SUPPORTED_TOOLS = {'scanner', 'interceptor', 'spider', 'manipulator'}
+SUPPORTED_TOOLS = {'scanner', 'interceptor', 'spider', 'manipulator', 'bypasser'}
 
 
 @api_view(['POST'])
@@ -569,7 +546,6 @@ def send_to_tool(request, request_id, tool):
     }
 
     if tool == 'scanner':
-        # Import scanner model lazily to avoid circular imports
         try:
             from scanner.models import ScanTarget
             target, _ = ScanTarget.objects.get_or_create(
@@ -578,14 +554,18 @@ def send_to_tool(request, request_id, tool):
             )
             payload['scanner_target_id'] = target.id
             payload['message'] = f'Request sent to scanner. Target ID: {target.id}'
+            payload['redirect_url'] = '/scanner/?target_id=' + str(target.id)
         except Exception as e:
             payload['message'] = f'Queued for scanner (could not create target: {e})'
+            payload['redirect_url'] = '/scanner/'
 
     elif tool == 'interceptor':
         payload['message'] = 'Request queued for interceptor'
+        payload['redirect_url'] = '/interceptor/'
 
     elif tool == 'spider':
         payload['message'] = 'URL added as spider starting point'
+        payload['redirect_url'] = '/spider/'
 
     elif tool == 'manipulator':
         try:
@@ -615,8 +595,34 @@ def send_to_tool(request, request_id, tool):
                 f'Campaign #{campaign.id} created with {len(injection_points)} '
                 f'injection point(s). Open Manipulator to run payloads.'
             )
+            payload['redirect_url'] = f'/manipulator/?campaign_id={campaign.id}'
         except Exception as e:
             payload['message'] = f'Could not create manipulator campaign: {e}'
+            payload['redirect_url'] = '/manipulator/'
+
+    elif tool == 'bypasser':
+        try:
+            from bypasser.models import BypasserTarget
+            target_name = f"Repeater Request #{repeater_req.id}"
+            target, created = BypasserTarget.objects.get_or_create(
+                url=repeater_req.url,
+                defaults={
+                    'name': target_name,
+                    'description': f'Imported from Repeater request #{repeater_req.id}',
+                    'http_method': (repeater_req.method or 'GET').upper(),
+                    'test_parameter': 'test',
+                }
+            )
+            if not created and not target.name:
+                target.name = target_name
+                target.save(update_fields=['name'])
+            payload['target_id'] = target.id
+            payload['target_url'] = target.url
+            payload['message'] = f'URL queued in Bypasser as target "{target.name}"'
+            payload['redirect_url'] = f'/bypasser/?target_id={target.id}'
+        except Exception as e:
+            payload['message'] = f'Could not create bypasser target: {e}'
+            payload['redirect_url'] = '/bypasser/'
 
     return Response(payload)
 
@@ -747,7 +753,6 @@ def hexdump_view(request):
     return Response({'hexdump': hexdump(text)})
 
 
-
 # ---------------------------------------------------------------------------
 # Inject Manipulator payloads into a Repeater request
 # ---------------------------------------------------------------------------
@@ -769,12 +774,10 @@ def inject_payloads(request, request_id):
     except RepeaterRequest.DoesNotExist:
         return Response({'error': 'Request not found'}, status=404)
 
-    # ── Parse injection points ────────────────────────────────────────────────
     injection_points = parse_injection_points(repeater_req)
     if not injection_points:
         return Response({'error': 'No injectable parameters found in this request'}, status=400)
 
-    # ── Fetch payloads ────────────────────────────────────────────────────────
     try:
         from manipulator.models import AttackCampaign, DiscoveredInjectionPoint, InjectionResult, Payload
     except ImportError as e:
@@ -802,7 +805,6 @@ def inject_payloads(request, request_id):
     payload_texts = [p.payload_text for p in payloads]
     payload_map = {p.payload_text: p for p in payloads}
 
-    # ── Create campaign ───────────────────────────────────────────────────────
     campaign = AttackCampaign.objects.create(
         name=f'Repeater Injection - Request #{repeater_req.id}',
         target_url=repeater_req.url,
@@ -810,7 +812,6 @@ def inject_payloads(request, request_id):
         status='injecting',
     )
 
-    # Create DiscoveredInjectionPoint records and keep mapping to dicts
     db_injection_points = []
     for ip in injection_points:
         dip = DiscoveredInjectionPoint.objects.create(
@@ -827,7 +828,6 @@ def inject_payloads(request, request_id):
     campaign.total_injection_points = len(db_injection_points)
     campaign.save(update_fields=['total_injection_points'])
 
-    # ── Run injection ─────────────────────────────────────────────────────────
     try:
         from manipulator.auto_injector import AutoInjector
         injector = AutoInjector(concurrency=5, timeout=15)
@@ -837,8 +837,6 @@ def inject_payloads(request, request_id):
         campaign.save(update_fields=['status'])
         return Response({'error': f'Injection engine error: {e}'}, status=500)
 
-    # ── Persist results ───────────────────────────────────────────────────────
-    # Build lookup: injection point dict → db model
     ip_lookup = {}
     for dip, ip_dict in db_injection_points:
         key = (ip_dict['parameter_name'], ip_dict['parameter_type'])
@@ -856,8 +854,6 @@ def inject_payloads(request, request_id):
             continue
 
         payload_text = raw_result.get('payload_text', '')
-        # payload FK is nullable; matched_payload may be None if the payload text
-        # was not found in payload_map (e.g. crafted by the injector itself).
         matched_payload = payload_map.get(payload_text)
 
         inj_result = InjectionResult.objects.create(
@@ -901,7 +897,6 @@ def inject_payloads(request, request_id):
             'evidence': inj_result.evidence,
         })
 
-    # ── Update campaign totals ────────────────────────────────────────────────
     campaign.total_payloads_tested = total_tested
     campaign.successful_exploits = successful_exploits
     campaign.total_requests_sent = summary.get('total_requests', 0)
@@ -944,12 +939,12 @@ def from_scanner(request):
         vuln_id        (int, optional)   – Scanner Vulnerability primary key
         url            (str, required)   – Target URL
         method         (str)             – HTTP method (default: GET)
-        headers        (dict|str)        – Request headers (default: {})
+        headers        (dict|str)       – Request headers (default: {})
         body           (str)             – Request body (default: "")
         name           (str)             – Human-readable label for the tab
         scan_id        (int, optional)   – Associated Scan primary key
         parameter      (str, optional)   – Vulnerable parameter name
-        payload        (str, optional)   – Payload that triggered the finding
+        payload        (str)             – Payload that triggered the finding
         vulnerability_type (str, opt)    – Vulnerability type code
         tab_id         (int, optional)   – Existing RepeaterTab to attach to
 
@@ -970,7 +965,6 @@ def from_scanner(request):
     payload = request.data.get('payload', '')
     vuln_type = request.data.get('vulnerability_type', '')
 
-    # Normalise headers to a JSON string
     raw_headers = request.data.get('headers', {})
     if isinstance(raw_headers, dict):
         headers_str = json.dumps(raw_headers)
@@ -979,13 +973,11 @@ def from_scanner(request):
     else:
         headers_str = '{}'
 
-    # Build a descriptive tab name
     name = request.data.get('name', '')
     if not name:
         label = vuln_type.upper() if vuln_type else 'Scanner'
         name = f'[{label}] {url}'[:255]
 
-    # Resolve the associated Scan object
     scan = None
     if scan_id:
         try:
@@ -994,7 +986,6 @@ def from_scanner(request):
         except Exception:
             pass
 
-    # Optionally resolve the RepeaterTab
     tab = None
     tab_id = request.data.get('tab_id')
     if tab_id:
@@ -1003,7 +994,6 @@ def from_scanner(request):
         except RepeaterTab.DoesNotExist:
             pass
 
-    # If parameter + payload are supplied, embed them in the body for convenience
     if not body and parameter and payload:
         body = f'{parameter}={payload}'
 
@@ -1070,7 +1060,6 @@ def from_interceptor(request):
     mode = (request.data.get('mode') or 'manual').lower()
     payloads = request.data.get('payloads', [])
 
-    # Normalize headers to a JSON string
     raw_headers = request.data.get('headers', {})
     if isinstance(raw_headers, dict):
         headers_str = json.dumps(raw_headers)
@@ -1079,12 +1068,10 @@ def from_interceptor(request):
     else:
         headers_str = '{}'
 
-    # Build descriptive tab name
     name = request.data.get('name', '')
     if not name:
         name = f'[Interceptor] {url}'[:255]
 
-    # Optionally resolve the RepeaterTab
     tab = None
     tab_id = request.data.get('tab_id')
     if tab_id:
