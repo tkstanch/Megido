@@ -1,22 +1,5 @@
 """
 URL configuration for Megido Security project.
-
-This is the main URL configuration that routes to all security testing apps.
-Compatible with Django 6.0+.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -24,25 +7,17 @@ from django.shortcuts import render
 from django.conf import settings
 from django.conf.urls.static import static
 from app_manager.cancel_views import cancel_task
+import os
+
+ADMIN_PATH = os.environ.get('ADMIN_PATH', 'admin')
 
 
 def home(request):
-    """
-    Home page view for the Megido Security Platform.
-    
-    Displays the main dashboard with access to all security testing tools.
-    
-    Args:
-        request: HttpRequest object
-        
-    Returns:
-        HttpResponse with rendered home.html template
-    """
     return render(request, 'home.html')
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(f'{ADMIN_PATH}/', admin.site.urls),
     path('', home, name='home'),
     path('dashboard/', home, name='dashboard'),
     path('api/cancel-task/', cancel_task, name='cancel_task'),
@@ -67,6 +42,5 @@ urlpatterns = [
     path('recon/', include('recon.urls')),
 ]
 
-# Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

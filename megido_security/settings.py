@@ -21,37 +21,35 @@ https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 import os
 from pathlib import Path
 
-# Suppress SSL warnings during testing (configured for security testing tool)
 import urllib3
+from django.core.exceptions import ImproperlyConfigured
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-development-key-change-in-production'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def get_env(name, default=None, required=False):
+    value = os.environ.get(name, default)
+    if required and (value is None or value == ""):
+        raise ImproperlyConfigured(f"{name} is required")
+    return value
 
-# ALLOWED_HOSTS Configuration
-# For development and testing, including ngrok tunnel support
-# In production, replace '*' with specific domain names
+
+SECRET_KEY = get_env("SECRET_KEY", "dev-secret-key-change-me")
+DEBUG = get_env("DEBUG", "false").lower() == "true"
+
+if not DEBUG and SECRET_KEY == "dev-secret-key-change-me":
+    raise ImproperlyConfigured("SECRET_KEY must be set in production")
+
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '0.0.0.0',
-    '*',  # Allows all hosts for testing - CHANGE IN PRODUCTION
-    # ngrok domains are automatically supported due to wildcard
-    # Example ngrok patterns: '*.ngrok-free.app', '*.ngrok.io', '*.ngrok-free.dev'
+    host.strip()
+    for host in get_env("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
 ]
 
-# For production with ngrok, use environment variable:
-# ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-# Then set: ALLOWED_HOSTS="localhost,your-subdomain.ngrok-free.app"
-
 INSTALLED_APPS = [
-    'daphne',  # Must be first for Channels ASGI support
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -112,27 +110,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'megido_security.wsgi.application'
-
-# ASGI application for Channels (WebSocket support)
 ASGI_APPLICATION = 'megido_security.asgi.application'
 
-
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-# PostgreSQL Database Configuration
-# For production, use environment variables to override these defaults
-# See MIGRATING_TO_POSTGRESQL.md and CONFIGURATION.md for setup instructions
-#
-# Note: Default values below are for development/testing purposes.
-# Override with environment variables in production for security.
-
-# Use SQLite for testing when PostgreSQL is not available
 SQLITE_DB_DIR = BASE_DIR / 'data'
 SQLITE_DB_DIR.mkdir(parents=True, exist_ok=True)
 SQLITE_DB_PATH = SQLITE_DB_DIR / 'db.sqlite3'
 
-if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
+if get_env('USE_SQLITE', 'false').lower() == 'true':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -140,74 +125,41 @@ if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
         }
     }
 else:
-    # PostgreSQL configuration - requires environment variables
+    DB_PASSWORD = get_env('DB_PASSWORD', '')
+    if not DEBUG and not DB_PASSWORD:
+        raise ImproperlyConfigured('DB_PASSWORD must be set in production when USE_SQLITE=false')
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'megido_db'),
-            'USER': os.environ.get('DB_USER', 'megido_user'),
-            'PASSWORD': os.environ.get('DB_PASSWORD'),  # No default - must be set via environment
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
+            'NAME': get_env('DB_NAME', 'megido_db'),
+            'USER': get_env('DB_USER', 'megido_user'),
+            'PASSWORD': DB_PASSWORD,
+            'HOST': get_env('DB_HOST', 'localhost'),
+            'PORT': get_env('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 60,
         }
     }
 
-# Legacy SQLite configuration (commented out after PostgreSQL migration)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# WhiteNoise configuration for production static file serving
-# Uncomment the following line to enable compression and caching with unique filenames:
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# Media files (User uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# SQL Attacker Evidence Capture
 SQL_ATTACKER_ENABLE_VISUAL_EVIDENCE = True
 SQL_ATTACKER_EVIDENCE_DIR = MEDIA_ROOT / 'sql_attacker' / 'evidence'
 SQL_ATTACKER_HEADLESS_BROWSER = True
@@ -215,29 +167,19 @@ SQL_ATTACKER_HEADLESS_BROWSER = True
 LOG_DIR = BASE_DIR / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# OSINT API Keys for Discover app
-# Set these to enable Shodan and Hunter.io integrations
-SHODAN_API_KEY = None  # Get from https://account.shodan.io/
-HUNTER_IO_KEY = None   # Get from https://hunter.io/api
+SHODAN_API_KEY = None
+HUNTER_IO_KEY = None
 
-# Wayback Machine Configuration
-ENABLE_WAYBACK_MACHINE = os.environ.get('ENABLE_WAYBACK_MACHINE', 'true').lower() == 'true'
-WAYBACK_MACHINE_TIMEOUT = int(os.environ.get('WAYBACK_MACHINE_TIMEOUT', '10'))
-WAYBACK_MACHINE_MAX_RETRIES = int(os.environ.get('WAYBACK_MACHINE_MAX_RETRIES', '2'))
+ENABLE_WAYBACK_MACHINE = get_env('ENABLE_WAYBACK_MACHINE', 'true').lower() == 'true'
+WAYBACK_MACHINE_TIMEOUT = int(get_env('WAYBACK_MACHINE_TIMEOUT', '10'))
+WAYBACK_MACHINE_MAX_RETRIES = int(get_env('WAYBACK_MACHINE_MAX_RETRIES', '2'))
 
-# ClamAV Configuration (can be overridden via environment variables)
-# Default to 'localhost' for native installs; Docker Compose overrides this to 'clamav'
-# via the CLAMAV_HOST environment variable set in docker-compose.yml.
-CLAMAV_HOST = os.environ.get('CLAMAV_HOST', 'localhost')
+CLAMAV_HOST = get_env('CLAMAV_HOST', 'localhost')
 CLAMAV_PORT = 3310
 CLAMAV_TIMEOUT = 60
 
-# Logging configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -259,67 +201,36 @@ LOGGING = {
     },
 }
 
-# ============================================================================
-# Network and HTTP Settings for Local Testing
-# ============================================================================
-# WARNING: These settings are for LOCAL TESTING ONLY
-# Never deploy to production with these permissive settings
-
-# Disable SSL verification for testing (this is a security testing tool)
-REQUESTS_VERIFY_SSL = os.environ.get('VERIFY_SSL', 'false').lower() == 'true'
-
-# Allow connections to any external host for testing
+REQUESTS_VERIFY_SSL = get_env('VERIFY_SSL', 'true' if not DEBUG else 'false').lower() == 'true'
 REQUESTS_ALLOW_REDIRECTS = True
+REQUESTS_TIMEOUT = int(get_env('REQUESTS_TIMEOUT', '30'))
 
-# Timeout settings for external requests (in seconds)
-REQUESTS_TIMEOUT = int(os.environ.get('REQUESTS_TIMEOUT', '30'))
-
-# CORS settings for local testing (if using django-cors-headers)
-# Only set if django-cors-headers is in INSTALLED_APPS
 if 'corsheaders' in [app.split('.')[-1] for app in INSTALLED_APPS]:
-    CORS_ALLOW_ALL_ORIGINS = True  # For local testing only
+    CORS_ALLOW_ALL_ORIGINS = False
 
-# Session and CSRF settings for local testing
-# Supports ngrok tunnels for testing locally exposed servers
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://0.0.0.0:8000',
-    # Add your ngrok URL here when testing
-    # Example: 'https://your-subdomain.ngrok-free.app'
+    origin.strip()
+    for origin in get_env('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
+    if origin.strip()
 ]
 
-# For ngrok tunnel support, add your ngrok URL dynamically:
-# Get ngrok URL from environment variable if provided
-if os.environ.get('NGROK_URL'):
-    ngrok_url = os.environ.get('NGROK_URL')
-    if ngrok_url not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(ngrok_url)
-        # Note: Logging is available after Django setup completes
+NGROK_URL = get_env('NGROK_URL', '')
+if NGROK_URL:
+    CSRF_TRUSTED_ORIGINS.append(NGROK_URL)
 
-# For production, use environment variable to add specific trusted origins:
-# CSRF_TRUSTED_ORIGINS += os.environ.get('EXTRA_TRUSTED_ORIGINS', '').split(',')
+SECURE_SSL_REDIRECT = get_env('SECURE_SSL_REDIRECT', 'true' if not DEBUG else 'false').lower() == 'true'
+SESSION_COOKIE_SECURE = get_env('SESSION_COOKIE_SECURE', 'true' if not DEBUG else 'false').lower() == 'true'
+CSRF_COOKIE_SECURE = get_env('CSRF_COOKIE_SECURE', 'true' if not DEBUG else 'false').lower() == 'true'
+SECURE_HSTS_SECONDS = int(get_env('SECURE_HSTS_SECONDS', '31536000'))
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
-# Security middleware settings for local development
-# These should be enabled (True/secure values) in production
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SECURE_HSTS_SECONDS = 0
-SECURE_BROWSER_XSS_FILTER = False
-SECURE_CONTENT_TYPE_NOSNIFF = False
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+ALLOW_EXTERNAL_REQUESTS = get_env('ALLOW_EXTERNAL_REQUESTS', 'false').lower() == 'true'
 
-# Allow external network access for security testing apps
-ALLOW_EXTERNAL_REQUESTS = os.environ.get('ALLOW_EXTERNAL_REQUESTS', 'true').lower() == 'true'
-
-# Authentication URLs
 LOGIN_URL = '/admin/login/'
 LOGIN_REDIRECT_URL = '/'
 
-# Django REST Framework Configuration
-# Note: Authentication is applied per-endpoint via decorators
-# Scanner endpoints use TokenAuthentication for security
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
@@ -330,135 +241,64 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Celery Configuration
-# Redis is used as both the broker and result backend
-# For development: Start Redis with `redis-server`
-# For production: Use a dedicated Redis instance
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
-
-# Celery task settings
-# Default time limits - can be overridden per task for long-running operations
+CELERY_BROKER_URL = get_env('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = get_env('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 60 * 60  # 1 hour hard limit (default)
-CELERY_TASK_SOFT_TIME_LIMIT = 58 * 60 + 20  # 58 minutes 20 seconds soft limit (default)
+CELERY_TASK_TIME_LIMIT = 60 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 58 * 60 + 20
 CELERY_RESULT_EXTENDED_ENABLE = True
-CELERY_RESULT_EXPIRES = 3600  # Results expire after 1 hour
-
-# Celery serialization
+CELERY_RESULT_EXPIRES = 3600
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
-
-# For testing: Run tasks synchronously
-# This is overridden in tests with @override_settings
-CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true'
+CELERY_TASK_ALWAYS_EAGER = get_env('CELERY_TASK_ALWAYS_EAGER', 'false').lower() == 'true'
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# ============================================================================
-# Django Channels Configuration (WebSocket Support)
-# ============================================================================
-# Redis is used as the channel layer backend for WebSocket communication.
-# On platforms where Redis is not available (e.g. Windows native), set the
-# environment variable USE_IN_MEMORY_CHANNELS=true to fall back to the
-# in-memory layer.  The in-memory layer does not support multiple processes
-# or workers, so it should only be used for local single-process development.
-if os.environ.get('USE_IN_MEMORY_CHANNELS', 'false').lower() == 'true':
+if get_env('USE_IN_MEMORY_CHANNELS', 'false').lower() == 'true':
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
     }
-    # Also run Celery tasks synchronously when Redis is absent so that
-    # background task features degrade gracefully instead of erroring.
     CELERY_TASK_ALWAYS_EAGER = True
 else:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {
-                'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
-                'capacity': 1500,  # Maximum number of messages to store
-                'expiry': 10,  # Message expiry time in seconds
+                'hosts': [get_env('REDIS_URL', 'redis://localhost:6379/1')],
+                'capacity': 1500,
+                'expiry': 10,
             },
         },
     }
 
-# ============================================================================
-# XSS Callback Verification Configuration
-# ============================================================================
-# Configuration for callback-based XSS verification to reduce false positives
-# and provide proof of actual JavaScript execution in target's browser context
+XSS_CALLBACK_ENDPOINT = get_env('XSS_CALLBACK_ENDPOINT', '')
+XSS_CALLBACK_TIMEOUT = int(get_env('XSS_CALLBACK_TIMEOUT', '30'))
+XSS_CALLBACK_VERIFICATION_ENABLED = get_env('XSS_CALLBACK_VERIFICATION_ENABLED', 'true').lower() == 'true'
+XSS_CALLBACK_POLL_INTERVAL = int(get_env('XSS_CALLBACK_POLL_INTERVAL', '2'))
+XSS_USE_INTERNAL_COLLABORATOR = get_env('XSS_USE_INTERNAL_COLLABORATOR', 'true').lower() == 'true'
 
-# Callback endpoint URL for XSS verification
-# Examples: 'https://burpcollaborator.net', 'https://interact.sh', 'https://your-webhook.com'
-# If not set, scanner falls back to traditional alert-based detection
-XSS_CALLBACK_ENDPOINT = os.environ.get('XSS_CALLBACK_ENDPOINT', '')
-
-# Timeout for waiting for callback verification (in seconds)
-XSS_CALLBACK_TIMEOUT = int(os.environ.get('XSS_CALLBACK_TIMEOUT', '30'))
-
-# Enable/disable callback verification
-# If disabled, uses traditional alert-based detection
-XSS_CALLBACK_VERIFICATION_ENABLED = os.environ.get('XSS_CALLBACK_VERIFICATION_ENABLED', 'true').lower() == 'true'
-
-# Poll interval for checking callback interactions (in seconds)
-XSS_CALLBACK_POLL_INTERVAL = int(os.environ.get('XSS_CALLBACK_POLL_INTERVAL', '2'))
-
-# Use internal collaborator server for callback verification
-# If true and XSS_CALLBACK_ENDPOINT is not set, uses the internal collaborator
-XSS_USE_INTERNAL_COLLABORATOR = os.environ.get('XSS_USE_INTERNAL_COLLABORATOR', 'true').lower() == 'true'
-
-# ============================================================================
-# Network Retry and Error Handling Configuration
-# ============================================================================
-# Configuration for robust network error handling with exponential backoff
-# and automatic retries for recoverable errors
-
-# Maximum number of retry attempts for network requests
-NETWORK_MAX_RETRIES = int(os.environ.get('MEGIDO_MAX_RETRIES', '3'))
-
-# Base delay for exponential backoff (in seconds)
-NETWORK_BASE_DELAY = float(os.environ.get('MEGIDO_BASE_DELAY', '1.0'))
-
-# Maximum delay between retries (in seconds)
-NETWORK_MAX_DELAY = float(os.environ.get('MEGIDO_MAX_DELAY', '30.0'))
-
-# Maximum jitter to add to backoff delay (in seconds)
-NETWORK_JITTER_MAX = float(os.environ.get('MEGIDO_JITTER_MAX', '1.0'))
-
-# Default timeout for network requests (in seconds)
-NETWORK_DEFAULT_TIMEOUT = int(os.environ.get('MEGIDO_DEFAULT_TIMEOUT', '30'))
-
-# Connect timeout (in seconds) - time to establish connection
-NETWORK_CONNECT_TIMEOUT = int(os.environ.get('MEGIDO_CONNECT_TIMEOUT', '10'))
-
-# Read timeout (in seconds) - time to receive response
-NETWORK_READ_TIMEOUT = int(os.environ.get('MEGIDO_READ_TIMEOUT', '30'))
-
-# HTTP status codes that should trigger automatic retry
+NETWORK_MAX_RETRIES = int(get_env('MEGIDO_MAX_RETRIES', '3'))
+NETWORK_BASE_DELAY = float(get_env('MEGIDO_BASE_DELAY', '1.0'))
+NETWORK_MAX_DELAY = float(get_env('MEGIDO_MAX_DELAY', '30.0'))
+NETWORK_JITTER_MAX = float(get_env('MEGIDO_JITTER_MAX', '1.0'))
+NETWORK_DEFAULT_TIMEOUT = int(get_env('MEGIDO_DEFAULT_TIMEOUT', '30'))
+NETWORK_CONNECT_TIMEOUT = int(get_env('MEGIDO_CONNECT_TIMEOUT', '10'))
+NETWORK_READ_TIMEOUT = int(get_env('MEGIDO_READ_TIMEOUT', '30'))
 NETWORK_RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504]
-
-# Enable degraded mode - continue scanning even if external services fail
-NETWORK_DEGRADED_MODE_ENABLED = os.environ.get('MEGIDO_DEGRADED_MODE', 'true').lower() == 'true'
-
-# Service-specific timeout overrides (in seconds)
+NETWORK_DEGRADED_MODE_ENABLED = get_env('MEGIDO_DEGRADED_MODE', 'true').lower() == 'true'
 NETWORK_SERVICE_TIMEOUTS = {
-    'fireblocks_api': int(os.environ.get('MEGIDO_TIMEOUT_FIREBLOCKS', '30')),
-    'callback_server': int(os.environ.get('MEGIDO_TIMEOUT_CALLBACK', '60')),
-    'ngrok_api': int(os.environ.get('MEGIDO_TIMEOUT_NGROK', '15')),
-    'collaborator': int(os.environ.get('MEGIDO_TIMEOUT_COLLABORATOR', '45')),
-    'interactsh': int(os.environ.get('MEGIDO_TIMEOUT_INTERACTSH', '45')),
+    'fireblocks_api': int(get_env('MEGIDO_TIMEOUT_FIREBLOCKS', '30')),
+    'callback_server': int(get_env('MEGIDO_TIMEOUT_CALLBACK', '60')),
+    'ngrok_api': int(get_env('MEGIDO_TIMEOUT_NGROK', '15')),
+    'collaborator': int(get_env('MEGIDO_TIMEOUT_COLLABORATOR', '45')),
+    'interactsh': int(get_env('MEGIDO_TIMEOUT_INTERACTSH', '45')),
 }
+NETWORK_DETAILED_LOGGING = get_env('MEGIDO_DETAILED_LOGGING', 'true').lower() == 'true'
+NETWORK_LOG_LEVEL = get_env('MEGIDO_NETWORK_LOG_LEVEL', 'INFO')
 
-# Enable detailed network logging (includes retry attempts and error details)
-NETWORK_DETAILED_LOGGING = os.environ.get('MEGIDO_DETAILED_LOGGING', 'true').lower() == 'true'
-
-# Log level for network operations (DEBUG, INFO, WARNING, ERROR)
-NETWORK_LOG_LEVEL = os.environ.get('MEGIDO_NETWORK_LOG_LEVEL', 'INFO')
-
-# Update logging configuration to include network logger
 LOGGING['loggers']['scanner.utils'] = {
     'handlers': ['console'],
     'level': NETWORK_LOG_LEVEL,
@@ -469,14 +309,32 @@ LOGGING['loggers']['spider'] = {
     'level': 'INFO',
     'propagate': False,
 }
-# }
-# ============================================================================
-# Recon App API Keys Configuration
-# ============================================================================
-# API keys for the Recon app - read from environment variables
-SHODAN_API_KEY = os.environ.get('SHODAN_API_KEY', SHODAN_API_KEY if 'SHODAN_API_KEY' in vars() else None)
-GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
-VIEWDNS_API_KEY = os.environ.get('VIEWDNS_API_KEY', '')
-CENSYS_API_ID = os.environ.get('CENSYS_API_ID', '')
-CENSYS_API_SECRET = os.environ.get('CENSYS_API_SECRET', '')
-IPINFO_TOKEN = os.environ.get('IPINFO_TOKEN', '')
+
+SHODAN_API_KEY = get_env('SHODAN_API_KEY', SHODAN_API_KEY if 'SHODAN_API_KEY' in vars() else None)
+GITHUB_TOKEN = get_env('GITHUB_TOKEN', '')
+VIEWDNS_API_KEY = get_env('VIEWDNS_API_KEY', '')
+CENSYS_API_ID = get_env('CENSYS_API_ID', '')
+CENSYS_API_SECRET = get_env('CENSYS_API_SECRET', '')
+IPINFO_TOKEN = get_env('IPINFO_TOKEN', '')
+
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
+
+
+# Backward compatibility aliases
+# These keep older env names from crashing older code paths.
+if not os.environ.get('MEGIDO_MAX_RETRIES'):
+    MEGIDO_MAX_RETRIES = NETWORK_MAX_RETRIES
+if not os.environ.get('MEGIDO_BASE_DELAY'):
+    MEGIDO_BASE_DELAY = NETWORK_BASE_DELAY
+if not os.environ.get('MEGIDO_MAX_DELAY'):
+    MEGIDO_MAX_DELAY = NETWORK_MAX_DELAY
+if not os.environ.get('MEGIDO_DEFAULT_TIMEOUT'):
+    MEGIDO_DEFAULT_TIMEOUT = NETWORK_DEFAULT_TIMEOUT
+if not os.environ.get('MEGIDO_CONNECT_TIMEOUT'):
+    MEGIDO_CONNECT_TIMEOUT = NETWORK_CONNECT_TIMEOUT
+if not os.environ.get('MEGIDO_READ_TIMEOUT'):
+    MEGIDO_READ_TIMEOUT = NETWORK_READ_TIMEOUT
+
+
+# End of settings.
