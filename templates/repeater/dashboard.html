@@ -502,26 +502,30 @@
   </div>
 
   <!-- ── Action bar ──────────────────────────────────────────── -->
-  <div id="action-bar">
-    <button class="btn btn-primary"   onclick="sendCurrentRequest()">
-      <span class="spinner" id="send-spinner"></span>
-      ▶ Send
-    </button>
-    <button class="btn btn-secondary" onclick="toggleConfig()" title="Configuration">⚙ Config</button>
-    <button class="btn btn-secondary" onclick="openUtil()"     title="Encode / Decode">🔢 Encode/Decode</button>
-    <button class="btn btn-secondary" onclick="openDiff()"     title="Compare responses">⇌ Compare</button>
-    <button class="btn btn-warning"   onclick="sendToTool('scanner')"     title="Send to Scanner">🔍 → Scanner</button>
-    <button class="btn btn-warning"   onclick="sendToTool('interceptor')" title="Send to Interceptor">🎯 → Interceptor</button>
-    <button class="btn btn-warning"   onclick="sendToTool('spider')"      title="Send to Spider">🕷 → Spider</button>
-    <button class="btn btn-warning"   onclick="sendToTool('manipulator')" title="Send to Manipulator">🧪 → Manipulator</button>
-    <button class="btn btn-secondary" onclick="openInjectPanel()"         title="Inject Payloads">💉 Inject Payloads</button>
-    <button class="btn btn-secondary" onclick="openScanCaptures()"        title="View Scanner Captures">📋 Scanner Captures</button>
-    <button class="btn btn-success"   onclick="toggleBypassConfig()"      title="Toggle Bypasser config">🛡 Bypasser</button>
+ <div id="action-bar">
+  <button class="btn btn-primary" onclick="sendCurrentRequest()">
+    <span class="spinner" id="send-spinner"></span>
+    ▶ Send
+  </button>
 
-    <div id="history-info">No history</div>
-    <button class="btn btn-secondary" id="btn-back"    onclick="navigateHistory('back')"    title="Previous request">◀</button>
-    <button class="btn btn-secondary" id="btn-forward" onclick="navigateHistory('forward')" title="Next request">▶</button>
-  </div>
+  <button class="btn btn-secondary" onclick="toggleConfig()" title="Configuration">⚙ Config</button>
+  <button class="btn btn-secondary" onclick="openUtil()" title="Encode / Decode">🔢 Encode/Decode</button>
+  <button class="btn btn-secondary" onclick="openDiff()" title="Compare responses">⇌ Compare</button>
+
+  <button class="btn btn-warning" onclick="sendToTool('scanner')" title="Send to Scanner">🔍 → Scanner</button>
+  <button class="btn btn-warning" onclick="sendToTool('interceptor')" title="Send to Interceptor">🎯 → Interceptor</button>
+  <button class="btn btn-warning" onclick="sendToTool('spider')" title="Send to Spider">🕷 → Spider</button>
+  <button class="btn btn-warning" onclick="sendToTool('manipulator')" title="Send to Manipulator">🧪 → Manipulator</button>
+  <button class="btn btn-success" onclick="sendToTool('bypasser')" title="Send to Bypasser">🛡 → Bypasser</button>
+
+  <button class="btn btn-secondary" onclick="toggleBypassConfig()" title="Bypasser options">🧩 Bypass Options</button>
+  <button class="btn btn-secondary" onclick="openInjectPanel()" title="Inject Payloads">💉 Inject Payloads</button>
+  <button class="btn btn-secondary" onclick="openScanCaptures()" title="View Scanner Captures">📋 Scanner Captures</button>
+
+  <div id="history-info">No history</div>
+  <button class="btn btn-secondary" id="btn-back" onclick="navigateHistory('back')" title="Previous request">◀</button>
+  <button class="btn btn-secondary" id="btn-forward" onclick="navigateHistory('forward')" title="Next request">▶</button>
+</div>
 
   <!-- ── Split pane ──────────────────────────────────────────── -->
   <div id="split-pane">
