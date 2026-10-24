@@ -770,6 +770,7 @@
 
 {% endblock %}
 
+
 {% block extra_js %}
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
@@ -778,12 +779,13 @@
 const state = {
   tabs: [],
   activeTabId: null,
-  currentReqView: 'structured',   // 'structured' | 'raw'
-  currentRespView: 'pretty',       // 'pretty' | 'raw' | 'headers' | 'hex'
+  currentReqView: 'structured',
+  currentRespView: 'pretty',
   lastResponse: null,
-  responseHistory: [],             // [{id, status_code, body, headers, response_time}]
+  responseHistory: [],
   historyPos: -1,
   configOpen: false,
+  lastReqId: null,
 };
 
 function getCsrf() {
@@ -801,7 +803,13 @@ async function apiFetch(url, options = {}) {
     const body = await resp.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${resp.status}`);
   }
-  return resp.json();
+  const text = await resp.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -836,7 +844,7 @@ async function createTab() {
 
 async function closeTab(tabId, event) {
   event.stopPropagation();
-  if (state.tabs.length === 1) return; // keep at least one tab
+  if (state.tabs.length === 1) return;
   try {
     await apiFetch(`/repeater/api/tabs/${tabId}/`, { method: 'DELETE' });
     state.tabs = state.tabs.filter(t => t.id !== tabId);
@@ -859,7 +867,6 @@ function activateTab(tabId) {
 
 function renderTabs() {
   const bar = document.getElementById('tab-bar');
-  // Remove existing tab elements (keep the + button)
   bar.querySelectorAll('.repeater-tab').forEach(el => el.remove());
   const plusBtn = document.getElementById('btn-new-tab');
   state.tabs.forEach(tab => {
@@ -924,7 +931,7 @@ function toggleBypassConfig() {
     document.getElementById('config-panel').classList.add('open');
   }
   const section = document.getElementById('bypass-config-section');
-  section.classList.toggle('open');
+  if (section) section.classList.toggle('open');
 }
 
 async function loadBypassTechniques() {
@@ -962,14 +969,12 @@ function setReqView(mode) {
   document.getElementById('btn-structured').classList.toggle('active', mode === 'structured');
   document.getElementById('btn-raw').classList.toggle('active', mode === 'raw');
   document.getElementById('structured-view').style.display = mode === 'structured' ? 'flex' : 'none';
-  document.getElementById('raw-view').style.display         = mode === 'raw'        ? 'flex' : 'none';
+  document.getElementById('raw-view').style.display = mode === 'raw' ? 'flex' : 'none';
 
   if (mode === 'raw') {
-    // Convert structured → raw
     const raw = buildRawFromForm();
     document.getElementById('raw-area').value = raw;
   } else {
-    // Convert raw → structured
     parseRawToForm();
   }
 }
@@ -1020,9 +1025,9 @@ function getSelectedBypassTechniques() {
 
 function getBypassApplyTo() {
   const applyTo = [];
-  if (document.getElementById('cfg-bypass-url').checked)     applyTo.push('url');
+  if (document.getElementById('cfg-bypass-url').checked) applyTo.push('url');
   if (document.getElementById('cfg-bypass-headers').checked) applyTo.push('headers');
-  if (document.getElementById('cfg-bypass-body').checked)    applyTo.push('body');
+  if (document.getElementById('cfg-bypass-body').checked) applyTo.push('body');
   return applyTo;
 }
 
@@ -1038,7 +1043,6 @@ async function sendCurrentRequest() {
 
     if (!url.trim()) { showToast('Please enter a URL', 'error'); return; }
 
-    // Auto Content-Length
     const autoCL = document.getElementById('cfg-auto-cl').checked;
     let headersObj = {};
     try { headersObj = JSON.parse(headersStr || '{}'); } catch(e) {}
@@ -1066,6 +1070,7 @@ async function sendCurrentRequest() {
       method: 'POST',
       body: JSON.stringify(sendPayload),
     });
+
     state.lastResponse = resp;
     state.responseHistory.push(resp);
     state.historyPos = state.responseHistory.length - 1;
@@ -1089,11 +1094,10 @@ function renderResponse(resp) {
   const statusEl = document.getElementById('status-code-display');
   statusEl.className = 'status-item ' + statusClass(resp.status_code);
   statusEl.innerHTML = `Status: <span>${resp.status_code}</span>`;
-  document.getElementById('resp-time').textContent   = Math.round(resp.response_time);
+  document.getElementById('resp-time').textContent = Math.round(resp.response_time);
   document.getElementById('resp-length').textContent = resp.body ? resp.body.length : 0;
   document.getElementById('resp-id-display').textContent = resp.id ? `Response #${resp.id}` : '';
 
-  // Bypass badge
   const bypassBadge = document.getElementById('bypass-badge-display');
   if (resp.bypass_info && resp.bypass_info.techniques_applied && resp.bypass_info.techniques_applied.length > 0) {
     bypassBadge.style.display = '';
@@ -1184,8 +1188,8 @@ function clearResponsePanel() {
 async function fetchTargetInfo(reqId) {
   try {
     const info = await apiFetch(`/repeater/api/requests/${reqId}/target-info/`);
-    document.getElementById('ti-host').textContent   = `🌐 ${info.host || '—'}`;
-    document.getElementById('ti-ip').textContent     = `📡 ${info.ip_address || '—'}`;
+    document.getElementById('ti-host').textContent = `🌐 ${info.host || '—'}`;
+    document.getElementById('ti-ip').textContent = `📡 ${info.ip_address || '—'}`;
     document.getElementById('ti-server').textContent = `🖥 ${info.server_header || '—'}`;
     const tlsBadge = document.getElementById('ti-tls');
     if (info.tls_certificate && !info.tls_certificate.error) {
@@ -1213,7 +1217,7 @@ async function loadHistory(tabId) {
 function navigateHistory(direction) {
   const total = state.responseHistory.length;
   if (total === 0) return;
-  if (direction === 'back')    state.historyPos = Math.max(0, state.historyPos - 1);
+  if (direction === 'back') state.historyPos = Math.max(0, state.historyPos - 1);
   if (direction === 'forward') state.historyPos = Math.min(total - 1, state.historyPos + 1);
   renderResponse(state.responseHistory[state.historyPos]);
   updateHistoryInfo();
@@ -1221,9 +1225,9 @@ function navigateHistory(direction) {
 
 function updateHistoryInfo() {
   const total = state.responseHistory.length;
-  const pos   = state.historyPos + 1;
+  const pos = state.historyPos + 1;
   document.getElementById('history-info').textContent = total > 0 ? `Request ${pos} of ${total}` : 'No history';
-  document.getElementById('btn-back').disabled    = state.historyPos <= 0;
+  document.getElementById('btn-back').disabled = state.historyPos <= 0;
   document.getElementById('btn-forward').disabled = state.historyPos >= total - 1;
 }
 
@@ -1234,7 +1238,6 @@ async function sendToTool(tool) {
   if (!state.lastResponse) { showToast('Send a request first', 'error'); return; }
   try {
     const respId = state.lastResponse.id;
-    // Get the request ID from the response's request (stored as lastReqId)
     if (!state.lastReqId) { showToast('No request ID available', 'error'); return; }
     const data = await apiFetch(`/repeater/api/requests/${state.lastReqId}/send-to/${tool}/`, { method: 'POST' });
     showToast(data.message || `Sent to ${tool}`);
@@ -1244,7 +1247,7 @@ async function sendToTool(tool) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Compare / diff
 // ─────────────────────────────────────────────────────────────────────────────
-function openDiff()  { document.getElementById('diff-modal').classList.add('open'); }
+function openDiff() { document.getElementById('diff-modal').classList.add('open'); }
 function closeDiff() { document.getElementById('diff-modal').classList.remove('open'); }
 
 function addRespToDropdowns(resp) {
@@ -1299,7 +1302,7 @@ function renderDiff(diff) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Encode / decode utility
 // ─────────────────────────────────────────────────────────────────────────────
-function openUtil()  { document.getElementById('util-panel').classList.add('open'); }
+function openUtil() { document.getElementById('util-panel').classList.add('open'); }
 function closeUtil() { document.getElementById('util-panel').classList.remove('open'); }
 
 async function utilOp(operation) {
@@ -1340,7 +1343,6 @@ function closeInjectPanel() {
 
 function renderInjectPoints() {
   const listEl = document.getElementById('inject-points-list');
-  // Parse injection points client-side from current request form
   const points = detectCurrentInjectionPoints();
   if (!points.length) {
     listEl.innerHTML = '<span style="color:#8b9bc1;">No injectable parameters detected in current request.</span>';
@@ -1359,7 +1361,6 @@ function renderInjectPoints() {
 }
 
 function detectCurrentInjectionPoints() {
-  // Client-side parse of current request inputs — mirrors parse_injection_points() on backend
   const url = (document.getElementById('url-input')?.value || '').trim();
   const points = [];
   if (!url) return points;
@@ -1401,7 +1402,6 @@ function detectCurrentInjectionPoints() {
   }
 
   const injectableHeaders = new Set(['User-Agent', 'Referer', 'X-Forwarded-For', 'Accept', 'Cookie']);
-  // Keep in sync with _INJECTABLE_HEADERS in repeater/views.py
   let headersRaw = document.getElementById('headers-area')?.value || '{}';
   try {
     const hdrs = JSON.parse(headersRaw);
@@ -1554,7 +1554,6 @@ async function loadScanCaptures() {
         </details>` : ''}
       </div>
     `}).join('');
-    // Auto-load the first capture into the request editor
     await loadCapturIntoTab(parseInt(data[0].id, 10));
   } catch (e) {
     listEl.innerHTML = `<p style="color:#ff5370;font-size:13px;padding:12px 0;">Error: ${escHtml(e.message)}</p>`;
@@ -1563,10 +1562,8 @@ async function loadScanCaptures() {
 
 async function loadCapturIntoTab(requestId) {
   try {
-    // Fetch the full request data
     const req = await apiFetch(`/repeater/api/requests/${requestId}/`);
 
-    // Create a new tab
     const tab = await apiFetch('/repeater/api/tabs/', {
       method: 'POST',
       body: JSON.stringify({ name: (req.name || `Scan req #${requestId}`).slice(0, 40) }),
@@ -1575,7 +1572,6 @@ async function loadCapturIntoTab(requestId) {
     renderTabs();
     activateTab(tab.id);
 
-    // Populate the request editor with the captured data
     document.getElementById('method-select').value = req.method || 'GET';
     document.getElementById('url-input').value = req.url || '';
     document.getElementById('headers-area').value = req.headers || '{}';
@@ -1617,7 +1613,6 @@ document.addEventListener('DOMContentLoaded', () => {
   updateHistoryInfo();
   loadBypassTechniques();
 
-  // Auto-populate scan ID and load scanner captures if ?scan_id= is in the URL
   const urlParams = new URLSearchParams(window.location.search);
   const scanIdParam = urlParams.get('scan_id');
   if (scanIdParam) {
